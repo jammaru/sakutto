@@ -1,17 +1,13 @@
 {
   "label": "final",
-  "generatedAt": "2026-11-22T18:08:56.165Z",
+  "generatedAt": "2026-11-22T18:51:45.962Z",
   "engine": "deterministic local fake",
   "pace": {
     "ttfbMs": 6,
     "msPerChar": 0.04,
     "concurrency": 8
   },
-  "fixtures": [
-    "paper",
-    "arxiv",
-    "scan"
-  ],
+  "fixtures": ["paper", "arxiv", "scan"],
   "textSources": {
     "native": "paper.pdf and arXiv 1706.03762 use their own PDF text layer.",
     "simulated-ocr": "scan.pdf page geometry and background, word boxes synthesized from paper.pdf text (not OCR).",
@@ -22,16 +18,17 @@
       "pages": 4,
       "summary": {
         "pages": 4,
-        "proseBlocks": 56,
-        "untranslatedProseRate": 0,
+        "proseBlocks": 57,
+        "skippedProseBlocks": 1,
+        "untranslatedProseRate": 0.017543859649122806,
         "mixedLanguageRate": 0.07017543859649122,
         "garbledTokenRate": 0.0034567901234567903,
         "overlapRate": 0,
         "overflowRate": 0,
         "readingOrderAccuracy": 0.9791666666666666,
         "twoColumnPages": 1,
-        "firstTranslatedBlockMs": 274,
-        "fullDocumentMs": 200,
+        "firstTranslatedBlockMs": 316,
+        "fullDocumentMs": 207,
         "meanScale": 0.9846128195131897
       }
     },
@@ -39,16 +36,17 @@
       "pages": 1,
       "summary": {
         "pages": 1,
-        "proseBlocks": 48,
-        "untranslatedProseRate": 0,
+        "proseBlocks": 49,
+        "skippedProseBlocks": 1,
+        "untranslatedProseRate": 0.02040816326530612,
         "mixedLanguageRate": 0.0625,
         "garbledTokenRate": 0,
         "overlapRate": 0,
         "overflowRate": 0.16,
         "readingOrderAccuracy": 0.9787234042553191,
         "twoColumnPages": 0,
-        "firstTranslatedBlockMs": 783,
-        "fullDocumentMs": 83,
+        "firstTranslatedBlockMs": 851,
+        "fullDocumentMs": 84,
         "meanScale": 0.986536931309762
       }
     }
@@ -60,13 +58,13 @@
     "runs": [
       {
         "variant": "baseline-1x",
-        "ms": 23677.741722,
+        "ms": 23180.366194,
         "cer": 0.9121402293875784,
         "wer": 1.782994923857868,
         "lines": 58,
-        "blocks": 47,
+        "blocks": 53,
         "skipped": 10,
-        "crossColumnCovers": 5,
+        "crossColumnCovers": 6,
         "overlapPairs": 0,
         "overflow": 0,
         "proseCovered": 1,
@@ -74,13 +72,13 @@
       },
       {
         "variant": "dpi200",
-        "ms": 29990.170129,
+        "ms": 30088.85074,
         "cer": 1.3886604631032244,
         "wer": 1.7246192893401016,
         "lines": 69,
-        "blocks": 61,
+        "blocks": 68,
         "skipped": 3,
-        "crossColumnCovers": 9,
+        "crossColumnCovers": 10,
         "overlapPairs": 0,
         "overflow": 0,
         "proseCovered": 1,
@@ -88,12 +86,12 @@
       },
       {
         "variant": "shipped-baseline",
-        "ms": 26386.509551999996,
+        "ms": 26874.225343000006,
         "cer": 1.4613719974031596,
         "wer": 1.6928934010152283,
         "lines": 61,
-        "blocks": 50,
-        "skipped": 9,
+        "blocks": 56,
+        "skipped": 7,
         "crossColumnCovers": 8,
         "overlapPairs": 0,
         "overflow": 0,
@@ -102,11 +100,11 @@
       },
       {
         "variant": "default-1600",
-        "ms": 33822.10488099999,
+        "ms": 34137.586585,
         "cer": 1.4111664141960614,
         "wer": 1.6269035532994924,
         "lines": 72,
-        "blocks": 61,
+        "blocks": 66,
         "skipped": 5,
         "crossColumnCovers": 8,
         "overlapPairs": 0,
@@ -116,11 +114,11 @@
       },
       {
         "variant": "dpi300",
-        "ms": 35262.95710500001,
+        "ms": 35559.25013800002,
         "cer": 1.4122484310755248,
         "wer": 1.6281725888324874,
         "lines": 72,
-        "blocks": 61,
+        "blocks": 66,
         "skipped": 4,
         "crossColumnCovers": 8,
         "overlapPairs": 0,
@@ -130,13 +128,13 @@
       },
       {
         "variant": "sauvola",
-        "ms": 21020.817238999996,
+        "ms": 21143.345253000007,
         "cer": 0.7253841159922095,
         "wer": 0.9631979695431472,
         "lines": 65,
-        "blocks": 36,
-        "skipped": 30,
-        "crossColumnCovers": 5,
+        "blocks": 37,
+        "skipped": 37,
+        "crossColumnCovers": 4,
         "overlapPairs": 0,
         "overflow": 0,
         "proseCovered": 1,
@@ -144,12 +142,12 @@
       },
       {
         "variant": "dpi200+sauvola",
-        "ms": 27899.464451999986,
+        "ms": 27577.14447,
         "cer": 0.7922527591430426,
         "wer": 1.368020304568528,
         "lines": 66,
-        "blocks": 42,
-        "skipped": 14,
+        "blocks": 46,
+        "skipped": 16,
         "crossColumnCovers": 8,
         "overlapPairs": 0,
         "overflow": 0,
@@ -158,11 +156,11 @@
       },
       {
         "variant": "dpi200+gray",
-        "ms": 30211.242838000006,
+        "ms": 30072.834020999988,
         "cer": 1.3996970352737503,
         "wer": 1.7423857868020305,
         "lines": 66,
-        "blocks": 55,
+        "blocks": 59,
         "skipped": 5,
         "crossColumnCovers": 11,
         "overlapPairs": 0,
@@ -174,16 +172,17 @@
   },
   "summary": {
     "pages": 5,
-    "proseBlocks": 104,
-    "untranslatedProseRate": 0,
+    "proseBlocks": 106,
+    "skippedProseBlocks": 2,
+    "untranslatedProseRate": 0.018867924528301886,
     "mixedLanguageRate": 0.06666666666666667,
     "garbledTokenRate": 0.00244926522043387,
     "overlapRate": 0,
     "overflowRate": 0.06611570247933884,
     "readingOrderAccuracy": 0.9790780141843971,
     "twoColumnPages": 1,
-    "firstTranslatedBlockMs": 274,
-    "fullDocumentMs": 859,
+    "firstTranslatedBlockMs": 316,
+    "fullDocumentMs": 930,
     "meanScale": 0.9854062676767245
   },
   "pages": [
@@ -207,6 +206,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -226,6 +226,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": false,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -245,6 +246,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -264,6 +266,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": true,
           "garbled": [],
           "scale": 0.9564772523904788
@@ -283,6 +286,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 0.9564772523904788
@@ -302,6 +306,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -321,6 +326,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -340,6 +346,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -359,6 +366,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 0.9450000000000001
@@ -378,6 +386,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 0.945
@@ -397,6 +406,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 0.9450000000000001
@@ -416,6 +426,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -435,6 +446,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -454,6 +466,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 0.9450000000000001
@@ -473,6 +486,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -492,6 +506,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -511,6 +526,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": true,
           "garbled": [],
           "scale": 0.9450000000000001
@@ -530,6 +546,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -549,6 +566,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -568,6 +586,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 0.9450000000000001
@@ -587,6 +606,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -606,6 +626,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 0.9450000000000001
@@ -625,6 +646,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -644,6 +666,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -663,6 +686,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -682,6 +706,7 @@
           "delivered": false,
           "placeholders": 0,
           "untranslated": true,
+          "prose": false,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -701,6 +726,7 @@
           "delivered": false,
           "placeholders": 0,
           "untranslated": true,
+          "prose": false,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -711,10 +737,11 @@
       "shrunk": 0,
       "untranslatedProse": 0,
       "proseBlocks": 24,
+      "skippedProse": 0,
       "readingOrder": 0.9166666666666666,
       "twoColumn": true,
-      "firstBlockMs": 274,
-      "pageMs": 74
+      "firstBlockMs": 316,
+      "pageMs": 75
     },
     {
       "fixture": "arxiv",
@@ -736,6 +763,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 0.9066666666666666
@@ -755,6 +783,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -774,6 +803,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -793,6 +823,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -812,6 +843,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -831,10 +863,9 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
-          "garbled": [
-            "h- t"
-          ],
+          "garbled": ["h- t"],
           "scale": 1
         },
         {
@@ -852,6 +883,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -871,6 +903,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": true,
           "garbled": [],
           "scale": 0.9083095408041885
@@ -890,6 +923,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -909,6 +943,7 @@
           "delivered": false,
           "placeholders": 0,
           "untranslated": true,
+          "prose": false,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -928,6 +963,7 @@
           "delivered": false,
           "placeholders": 0,
           "untranslated": true,
+          "prose": false,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -947,6 +983,7 @@
           "delivered": false,
           "placeholders": 0,
           "untranslated": true,
+          "prose": false,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -966,6 +1003,7 @@
           "delivered": false,
           "placeholders": 0,
           "untranslated": true,
+          "prose": false,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -985,6 +1023,7 @@
           "delivered": false,
           "placeholders": 0,
           "untranslated": true,
+          "prose": false,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -1004,6 +1043,7 @@
           "delivered": false,
           "placeholders": 0,
           "untranslated": true,
+          "prose": false,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -1023,6 +1063,7 @@
           "delivered": false,
           "placeholders": 0,
           "untranslated": true,
+          "prose": false,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -1042,6 +1083,7 @@
           "delivered": false,
           "placeholders": 0,
           "untranslated": true,
+          "prose": false,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -1061,6 +1103,7 @@
           "delivered": false,
           "placeholders": 0,
           "untranslated": true,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -1080,6 +1123,7 @@
           "delivered": false,
           "placeholders": 0,
           "untranslated": true,
+          "prose": false,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -1088,12 +1132,13 @@
       "overlapPairs": 0,
       "overflow": 0,
       "shrunk": 0,
-      "untranslatedProse": 0,
-      "proseBlocks": 9,
+      "untranslatedProse": 1,
+      "proseBlocks": 10,
+      "skippedProse": 1,
       "readingOrder": 1,
       "twoColumn": false,
-      "firstBlockMs": 399,
-      "pageMs": 38
+      "firstBlockMs": 442,
+      "pageMs": 37
     },
     {
       "fixture": "arxiv",
@@ -1115,6 +1160,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -1134,6 +1180,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -1153,6 +1200,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -1172,6 +1220,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 0.8900000000000001
@@ -1191,6 +1240,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -1210,6 +1260,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 0.89
@@ -1229,6 +1280,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -1248,6 +1300,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -1267,6 +1320,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -1277,9 +1331,10 @@
       "shrunk": 0,
       "untranslatedProse": 0,
       "proseBlocks": 9,
+      "skippedProse": 0,
       "readingOrder": 1,
       "twoColumn": false,
-      "firstBlockMs": 466,
+      "firstBlockMs": 506,
       "pageMs": 26
     },
     {
@@ -1302,6 +1357,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -1321,6 +1377,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -1340,14 +1397,9 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": true,
-          "garbled": [
-            "Q ∈ R",
-            "K ∈ R",
-            "V ∈ R",
-            "O ∈ R",
-            "O ∈ R"
-          ],
+          "garbled": ["Q ∈ R", "K ∈ R", "V ∈ R", "O ∈ R", "O ∈ R"],
           "scale": 1
         },
         {
@@ -1365,6 +1417,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -1384,6 +1437,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -1403,6 +1457,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -1422,6 +1477,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -1441,6 +1497,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -1460,6 +1517,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -1479,6 +1537,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -1498,6 +1557,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -1517,6 +1577,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -1536,6 +1597,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -1555,6 +1617,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -1574,10 +1637,9 @@
           "delivered": false,
           "placeholders": 0,
           "untranslated": true,
+          "prose": false,
           "mixedLanguage": false,
-          "garbled": [
-            "...,"
-          ],
+          "garbled": ["...,"],
           "scale": 1
         },
         {
@@ -1595,6 +1657,7 @@
           "delivered": false,
           "placeholders": 0,
           "untranslated": true,
+          "prose": false,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -1605,10 +1668,11 @@
       "shrunk": 0,
       "untranslatedProse": 0,
       "proseBlocks": 14,
+      "skippedProse": 0,
       "readingOrder": 1,
       "twoColumn": false,
-      "firstBlockMs": 525,
-      "pageMs": 62
+      "firstBlockMs": 558,
+      "pageMs": 69
     },
     {
       "fixture": "scan",
@@ -1630,6 +1694,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -1649,6 +1714,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -1668,6 +1734,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -1687,6 +1754,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": true,
           "garbled": [],
           "scale": 1
@@ -1706,6 +1774,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": true,
           "garbled": [],
           "scale": 0.9564772523904788
@@ -1725,6 +1794,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -1744,6 +1814,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -1763,6 +1834,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -1782,6 +1854,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -1801,6 +1874,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -1820,6 +1894,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -1839,6 +1914,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -1858,6 +1934,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -1877,6 +1954,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -1896,6 +1974,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -1915,6 +1994,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -1934,6 +2014,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -1953,6 +2034,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -1972,6 +2054,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -1991,6 +2074,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -2010,6 +2094,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -2029,6 +2114,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -2048,6 +2134,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -2067,6 +2154,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 0.89
@@ -2086,6 +2174,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -2105,6 +2194,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -2124,6 +2214,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -2143,6 +2234,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 0.945
@@ -2162,6 +2254,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -2181,6 +2274,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -2200,6 +2294,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 0.9450000000000001
@@ -2219,6 +2314,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -2238,6 +2334,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 0.8350000000000001
@@ -2257,6 +2354,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -2276,6 +2374,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -2295,6 +2394,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -2314,6 +2414,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -2333,6 +2434,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -2352,6 +2454,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 0.89
@@ -2371,6 +2474,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -2390,6 +2494,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -2409,6 +2514,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -2428,6 +2534,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -2447,6 +2554,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -2466,6 +2574,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -2485,6 +2594,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -2504,6 +2614,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": true,
           "garbled": [],
           "scale": 0.9450000000000001
@@ -2523,6 +2634,7 @@
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -2542,6 +2654,7 @@
           "delivered": false,
           "placeholders": 0,
           "untranslated": true,
+          "prose": false,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -2561,6 +2674,7 @@
           "delivered": false,
           "placeholders": 0,
           "untranslated": true,
+          "prose": true,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -2569,12 +2683,13 @@
       "overlapPairs": 0,
       "overflow": 8,
       "shrunk": 0,
-      "untranslatedProse": 0,
-      "proseBlocks": 48,
+      "untranslatedProse": 1,
+      "proseBlocks": 49,
+      "skippedProse": 1,
       "readingOrder": 0.9787234042553191,
       "twoColumn": false,
-      "firstBlockMs": 783,
-      "pageMs": 83
+      "firstBlockMs": 851,
+      "pageMs": 84
     }
   ]
 }

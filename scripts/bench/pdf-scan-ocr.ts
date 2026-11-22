@@ -29,7 +29,18 @@ async function loadPdf<T>(name: string): Promise<T> {
 }
 
 interface Layout {
-  blocks: Array<{ text: string; role: string; box: object; room: object; fontSize: number; lineHeight: number; column: number; advance: number; writing: number; lines: unknown[] }>;
+  blocks: Array<{
+    text: string;
+    role: string;
+    box: object;
+    room: object;
+    fontSize: number;
+    lineHeight: number;
+    column: number;
+    advance: number;
+    writing: number;
+    lines: unknown[];
+  }>;
   skipped: Array<{ text: string; role: string; box: object }>;
   obstacles: object[];
   bodySize: number;
@@ -40,13 +51,23 @@ async function renderPage(
   origin: string,
   scale: number,
 ): Promise<{ png: Buffer; width: number; height: number }> {
-  const info = (await page.evaluate(async (data) => {
-    await (globalThis as unknown as {
-      __renderPdf: (value: { url: string; page: number; scale: number; overlays: unknown[] }) => Promise<unknown>;
-    }).__renderPdf({ url: data.url, page: 1, scale: data.scale, overlays: [] });
-    const canvas = document.querySelector<HTMLCanvasElement>('#sheet canvas');
-    return { width: canvas?.width ?? 0, height: canvas?.height ?? 0 };
-  }, { url: origin + '/' + PDF, scale })) as { width: number; height: number };
+  const info = (await page.evaluate(
+    async (data) => {
+      await (
+        globalThis as unknown as {
+          __renderPdf: (value: {
+            url: string;
+            page: number;
+            scale: number;
+            overlays: unknown[];
+          }) => Promise<unknown>;
+        }
+      ).__renderPdf({ url: data.url, page: 1, scale: data.scale, overlays: [] });
+      const canvas = document.querySelector<HTMLCanvasElement>('#sheet canvas');
+      return { width: canvas?.width ?? 0, height: canvas?.height ?? 0 };
+    },
+    { url: origin + '/' + PDF, scale },
+  )) as { width: number; height: number };
   const png = await page.locator('#sheet canvas').screenshot();
   return { png, width: info.width, height: info.height };
 }
@@ -63,29 +84,78 @@ async function main(): Promise<void> {
   const pdfjsPath = requireModule('pdfjs-dist/legacy/build/pdf.mjs');
   const pdfjs = await import(pdfjsPath);
   const paperBytes = await readFile(resolve(ROOT, 'bench/pdf/paper.pdf'));
-  const paperDoc = await pdfjs.getDocument({ data: new Uint8Array(paperBytes), useSystemFonts: false }).promise;
+  const paperDoc = await pdfjs.getDocument({
+    data: new Uint8Array(paperBytes),
+    useSystemFonts: false,
+  }).promise;
   const paperPage = await paperDoc.getPage(1);
-  const reference = (await extractPage(paperPage, 0, pdfjs.OPS)).lines.map((line) => line.text).join('\n');
+  const reference = (await extractPage(paperPage, 0, pdfjs.OPS)).lines
+    .map((line) => line.text)
+    .join('\n');
   await paperDoc.destroy();
+  // The raster viewer scales the PDF page's own MediaBox. Mapping quads onto Letter here would
+  // stretch the scan's x axis and squash its y axis, so read the size from the loaded page.
+  const scanBytes = await readFile(resolve(ROOT, PDF));
+  const scanDoc = await pdfjs.getDocument({
+    data: new Uint8Array(scanBytes),
+    useSystemFonts: false,
+  }).promise;
+  const scanPage = await scanDoc.getPage(1);
+  const viewport = scanPage.getViewport({ scale: 1 });
+  const pageWidth = viewport.width;
+  const pageHeight = viewport.height;
+  await scanDoc.destroy();
+  console.log('scan.pdf page 1 viewport: ' + pageWidth + ' x ' + pageHeight + ' pt');
   const { ocrResultToPageLayout } = await loadPdf<{
     ocrResultToPageLayout: (
       result: unknown,
-      options: { pageIndex: number; pageWidth: number; pageHeight: number; imageWidth: number; imageHeight: number },
+      options: {
+        pageIndex: number;
+        pageWidth: number;
+        pageHeight: number;
+        imageWidth: number;
+        imageHeight: number;
+      },
     ) => Layout;
   }>('ocr.ts');
   const { placePage, paintedCoverOverlaps } = await loadPdf<{
-    placePage: (request: object) => Array<{ paint: boolean; drawn: object | null; translation: string; fit: { fontSize: number } | null; block: { text: string; role: string; box: { x: number; y: number; width: number; height: number }; fontSize: number } }>;
+    placePage: (request: object) => Array<{
+      paint: boolean;
+      drawn: object | null;
+      translation: string;
+      fit: { fontSize: number } | null;
+      block: {
+        text: string;
+        role: string;
+        box: { x: number; y: number; width: number; height: number };
+        fontSize: number;
+      };
+    }>;
     paintedCoverOverlaps: (placed: unknown[], pageWidth: number) => number;
   }>('place.ts');
   const { pageMetrics } = await loadPdf<{
-    pageMetrics: (layout: Layout, placed: unknown[], page: object) => { crossColumnCovers: number; proseCovered: number; overlapPairs: number; overflow: number };
+    pageMetrics: (
+      layout: Layout,
+      placed: unknown[],
+      page: object,
+    ) => {
+      crossColumnCovers: number;
+      proseCovered: number;
+      overlapPairs: number;
+      overflow: number;
+    };
   }>('metrics.ts');
   const report: object[] = [];
   try {
     const page = await browser.newPage({ viewport: { width: 1200, height: 1500 } });
     await page.goto(server.origin + VIEWER);
     await page.waitForFunction('window.__pdfReady === true', null, { timeout: 20_000 });
-    const variants: Array<{ id: string; scale: number; steps: readonly OcrPreprocessStep[]; maxSide: number }> = [
+    const variants: Array<{
+      id: string;
+      scale: number;
+      steps: readonly OcrPreprocessStep[];
+      maxSide: number;
+    }> = [
       { id: 'baseline-1x', scale: 1, steps: [], maxSide: 960 },
       { id: 'dpi200', scale: 4 / 3, steps: [], maxSide: 1280 },
       // The actual pre-change shipped path: reader renders at 2x, detector capped at 960.
@@ -120,18 +190,29 @@ async function main(): Promise<void> {
       }));
       const layout = ocrResultToPageLayout(
         { ...result, regions: mappedQuads, lines: [] },
-        { pageIndex: 0, pageWidth: 612, pageHeight: 792, imageWidth: image.width, imageHeight: image.height },
+        {
+          pageIndex: 0,
+          pageWidth,
+          pageHeight,
+          imageWidth: image.width,
+          imageHeight: image.height,
+        },
       );
       const placed = placePage({
         layout,
         translationOf: (block: { text: string }) => block.text.replace(/[A-Za-z]+/gu, () => '語'),
         target: 'ja',
         measure: (_block: unknown, text: string, size: number) => text.length * size * 0.7,
-        pageHeight: 792,
-        pageWidth: 612,
+        pageHeight,
+        pageWidth,
       });
-      const metrics = pageMetrics(layout, placed, { x: 0, y: 0, width: 612, height: 792 });
-      const overlaps = paintedCoverOverlaps(placed, 612);
+      const metrics = pageMetrics(layout, placed, {
+        x: 0,
+        y: 0,
+        width: pageWidth,
+        height: pageHeight,
+      });
+      const overlaps = paintedCoverOverlaps(placed, pageWidth);
       const record = {
         variant: variant.id,
         ms,
@@ -156,16 +237,47 @@ async function main(): Promise<void> {
     await browser.close();
     await server.close();
   }
-  const header = '| variant | CER | WER | ms | lines | blocks | skipped | cross-column | overlaps | overflow | covered |\n| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |';
-  const markdown = ['# scan.pdf page 1 real-OCR overlay', '', header, ...report.map((entry) => {
-    const r = entry as Record<string, number | string>;
-    return '| ' + r.variant + ' | ' + Number(r.cer).toFixed(3) + ' | ' + Number(r.wer).toFixed(3) + ' | ' + Number(r.ms).toFixed(0) + ' | ' + r.lines + ' | ' + r.blocks + ' | ' + r.skipped + ' | ' + r.crossColumnCovers + ' | ' + r.overlapPairs + ' | ' + r.overflow + ' | ' + Number(r.proseCovered).toFixed(2) + ' |';
-  })].join('\n') + '\n';
+  const header =
+    '| variant | CER | WER | ms | lines | blocks | skipped | cross-column | overlaps | overflow | covered |\n| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |';
+  const markdown =
+    [
+      '# scan.pdf page 1 real-OCR overlay',
+      '',
+      header,
+      ...report.map((entry) => {
+        const r = entry as Record<string, number | string>;
+        return (
+          '| ' +
+          r.variant +
+          ' | ' +
+          Number(r.cer).toFixed(3) +
+          ' | ' +
+          Number(r.wer).toFixed(3) +
+          ' | ' +
+          Number(r.ms).toFixed(0) +
+          ' | ' +
+          r.lines +
+          ' | ' +
+          r.blocks +
+          ' | ' +
+          r.skipped +
+          ' | ' +
+          r.crossColumnCovers +
+          ' | ' +
+          r.overlapPairs +
+          ' | ' +
+          r.overflow +
+          ' | ' +
+          Number(r.proseCovered).toFixed(2) +
+          ' |'
+        );
+      }),
+    ].join('\n') + '\n';
   await writeFile(join(OUT, 'report.md'), markdown);
   await writeFile(join(OUT, 'report.json'), JSON.stringify(report, null, 2) + '\n');
   console.log(markdown);
 }
 void main().catch((error: unknown) => {
-  console.error(error instanceof Error ? error.stack ?? error.message : String(error));
+  console.error(error instanceof Error ? (error.stack ?? error.message) : String(error));
   process.exitCode = 1;
 });

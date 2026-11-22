@@ -4,24 +4,45 @@
     <meta charset="utf-8" />
     <title>Sakutto PDF quality viewer</title>
     <style>
-      html, body { margin: 0; padding: 0; background: #e9e9ec; }
-      #sheet { position: relative; display: inline-block; margin: 0; background: white; }
-      #sheet canvas { display: block; }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: #e9e9ec;
+      }
+      #sheet {
+        position: relative;
+        display: inline-block;
+        margin: 0;
+        background: white;
+      }
+      #sheet canvas {
+        display: block;
+      }
       .overlay {
-        position: absolute; box-sizing: border-box; overflow: hidden;
+        position: absolute;
+        box-sizing: border-box;
+        overflow: hidden;
         background: rgba(255, 255, 255, 0.92);
         border: 1px solid rgba(24, 120, 210, 0.75);
         color: #101820;
-        font-family: "Noto Sans CJK JP", "Hiragino Kaku Gothic ProN", sans-serif;
-        line-height: 1.25; word-break: break-all; white-space: pre-wrap;
+        font-family: 'Noto Sans CJK JP', 'Hiragino Kaku Gothic ProN', sans-serif;
+        line-height: 1.25;
+        word-break: break-all;
+        white-space: pre-wrap;
       }
-      .overlay[data-paint="false"] {
+      .overlay[data-paint='false'] {
         background: rgba(255, 244, 214, 0.35);
-        border: 1px dashed rgba(190, 110, 20, 0.75); color: #7a3c00;
+        border: 1px dashed rgba(190, 110, 20, 0.75);
+        color: #7a3c00;
       }
-      .overlay[data-role="heading"] { border-color: rgba(30, 145, 90, 0.85); }
-      .overlay[data-role="equation"], .overlay[data-role="code"] {
-        border-color: rgba(150, 70, 170, 0.85); background: rgba(250, 244, 255, 0.6);
+      .overlay[data-role='heading'] {
+        border-color: rgba(30, 145, 90, 0.85);
+      }
+      .overlay[data-role='equation'],
+      .overlay[data-role='code'] {
+        border-color: rgba(150, 70, 170, 0.85);
+        background: rgba(250, 244, 255, 0.6);
       }
     </style>
   </head>
@@ -29,12 +50,17 @@
     <div id="sheet"></div>
     <script type="module">
       import * as pdfjsLib from '/node_modules/pdfjs-dist/legacy/build/pdf.mjs';
-      pdfjsLib.GlobalWorkerOptions.workerSrc = '/node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs';
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        '/node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs';
 
       window.__renderPdf = async ({ url, page, scale, overlays }) => {
         const host = document.querySelector('#sheet');
         host.replaceChildren();
-        const doc = await pdfjsLib.getDocument({ url, useSystemFonts: false, isEvalSupported: false }).promise;
+        const doc = await pdfjsLib.getDocument({
+          url,
+          useSystemFonts: false,
+          isEvalSupported: false,
+        }).promise;
         const pdfPage = await doc.getPage(page);
         const viewport = pdfPage.getViewport({ scale });
         const canvas = document.createElement('canvas');
@@ -56,11 +82,16 @@
           node.style.top = String(box.y * scale) + 'px';
           node.style.width = String(box.width * scale) + 'px';
           node.style.height = String(box.height * scale) + 'px';
-          if (overlay.fontSize) node.style.fontSize = String(overlay.fontSize * scale * 0.96) + 'px';
+          if (overlay.fontSize)
+            node.style.fontSize = String(overlay.fontSize * scale * 0.96) + 'px';
           node.textContent = overlay.paint ? overlay.translation : '';
           host.append(node);
         }
-        return { width: viewport.width, height: viewport.height, overlays: (overlays ?? []).length };
+        return {
+          width: viewport.width,
+          height: viewport.height,
+          overlays: (overlays ?? []).length,
+        };
       };
       window.__pdfReady = true;
     </script>

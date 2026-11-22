@@ -9,13 +9,7 @@ export interface PreprocessedImage {
 }
 
 export type OcrPreprocessStep =
-  | 'grayscale'
-  | 'contrast'
-  | 'otsu'
-  | 'sauvola'
-  | 'denoise'
-  | 'deskew'
-  | 'trim-border';
+  'grayscale' | 'contrast' | 'otsu' | 'sauvola' | 'denoise' | 'deskew' | 'trim-border';
 
 const identity = (point: OcrPoint): OcrPoint => ({ x: point.x, y: point.y });
 
@@ -24,7 +18,9 @@ function clone(image: ImageDataLike): Uint8ClampedArray {
 }
 
 function luma(data: ArrayLike<number>, offset: number): number {
-  return (data[offset] ?? 0) * 0.299 + (data[offset + 1] ?? 0) * 0.587 + (data[offset + 2] ?? 0) * 0.114;
+  return (
+    (data[offset] ?? 0) * 0.299 + (data[offset + 1] ?? 0) * 0.587 + (data[offset + 2] ?? 0) * 0.114
+  );
 }
 
 function histogram(image: ImageDataLike): Uint32Array {
@@ -62,7 +58,10 @@ export function scaleOcrImage(image: ImageDataLike, factor: number): Preprocesse
       }
     }
   }
-  return { image: { data, width, height }, mapBack: (point) => ({ x: point.x / factor, y: point.y / factor }) };
+  return {
+    image: { data, width, height },
+    mapBack: (point) => ({ x: point.x / factor, y: point.y / factor }),
+  };
 }
 
 export function grayscaleOcrImage(image: ImageDataLike): PreprocessedImage {
@@ -85,19 +84,26 @@ export function contrastOcrImage(image: ImageDataLike, percentile = 0.02): Prepr
   let seen = 0;
   for (let value = 0; value < 256; value += 1) {
     seen += counts[value] ?? 0;
-    if (seen >= total * percentile) { low = value; break; }
+    if (seen >= total * percentile) {
+      low = value;
+      break;
+    }
   }
   seen = 0;
   for (let value = 255; value >= 0; value -= 1) {
     seen += counts[value] ?? 0;
-    if (seen >= total * percentile) { high = value; break; }
+    if (seen >= total * percentile) {
+      high = value;
+      break;
+    }
   }
   // A nearly blank scan puts both percentiles at 255; stretching that would paint it black.
   if (high - low < 8) return { image, mapBack: identity };
   const span = high - low;
   const data = clone(image);
   for (let offset = 0; offset < data.length; offset += 4) {
-    const stretched = (Math.min(high, Math.max(low, luma(image.data, offset))) - low) * (255 / span);
+    const stretched =
+      (Math.min(high, Math.max(low, luma(image.data, offset))) - low) * (255 / span);
     data[offset] = stretched;
     data[offset + 1] = stretched;
     data[offset + 2] = stretched;
@@ -123,7 +129,10 @@ export function otsuBinarizeOcrImage(image: ImageDataLike): PreprocessedImage {
     const meanBackground = sumBackground / weightBackground;
     const meanForeground = (sum - sumBackground) / weightForeground;
     const between = weightBackground * weightForeground * (meanBackground - meanForeground) ** 2;
-    if (between > best) { best = between; threshold = value; }
+    if (between > best) {
+      best = between;
+      threshold = value;
+    }
   }
   const data = clone(image);
   for (let offset = 0; offset < data.length; offset += 4) {
@@ -136,7 +145,11 @@ export function otsuBinarizeOcrImage(image: ImageDataLike): PreprocessedImage {
 }
 
 /** Sauvola local threshold with integral images, so cost stays linear in pixels. */
-export function sauvolaBinarizeOcrImage(image: ImageDataLike, radius = 8, k = 0.2): PreprocessedImage {
+export function sauvolaBinarizeOcrImage(
+  image: ImageDataLike,
+  radius = 8,
+  k = 0.2,
+): PreprocessedImage {
   const { width, height } = image;
   const stride = width + 1;
   const sums = new Float64Array(stride * (height + 1));
@@ -144,8 +157,16 @@ export function sauvolaBinarizeOcrImage(image: ImageDataLike, radius = 8, k = 0.
   for (let y = 0; y < height; y += 1) {
     for (let x = 0; x < width; x += 1) {
       const value = luma(image.data, (y * width + x) * 4);
-      sums[(y + 1) * stride + x + 1] = value + (sums[y * stride + x + 1] ?? 0) + (sums[(y + 1) * stride + x] ?? 0) - (sums[y * stride + x] ?? 0);
-      squares[(y + 1) * stride + x + 1] = value * value + (squares[y * stride + x + 1] ?? 0) + (squares[(y + 1) * stride + x] ?? 0) - (squares[y * stride + x] ?? 0);
+      sums[(y + 1) * stride + x + 1] =
+        value +
+        (sums[y * stride + x + 1] ?? 0) +
+        (sums[(y + 1) * stride + x] ?? 0) -
+        (sums[y * stride + x] ?? 0);
+      squares[(y + 1) * stride + x + 1] =
+        value * value +
+        (squares[y * stride + x + 1] ?? 0) +
+        (squares[(y + 1) * stride + x] ?? 0) -
+        (squares[y * stride + x] ?? 0);
     }
   }
   const data = clone(image);
@@ -156,8 +177,16 @@ export function sauvolaBinarizeOcrImage(image: ImageDataLike, radius = 8, k = 0.
       const left = Math.max(0, x - radius);
       const right = Math.min(width - 1, x + radius);
       const count = (right - left + 1) * (bottom - top + 1);
-      const total = (sums[(bottom + 1) * stride + right + 1] ?? 0) - (sums[top * stride + right + 1] ?? 0) - (sums[(bottom + 1) * stride + left] ?? 0) + (sums[top * stride + left] ?? 0);
-      const totalSquares = (squares[(bottom + 1) * stride + right + 1] ?? 0) - (squares[top * stride + right + 1] ?? 0) - (squares[(bottom + 1) * stride + left] ?? 0) + (squares[top * stride + left] ?? 0);
+      const total =
+        (sums[(bottom + 1) * stride + right + 1] ?? 0) -
+        (sums[top * stride + right + 1] ?? 0) -
+        (sums[(bottom + 1) * stride + left] ?? 0) +
+        (sums[top * stride + left] ?? 0);
+      const totalSquares =
+        (squares[(bottom + 1) * stride + right + 1] ?? 0) -
+        (squares[top * stride + right + 1] ?? 0) -
+        (squares[(bottom + 1) * stride + left] ?? 0) +
+        (squares[top * stride + left] ?? 0);
       const mean = total / count;
       const variance = Math.max(0, totalSquares / count - mean * mean);
       const threshold = mean * (1 + k * (Math.sqrt(variance) / 128 - 1));
@@ -226,7 +255,8 @@ export function trimOcrBorder(image: ImageDataLike, margin = 8): PreprocessedIma
     for (let x = 0; x < cropWidth; x += 1) {
       const source = ((y + cropTop) * width + x + cropLeft) * 4;
       const target = (y * cropWidth + x) * 4;
-      for (let channel = 0; channel < 4; channel += 1) data[target + channel] = image.data[source + channel] ?? 0;
+      for (let channel = 0; channel < 4; channel += 1)
+        data[target + channel] = image.data[source + channel] ?? 0;
     }
   }
   return {
@@ -241,7 +271,10 @@ function inverseRotation(point: OcrPoint, angle: number, width: number, height: 
   const cy = height / 2;
   const x = point.x - cx;
   const y = point.y - cy;
-  return { x: cx + x * Math.cos(radians) - y * Math.sin(radians), y: cy + x * Math.sin(radians) + y * Math.cos(radians) };
+  return {
+    x: cx + x * Math.cos(radians) - y * Math.sin(radians),
+    y: cy + x * Math.sin(radians) + y * Math.cos(radians),
+  };
 }
 
 function rotateImage(image: ImageDataLike, angle: number): ImageDataLike {
@@ -300,7 +333,10 @@ function estimateSkew(image: ImageDataLike): number {
     mean /= rows.length;
     let variance = 0;
     for (const value of rows) variance += (value - mean) ** 2;
-    if (variance > bestScore) { bestScore = variance; bestAngle = angle; }
+    if (variance > bestScore) {
+      bestScore = variance;
+      bestAngle = angle;
+    }
   }
   return bestAngle;
 }

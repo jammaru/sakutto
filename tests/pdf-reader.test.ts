@@ -963,7 +963,9 @@ describe('PdfReader viewport observer', () => {
     expect(reader.isBilingual()).toBe(true);
     expect(root.dataset.bilingual).toBe('true');
     expect(host.querySelectorAll('.sakutto-page__pane')).toHaveLength(2);
-    expect([...host.querySelectorAll('.sakutto-page__caption')].map((node) => node.textContent)).toEqual(['Original', 'Translated']);
+    expect(
+      [...host.querySelectorAll('.sakutto-page__caption')].map((node) => node.textContent),
+    ).toEqual(['Original', 'Translated']);
 
     reader.setCompare(true);
     expect(reader.isBilingual()).toBe(false);

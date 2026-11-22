@@ -7,11 +7,7 @@
     "msPerChar": 0.04,
     "concurrency": 8
   },
-  "fixtures": [
-    "paper",
-    "arxiv",
-    "scan"
-  ],
+  "fixtures": ["paper", "arxiv", "scan"],
   "summary": {
     "pages": 5,
     "proseBlocks": 108,
@@ -670,9 +666,7 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": false,
-          "garbled": [
-            "h- t"
-          ],
+          "garbled": ["h- t"],
           "scale": 1
         },
         {
@@ -1177,13 +1171,7 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": true,
-          "garbled": [
-            "Q ∈ R",
-            "K ∈ R",
-            "V ∈ R",
-            "O ∈ R",
-            "O ∈ R"
-          ],
+          "garbled": ["Q ∈ R", "K ∈ R", "V ∈ R", "O ∈ R", "O ∈ R"],
           "scale": 1
         },
         {
@@ -1411,9 +1399,7 @@
           "placeholders": 0,
           "untranslated": true,
           "mixedLanguage": false,
-          "garbled": [
-            "...,"
-          ],
+          "garbled": ["...,"],
           "scale": 1
         },
         {

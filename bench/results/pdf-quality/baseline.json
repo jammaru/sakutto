@@ -7,15 +7,12 @@
     "msPerChar": 0.04,
     "concurrency": 8
   },
-  "fixtures": [
-    "paper",
-    "arxiv",
-    "scan"
-  ],
+  "fixtures": ["paper", "arxiv", "scan"],
   "summary": {
     "pages": 5,
-    "proseBlocks": 108,
-    "untranslatedProseRate": 0.12962962962962962,
+    "proseBlocks": 109,
+    "skippedProseBlocks": 1,
+    "untranslatedProseRate": 0.13761467889908258,
     "mixedLanguageRate": 0.20869565217391303,
     "garbledTokenRate": 0.008408796895213453,
     "overlapRate": 0,
@@ -48,7 +45,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "Model",
@@ -67,7 +65,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": false
         },
         {
           "source": "ABSTRACT",
@@ -86,7 +85,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "Machine translation of web pages is usually a client of a remote service. This paper describes Sakutto, a browser extension that translates a page entirely on the reader's own machine, and reports what moving a 0.8-billion-parameter instructiontuned model into a browser tab costs and what it buys.",
@@ -105,7 +105,8 @@
           "untranslated": false,
           "mixedLanguage": true,
           "garbled": [],
-          "scale": 0.9564772523904788
+          "scale": 0.9564772523904788,
+          "prose": true
         },
         {
           "source": "The extension runs PLaMo 3 Translate through a WebAssembly build of llama.cpp, keeps the model weights in the browser's private file system, and translates a page block by block as the reader scrolls.",
@@ -124,7 +125,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 0.9564772523904788
+          "scale": 0.9564772523904788,
+          "prose": true
         },
         {
           "source": "On a four-core laptop with a discrete GPU the model reaches 34.8 tokens per second and finishes a 1,900- word article in 41 seconds; on the same machine's CPU it reaches 9.1 tokens per second. We describe the scheduling rules that keep the first paragraph visible within two seconds, the cache that makes a revisited page free, and the failure modes that a page collector has to handle before a reader will accept the result.",
@@ -143,7 +145,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "1. Introduction",
@@ -162,7 +165,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "A reader who wants an English article in Japanese has three choices: paste it into a translation website, install a browser extension that forwards the page to a server, or read the English. The first two send the page, and every selection the reader makes afterwards, to a third party. For a research paper under review, a private issue tracker or a medical record this is often unacceptable, and it is frequently prohibited by the terms the reader is bound by.",
@@ -181,7 +185,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "Running the model in the browser removes that transfer. The page text never leaves the process, no account is needed, and",
@@ -200,7 +205,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 0.9450000000000001
+          "scale": 0.9450000000000001,
+          "prose": true
         },
         {
           "source": "the extension works offline once the weights are downloaded. The cost is latency and memory: a transformer that a server would run on an accelerator has to fit in a tab, compete with the page for the GPU, and produce tokens one at a time in front of a reader who is already looking at the text.",
@@ -219,7 +225,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 0.945
+          "scale": 0.945,
+          "prose": true
         },
         {
           "source": "This paper reports a working system rather than a new model. Section 2 describes the runtime, Section 3 the scheduling rules that decide what to translate first, and Section 4 the measurements. Section 5 discusses the failure modes we could",
@@ -238,7 +245,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 0.9450000000000001
+          "scale": 0.9450000000000001,
+          "prose": true
         },
         {
           "source": "not design away, and Section 6 lists the work that remains.",
@@ -257,7 +265,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "2. System Design",
@@ -276,7 +285,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "The extension is a Manifest V3 package with four processes. A service worker owns the lifetime of everything else. An offscreen document hosts the runtime, because a service worker cannot hold a WebAssembly heap across a suspension. A content script walks the page and writes translations back into the document. Popup, options and onboarding pages render the",
@@ -295,7 +305,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 0.9450000000000001
+          "scale": 0.9450000000000001,
+          "prose": true
         },
         {
           "source": "settings.",
@@ -314,7 +325,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "2.1 Runtime",
@@ -333,7 +345,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "The model is PLaMo 3 Translate, an 0.8-billion-parameter decoder trained for translation in 53 languages in either direction, quantised to four bits per weight. The published WebAssembly build of llama.cpp cannot load its tokenizer, so the extension",
@@ -352,7 +365,8 @@
           "untranslated": false,
           "mixedLanguage": true,
           "garbled": [],
-          "scale": 0.9450000000000001
+          "scale": 0.9450000000000001,
+          "prose": true
         },
         {
           "source": "Proposition 1. A block whose translation does not fit its own box is left in the source typesetting rather than shown cut short.",
@@ -371,7 +385,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "2.2 Page model",
@@ -390,7 +405,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "A page is not a list of paragraphs. The collector therefore walks the document rather than selecting a fixed set of tags, and it treats four shapes differently: ordinary prose, an item of a grid or flex container, a cell of a repeating data row, and a container",
@@ -409,7 +425,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 0.9450000000000001
+          "scale": 0.9450000000000001,
+          "prose": true
         },
         {
           "source": "that owns text of its own beside its children. The distinction matters because a translation is written back into the text nodes the source already had. A row laid out as a grid becomes a vertical pile if its translation lands between the cells instead of inside them.",
@@ -428,7 +445,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "Inline elements that are not prose — code, keyboard keys, sample output, pronunciation and citation markers — stay in the document untouched and become numbered placeholders in the",
@@ -447,7 +465,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 0.9450000000000001
+          "scale": 0.9450000000000001,
+          "prose": true
         },
         {
           "source": "text the model sees. The model is asked to keep each placeholder where the sentence had it, and a translation that moves or drops one is rejected and retried without placeholders.",
@@ -466,7 +485,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "ships its own build of the runtime at a pinned commit, patched in two places so that workers and the WebAssembly module load from packaged files rather than from blob URLs, which Manifest V3 forbids.",
@@ -485,7 +505,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "The runtime offers two backends. The WebGPU backend keeps two sequences resident and decodes a batch of up to eight short segments in a single completion. The CPU backend keeps one sequence and uses four to eight threads, depending on the machine. A probe runs at startup, and a failed GPU load falls back to the CPU path rather than failing the translation.",
@@ -504,7 +525,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "Independent researcher sakutto@example.org",
@@ -523,7 +545,8 @@
           "untranslated": true,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": false
         },
         {
           "source": "1 for block in page: 2 if is_equation(block): continue 3 emit(translate(block))",
@@ -542,7 +565,8 @@
           "untranslated": true,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": false
         }
       ],
       "overlapPairs": 0,
@@ -553,7 +577,8 @@
       "readingOrder": 0.9166666666666666,
       "twoColumn": true,
       "firstBlockMs": 307,
-      "pageMs": 85
+      "pageMs": 85,
+      "skippedProse": 0
     },
     {
       "fixture": "arxiv",
@@ -576,7 +601,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 0.9066666666666666
+          "scale": 0.9066666666666666,
+          "prose": true
         },
         {
           "source": "scholarly works.",
@@ -595,7 +621,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "Attention Is All You Need",
@@ -614,7 +641,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "Abstract",
@@ -633,7 +661,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "The dominant sequence transduction models are based on complex recurrent or convolutional neural networks that include an encoder and a decoder. The best performing models also connect the encoder and decoder through an attention mechanism. We propose a new simple network architecture, the Transformer, based solely on attention mechanisms, dispensing with recurrence and convolutions entirely. Experiments on two machine translation tasks show these models to be superior in quality while being more parallelizable and requiring significantly less time to train.",
@@ -651,10 +680,9 @@
           "placeholders": 0,
           "untranslated": true,
           "mixedLanguage": true,
-          "garbled": [
-            "two machine translation tasks show these models"
-          ],
-          "scale": 1
+          "garbled": ["two machine translation tasks show these models"],
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "Our model achieves 28.4 BLEU on the WMT 2014 English- to-German translation task, improving over the existing best results, including ensembles, by over 2 BLEU. On the WMT 2014 English-to-French translation task, our model establishes a new single-model state-of-the-art BLEU score of 41.8 after training for 3.5 days on eight GPUs, a small fraction of the training costs of the best models from the literature. We show that the Transformer generalizes well to other tasks by applying it successfully to English constituency parsing both with large and limited training data.",
@@ -672,10 +700,9 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": false,
-          "garbled": [
-            "h- t"
-          ],
-          "scale": 1
+          "garbled": ["h- t"],
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "the effort to evaluate this idea. Ashish, with Illia, designed and implemented the first Transformer models and has been crucially involved in every aspect of this work. Noam proposed scaled dot-product attention, multi-head attention and the parameter-free position representation and became the other person involved in nearly every detail.",
@@ -698,7 +725,8 @@
             "tuned and evaluated countless model variants",
             "our original codebase and"
           ],
-          "scale": 0.9083095408041869
+          "scale": 0.9083095408041869,
+          "prose": true
         },
         {
           "source": "Niki designed, implemented, tuned and evaluated countless model variants in our original codebase and tensor2tensor. Llion also experimented with novel model variants, was responsible for our initial codebase, and efficient inference and visualizations. Lukasz and Aidan spent countless long days designing various parts of and implementing tensor2tensor, replacing our earlier codebase, greatly improving results and massively accelerating our research.",
@@ -720,7 +748,8 @@
             "Llion also experimented with novel model variant",
             "was responsible for our initial codebase"
           ],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "31st Conference on Neural Information Processing Systems (NIPS 2017), Long Beach, CA, USA.",
@@ -739,7 +768,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "avaswani@google.com",
@@ -758,7 +788,8 @@
           "untranslated": true,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": false
         },
         {
           "source": "llion@google.com",
@@ -777,7 +808,8 @@
           "untranslated": true,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": false
         },
         {
           "source": "noam@google.com",
@@ -796,7 +828,8 @@
           "untranslated": true,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": false
         },
         {
           "source": "aidan@cs.toronto.edu",
@@ -815,7 +848,8 @@
           "untranslated": true,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": false
         },
         {
           "source": "illia.polosukhin@gmail.com",
@@ -834,7 +868,8 @@
           "untranslated": true,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": false
         },
         {
           "source": "nikip@google.com",
@@ -853,7 +888,8 @@
           "untranslated": true,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": false
         },
         {
           "source": "usz@google.com",
@@ -872,7 +908,8 @@
           "untranslated": true,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": false
         },
         {
           "source": "lukaszkaiser@google.com",
@@ -891,7 +928,8 @@
           "untranslated": true,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": false
         },
         {
           "source": "∗Equal contribution. Listing order is random. Jakob proposed replacing RNNs with self-attention and started",
@@ -910,7 +948,8 @@
           "untranslated": true,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "†Work performed while at Google Brain. ‡Work performed while at Google Research.",
@@ -929,18 +968,20 @@
           "untranslated": true,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": false
         }
       ],
       "overlapPairs": 0,
       "overflow": 0,
       "shrunk": 0,
-      "untranslatedProse": 3,
-      "proseBlocks": 9,
+      "untranslatedProse": 4,
+      "proseBlocks": 10,
       "readingOrder": 1,
       "twoColumn": false,
       "firstBlockMs": 449,
-      "pageMs": 34
+      "pageMs": 34,
+      "skippedProse": 1
     },
     {
       "fixture": "arxiv",
@@ -963,7 +1004,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "The Transformer follows this overall architecture using stacked self-attention and point-wise, fully connected layers for both the encoder and decoder, shown in the left and right halves of Figure 1, respectively.",
@@ -982,7 +1024,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "3.1 Encoder and Decoder Stacks",
@@ -1001,7 +1044,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "Encoder: The encoder is composed of a stack of N = 6 identical layers. Each layer has two sub-layers. The first is a multi-head self-attention mechanism, and the second is a simple, positionwise fully connected feed-forward network.",
@@ -1020,7 +1064,8 @@
           "untranslated": false,
           "mixedLanguage": true,
           "garbled": [],
-          "scale": 0.8900000000000001
+          "scale": 0.8900000000000001,
+          "prose": true
         },
         {
           "source": "We employ a residual connection [11] around each of the two sub-layers, followed by layer normalization [1]. That is, the output of each sub-layer is LayerNorm(x + Sublayer(x)), where Sublayer(x) is the function implemented by the sub-layer itself. To facilitate these residual connections, all sub-layers in the model, as well as the embedding layers, produce outputs of dimension dmodel = 512.",
@@ -1039,7 +1084,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "Decoder: The decoder is also composed of a stack of N = 6 identical layers. In addition to the two sub-layers in each encoder layer, the decoder inserts a third sub-layer, which performs multi-head attention over the output of the encoder stack.",
@@ -1058,7 +1104,8 @@
           "untranslated": false,
           "mixedLanguage": true,
           "garbled": [],
-          "scale": 0.89
+          "scale": 0.89,
+          "prose": true
         },
         {
           "source": "Similar to the encoder, we employ residual connections around each of the sub-layers, followed by layer normalization. We also modify the self-attention sub-layer in the decoder stack to prevent positions from attending to subsequent positions. This masking, combined with fact that the output embeddings are offset by one position, ensures that the predictions for position i can depend only on the known outputs at positions less than i.",
@@ -1077,7 +1124,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "3.2 Attention",
@@ -1096,7 +1144,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "An attention function can be described as mapping a query and a set of key-value pairs to an output, where the query, keys, values, and output are all vectors. The output is computed as a weighted sum",
@@ -1115,7 +1164,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         }
       ],
       "overlapPairs": 0,
@@ -1126,7 +1176,8 @@
       "readingOrder": 1,
       "twoColumn": false,
       "firstBlockMs": 509,
-      "pageMs": 26
+      "pageMs": 26,
+      "skippedProse": 0
     },
     {
       "fixture": "arxiv",
@@ -1149,7 +1200,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "Multi-head attention allows the model to jointly attend to information from different representation subspaces at different positions. With a single attention head, averaging inhibits this.",
@@ -1168,7 +1220,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "Where the projections are parameter matrices Wi Q ∈ R d model ×d k , Wi K ∈ R d model ×d k , Wi V ∈ R d model ×d v and W O ∈ Rhdv×dmodel .",
@@ -1186,14 +1239,9 @@
           "placeholders": 0,
           "untranslated": true,
           "mixedLanguage": true,
-          "garbled": [
-            "Q ∈ R",
-            "K ∈ R",
-            "V ∈ R",
-            "O ∈ R",
-            "O ∈ R"
-          ],
-          "scale": 1
+          "garbled": ["Q ∈ R", "K ∈ R", "V ∈ R", "O ∈ R", "O ∈ R"],
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "In this work we employ h = 8 parallel attention layers, or heads. For each of these we use dk = dv = dmodel/h = 64. Due to the reduced dimension of each head, the total computational cost is similar to that of single-head attention with full dimensionality.",
@@ -1211,10 +1259,9 @@
           "placeholders": 0,
           "untranslated": true,
           "mixedLanguage": true,
-          "garbled": [
-            "head attention with full dimensionality"
-          ],
-          "scale": 1
+          "garbled": ["head attention with full dimensionality"],
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "3.2.3 Applications of Attention in our Model",
@@ -1233,7 +1280,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "The Transformer uses multi-head attention in three different ways:",
@@ -1252,7 +1300,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "• In \"encoder-decoder attention\" layers, the queries come from the previous decoder layer, and the memory keys and values come from the output of the encoder. This allows every position in the decoder to attend over all positions in the input sequence. This mimics the typical encoder-decoder attention mechanisms in sequence-to-sequence models such as [38, 2, 9].",
@@ -1271,7 +1320,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "• The encoder contains self-attention layers. In a self-attention layer all of the keys, values and queries come from the same place, in this case, the output of the previous layer in the encoder. Each position in the encoder can attend to all positions in the previous layer of the encoder.",
@@ -1290,7 +1340,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "• Similarly, self-attention layers in the decoder allow each position in the decoder to attend to all positions in the decoder up to and including that position. We need to prevent leftward information flow in the decoder to preserve the auto-regressive property. We implement this inside of scaled dot-product attention by masking out (setting to −∞) all values in the input of the softmax which correspond to illegal connections. See Figure 2.",
@@ -1308,10 +1359,9 @@
           "placeholders": 0,
           "untranslated": true,
           "mixedLanguage": true,
-          "garbled": [
-            "implement thisof the softmax which correspond"
-          ],
-          "scale": 1
+          "garbled": ["implement thisof the softmax which correspond"],
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "3.3 Position-wise Feed-Forward Networks",
@@ -1330,7 +1380,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "In addition to attention sub-layers, each of the layers in our encoder and decoder contains a fully connected feed-forward network, which is applied to each position separately and identically. This consists of two linear transformations with a ReLU activation in between.",
@@ -1349,7 +1400,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "While the linear transformations are the same across different positions, they use different parameters from layer to layer. Another way of describing this is as two convolutions with kernel size 1. The dimensionality of input and output is dmodel = 512, and the inner-layer has dimensionality df f = 2048.",
@@ -1368,7 +1420,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "3.4 Embeddings and Softmax",
@@ -1387,7 +1440,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "Similarly to other sequence transduction models, we use learned embeddings to convert the input tokens and output tokens to vectors of dimension dmodel. We also use the usual learned linear transformation and softmax function to convert the decoder output to predicted next-token probabilities. In our model, we share the same weight matrix between the two embedding layers and the pre-softmax√ linear transformation, similar to [30]. In the embedding layers, we multiply those weights by dmodel.",
@@ -1405,10 +1459,9 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": true,
-          "garbled": [
-            "other sequence transduction models"
-          ],
-          "scale": 1
+          "garbled": ["other sequence transduction models"],
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "MultiHead(Q, K, V ) = Concat(head1, ..., headh)W O",
@@ -1426,10 +1479,9 @@
           "placeholders": 0,
           "untranslated": true,
           "mixedLanguage": false,
-          "garbled": [
-            "...,"
-          ],
-          "scale": 1
+          "garbled": ["...,"],
+          "scale": 1,
+          "prose": false
         },
         {
           "source": "where headi = Attention(QWi , KWi , V Wi ) Q K V",
@@ -1448,7 +1500,8 @@
           "untranslated": true,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": false
         }
       ],
       "overlapPairs": 0,
@@ -1459,7 +1512,8 @@
       "readingOrder": 1,
       "twoColumn": false,
       "firstBlockMs": 565,
-      "pageMs": 46
+      "pageMs": 46,
+      "skippedProse": 0
     },
     {
       "fixture": "scan",
@@ -1482,7 +1536,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "Model",
@@ -1501,7 +1556,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 0.8133333333333334
+          "scale": 0.8133333333333334,
+          "prose": false
         },
         {
           "source": "J. Ammaru",
@@ -1520,7 +1576,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": false
         },
         {
           "source": "Independent researcher",
@@ -1539,7 +1596,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": false
         },
         {
           "source": "sakutto@example.org",
@@ -1558,7 +1616,8 @@
           "untranslated": true,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "ABSTRACT",
@@ -1577,7 +1636,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": false
         },
         {
           "source": "Machine translation of web pages is usually a client of a remote service. This paper describes Sakutto, a browser extension",
@@ -1596,7 +1656,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "that translates a page entirely on the reader's own machine, and reports what moving a 0.8-billion-parameter instruction-",
@@ -1615,7 +1676,8 @@
           "untranslated": false,
           "mixedLanguage": true,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "tuned model into a browser tab costs and what it buys. The extension runs PLaMo 3 Translate through a WebAssembly",
@@ -1634,7 +1696,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "build of llama.cpp, keeps the model weights in the browser's private file system, and translates a page block by block as the",
@@ -1653,7 +1716,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 0.9564772523904788
+          "scale": 0.9564772523904788,
+          "prose": true
         },
         {
           "source": "reader scrolls. On a four-core laptop with a discrete GPU the model reaches 34.8 tokens per second and finishes a 1,900-",
@@ -1672,7 +1736,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "word article in 41 seconds; on the same machine's CPU it reaches 9.1 tokens per second. We describe the scheduling rules",
@@ -1691,7 +1756,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "that keep the first paragraph visible within two seconds, the cache that makes a revisited page free, and the failure modes",
@@ -1710,7 +1776,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "that a page collector has to handle before a reader will accept the result.",
@@ -1729,7 +1796,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "ships its own build of the runtime at a pinned commit, patched",
@@ -1748,7 +1816,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "1. Introduction in two places so that workers and the WebAssembly module",
@@ -1767,7 +1836,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "A reader who wants an English article in Japanese has load three from packaged files rather than from blob URLs, which",
@@ -1785,10 +1855,9 @@
           "placeholders": 0,
           "untranslated": true,
           "mixedLanguage": true,
-          "garbled": [
-            "from packaged files rather than from blob URLs"
-          ],
-          "scale": 1
+          "garbled": ["from packaged files rather than from blob URLs"],
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "choices: paste it into a translation website, install a browser Manifest ex‐ V3 forbids.",
@@ -1807,7 +1876,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "tension that forwards the page to a server, or read the English. The runtime offers two backends. The WebGPU backend",
@@ -1825,10 +1895,9 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": true,
-          "garbled": [
-            "The runtime offers two backends"
-          ],
-          "scale": 1
+          "garbled": ["The runtime offers two backends"],
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "The first two send the page, and every selection the reader keeps two sequences resident and decodes a batch of up to eight",
@@ -1846,11 +1915,9 @@
           "placeholders": 0,
           "untranslated": true,
           "mixedLanguage": true,
-          "garbled": [
-            "The first two send the page",
-            "and every selection the reader"
-          ],
-          "scale": 1
+          "garbled": ["The first two send the page", "and every selection the reader"],
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "makes afterwards, to a third party. For a research paper short under segments in a single completion. The CPU backend keeps",
@@ -1868,10 +1935,9 @@
           "placeholders": 0,
           "untranslated": true,
           "mixedLanguage": true,
-          "garbled": [
-            "The CPU backend keeps"
-          ],
-          "scale": 0.9450000000000001
+          "garbled": ["The CPU backend keeps"],
+          "scale": 0.9450000000000001,
+          "prose": true
         },
         {
           "source": "review, a private issue tracker or a medical record this is one often sequence and uses four to eight threads, depending on the",
@@ -1889,10 +1955,9 @@
           "placeholders": 0,
           "untranslated": true,
           "mixedLanguage": true,
-          "garbled": [
-            "sequence and uses four"
-          ],
-          "scale": 0.89
+          "garbled": ["sequence and uses four"],
+          "scale": 0.89,
+          "prose": true
         },
         {
           "source": "unacceptable, and it is frequently prohibited by the terms machine. the A probe runs at startup, and a failed GPU load falls",
@@ -1910,10 +1975,9 @@
           "placeholders": 0,
           "untranslated": true,
           "mixedLanguage": true,
-          "garbled": [
-            "failed GPU load falls"
-          ],
-          "scale": 0.9450000000000001
+          "garbled": ["failed GPU load falls"],
+          "scale": 0.9450000000000001,
+          "prose": true
         },
         {
           "source": "reader is bound by. back to the CPU path rather than failing the translation.",
@@ -1932,7 +1996,8 @@
           "untranslated": false,
           "mixedLanguage": true,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "Running the model in the browser removes that transfer. The St = (I − βt) St−1",
@@ -1951,7 +2016,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "page text never leaves the process, no account is needed, and",
@@ -1970,7 +2036,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "the extension works offline once the weights are downloaded. Proposition 1. A block whose translation does not fit its own",
@@ -1988,10 +2055,9 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": true,
-          "garbled": [
-            "block whose translation does not fit its own"
-          ],
-          "scale": 1
+          "garbled": ["block whose translation does not fit its own"],
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "The cost is latency and memory: a transformer that a server box is left in the source typesetting rather than shown cut",
@@ -2009,10 +2075,9 @@
           "placeholders": 0,
           "untranslated": true,
           "mixedLanguage": true,
-          "garbled": [
-            "the source typesetting rather than shown cut"
-          ],
-          "scale": 0.9450000000000001
+          "garbled": ["the source typesetting rather than shown cut"],
+          "scale": 0.9450000000000001,
+          "prose": true
         },
         {
           "source": "would run on an accelerator has to fit in a tab, compete with short. the",
@@ -2031,7 +2096,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "page for the GPU, and produce tokens one at a time in front of a",
@@ -2050,7 +2116,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "reader who is already looking at the text. 1 for block in page:",
@@ -2069,7 +2136,8 @@
           "untranslated": false,
           "mixedLanguage": true,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "This paper reports a working system rather than a 2 new if is_equation(block): continue",
@@ -2088,7 +2156,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "model. Section 2 describes the runtime, Section 3 the schedul‐ 3 emit(translate(block))",
@@ -2107,7 +2176,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "ing rules that decide what to translate first, and Section 4 the",
@@ -2126,7 +2196,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "measurements. Section 5 discusses the failure modes we could 2.2 Page model",
@@ -2145,7 +2216,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "not design away, and Section 6 lists the work that remains. A page is not a list of paragraphs. The collector therefore walks",
@@ -2163,10 +2235,9 @@
           "placeholders": 0,
           "untranslated": true,
           "mixedLanguage": true,
-          "garbled": [
-            "lists the work that remains"
-          ],
-          "scale": 0.9450000000000001
+          "garbled": ["lists the work that remains"],
+          "scale": 0.9450000000000001,
+          "prose": true
         },
         {
           "source": "the document rather than selecting a fixed set of tags, and it",
@@ -2185,7 +2256,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "2. System Design treats four shapes differently: ordinary prose, an item of a grid",
@@ -2204,7 +2276,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "or flex container, a cell of a repeating data row, and a container",
@@ -2223,7 +2296,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 0.8350000000000001
+          "scale": 0.8350000000000001,
+          "prose": true
         },
         {
           "source": "The extension is a Manifest V3 package with four processes. A",
@@ -2242,7 +2316,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "that owns text of its own beside its children. The distinction",
@@ -2261,7 +2336,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "service worker owns the lifetime of everything else. An off‐",
@@ -2280,7 +2356,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "matters because a translation is written back into the text nodes",
@@ -2299,7 +2376,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "screen document hosts the runtime, because a service worker",
@@ -2318,7 +2396,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "the source already had. A row laid out as a grid becomes a verti‐",
@@ -2337,7 +2416,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 0.89
+          "scale": 0.89,
+          "prose": true
         },
         {
           "source": "cannot hold a WebAssembly heap across a suspension. A con‐",
@@ -2356,7 +2436,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "cal pile if its translation lands between the cells instead of inside",
@@ -2375,7 +2456,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "tent script walks the page and writes translations back into the",
@@ -2394,7 +2476,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "them.",
@@ -2413,7 +2496,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 0.8133333333333332
+          "scale": 0.8133333333333332,
+          "prose": false
         },
         {
           "source": "document. Popup, options and onboarding pages render the",
@@ -2432,7 +2516,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "settings. Inline elements that are not prose — code, keyboard keys,",
@@ -2451,7 +2536,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "sample output, pronunciation and citation markers — stay in the",
@@ -2470,7 +2556,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "2.1 Runtime document untouched and become numbered placeholders in the",
@@ -2489,7 +2576,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "The model is PLaMo 3 Translate, an 0.8-billion-parameter text de‐ the model sees. The model is asked to keep each place‐",
@@ -2508,7 +2596,8 @@
           "untranslated": false,
           "mixedLanguage": true,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "coder trained for translation in 53 languages in either direction, holder where the sentence had it, and a translation that moves or",
@@ -2527,7 +2616,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 0.9450000000000001
+          "scale": 0.9450000000000001,
+          "prose": true
         },
         {
           "source": "quantised to four bits per weight. The published WebAssembly drops one is rejected and retried without placeholders.",
@@ -2546,7 +2636,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "build of llama.cpp cannot load its tokenizer, so the extension",
@@ -2565,7 +2656,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": true
         },
         {
           "source": "41 s",
@@ -2584,7 +2676,8 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 1,
+          "prose": false
         }
       ],
       "overlapPairs": 0,
@@ -2595,7 +2688,8 @@
       "readingOrder": 1,
       "twoColumn": false,
       "firstBlockMs": 814,
-      "pageMs": 101
+      "pageMs": 101,
+      "skippedProse": 0
     }
   ]
 }

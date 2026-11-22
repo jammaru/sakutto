@@ -21,11 +21,14 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { chromium } from '@playwright/test';
 
 import {
+  countsAsProse,
   expectedReadingOrder,
   garbledTokens,
   isMixedLanguage,
+  isProseLike,
   normalizeText,
   orderAccuracy,
+  PROSE_ROLE,
   summarize,
   type QualityEntry,
   type QualityPage,
@@ -98,7 +101,9 @@ interface Extracted {
 
 function option(name: string, fallback: string): string {
   const index = process.argv.indexOf(name);
-  return index >= 0 && process.argv[index + 1] !== undefined ? process.argv[index + 1] ?? fallback : fallback;
+  return index >= 0 && process.argv[index + 1] !== undefined
+    ? (process.argv[index + 1] ?? fallback)
+    : fallback;
 }
 function flag(name: string): boolean {
   return process.argv.includes(name);
@@ -129,7 +134,11 @@ async function loadPdfModule<T>(name: string): Promise<T> {
 }
 
 const { extractPage } = await loadPdfModule<{
-  extractPage: (page: unknown, index: number, codes: Record<string, number> | null) => Promise<Extracted>;
+  extractPage: (
+    page: unknown,
+    index: number,
+    codes: Record<string, number> | null,
+  ) => Promise<Extracted>;
 }>('extract.ts');
 const { layoutPage } = await loadPdfModule<{
   layoutPage: (lines: readonly TextLine[], figures: unknown, page?: object) => Layout;
@@ -146,7 +155,11 @@ const { placePage, paintedCoverOverlaps } = await loadPdfModule<{
   paintedCoverOverlaps: (placed: readonly Placed[], pageWidth: number) => number;
 }>('place.ts');
 const { pageMetrics } = await loadPdfModule<{
-  pageMetrics: (layout: Layout, placed: readonly Placed[], page: Box) => {
+  pageMetrics: (
+    layout: Layout,
+    placed: readonly Placed[],
+    page: Box,
+  ) => {
     overlapPairs: number;
     overlapArea: number;
     overflow: number;
@@ -156,7 +169,10 @@ const { pageMetrics } = await loadPdfModule<{
 const { protectInlineMath, restoreInlineMath, shouldSkipInlineMath } = await loadPdfModule<{
   protectInlineMath: (block: Block) => { text: string; slots: unknown[] };
   restoreInlineMath: (text: string, slots: unknown[]) => string | null;
-  shouldSkipInlineMath: (protectedText: { text: string; slots: unknown[] }, source: string) => boolean;
+  shouldSkipInlineMath: (
+    protectedText: { text: string; slots: unknown[] },
+    source: string,
+  ) => boolean;
 }>('protect.ts');
 const { translationEchoesSource, isSameLanguage } = await loadPdfModule<{
   translationEchoesSource: (source: string, output: string, target: string) => boolean;
@@ -168,9 +184,9 @@ const { ocrResultToPageLayout } = await loadPdfModule<{
     options: { pageIndex: number; pageWidth: number; pageHeight: number },
   ) => Layout;
 }>('ocr.ts');
-const { groupReadingLines } = await import(
+const { groupReadingLines } = (await import(
   pathToFileURL(resolve(ROOT, 'src/engine/ocr/order.ts')).href
-) as {
+)) as {
   groupReadingLines: (regions: readonly unknown[]) => unknown[];
 };
 
@@ -178,7 +194,9 @@ const { groupReadingLines } = await import(
 function measure(_block: Block, text: string, size: number): number {
   let width = 0;
   for (const character of text) {
-    width += /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u.test(character)
+    width += /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u.test(
+      character,
+    )
       ? size
       : size * 0.5;
   }
@@ -186,12 +204,39 @@ function measure(_block: Block, text: string, size: number): number {
 }
 
 const KNOWN: Record<string, string> = {
-  the: 'その', a: '一つの', an: '一つの', and: 'そして', or: 'または', of: 'の', to: 'へ',
-  in: 'において', for: 'のために', with: 'ともに', is: 'である', are: 'である', we: '我々は',
-  this: 'この', that: 'その', as: 'として', by: 'により', from: 'から', on: 'の上で',
-  it: 'それは', be: 'である', can: 'できる', model: 'モデル', paper: '論文',
-  attention: '注意', layer: '層', translation: '翻訳', language: '言語', system: 'システム',
-  method: '手法', result: '結果', data: 'データ', using: 'を用いて',
+  the: 'その',
+  a: '一つの',
+  an: '一つの',
+  and: 'そして',
+  or: 'または',
+  of: 'の',
+  to: 'へ',
+  in: 'において',
+  for: 'のために',
+  with: 'ともに',
+  is: 'である',
+  are: 'である',
+  we: '我々は',
+  this: 'この',
+  that: 'その',
+  as: 'として',
+  by: 'により',
+  from: 'から',
+  on: 'の上で',
+  it: 'それは',
+  be: 'である',
+  can: 'できる',
+  model: 'モデル',
+  paper: '論文',
+  attention: '注意',
+  layer: '層',
+  translation: '翻訳',
+  language: '言語',
+  system: 'システム',
+  method: '手法',
+  result: '結果',
+  data: 'データ',
+  using: 'を用いて',
 };
 
 /**
@@ -200,7 +245,9 @@ const KNOWN: Record<string, string> = {
  * means the pipeline mixed untranslatable material into prose rather than an engine quirk.
  */
 function fakeTranslate(text: string): string {
-  const tokens = text.split(/(\s+|<i\d+>)/u).filter((part) => part.length > 0 && !/^\s+$/u.test(part));
+  const tokens = text
+    .split(/(\s+|<i\d+>)/u)
+    .filter((part) => part.length > 0 && !/^\s+$/u.test(part));
   return tokens
     .map((token) => {
       if (/^<i\d+>$/u.test(token)) return token;
@@ -230,22 +277,24 @@ async function translateBlocks(
   const translations = new Map<Block, string>();
   let firstMs = 0;
   let cursor = 0;
-  const workers = Array.from({ length: Math.max(1, Math.min(concurrency, blocks.length || 1)) }, () =>
-    (async () => {
-      for (;;) {
-        const index = cursor;
-        cursor += 1;
-        const block = blocks[index];
-        if (!block) return;
-        const protectedText = protectInlineMath(block);
-        const delay = ttfbMs + protectedText.text.length * msPerChar;
-        await sleep(delay);
-        const output = fakeTranslate(protectedText.text);
-        const restored = restoreInlineMath(output, protectedText.slots);
-        translations.set(block, restored ?? '');
-        if (firstMs === 0) firstMs = Date.now() - started;
-      }
-    })(),
+  const workers = Array.from(
+    { length: Math.max(1, Math.min(concurrency, blocks.length || 1)) },
+    () =>
+      (async () => {
+        for (;;) {
+          const index = cursor;
+          cursor += 1;
+          const block = blocks[index];
+          if (!block) return;
+          const protectedText = protectInlineMath(block);
+          const delay = ttfbMs + protectedText.text.length * msPerChar;
+          await sleep(delay);
+          const output = fakeTranslate(protectedText.text);
+          const restored = restoreInlineMath(output, protectedText.slots);
+          translations.set(block, restored ?? '');
+          if (firstMs === 0) firstMs = Date.now() - started;
+        }
+      })(),
   );
   await Promise.all(workers);
   return { translations, firstMs };
@@ -269,7 +318,14 @@ async function arxivBytes(): Promise<Uint8Array> {
 
 /** Simulated detector output for scan.pdf: perfect word boxes from paper.pdf's text layer. */
 function pseudoOcrRegions(lines: readonly TextLine[]): unknown[] {
-  const regions: Array<{ text: string; quad: unknown; confidence: number; vertical: boolean; recognitionConfidence: number; symbolScores: number[] }> = [];
+  const regions: Array<{
+    text: string;
+    quad: unknown;
+    confidence: number;
+    vertical: boolean;
+    recognitionConfidence: number;
+    symbolScores: number[];
+  }> = [];
   for (const line of lines) {
     const words = line.text.split(/\s+/u).filter(Boolean);
     if (words.length === 0) continue;
@@ -311,30 +367,37 @@ async function renderShots(report: unknown): Promise<void> {
       headless: true,
       args: ['--no-sandbox'],
     });
-    const page = await browser.newPage({ viewport: { width: 1100, height: 1500 }, deviceScaleFactor: 1 });
+    const page = await browser.newPage({
+      viewport: { width: 1100, height: 1500 },
+      deviceScaleFactor: 1,
+    });
     page.on('pageerror', (error) => console.error('viewer:', error.message));
     await page.goto(server.origin + '/scripts/bench/pdf-quality-view.html');
     await page.waitForFunction('window.__pdfReady === true', null, { timeout: 20_000 });
-    const shots = report as Array<{ fixture: string; page: number; url: string; overlays: unknown[] }>;
+    const shots = report as Array<{
+      fixture: string;
+      page: number;
+      url: string;
+      overlays: unknown[];
+    }>;
     for (const shot of shots) {
-      await page.evaluate(
-        async (data) => {
-          await (globalThis as unknown as {
+      await page.evaluate(async (data) => {
+        await (
+          globalThis as unknown as {
             __renderPdf: (value: {
               url: string;
               page: number;
               scale: number;
               overlays: unknown[];
             }) => Promise<unknown>;
-          }).__renderPdf({
-            url: location.origin + data.url,
-            page: data.page,
-            scale: 1.25,
-            overlays: data.overlays,
-          });
-        },
-        shot,
-      );
+          }
+        ).__renderPdf({
+          url: location.origin + data.url,
+          page: data.page,
+          scale: 1.25,
+          overlays: data.overlays,
+        });
+      }, shot);
       const directory = join(SHOTS, label);
       await mkdir(directory, { recursive: true });
       await page.locator('#sheet').screenshot({
@@ -375,12 +438,7 @@ async function main(): Promise<void> {
   let firstBlockMs = 0;
   for (const [fixture, source] of sources) {
     const requested = pageArg.length > 0 ? pageArg.split(',').map(Number) : [];
-    const selected =
-      requested.length > 0
-        ? requested
-        : fixture === 'arxiv'
-          ? [1, 3, 5]
-          : [1];
+    const selected = requested.length > 0 ? requested : fixture === 'arxiv' ? [1, 3, 5] : [1];
     const shotList = new Set(
       (shotArg.split(';').find((entry) => entry.startsWith(fixture + ':')) ?? '')
         .slice(fixture.length + 1)
@@ -465,9 +523,10 @@ async function main(): Promise<void> {
         .slice(0, 4)
         .map((block) => block.text)
         .join(' ');
-      const skippedProse = layout.skipped.filter((block) =>
-        (block.text.match(/\p{L}{3,}/gu)?.length ?? 0) >= 3,
+      const skippedProse = layout.skipped.filter(
+        (block) => (block.text.match(/\p{L}{3,}/gu)?.length ?? 0) >= 3,
       );
+      const skippedSet = new Set(skippedProse);
 
       for (const block of [...layout.blocks, ...skippedProse]) {
         const entry = byBlock.get(block);
@@ -475,13 +534,19 @@ async function main(): Promise<void> {
         const translation = normalizeText(translationOf(block));
         const delivered = entry !== undefined && translation.length > 0;
         const intentionallyKept =
-          isSameLanguage(block.text, 'ja', /[\p{Script=Han}\p{Script=Hiragana}]/u.test(pageLanguage) ? 'ja' : null) ||
-          shouldSkipInlineMath(protectInlineMath(block), block.text);
+          isSameLanguage(
+            block.text,
+            'ja',
+            /[\p{Script=Han}\p{Script=Hiragana}]/u.test(pageLanguage) ? 'ja' : null,
+          ) || shouldSkipInlineMath(protectInlineMath(block), block.text);
         const echoed =
           delivered &&
           (translationEchoesSource(source, translation, 'ja') || translation === source);
-        const untranslated =
-          !delivered || echoed || (intentionallyKept && /^(prose|heading|caption|cell)$/u.test(block.role));
+        const proseRole = PROSE_ROLE.test(block.role);
+        // A skipped block mislabelled `code` can still be a whole English sentence. Count it
+        // as prose so it cannot disappear from the headline untranslated rate.
+        const prose = proseRole || (skippedSet.has(block) && isProseLike(block.text));
+        const untranslated = !delivered || echoed || (intentionallyKept && proseRole);
         entries.push({
           source,
           translation,
@@ -492,9 +557,13 @@ async function main(): Promise<void> {
           delivered,
           placeholders: (translation.match(/<i\d+>/gu) ?? []).length,
           untranslated,
+          prose,
           mixedLanguage: delivered && isMixedLanguage(translation),
           garbled: [...garbledTokens(source), ...(delivered ? garbledTokens(translation) : [])],
-          scale: entry?.fit && entry.fit.fontSize > 0 ? entry.fit.fontSize / Math.max(1, block.fontSize) : 1,
+          scale:
+            entry?.fit && entry.fit.fontSize > 0
+              ? entry.fit.fontSize / Math.max(1, block.fontSize)
+              : 1,
         });
       }
 
@@ -515,14 +584,18 @@ async function main(): Promise<void> {
         page: number,
         entries,
         overlapPairs: Math.max(metrics.overlapPairs, coverOverlaps),
-        overflow: metrics.overflow + placed.filter((entry) => entry.overflow && !entry.paint).length,
+        overflow:
+          metrics.overflow + placed.filter((entry) => entry.overflow && !entry.paint).length,
         shrunk: placed.filter(
-          (entry) => entry.paint && entry.fit !== null && entry.fit.fontSize < entry.block.fontSize * 0.75,
+          (entry) =>
+            entry.paint && entry.fit !== null && entry.fit.fontSize < entry.block.fontSize * 0.75,
         ).length,
-        untranslatedProse: entries.filter(
-          (entry) => /^(prose|heading|caption|cell)$/u.test(entry.role) && entry.untranslated,
+        untranslatedProse: entries.filter((entry) => countsAsProse(entry) && entry.untranslated)
+          .length,
+        proseBlocks: entries.filter(countsAsProse).length,
+        skippedProse: entries.filter(
+          (entry) => countsAsProse(entry) && !PROSE_ROLE.test(entry.role),
         ).length,
-        proseBlocks: entries.filter((entry) => /^(prose|heading|caption|cell)$/u.test(entry.role)).length,
         readingOrder: orderAccuracy(
           layout.blocks.map((_block, index) => 'k' + String(index)),
           geometric.keys,
@@ -601,28 +674,62 @@ async function main(): Promise<void> {
   await writeFile(reportPath, JSON.stringify(report, null, 2) + '\n');
 
   const markdownRow = (name: string, s: ReturnType<typeof summarize>): string =>
-    '| ' + name + ' | ' + String(s.pages) + ' | ' + (s.untranslatedProseRate * 100).toFixed(1) + '% | ' +
-      (s.mixedLanguageRate * 100).toFixed(1) + '% | ' + (s.garbledTokenRate * 100).toFixed(2) + '% | ' +
-      s.overlapRate.toFixed(3) + ' | ' + s.overflowRate.toFixed(3) + ' |';
+    '| ' +
+    name +
+    ' | ' +
+    String(s.pages) +
+    ' | ' +
+    String(s.skippedProseBlocks) +
+    ' | ' +
+    (s.untranslatedProseRate * 100).toFixed(1) +
+    '% | ' +
+    (s.mixedLanguageRate * 100).toFixed(1) +
+    '% | ' +
+    (s.garbledTokenRate * 100).toFixed(2) +
+    '% | ' +
+    s.overlapRate.toFixed(3) +
+    ' | ' +
+    s.overflowRate.toFixed(3) +
+    ' |';
   const markdown = [
-    '| label | pages | untranslated prose | mixed language | garbled tokens | overlap/box | overflow/box | reading order | first block ms | full ms |',
-    '| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |',
-    '| ' + label + ' | ' + String(summary.pages) + ' | ' + (summary.untranslatedProseRate * 100).toFixed(1) + '% | ' +
-      (summary.mixedLanguageRate * 100).toFixed(1) + '% | ' + (summary.garbledTokenRate * 100).toFixed(2) + '% | ' +
-      summary.overlapRate.toFixed(3) + ' | ' + summary.overflowRate.toFixed(3) + ' | ' +
-      (summary.readingOrderAccuracy * 100).toFixed(1) + '% | ' + String(summary.firstTranslatedBlockMs) + ' | ' +
-      String(summary.fullDocumentMs) + ' |',
+    '| label | pages | skipped prose | untranslated prose | mixed language | garbled tokens | overlap/box | overflow/box | reading order | first block ms | full ms |',
+    '| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |',
+    '| ' +
+      label +
+      ' | ' +
+      String(summary.pages) +
+      ' | ' +
+      String(summary.skippedProseBlocks) +
+      ' | ' +
+      (summary.untranslatedProseRate * 100).toFixed(1) +
+      '% | ' +
+      (summary.mixedLanguageRate * 100).toFixed(1) +
+      '% | ' +
+      (summary.garbledTokenRate * 100).toFixed(2) +
+      '% | ' +
+      summary.overlapRate.toFixed(3) +
+      ' | ' +
+      summary.overflowRate.toFixed(3) +
+      ' | ' +
+      (summary.readingOrderAccuracy * 100).toFixed(1) +
+      '% | ' +
+      String(summary.firstTranslatedBlockMs) +
+      ' | ' +
+      String(summary.fullDocumentMs) +
+      ' |',
   ].join('\n');
   const realRuns = Array.isArray(realOcr) ? realOcr : [];
   const fullMarkdown = [
     markdown,
     '',
+    '"skipped prose" counts blocks the layout skipped as code/labels that still contain a natural-language sentence; they are part of the prose denominator and the untranslated rate.',
+    '',
     '## Text source split',
     '',
     'The scan fixture above is SIMULATED OCR: scan.pdf supplies the page size and background, but word boxes are synthesized from paper.pdf text. It measures OCR layout and placement, not recognition. Real recognition on scan.pdf is measured separately with pnpm bench:pdf:scan:ocr and listed below; never read the simulated scan row as a real-scan result.',
     '',
-    '| text source | pages | untranslated prose | mixed language | garbled tokens | overlap/box | overflow/box |',
-    '| --- | ---: | ---: | ---: | ---: | ---: | ---: |',
+    '| text source | pages | skipped prose | untranslated prose | mixed language | garbled tokens | overlap/box | overflow/box |',
+    '| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |',
     markdownRow('native (paper, arxiv)', byTextSource.native.summary),
     markdownRow('simulated OCR (scan)', byTextSource['simulated-ocr'].summary),
     '',
@@ -632,14 +739,37 @@ async function main(): Promise<void> {
     '| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |',
     ...realRuns.map((run) => {
       const item = run as Record<string, number | string>;
-      return '| ' + item.variant + ' | ' + Number(item.cer).toFixed(3) + ' | ' + Number(item.wer).toFixed(3) +
-        ' | ' + item.lines + ' | ' + item.blocks + ' | ' + item.skipped + ' | ' +
-        item.crossColumnCovers + ' | ' + item.overlapPairs + ' | ' + item.overflow + ' |';
+      return (
+        '| ' +
+        item.variant +
+        ' | ' +
+        Number(item.cer).toFixed(3) +
+        ' | ' +
+        Number(item.wer).toFixed(3) +
+        ' | ' +
+        item.lines +
+        ' | ' +
+        item.blocks +
+        ' | ' +
+        item.skipped +
+        ' | ' +
+        item.crossColumnCovers +
+        ' | ' +
+        item.overlapPairs +
+        ' | ' +
+        item.overflow +
+        ' |'
+      );
     }),
   ].join('\n');
   const historyPath = join(OUT, 'history.md');
   const previousHistory = await readFile(historyPath, 'utf8').catch(() => '');
-  await appendFile(historyPath, previousHistory.includes('| label | pages |') ? markdown.split('\n').slice(2).join('\n') + '\n' : markdown + '\n');
+  await appendFile(
+    historyPath,
+    previousHistory.includes('| label | pages |')
+      ? markdown.split('\n').slice(2).join('\n') + '\n'
+      : markdown + '\n',
+  );
   await writeFile(join(OUT, label + '.md'), fullMarkdown + '\n');
 
   if (takeShots && shots.length > 0) await renderShots(shots);
@@ -649,11 +779,23 @@ async function main(): Promise<void> {
   for (const page of pages) {
     const untranslated = page.entries.filter((entry) => entry.untranslated).slice(0, 3);
     console.log(
-      '  ' + page.fixture + ' p' + String(page.page) + ': blocks=' + String(page.entries.length) +
-        ' prose=' + String(page.proseBlocks) + ' untranslated=' + String(page.untranslatedProse) +
-        ' overlap=' + String(page.overlapPairs) + ' garbled=' +
+      '  ' +
+        page.fixture +
+        ' p' +
+        String(page.page) +
+        ': blocks=' +
+        String(page.entries.length) +
+        ' prose=' +
+        String(page.proseBlocks) +
+        ' untranslated=' +
+        String(page.untranslatedProse) +
+        ' overlap=' +
+        String(page.overlapPairs) +
+        ' garbled=' +
         String(page.entries.reduce((sum, entry) => sum + entry.garbled.length, 0)) +
-        ' order=' + page.readingOrder.toFixed(2) + (page.twoColumn ? ' (2col)' : ''),
+        ' order=' +
+        page.readingOrder.toFixed(2) +
+        (page.twoColumn ? ' (2col)' : ''),
     );
     for (const entry of untranslated) {
       console.log('    kept: ' + entry.role + ' — ' + entry.source.slice(0, 80));
@@ -663,6 +805,6 @@ async function main(): Promise<void> {
 }
 
 void main().catch((error: unknown) => {
-  console.error(error instanceof Error ? error.stack ?? error.message : String(error));
+  console.error(error instanceof Error ? (error.stack ?? error.message) : String(error));
   process.exitCode = 1;
 });

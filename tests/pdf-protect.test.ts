@@ -154,11 +154,14 @@ describe('protectInlineMath', () => {
     expect(protectedText.text).toContain('Table 3.');
   });
 
-
-
   it('does not mistake a long word on a shifted line for a superscript', () => {
     const lines = groupLines([
-      piece('The dominant sequence transduction models are based on complex recurrent', 49, 100, 420),
+      piece(
+        'The dominant sequence transduction models are based on complex recurrent',
+        49,
+        100,
+        420,
+      ),
       piece('Experiments on two machine translation tasks show these models to', 38, 100, 360),
       piece('be superior in quality while being more parallelizable and requiring', 27, 100, 360),
     ]);
@@ -188,6 +191,32 @@ describe('protectInlineMath', () => {
     expect(restored).not.toBeNull();
     expect(restored).toContain('∈');
     expect(restored).not.toContain('<i0>');
+  });
+
+  it('translates leading prose instead of protecting it with the formula', () => {
+    const cases = [
+      { source: 'Let A ∈ R n×n be an invertible matrix.', lead: 'Let ', word: 'Let' },
+      { source: 'For x ∈ R n we define f(x).', lead: 'For ', word: 'For' },
+      { source: 'If x ∈ R n then f(x) ∈ R m.', lead: 'If ', word: 'If' },
+      { source: 'This is a 3 × 3 kernel.', lead: 'This is a ', word: 'a' },
+      { source: 'A 3 × 3 kernel is used.', lead: 'A ', word: 'A' },
+    ];
+    for (const { source, lead, word } of cases) {
+      const lines = groupLines([piece(source, 49, 100, 430)]);
+      const block = layoutPage(lines).blocks[0];
+      if (!block) throw new Error('expected a block');
+      const protectedText = protectInlineMath(block);
+      expect(protectedText.text.startsWith(lead), source).toBe(true);
+      expect(protectedText.slots.length, source).toBeGreaterThan(0);
+      for (const slot of protectedText.slots) {
+        expect(slot.text.startsWith(word + ' '), source).toBe(false);
+        expect(slot.text.startsWith(lead), source).toBe(false);
+      }
+      expectSourcePreserved(protectedText, source);
+      // The model sees the prose, so a normal Japanese response restores only the notation.
+      const tags = protectedText.slots.map((_slot, index) => `<i${String(index)}>`).join('');
+      expect(restoreInlineMath('訳文 ' + tags + ' です。', protectedText.slots)).not.toBeNull();
+    }
   });
 
   it('leaves an ordinary sentence containing a multiplication sign untouched', () => {

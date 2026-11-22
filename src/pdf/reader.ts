@@ -292,7 +292,6 @@ export class PdfReader {
     this.applyScale();
   }
 
-
   /** True when the reader shows a reflowed translation beside the original page. */
   isBilingual(): boolean {
     return this.bilingual;
@@ -658,9 +657,7 @@ export class PdfReader {
       element.host.style.height = twoColumns ? '' : `${pageHeight.toFixed(2)}px`;
       element.translatedPane.style.width = `${pageWidth.toFixed(2)}px`;
       element.originalPane.style.width = `${pageWidth.toFixed(2)}px`;
-      element.translatedStage.style.height = this.bilingual
-        ? ''
-        : `${pageHeight.toFixed(2)}px`;
+      element.translatedStage.style.height = this.bilingual ? '' : `${pageHeight.toFixed(2)}px`;
       element.originalStage.style.height = `${pageHeight.toFixed(2)}px`;
       // A canvas drawn at the old scale has the wrong size for the new one. Cancelling
       // bumps the draw generation so the abandoned render cannot mark this as a failure.

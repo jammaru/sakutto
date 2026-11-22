@@ -20,7 +20,11 @@ import {
   columnOrderAccuracy,
   blockIoU,
 } from '../scripts/bench/ocr-metrics.ts';
-import { scaleOcrImage, otsuBinarizeOcrImage, contrastOcrImage } from '../src/engine/ocr/preprocess.ts';
+import {
+  scaleOcrImage,
+  otsuBinarizeOcrImage,
+  contrastOcrImage,
+} from '../src/engine/ocr/preprocess.ts';
 
 const quad = (x: number, y: number, width: number, height: number): BenchQuad => [
   { x, y },
@@ -110,10 +114,11 @@ describe('OCR benchmark metrics', () => {
   });
 });
 
-
 describe('OCR preprocessing and layout metrics', () => {
   const tiny = {
-    data: new Uint8ClampedArray([0, 0, 0, 255, 255, 255, 255, 255, 20, 20, 20, 255, 240, 240, 240, 255]),
+    data: new Uint8ClampedArray([
+      0, 0, 0, 255, 255, 255, 255, 255, 20, 20, 20, 255, 240, 240, 240, 255,
+    ]),
     width: 2,
     height: 2,
   };
@@ -133,7 +138,13 @@ describe('OCR preprocessing and layout metrics', () => {
   it('scores reading order, column order and block geometry', () => {
     expect(lineOrderAccuracy(['a b', 'c d'], ['a b', 'c d']).accuracy).toBe(1);
     expect(lineOrderAccuracy(['a b', 'c d'], ['c d', 'a b']).accuracy).toBe(0);
-    expect(columnOrderAccuracy([quad(0, 0, 10, 10), quad(50, 0, 10, 10)], [quad(0, 0, 10, 10), quad(50, 0, 10, 10)], 100)).toBe(1);
+    expect(
+      columnOrderAccuracy(
+        [quad(0, 0, 10, 10), quad(50, 0, 10, 10)],
+        [quad(0, 0, 10, 10), quad(50, 0, 10, 10)],
+        100,
+      ),
+    ).toBe(1);
     expect(blockIoU([quad(0, 0, 10, 10)], [quad(0, 0, 10, 10)])).toBe(1);
   });
 });

@@ -1,7 +1,10 @@
-| label | pages | untranslated prose | mixed language | garbled tokens | overlap/box | overflow/box | reading order | first block ms | full ms |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| baseline | 5 | 13.0% | 20.9% | 0.84% | 0.000 | 0.062 | 98.3% | 307 | 909 |
-| final | 5 | 0.0% | 10.8% | 0.28% | 0.000 | 0.046 | 98.3% | 261 | 823 |
+| label    | pages | skipped prose | untranslated prose | mixed language | garbled tokens | overlap/box | overflow/box | reading order | first block ms | full ms |
+| -------- | ----: | ------------: | -----------------: | -------------: | -------------: | ----------: | -----------: | ------------: | -------------: | ------: |
+| baseline |     5 |             — |     13.0% (旧指標) |          20.9% |          0.84% |       0.000 |        0.062 |         98.3% |            307 |     909 |
+| final    |     5 |             — |      0.0% (旧指標) |          10.8% |          0.28% |       0.000 |        0.046 |         98.3% |            261 |     823 |
+
+Rows without a skipped-prose column were recorded before that metric existed (the baseline was
+re-scored in baseline.json / baseline.md with the current definition: 13.8%).
 
 iter1 / iter2 runs are kept as separate JSON/MD files; the garbledToken metric was refined once
 after iter2 to also count a whole English clause left inside a translated block, and baseline and
@@ -11,3 +14,4 @@ final above use that final definition.
 | final | 5 | 0.0% | 10.8% | 0.28% | 0.000 | 0.046 | 98.3% | 261 | 823 |
 | final | 5 | 0.0% | 10.8% | 0.28% | 0.000 | 0.046 | 98.3% | 245 | 791 |
 | final | 5 | 0.0% | 6.7% | 0.24% | 0.000 | 0.066 | 97.9% | 274 | 859 |
+| final | 5 | 2 | 1.9% | 6.7% | 0.24% | 0.000 | 0.066 | 97.9% | 316 | 930 |

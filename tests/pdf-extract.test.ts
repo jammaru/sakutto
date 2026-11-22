@@ -241,7 +241,6 @@ describe('extractPage rotation', () => {
   });
 });
 
-
 describe('glyph run normalization', () => {
   it('expands ligatures and removes invisible spacing before translation', () => {
     expect(normalizeGlyphRun('e\ufb03cient\u00a0model')).toBe('efficient model');

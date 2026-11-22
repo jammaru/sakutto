@@ -29,6 +29,8 @@ export interface QualityEntry {
   untranslated: boolean;
   /** True when the translation switches between Japanese and English inside one block. */
   mixedLanguage: boolean;
+  /** Counted in the prose denominator; skipped prose can carry a `code` role. */
+  prose?: boolean;
   /** Suspicious source/translation tokens in this block. */
   garbled: string[];
   /** Fitted size / source size for a painted block. */
@@ -50,6 +52,8 @@ export interface QualityPage {
   /** Prose blocks with no visible translation and no marker. */
   untranslatedProse: number;
   proseBlocks: number;
+  /** Skipped blocks with natural-language prose, including those misclassified as code. */
+  skippedProse: number;
   /** Correctly ordered adjacent pairs / all adjacent pairs, 0-1. */
   readingOrder: number;
   twoColumn: boolean;
@@ -61,6 +65,8 @@ export interface QualityPage {
 export interface QualitySummary {
   pages: number;
   proseBlocks: number;
+  /** Prose blocks that were skipped by the layout, including misclassified code. */
+  skippedProseBlocks: number;
   untranslatedProseRate: number;
   mixedLanguageRate: number;
   garbledTokenRate: number;
@@ -105,7 +111,8 @@ export function garbledTokens(text: string): string[] {
   // A ligature or soft hyphen that survived extraction is a source-side defect.
   for (const match of text.match(/[\ufb00-\ufb06\u00ad]/gu) ?? []) push(match);
   // "l,rge", "e'sembles": punctuation or a quote inside a word.
-  for (const match of normalized.match(/[A-Za-z][,;:\u2019\u00b7][A-Za-z]{1,}/gu) ?? []) push(match);
+  for (const match of normalized.match(/[A-Za-z][,;:\u2019\u00b7][A-Za-z]{1,}/gu) ?? [])
+    push(match);
   // A line-break hyphen that was not joined back to its word: "English- to-German".
   for (const match of normalized.match(/\p{L}-\s+\p{Ll}/gu) ?? []) push(match);
   // A base letter separated from its relation by spaces: "R d model × d k".
@@ -113,7 +120,9 @@ export function garbledTokens(text: string): string[] {
   // A whole English clause left inside a Japanese translation: the visible symptom of lines
   // from two columns being joined into one prompt.
   if (CJK_CHAR.test(normalized)) {
-    for (const match of normalized.match(/(?<![A-Za-z])[A-Za-z]{3,}(?:\s+[A-Za-z]{3,}){3,}(?![A-Za-z])/gu) ?? []) {
+    for (const match of normalized.match(
+      /(?<![A-Za-z])[A-Za-z]{3,}(?:\s+[A-Za-z]{3,}){3,}(?![A-Za-z])/gu,
+    ) ?? []) {
       push(match.slice(0, 48));
     }
   }
@@ -126,6 +135,38 @@ export function garbledTokens(text: string): string[] {
 
 const LATIN_WORD = /[A-Za-z]{3,}/gu;
 const CJK_CHAR = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u;
+export const PROSE_ROLE = /^(prose|heading|caption|cell)$/u;
+
+/**
+ * True when skipped text is a natural-language sentence rather than source code or notation.
+ *
+ * The OCR layout can misclassify a prose line that shares a row with a listing as `code`. Such
+ * a block is still untranslated prose on the page; hiding it behind its role would report 0%
+ * untranslated while the reader sees English. Require several words and prose function words,
+ * and reject punctuation-heavy listings unless a prose marker (Section/Figure/Table) is present.
+ */
+export function isProseLike(text: string): boolean {
+  const normalized = normalizeText(text);
+  const words = normalized.match(LATIN_WORD) ?? [];
+  if (words.length < 3) return false;
+  const functionWords =
+    normalized.match(
+      /\b(?:the|and|of|is|are|we|this|that|these|those|which|with|for|from|by|as|in|on|to|it|its|be|was|were|has|have|can|then|when|where|section|figure|table|describes|shows|proposes|reports|uses|used)\b/giu,
+    ) ?? [];
+  if (functionWords.length < 2) return false;
+  // A numbered listing line can use ordinary words ("1 for block in page:").
+  if (/^\d+\s+(?:for|if|while|return|emit|continue|def|let|var)\b/iu.test(normalized)) {
+    return false;
+  }
+  const codeMarkers = (normalized.match(/[{}();:=]/gu) ?? []).length;
+  if (codeMarkers >= 3 && !/\b(?:section|figure|table)\b/iu.test(normalized)) return false;
+  return true;
+}
+
+/** Role-based fallback keeps previously recorded reports comparable. */
+export function countsAsProse(entry: Pick<QualityEntry, 'role' | 'prose'>): boolean {
+  return entry.prose ?? PROSE_ROLE.test(entry.role);
+}
 
 /** True when one block contains both real Japanese text and a run of English words. */
 export function isMixedLanguage(text: string): boolean {
@@ -189,9 +230,14 @@ export function expectedReadingOrder(
 }
 
 /** Aggregates page measurements into the rates printed in the PR table. */
-export function summarize(pages: readonly QualityPage[], firstMs: number, totalMs: number): QualitySummary {
+export function summarize(
+  pages: readonly QualityPage[],
+  firstMs: number,
+  totalMs: number,
+): QualitySummary {
   const entries = pages.flatMap((page) => page.entries);
-  const prose = entries.filter((entry) => /^(prose|heading|caption|cell)$/u.test(entry.role));
+  const prose = entries.filter(countsAsProse);
+  const skippedProse = prose.filter((entry) => !PROSE_ROLE.test(entry.role));
   const sources = entries.flatMap((entry) => [
     entry.source,
     entry.delivered ? entry.translation : '',
@@ -210,6 +256,7 @@ export function summarize(pages: readonly QualityPage[], firstMs: number, totalM
   return {
     pages: pages.length,
     proseBlocks: prose.length,
+    skippedProseBlocks: skippedProse.length,
     untranslatedProseRate:
       prose.length === 0 ? 0 : prose.filter((entry) => entry.untranslated).length / prose.length,
     mixedLanguageRate:

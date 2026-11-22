@@ -595,6 +595,45 @@ describe('placePage', () => {
     expect(metrics.crossColumnCovers).toBe(1);
   });
 
+  it('counts a same-baseline merge across a 15pt gutter as a cross-column cover', () => {
+    const pageWidth = 595;
+    const block: LayoutBlock = {
+      box: { x: 45, y: 100, width: 515, height: 24 },
+      room: { x: 45, y: 100, width: 515, height: 24 },
+      lines: [
+        lineFrom([
+          piece('left column words here', 45, 112, 250),
+          piece('right column words here', 310, 112, 250),
+        ]),
+      ],
+      text: 'left column words here right column words here',
+      role: 'prose',
+      fontSize: 9,
+      lineHeight: 1.2,
+      align: 'left',
+      bold: false,
+      italic: false,
+      column: -1,
+      advance: 515,
+      writing: 0,
+    };
+    const fit = {
+      fits: true as const,
+      fontSize: 9,
+      lineHeight: 11,
+      lines: ['二つの列をまたぐ訳文'],
+      height: 22,
+      grown: false,
+      width: 500,
+    };
+    const drawn = drawnBox(block, fit, fit.width, pageWidth);
+    const metrics = paintIntegrityMetrics(
+      [{ block, translation: '二つの列をまたぐ訳文', fit, paint: true, drawn, overflow: false }],
+      pageWidth,
+    );
+    expect(metrics.crossColumnCovers).toBe(1);
+  });
+
   it('counts a merged row with offset baselines as a cross-column cover', () => {
     const pageWidth = 595;
     const block: LayoutBlock = {

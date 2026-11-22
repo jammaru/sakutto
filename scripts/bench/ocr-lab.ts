@@ -21,7 +21,11 @@ import {
 } from './ocr-metrics.ts';
 import { FIXTURE_DIRECTORY, OCR_FIXTURES } from './ocr-fixtures.ts';
 import { loadPairing, readRgbaFixture, type LoadedPairing, type Pairing } from './ocr-engine.ts';
-import { applyOcrPreprocess, scaleOcrImage, type OcrPreprocessStep } from '../../src/engine/ocr/preprocess.ts';
+import {
+  applyOcrPreprocess,
+  scaleOcrImage,
+  type OcrPreprocessStep,
+} from '../../src/engine/ocr/preprocess.ts';
 import { OcrPipeline } from '../../src/engine/ocr/pipeline.ts';
 import { decodeDbProbabilityMap } from '../../src/engine/ocr/db.ts';
 import { decodeCtcGreedy } from '../../src/engine/ocr/ctc.ts';
@@ -62,7 +66,11 @@ const EXPERIMENTS: readonly Experiment[] = [
   { id: 'denoise', category: 'preprocess', steps: ['denoise'] },
   { id: 'deskew', category: 'preprocess', steps: ['deskew'] },
   { id: 'trim', category: 'preprocess', steps: ['trim-border'] },
-  { id: 'gray+contrast+deskew', category: 'preprocess', steps: ['grayscale', 'contrast', 'deskew'] },
+  {
+    id: 'gray+contrast+deskew',
+    category: 'preprocess',
+    steps: ['grayscale', 'contrast', 'deskew'],
+  },
   { id: 'otsu+trim', category: 'preprocess', steps: ['otsu', 'trim-border'] },
   { id: 'sauvola+trim', category: 'preprocess', steps: ['sauvola', 'trim-border'] },
   { id: 'det-threshold-0.3', category: 'detection', detection: { threshold: 0.3 } },
@@ -76,12 +84,21 @@ const EXPERIMENTS: readonly Experiment[] = [
   { id: 'rerun-0.7', category: 'confidence', rerecognition: { threshold: 0.7, scale: 1.5 } },
   { id: 'adaptive-14', category: 'adaptive', adaptiveThreshold: 14 },
   { id: 'adaptive-18', category: 'adaptive', adaptiveThreshold: 18 },
-  { id: 'best-combo', category: 'combined', scale: 4 / 3, steps: ['grayscale', 'contrast'], detectionMaxSide: 1280, recognition: { height: 48, maxWidth: 4096 } },
+  {
+    id: 'best-combo',
+    category: 'combined',
+    scale: 4 / 3,
+    steps: ['grayscale', 'contrast'],
+    detectionMaxSide: 1280,
+    recognition: { height: 48, maxWidth: 4096 },
+  },
 ];
 
 function option(name: string, fallback: string): string {
   const index = process.argv.indexOf(name);
-  return index >= 0 && process.argv[index + 1] !== undefined ? process.argv[index + 1] ?? fallback : fallback;
+  return index >= 0 && process.argv[index + 1] !== undefined
+    ? (process.argv[index + 1] ?? fallback)
+    : fallback;
 }
 const label = option('--label', 'run');
 const pairing = option('--pairing', 'tiny_det+small_rec') as Pairing;
@@ -90,14 +107,19 @@ const experimentFilter = option('--experiments', '').split(',').filter(Boolean);
 
 const safe = (value: number): number => (Number.isFinite(value) ? value : 0);
 
-function mapQuad(quad: OcrQuad, map: (point: { x: number; y: number }) => { x: number; y: number }): OcrQuad {
+function mapQuad(
+  quad: OcrQuad,
+  map: (point: { x: number; y: number }) => { x: number; y: number },
+): OcrQuad {
   return quad.map(map) as unknown as OcrQuad;
 }
 
 function resultFromRegions(regions: readonly OcrRegion[]): OcrResult {
   const lines = groupReadingLines(regions);
   const text = lines
-    .map((line) => line.items.map((region) => region.text).join(line.orientation === 'horizontal' ? ' ' : ''))
+    .map((line) =>
+      line.items.map((region) => region.text).join(line.orientation === 'horizontal' ? ' ' : ''),
+    )
     .filter((value) => value.length > 0)
     .join('\n');
   return { regions: lines.flatMap((line) => line.items), lines, text };
@@ -105,7 +127,9 @@ function resultFromRegions(regions: readonly OcrRegion[]): OcrResult {
 
 function dedupeRegions(regions: readonly OcrRegion[]): OcrRegion[] {
   const kept: OcrRegion[] = [];
-  for (const region of [...regions].sort((a, b) => b.recognitionConfidence - a.recognitionConfidence)) {
+  for (const region of [...regions].sort(
+    (a, b) => b.recognitionConfidence - a.recognitionConfidence,
+  )) {
     const box = (quad: OcrQuad) => ({
       left: Math.min(...quad.map((point) => point.x)),
       right: Math.max(...quad.map((point) => point.x)),
@@ -143,7 +167,8 @@ async function runTiled(
         for (let x = 0; x < width; x += 1) {
           const source = ((top + y) * image.width + left + x) * 4;
           const target = (y * width + x) * 4;
-          for (let channel = 0; channel < 4; channel += 1) data[target + channel] = image.data[source + channel] ?? 0;
+          for (let channel = 0; channel < 4; channel += 1)
+            data[target + channel] = image.data[source + channel] ?? 0;
         }
       }
       const partial = await loaded.pipeline.run({ data, width, height });
@@ -169,31 +194,49 @@ async function runWithRerecognition(
     multiple: 32,
   });
   const probabilityMap = await loaded.runner.detect(detectionInput.tensor);
-  const detections = decodeDbProbabilityMap({
-    data: probabilityMap.data,
-    height: probabilityMap.height,
-    width: probabilityMap.width,
-  }, { ...loaded.detection, ...experiment.detection, transform: detectionInput.transform });
+  const detections = decodeDbProbabilityMap(
+    {
+      data: probabilityMap.data,
+      height: probabilityMap.height,
+      width: probabilityMap.width,
+    },
+    { ...loaded.detection, ...experiment.detection, transform: detectionInput.transform },
+  );
   const regions: OcrRegion[] = [];
   for (const detection of detections) {
     const crop = cropForRecognition(image, detection.quad, loaded.detection.verticalRatio);
-    const recognizeCrop = async (source: ImageDataLike): Promise<ReturnType<typeof decodeCtcGreedy>> => {
-      const input = preprocessRecognition(source, experiment.recognition ?? { height: 48, maxWidth: 4096 });
-      return decodeCtcGreedy(await loaded.runner.recognize(input), loaded.dictionary, { useSpaceChar: true });
+    const recognizeCrop = async (
+      source: ImageDataLike,
+    ): Promise<ReturnType<typeof decodeCtcGreedy>> => {
+      const input = preprocessRecognition(
+        source,
+        experiment.recognition ?? { height: 48, maxWidth: 4096 },
+      );
+      return decodeCtcGreedy(await loaded.runner.recognize(input), loaded.dictionary, {
+        useSpaceChar: true,
+      });
     };
     let decoded = await recognizeCrop(crop.image);
     if (decoded.confidence < threshold || decoded.text.length < 3) {
       const enlarged = scaleOcrImage(crop.image, scale).image;
       const retry = await recognizeCrop(enlarged);
-      if (retry.confidence > decoded.confidence || retry.text.length > decoded.text.length) decoded = retry;
+      if (retry.confidence > decoded.confidence || retry.text.length > decoded.text.length)
+        decoded = retry;
     }
-    regions.push({ ...detection, vertical: crop.vertical, text: decoded.text, recognitionConfidence: decoded.confidence, symbolScores: decoded.symbolScores });
+    regions.push({
+      ...detection,
+      vertical: crop.vertical,
+      text: decoded.text,
+      recognitionConfidence: decoded.confidence,
+      symbolScores: decoded.symbolScores,
+    });
   }
   return resultFromRegions(regions);
 }
 
 function makePipeline(loaded: LoadedPairing, experiment: Experiment): LoadedPairing {
-  if (!experiment.detection && !experiment.recognition && !experiment.detectionMaxSide) return loaded;
+  if (!experiment.detection && !experiment.recognition && !experiment.detectionMaxSide)
+    return loaded;
   return {
     ...loaded,
     pipeline: new OcrPipeline({
@@ -239,9 +282,13 @@ async function main(): Promise<void> {
   const loaded = await loadPairing(pairing);
   const images = new Map<string, ImageDataLike>();
   for (const fixture of selectedFixtures) {
-    images.set(fixture.id, await readRgbaFixture(FIXTURE_DIRECTORY, fixture.id, fixture.width, fixture.height));
+    images.set(
+      fixture.id,
+      await readRgbaFixture(FIXTURE_DIRECTORY, fixture.id, fixture.width, fixture.height),
+    );
   }
-  const results: { experiment: string; category: string; cases: CaseResult[]; summary: Summary }[] = [];
+  const results: { experiment: string; category: string; cases: CaseResult[]; summary: Summary }[] =
+    [];
   try {
     for (const experiment of selectedExperiments) {
       const variant = makePipeline(loaded, experiment);
@@ -250,42 +297,58 @@ async function main(): Promise<void> {
         const source = images.get(fixture.id);
         if (!source) continue;
         try {
-        const availableHeight = (quad: OcrQuad): number =>
-          Math.hypot(quad[3].x - quad[0].x, quad[3].y - quad[0].y);
-        const medianHeight = fixture.lines
-          .map((line) => availableHeight(line.quad))
-          .sort((a, b) => a - b)[Math.floor(fixture.lines.length / 2)] ?? 20;
-        const scale =
-          experiment.adaptiveThreshold !== undefined
-            ? Math.max(1, Math.min(2, experiment.adaptiveThreshold / Math.max(1, medianHeight)))
-            : experiment.scale ?? 1;
-        const preprocessed = applyOcrPreprocess(source, experiment.steps ?? [], scale);
-        const started = performance.now();
-        let result: OcrResult;
-        if (experiment.tiling) result = await runTiled(variant, preprocessed.image, experiment);
-        else if (experiment.rerecognition) result = await runWithRerecognition(variant, preprocessed.image, experiment);
-        else result = await variant.pipeline.run(preprocessed.image);
-        const ms = performance.now() - started;
-        const mapped = result.regions.map((region) => ({
-          ...region,
-          quad: mapQuad(region.quad, preprocessed.mapBack),
-        }));
-        const mappedResult = resultFromRegions(dedupeRegions(mapped));
-        const expectedText = fixture.lines.map((line) => line.text);
-        const hypothesisText = mappedResult.lines.map((line) =>
-          line.items.map((region) => region.text).join(line.orientation === 'horizontal' ? ' ' : ''),
-        );
-        cases.push({
-          fixture: fixture.id,
-          cer: characterErrorRate(expectedText.join('\n'), mappedResult.text).rate,
-          wer: wordErrorRate(expectedText.join('\n'), mappedResult.text).rate,
-          recall: detectionRecallProxy(fixture.lines.map((line) => line.quad), mapped.map((region) => region.quad)).recall,
-          order: lineOrderAccuracy(expectedText, hypothesisText).accuracy,
-          column: columnOrderAccuracy(fixture.lines.map((line) => line.quad), mapped.map((region) => region.quad), fixture.width),
-          blockIoU: safe(blockIoU(fixture.lines.map((line) => line.quad), mapped.map((region) => region.quad))),
-          ms,
-          lines: mappedResult.lines.length,
-        });
+          const availableHeight = (quad: OcrQuad): number =>
+            Math.hypot(quad[3].x - quad[0].x, quad[3].y - quad[0].y);
+          const medianHeight =
+            fixture.lines.map((line) => availableHeight(line.quad)).sort((a, b) => a - b)[
+              Math.floor(fixture.lines.length / 2)
+            ] ?? 20;
+          const scale =
+            experiment.adaptiveThreshold !== undefined
+              ? Math.max(1, Math.min(2, experiment.adaptiveThreshold / Math.max(1, medianHeight)))
+              : (experiment.scale ?? 1);
+          const preprocessed = applyOcrPreprocess(source, experiment.steps ?? [], scale);
+          const started = performance.now();
+          let result: OcrResult;
+          if (experiment.tiling) result = await runTiled(variant, preprocessed.image, experiment);
+          else if (experiment.rerecognition)
+            result = await runWithRerecognition(variant, preprocessed.image, experiment);
+          else result = await variant.pipeline.run(preprocessed.image);
+          const ms = performance.now() - started;
+          const mapped = result.regions.map((region) => ({
+            ...region,
+            quad: mapQuad(region.quad, preprocessed.mapBack),
+          }));
+          const mappedResult = resultFromRegions(dedupeRegions(mapped));
+          const expectedText = fixture.lines.map((line) => line.text);
+          const hypothesisText = mappedResult.lines.map((line) =>
+            line.items
+              .map((region) => region.text)
+              .join(line.orientation === 'horizontal' ? ' ' : ''),
+          );
+          cases.push({
+            fixture: fixture.id,
+            cer: characterErrorRate(expectedText.join('\n'), mappedResult.text).rate,
+            wer: wordErrorRate(expectedText.join('\n'), mappedResult.text).rate,
+            recall: detectionRecallProxy(
+              fixture.lines.map((line) => line.quad),
+              mapped.map((region) => region.quad),
+            ).recall,
+            order: lineOrderAccuracy(expectedText, hypothesisText).accuracy,
+            column: columnOrderAccuracy(
+              fixture.lines.map((line) => line.quad),
+              mapped.map((region) => region.quad),
+              fixture.width,
+            ),
+            blockIoU: safe(
+              blockIoU(
+                fixture.lines.map((line) => line.quad),
+                mapped.map((region) => region.quad),
+              ),
+            ),
+            ms,
+            lines: mappedResult.lines.length,
+          });
         } catch (error) {
           cases.push({
             fixture: fixture.id,
@@ -298,7 +361,9 @@ async function main(): Promise<void> {
             ms: 0,
             lines: 0,
           });
-          console.error('failed ' + experiment.id + ' on ' + fixture.id + ': ' + String(error).slice(0, 120));
+          console.error(
+            'failed ' + experiment.id + ' on ' + fixture.id + ': ' + String(error).slice(0, 120),
+          );
         }
       }
       const total = (key: 'cer' | 'wer') =>
@@ -317,38 +382,70 @@ async function main(): Promise<void> {
       results.push({ experiment: experiment.id, category: experiment.category, cases, summary });
       console.log(
         experiment.id.padEnd(22) +
-          ' CER ' + (summary.cer * 100).toFixed(1).padStart(5) + '%' +
-          ' WER ' + (summary.wer * 100).toFixed(1).padStart(5) + '%' +
-          ' order ' + (summary.order * 100).toFixed(0).padStart(3) + '%' +
-          ' col ' + (summary.column * 100).toFixed(0).padStart(3) + '%' +
-          ' IoU ' + summary.blockIoU.toFixed(2) +
-          ' ' + summary.ms.toFixed(0).padStart(5) + ' ms/page',
+          ' CER ' +
+          (summary.cer * 100).toFixed(1).padStart(5) +
+          '%' +
+          ' WER ' +
+          (summary.wer * 100).toFixed(1).padStart(5) +
+          '%' +
+          ' order ' +
+          (summary.order * 100).toFixed(0).padStart(3) +
+          '%' +
+          ' col ' +
+          (summary.column * 100).toFixed(0).padStart(3) +
+          '%' +
+          ' IoU ' +
+          summary.blockIoU.toFixed(2) +
+          ' ' +
+          summary.ms.toFixed(0).padStart(5) +
+          ' ms/page',
       );
     }
   } finally {
     await loaded.release();
   }
-  const header = '| approach | CER | WER | line order | column order | block IoU | ms/page | notes |\n| --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |';
-  const markdown = [
-    '# OCR experiment lab — ' + label,
-    '',
-    'Pairing: ' + pairing + '. ' + selectedFixtures.map((fixture) => fixture.id).join(', ') + '.',
-    '',
-    header,
-    ...results.map((entry) => {
-      const experiment = EXPERIMENTS.find((item) => item.id === entry.experiment);
-      return '| ' + entry.experiment + ' | ' + (entry.summary.cer * 100).toFixed(2) + '% | ' +
-        (entry.summary.wer * 100).toFixed(1) + '% | ' + (entry.summary.order * 100).toFixed(1) + '% | ' +
-        (entry.summary.column * 100).toFixed(1) + '% | ' + entry.summary.blockIoU.toFixed(2) + ' | ' +
-        entry.summary.ms.toFixed(0) + ' | ' + entry.category + (experiment?.steps?.length ? ' ' + experiment.steps.join('+') : '') + ' |';
-    }),
-  ].join('\n') + '\n';
+  const header =
+    '| approach | CER | WER | line order | column order | block IoU | ms/page | notes |\n| --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |';
+  const markdown =
+    [
+      '# OCR experiment lab — ' + label,
+      '',
+      'Pairing: ' + pairing + '. ' + selectedFixtures.map((fixture) => fixture.id).join(', ') + '.',
+      '',
+      header,
+      ...results.map((entry) => {
+        const experiment = EXPERIMENTS.find((item) => item.id === entry.experiment);
+        return (
+          '| ' +
+          entry.experiment +
+          ' | ' +
+          (entry.summary.cer * 100).toFixed(2) +
+          '% | ' +
+          (entry.summary.wer * 100).toFixed(1) +
+          '% | ' +
+          (entry.summary.order * 100).toFixed(1) +
+          '% | ' +
+          (entry.summary.column * 100).toFixed(1) +
+          '% | ' +
+          entry.summary.blockIoU.toFixed(2) +
+          ' | ' +
+          entry.summary.ms.toFixed(0) +
+          ' | ' +
+          entry.category +
+          (experiment?.steps?.length ? ' ' + experiment.steps.join('+') : '') +
+          ' |'
+        );
+      }),
+    ].join('\n') + '\n';
   await mkdir(OUT, { recursive: true });
-  await writeFile(join(OUT, label + '.json'), JSON.stringify({ label, pairing, results }, null, 2) + '\n');
+  await writeFile(
+    join(OUT, label + '.json'),
+    JSON.stringify({ label, pairing, results }, null, 2) + '\n',
+  );
   await writeFile(join(OUT, label + '.md'), markdown);
   console.log('\nwrote ' + join(OUT, label + '.md'));
 }
 void main().catch((error: unknown) => {
-  console.error(error instanceof Error ? error.stack ?? error.message : String(error));
+  console.error(error instanceof Error ? (error.stack ?? error.message) : String(error));
   process.exitCode = 1;
 });

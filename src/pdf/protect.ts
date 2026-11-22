@@ -30,13 +30,32 @@ import { joinPieces, lineFrom, type TextLine, type TextPiece } from './lines';
 const TEXT_NOTATION =
   /(?<![\p{L}\p{N}_])(?:[\p{Lu}\p{N}_^][\p{L}\p{N}_^]{0,4}|[a-z][\p{N}_^]{0,3})(?![\p{L}\p{N}_])(?:\s+(?:\p{Lu}[\p{L}\p{N}_^]{0,4}|[a-z][\p{N}_^]{0,3}|[\p{N}_^]{1,4})(?![\p{L}\p{N}_])){0,4}(?:\s*(?:∈|×|÷|≈|≤|≥|≠|∑|∏|∫|∂|∇|\^)\s*(?:[\p{Lu}\p{N}_^][\p{L}\p{N}_^]{0,6}|[a-z][\p{N}_^]{0,3})(?![\p{L}\p{N}_])){1,8}/gu;
 
+/**
+ * Prose words that look like short variables to `TEXT_NOTATION`.
+ *
+ * The notation pattern has to accept a leading word (`A ∈ R`) or an article before a size
+ * (`a 3 × 3`) to cover symbols set in an ordinary text face. Those words belong in the prompt:
+ * the model must translate "Let" and "This is a …", not paste them back into Japanese. The
+ * article alternative requires a following number, so a real variable such as `a ∈ R` stays
+ * inside the protected slot.
+ */
+const PROSE_LEAD =
+  /^(?:(?:Let|For|If|When|Where|Then|While|With|Each|Given|The|This|That|These|Those|We|It|And|But|Are|Was|Were|Has|Have|Can|May|Use|Using|From|Into|Over|Under|After|Before|By|In|On|At|To|Of|As)\s+|(?:A|a)\s+(?=\p{N}))/u;
+
 function protectTextNotation(text: string, slots: ProtectedSlot[]): string {
   return text.replace(TEXT_NOTATION, (match) => {
-    const value = match.trim();
+    let value = match.trim();
+    let lead = '';
+    for (;;) {
+      const prose = PROSE_LEAD.exec(value);
+      if (!prose?.[0]) break;
+      lead += prose[0];
+      value = value.slice(prose[0].length);
+    }
     if (value.length < 4) return match;
     const index = slots.length;
     slots.push({ text: value, script: 'none' });
-    return PLACEHOLDER(index);
+    return lead + PLACEHOLDER(index);
   });
 }
 
@@ -560,9 +579,7 @@ export function restoreInlineMath(
   if (normalized.length === 0) return translated;
   const seen = new Set<number>();
   let count = 0;
-  const canonical = translated
-    .normalize('NFKC')
-    .replace(/[＜<]\s*i\s*(\d+)\s*[＞>]/gu, '<i$1>');
+  const canonical = translated.normalize('NFKC').replace(/[＜<]\s*i\s*(\d+)\s*[＞>]/gu, '<i$1>');
   const restored = canonical.replace(PLACEHOLDER_PATTERN, (_match, raw: string) => {
     const index = Number(raw);
     if (!Number.isInteger(index) || index < 0 || index >= normalized.length) return '\u0000';

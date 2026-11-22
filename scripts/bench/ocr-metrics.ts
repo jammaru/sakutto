@@ -136,10 +136,7 @@ export function lineOrderAccuracy(
     normalizedReference.map((expected, rank) => ({
       index,
       rank,
-      similarity:
-        1 -
-        characterErrorRate(expected, text).rate +
-        (expected === text ? 0.5 : 0),
+      similarity: 1 - characterErrorRate(expected, text).rate + (expected === text ? 0.5 : 0),
     })),
   );
   const usedHypothesis = new Set<number>();
@@ -179,7 +176,9 @@ export function columnOrderAccuracy(
   const expected = reference.map(column);
   const observed = hypothesis.map(column);
   if (expected.length < 2 || observed.length === 0 || new Set(expected).size < 2) return 1;
-  const inversions = observed.filter((value, index) => index > 0 && value < (observed[index - 1] ?? value)).length;
+  const inversions = observed.filter(
+    (value, index) => index > 0 && value < (observed[index - 1] ?? value),
+  ).length;
   return 1 - inversions / Math.max(1, observed.length - 1);
 }
 
@@ -192,7 +191,10 @@ export function blockIoU(
     const groups: BenchQuad[][] = [];
     for (const quad of quads) {
       const last = groups.at(-1)?.at(-1);
-      const gap = last ? Math.min(...[0, 1, 2, 3].map((index) => quad[index]?.y ?? 0)) - Math.max(...[0, 1, 2, 3].map((index) => last[index]?.y ?? 0)) : Infinity;
+      const gap = last
+        ? Math.min(...[0, 1, 2, 3].map((index) => quad[index]?.y ?? 0)) -
+          Math.max(...[0, 1, 2, 3].map((index) => last[index]?.y ?? 0))
+        : Infinity;
       if (last && Math.abs(gap) < 24) groups.at(-1)?.push(quad);
       else groups.push([quad]);
     }
@@ -213,7 +215,15 @@ export function blockIoU(
     let best = 0;
     for (const expected of referenceGroups) {
       const target = box(expected);
-      const intersection = Math.max(0, Math.min(candidate.right, target.right) - Math.max(candidate.left, target.left)) * Math.max(0, Math.min(candidate.bottom, target.bottom) - Math.max(candidate.top, target.top));
+      const intersection =
+        Math.max(
+          0,
+          Math.min(candidate.right, target.right) - Math.max(candidate.left, target.left),
+        ) *
+        Math.max(
+          0,
+          Math.min(candidate.bottom, target.bottom) - Math.max(candidate.top, target.top),
+        );
       const areaA = (candidate.right - candidate.left) * (candidate.bottom - candidate.top);
       const areaB = (target.right - target.left) * (target.bottom - target.top);
       best = Math.max(best, intersection / Math.max(1, areaA + areaB - intersection));

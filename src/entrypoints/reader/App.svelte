@@ -459,7 +459,6 @@
         >
           {t('pdfBilingual')}
         </button>
-
       {/if}
       {#if selectionReady}
         <button

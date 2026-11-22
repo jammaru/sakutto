@@ -4,7 +4,13 @@ import type { ImageDataLike, OcrQuad, OcrRegion, OcrResult, ReadingLine } from '
 import { isImageOnlyPage, normalizeGlyphRun, type ExtractedPage } from './extract';
 import type { FigureAreas } from './figures';
 import { median, type Box } from './geometry';
-import { layoutPage, looksLikeCodeLine, type AnyBlockRole, type LayoutBlock, type PageLayout } from './layout';
+import {
+  layoutPage,
+  looksLikeCodeLine,
+  type AnyBlockRole,
+  type LayoutBlock,
+  type PageLayout,
+} from './layout';
 import { bodyFontSize, lineFrom, type TextLine, type TextPiece } from './lines';
 import { hasSourceProse } from './prose-detect';
 
@@ -234,11 +240,22 @@ function splitMergedBodyLine(
   const firstCentre = (first.left + first.right) / 2;
   const secondCentre = (second.left + second.right) / 2;
   if (Math.abs(firstCentre - secondCentre) < pageWidth * 0.2) return null;
-  if (first.right - first.left < pageWidth * 0.18 || second.right - second.left < pageWidth * 0.18) {
+  if (
+    first.right - first.left < pageWidth * 0.18 ||
+    second.right - second.left < pageWidth * 0.18
+  ) {
     return null;
   }
   return firstCentre <= secondCentre ? [upper, lower] : [lower, upper];
 }
+
+/**
+ * Narrowest white gap that still separates two printed columns.
+ *
+ * A 15pt gutter is common in two-column papers. Requiring a page-width fraction here used
+ * to leave those rows merged, so the translation cover painted across the gap.
+ */
+const MIN_COLUMN_GUTTER = 15;
 
 /**
  * Converts OCR reading lines to the PDF reader's native line model.
@@ -289,11 +306,9 @@ export function ocrResultToTextLines(
         : 0;
     const rightWidth =
       rightPieces.length > 0 && leftPieces.length > 0
-        ? Math.max(...rightPieces.map((piece) => piece.box.x + piece.box.width)) -
-          rightStart
+        ? Math.max(...rightPieces.map((piece) => piece.box.x + piece.box.width)) - rightStart
         : 0;
-    const gutterGap =
-      rightPieces.length > 0 && leftPieces.length > 0 ? rightStart - leftEnd : 0;
+    const gutterGap = rightPieces.length > 0 && leftPieces.length > 0 ? rightStart - leftEnd : 0;
     // A reading line can combine the two body columns even when their pieces together span
     // nearly the whole page: the old `< 82% of page width` guard left those merged and painted
     // one cover across the gutter. Require a real white gap at the centre, with substantial text
@@ -304,11 +319,11 @@ export function ocrResultToTextLines(
       rightWidth > resolved.pageWidth * 0.18 &&
       leftEnd <= middle + 4 &&
       rightStart >= middle - 4 &&
-      gutterGap > Math.max(18, resolved.pageWidth * 0.035);
+      gutterGap >= MIN_COLUMN_GUTTER;
     const crossesGutter =
       resolved.pageWidth > 0 &&
       !pieceVertical &&
-      gutterGap > Math.max(18, resolved.pageWidth * 0.035) &&
+      gutterGap >= MIN_COLUMN_GUTTER &&
       (lineWidth < resolved.pageWidth * 0.82 || wideTwoColumnLine);
     const pushLine = (selected: OcrTextPiece[], id: string): void => {
       if (selected.length === 0) return;
@@ -386,7 +401,9 @@ function groupText(lines: readonly OcrTextLine[]): string {
       continue;
     }
     const hyphenated = /[-‐‑‒–]\p{L}?$/u.test(output) && /^[\p{Ll}]/u.test(value);
-    output = hyphenated ? output.replace(/[-‐‑‒–]\p{L}?$/u, '') + value : output + (vertical ? '' : ' ') + value;
+    output = hyphenated
+      ? output.replace(/[-‐‑‒–]\p{L}?$/u, '') + value
+      : output + (vertical ? '' : ' ') + value;
   }
   return output.replace(/\s+/gu, ' ').trim();
 }
@@ -394,9 +411,7 @@ function groupText(lines: readonly OcrTextLine[]): string {
 function groupRole(group: readonly OcrTextLine[], bodySize: number): AnyBlockRole {
   const text = groupText(group);
   if (CAPTION_LINE.test(text)) return 'caption';
-  if (
-    group.some((line) => looksLikeCodeLine(line.text) || looksLikeBareCodeLine(line.text))
-  ) {
+  if (group.some((line) => looksLikeCodeLine(line.text) || looksLikeBareCodeLine(line.text))) {
     return 'code';
   }
   if (/^[^\p{L}]*\d+[^\p{L}]*$/u.test(text)) return 'label';
@@ -466,7 +481,6 @@ function groupBlocks(
   }
   return groups;
 }
-
 
 /** Blocks that share a horizontal band in short runs are table cells, not paragraphs. */
 function detectTableRows(blocks: readonly OcrLayoutBlock[], bodySize: number): OcrLayoutBlock[] {
@@ -574,7 +588,10 @@ function layoutFromLines(
   const skipped = blocks.filter(
     (block) => block.role === 'code' || block.role === 'label' || block.role === 'furniture',
   );
-  const tableCells = detectTableRows(blocks.filter((block) => !skipped.includes(block)), bodySize);
+  const tableCells = detectTableRows(
+    blocks.filter((block) => !skipped.includes(block)),
+    bodySize,
+  );
   const captions = blocks.filter((block) => block.role === 'caption');
   const figureLabels = blocks.filter(
     (block) =>
@@ -603,10 +620,13 @@ function layoutFromLines(
   const ranges = new Map(
     columns.map((index) => {
       const members = body.filter((block) => block.column === index);
-      return [index, {
-        minX: Math.min(...members.map((block) => block.box.x)),
-        maxX: Math.max(...members.map((block) => block.box.x + block.box.width)),
-      }];
+      return [
+        index,
+        {
+          minX: Math.min(...members.map((block) => block.box.x)),
+          maxX: Math.max(...members.map((block) => block.box.x + block.box.width)),
+        },
+      ];
     }),
   );
   if (options.pageWidth > 0) {

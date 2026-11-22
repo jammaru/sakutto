@@ -15,6 +15,9 @@ export const PAGE_FOOT_MARGIN = 28;
 export const OVERLAP_AREA = 1;
 /** White space kept at a box's right edge so two columns never touch, in points. */
 const GUTTER_CLEARANCE = 4;
+
+/** Same physical threshold as the OCR line splitter: a 15pt gap is a real column gutter. */
+const MIN_COLUMN_GUTTER = 15;
 /**
  * Extra cover below the source box, as a fraction of em, to hide Latin descenders.
  *
@@ -415,7 +418,7 @@ function blockMergesColumns(block: LayoutBlock, pageWidth: number): boolean {
     if (left.length > 0 && right.length > 0) {
       const leftEnd = Math.max(...left.map((piece) => piece.box.x + piece.box.width));
       const rightStart = Math.min(...right.map((piece) => piece.box.x));
-      if (rightStart - leftEnd > 18) return true;
+      if (rightStart - leftEnd >= MIN_COLUMN_GUTTER) return true;
     }
     if (pieces.length < 4) return false;
     const height = pieces.reduce((sum, piece) => sum + piece.box.height, 0) / pieces.length;
