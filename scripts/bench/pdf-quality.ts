@@ -22,8 +22,8 @@ import { chromium } from '@playwright/test';
 
 import {
   countsAsProse,
+  entryGarbledTokens,
   expectedReadingOrder,
-  garbledTokens,
   isMixedLanguage,
   isProseLike,
   normalizeText,
@@ -33,6 +33,7 @@ import {
   type QualityEntry,
   type QualityPage,
 } from './pdf-quality-metrics.ts';
+import { pseudoOcrRegions } from './pdf-scan-simulator.ts';
 import { startStaticServer } from './static.ts';
 
 const require = createRequire(import.meta.url);
@@ -316,47 +317,6 @@ async function arxivBytes(): Promise<Uint8Array> {
   }
 }
 
-/** Simulated detector output for scan.pdf: perfect word boxes from paper.pdf's text layer. */
-function pseudoOcrRegions(lines: readonly TextLine[]): unknown[] {
-  const regions: Array<{
-    text: string;
-    quad: unknown;
-    confidence: number;
-    vertical: boolean;
-    recognitionConfidence: number;
-    symbolScores: number[];
-  }> = [];
-  for (const line of lines) {
-    const words = line.text.split(/\s+/u).filter(Boolean);
-    if (words.length === 0) continue;
-    const total = words.reduce((sum, word) => sum + word.length, 0);
-    let offset = 0;
-    for (const word of words) {
-      const start = line.box.x + (offset / total) * line.box.width;
-      const end = line.box.x + ((offset + word.length) / total) * line.box.width;
-      const top = line.box.y;
-      const bottom = top + Math.max(4, line.height);
-      regions.push({
-        text: word,
-        quad: [
-          { x: start, y: top },
-          { x: end, y: top },
-          { x: end, y: bottom },
-          { x: start, y: bottom },
-        ],
-        confidence: 0.99,
-        vertical: false,
-        recognitionConfidence: 0.99,
-        symbolScores: [],
-      });
-      offset += word.length + 1;
-    }
-  }
-  // A detector has no document order. Reverse the source sequence so reading order is learned
-  // from geometry, never inherited from the fixture.
-  return regions.reverse();
-}
-
 async function renderShots(report: unknown): Promise<void> {
   let server: Awaited<ReturnType<typeof startStaticServer>> | null = null;
   let browser: Awaited<ReturnType<typeof chromium.launch>> | null = null;
@@ -530,8 +490,10 @@ async function main(): Promise<void> {
 
       for (const block of [...layout.blocks, ...skippedProse]) {
         const entry = byBlock.get(block);
-        const source = normalizeText(block.text);
-        const translation = normalizeText(translationOf(block));
+        const rawSource = block.text;
+        const rawTranslation = translationOf(block);
+        const source = normalizeText(rawSource);
+        const translation = normalizeText(rawTranslation);
         const delivered = entry !== undefined && translation.length > 0;
         const intentionallyKept =
           isSameLanguage(
@@ -559,7 +521,7 @@ async function main(): Promise<void> {
           untranslated,
           prose,
           mixedLanguage: delivered && isMixedLanguage(translation),
-          garbled: [...garbledTokens(source), ...(delivered ? garbledTokens(translation) : [])],
+          garbled: entryGarbledTokens(rawSource, rawTranslation, delivered),
           scale:
             entry?.fit && entry.fit.fontSize > 0
               ? entry.fit.fontSize / Math.max(1, block.fontSize)

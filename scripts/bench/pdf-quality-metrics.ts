@@ -133,6 +133,18 @@ export function garbledTokens(text: string): string[] {
   return found;
 }
 
+/**
+ * Garbling is scored on the raw extraction strings: normalizeText expands ligatures and drops
+ * soft hyphens, so passing only normalized text would hide exactly those source-side defects.
+ */
+export function entryGarbledTokens(
+  rawSource: string,
+  rawTranslation: string,
+  delivered: boolean,
+): string[] {
+  return [...garbledTokens(rawSource), ...(delivered ? garbledTokens(rawTranslation) : [])];
+}
+
 const LATIN_WORD = /[A-Za-z]{3,}/gu;
 const CJK_CHAR = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u;
 export const PROSE_ROLE = /^(prose|heading|caption|cell)$/u;

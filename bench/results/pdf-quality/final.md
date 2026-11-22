@@ -1,6 +1,6 @@
 | label | pages | skipped prose | untranslated prose | mixed language | garbled tokens | overlap/box | overflow/box | reading order | first block ms | full ms |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| final | 5 | 2 | 1.9% | 6.7% | 0.24% | 0.000 | 0.066 | 97.9% | 316 | 930 |
+| final | 5 | 1 | 1.3% | 8.8% | 0.25% | 0.000 | 0.082 | 96.5% | 284 | 866 |
 
 "skipped prose" counts blocks the layout skipped as code/labels that still contain a natural-language sentence; they are part of the prose denominator and the untranslated rate.
 
@@ -11,7 +11,7 @@ The scan fixture above is SIMULATED OCR: scan.pdf supplies the page size and bac
 | text source           | pages | skipped prose | untranslated prose | mixed language | garbled tokens | overlap/box | overflow/box |
 | --------------------- | ----: | ------------: | -----------------: | -------------: | -------------: | ----------: | -----------: |
 | native (paper, arxiv) |     4 |             1 |               1.8% |           7.0% |          0.35% |       0.000 |        0.000 |
-| simulated OCR (scan)  |     1 |             1 |               2.0% |           6.3% |          0.00% |       0.000 |        0.160 |
+| simulated OCR (scan)  |     1 |             0 |               0.0% |          13.0% |          0.00% |       0.000 |        0.308 |
 
 ## Real OCR on scan.pdf page 1 (pnpm bench:pdf:scan:ocr)
 

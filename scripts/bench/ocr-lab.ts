@@ -9,7 +9,7 @@
  *   pnpm bench:ocr:lab --pairing tiny_det+small_rec --experiments scale200,otsu
  */
 import { mkdir, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   characterErrorRate,
@@ -33,6 +33,7 @@ import {
   cropForRecognition,
   preprocessDetection,
   preprocessRecognition,
+  type DetectionPreprocessOptions,
 } from '../../src/engine/ocr/image.ts';
 import { groupReadingLines } from '../../src/engine/ocr/order.ts';
 import type { ImageDataLike, OcrQuad, OcrRegion, OcrResult } from '../../src/engine/ocr/types.ts';
@@ -40,7 +41,14 @@ import type { ImageDataLike, OcrQuad, OcrRegion, OcrResult } from '../../src/eng
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const OUT = join(ROOT, 'bench/results/ocr-lab');
 
-interface Experiment {
+/**
+ * Fixed detection resolution for the lab. Every approach must be measured at this resolution
+ * unless it explicitly declares a different `detectionMaxSide`, so preprocessing gains are not
+ * confounded with a different detection downscale.
+ */
+export const DEFAULT_DETECTION_MAX_SIDE = 960;
+
+export interface Experiment {
   readonly id: string;
   readonly category: string;
   readonly scale?: number;
@@ -53,9 +61,18 @@ interface Experiment {
   readonly adaptiveThreshold?: number;
 }
 
-const EXPERIMENTS: readonly Experiment[] = [
-  { id: 'baseline', category: 'baseline', detectionMaxSide: 960 },
-  { id: 'dpi150', category: 'render', scale: 1, detectionMaxSide: 960 },
+export const EXPERIMENTS: readonly Experiment[] = [
+  {
+    id: 'baseline',
+    category: 'baseline',
+    detectionMaxSide: DEFAULT_DETECTION_MAX_SIDE,
+  },
+  {
+    id: 'dpi150',
+    category: 'render',
+    scale: 1,
+    detectionMaxSide: DEFAULT_DETECTION_MAX_SIDE,
+  },
   { id: 'dpi200', category: 'render', scale: 4 / 3, detectionMaxSide: 1280 },
   { id: 'dpi300', category: 'render', scale: 2, detectionMaxSide: 1920 },
   { id: 'gray', category: 'preprocess', steps: ['grayscale'] },
@@ -183,16 +200,17 @@ async function runTiled(
   return resultFromRegions(dedupeRegions(regions));
 }
 
+export function detectionPreprocessFor(experiment: Experiment): DetectionPreprocessOptions {
+  return { maxSide: experiment.detectionMaxSide ?? DEFAULT_DETECTION_MAX_SIDE, multiple: 32 };
+}
+
 async function runWithRerecognition(
   loaded: LoadedPairing,
   image: ImageDataLike,
   experiment: Experiment,
 ): Promise<OcrResult> {
   const { threshold, scale } = experiment.rerecognition ?? { threshold: 0.5, scale: 1.5 };
-  const detectionInput = preprocessDetection(image, {
-    maxSide: experiment.detectionMaxSide ?? 960,
-    multiple: 32,
-  });
+  const detectionInput = preprocessDetection(image, detectionPreprocessFor(experiment));
   const probabilityMap = await loaded.runner.detect(detectionInput.tensor);
   const detections = decodeDbProbabilityMap(
     {
@@ -234,9 +252,9 @@ async function runWithRerecognition(
   return resultFromRegions(regions);
 }
 
-function makePipeline(loaded: LoadedPairing, experiment: Experiment): LoadedPairing {
-  if (!experiment.detection && !experiment.recognition && !experiment.detectionMaxSide)
-    return loaded;
+export function makePipeline(loaded: LoadedPairing, experiment: Experiment): LoadedPairing {
+  // Never reuse loaded.pipeline: the pairing loads at the shipped 1600px default, while every
+  // lab row must run at the fixed 960px baseline unless it explicitly varies detection size.
   return {
     ...loaded,
     pipeline: new OcrPipeline({
@@ -244,7 +262,7 @@ function makePipeline(loaded: LoadedPairing, experiment: Experiment): LoadedPair
       dictionary: loaded.dictionary,
       useSpaceChar: true,
       detection: { ...loaded.detection, ...experiment.detection },
-      detectionPreprocess: { maxSide: experiment.detectionMaxSide ?? 960, multiple: 32 },
+      detectionPreprocess: detectionPreprocessFor(experiment),
       recognitionPreprocess: experiment.recognition ?? { height: 48, maxWidth: 4096 },
     }),
   };
@@ -445,7 +463,10 @@ async function main(): Promise<void> {
   await writeFile(join(OUT, label + '.md'), markdown);
   console.log('\nwrote ' + join(OUT, label + '.md'));
 }
-void main().catch((error: unknown) => {
-  console.error(error instanceof Error ? (error.stack ?? error.message) : String(error));
-  process.exitCode = 1;
-});
+const invokedAsScript =
+  process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (invokedAsScript)
+  void main().catch((error: unknown) => {
+    console.error(error instanceof Error ? (error.stack ?? error.message) : String(error));
+    process.exitCode = 1;
+  });

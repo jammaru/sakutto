@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   countsAsProse,
+  entryGarbledTokens,
+  garbledTokens,
   isProseLike,
+  normalizeText,
   summarize,
   type QualityEntry,
   type QualityPage,
@@ -61,6 +64,17 @@ describe('PDF quality metrics', () => {
       ),
     ).toBe(false);
     expect(isProseLike('MultiHead(Q, K, V ) = Concat(head1, ..., headh)W O')).toBe(false);
+  });
+
+  it('detects ligature and soft-hyphen defects on raw source before normalization', () => {
+    const raw = 'e\ufb03cient and soft\u00adhyphen';
+    expect(normalizeText(raw)).toBe('efficient and softhyphen');
+    // Once normalized the raw defect is unreachable; the entry metric must use the raw string.
+    expect(garbledTokens(normalizeText(raw))).toEqual([]);
+    expect(garbledTokens(raw)).toEqual(['\ufb03', '\u00ad']);
+    expect(entryGarbledTokens(raw, '', false)).toEqual(['\ufb03', '\u00ad']);
+    expect(entryGarbledTokens(raw, raw, true)).toEqual(['\ufb03', '\u00ad', '\ufb03', '\u00ad']);
+    expect(entryGarbledTokens(raw, raw, false)).toHaveLength(2);
   });
 
   it('counts skipped prose in the untranslated prose denominator', () => {

@@ -557,6 +557,61 @@ describe('OCR geometry and layout conversion', () => {
     ).toHaveLength(1);
   });
 
+  it('reads a split both-column row in column order before the next left line', () => {
+    const conversion = { pageIndex: 0, pageWidth: 595, pageHeight: 800 };
+    const title = region('Title words spanning both columns', quad(50, 50, 500, 20));
+    const left1 = region(
+      'Left column prose with enough words to translate',
+      quad(50, 120, 240, 20),
+    );
+    const right1 = region(
+      'Right column prose with enough words to translate.',
+      quad(320, 120, 240, 20),
+    );
+    const left2 = region('More left column prose with enough words', quad(50, 145, 240, 20));
+    // The detector/read-line merger combines the two body columns of the same row.
+    const result = ocrResult(
+      [title, left1, right1, left2],
+      [
+        readingLine('horizontal', [title]),
+        readingLine('horizontal', [left1, right1]),
+        readingLine('horizontal', [left2]),
+      ],
+    );
+
+    expect(ocrResultToTextLines(result, conversion).map((line) => line.text)).toEqual([
+      title.text,
+      left1.text,
+      left2.text,
+      right1.text,
+    ]);
+    const layout = ocrResultToPageLayout(result, conversion);
+    expect(layout.blocks.map((block) => block.column)).toEqual([-1, 0, 1]);
+    // Once left1 and left2 are adjacent they group into one paragraph-sized cover.
+    expect(layout.blocks[1]?.lines.map((line) => line.text)).toEqual([left1.text, left2.text]);
+    expect(layout.blocks[2]?.text).toBe(right1.text);
+  });
+
+  it('splits a short left heading from a right body line on the same baseline', () => {
+    const heading = '1. Introduction';
+    const body = 'in two places so that workers and the WebAssembly module';
+    const left = region(heading, quad(45, 340, 72, 12));
+    const right = region(body, quad(307, 340, 280, 12));
+    const result = ocrResult([left, right], [readingLine('horizontal', [left, right])]);
+    const conversion = { pageIndex: 0, pageWidth: 595, pageHeight: 842 };
+
+    expect(ocrResultToTextLines(result, conversion).map((line) => line.text)).toEqual([
+      heading,
+      body,
+    ]);
+    const layout = ocrResultToPageLayout(result, conversion);
+    expect(layout.blocks.map((block) => [block.role, block.column])).toEqual([
+      ['heading', 0],
+      ['prose', 1],
+    ]);
+    expect(layout.blocks.map((block) => block.text)).toEqual([heading, body]);
+  });
+
   it('supports an empty OCR result', () => {
     const empty: OcrResult = { regions: [], lines: [], text: '' };
     expect(ocrResultToTextLines(empty, CONVERSION)).toEqual([]);

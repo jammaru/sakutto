@@ -198,6 +198,29 @@ function readingLines(result: OcrResult): readonly ReadingLine<OcrRegion>[] {
   return result.lines.length > 0 ? result.lines : groupReadingLines(result.regions);
 }
 
+/** A short numbered/section-like heading can sit beside a full body line on the same baseline. */
+function isShortHeadingPieces(pieces: readonly OcrTextPiece[]): boolean {
+  if (pieces.length === 0) return false;
+  const text = pieces
+    .map((piece) => piece.text)
+    .join(' ')
+    .trim();
+  return (
+    text.length > 0 &&
+    text.length <= 48 &&
+    (SECTION_LINE.test(text) || (!/[.!?。]$/u.test(text) && text.split(/\s+/u).length <= 8))
+  );
+}
+
+/** Same printed row: the two sides' baseline centres agree within a small fraction of a line. */
+function sharesBaseline(left: readonly OcrTextPiece[], right: readonly OcrTextPiece[]): boolean {
+  if (left.length === 0 || right.length === 0) return false;
+  const centre = (group: readonly OcrTextPiece[]): number =>
+    group.reduce((sum, piece) => sum + piece.baseline, 0) / group.length;
+  const height = median([...left, ...right].map((piece) => piece.box.height));
+  return Math.abs(centre(left) - centre(right)) <= Math.max(2, height * 0.75);
+}
+
 /**
  * Splits a wide reading line that combined two body rows at slightly different baselines.
  *
@@ -299,6 +322,14 @@ export function ocrResultToTextLines(
       rightPieces.length > 0
         ? Math.min(...rightPieces.map((piece) => piece.box.x))
         : Number.POSITIVE_INFINITY;
+    const leftText = leftPieces
+      .map((piece) => piece.text)
+      .join(' ')
+      .trim();
+    const rightText = rightPieces
+      .map((piece) => piece.text)
+      .join(' ')
+      .trim();
     const leftWidth =
       rightPieces.length > 0 && leftPieces.length > 0
         ? Math.max(...leftPieces.map((piece) => piece.box.x + piece.box.width)) -
@@ -320,11 +351,22 @@ export function ocrResultToTextLines(
       leftEnd <= middle + 4 &&
       rightStart >= middle - 4 &&
       gutterGap >= MIN_COLUMN_GUTTER;
+    // A short left heading beside a normal body line is a two-column row too: the 18% width
+    // floor for `wideTwoColumnLine` cannot see it, but the gutter and shared baseline can.
+    const shortHeadingBesideBody =
+      !pieceVertical &&
+      leftEnd <= middle + 4 &&
+      rightStart >= middle - 4 &&
+      leftWidth >= 40 &&
+      rightWidth > resolved.pageWidth * 0.18 &&
+      isShortHeadingPieces(leftPieces) &&
+      rightText.length >= Math.max(24, leftText.length * 2) &&
+      sharesBaseline(leftPieces, rightPieces);
     const crossesGutter =
       resolved.pageWidth > 0 &&
       !pieceVertical &&
       gutterGap >= MIN_COLUMN_GUTTER &&
-      (lineWidth < resolved.pageWidth * 0.82 || wideTwoColumnLine);
+      (lineWidth < resolved.pageWidth * 0.82 || wideTwoColumnLine || shortHeadingBesideBody);
     const pushLine = (selected: OcrTextPiece[], id: string): void => {
       if (selected.length === 0) return;
       const line = lineFrom(selected);
@@ -346,7 +388,7 @@ export function ocrResultToTextLines(
     }
     pushLine(pieces, lineId);
   }
-  return output;
+  return twoColumnOrder(output, resolved.pageWidth);
 }
 
 interface OcrBlockGroup {
@@ -368,6 +410,40 @@ function lineColumn(line: OcrTextLine, pageWidth: number): number {
   const mid = line.box.x + line.box.width / 2;
   if (line.box.width > pageWidth * 0.6) return SPANNING_COLUMN;
   return mid < pageWidth / 2 ? 0 : 1;
+}
+
+/**
+ * Two-column reading order: finish one band's left column before starting its right column.
+ *
+ * Splitting a merged line only emits the pieces in place, so a later left-column line would
+ * otherwise follow the right-column piece. Full-width lines delimit bands, keeping a heading
+ * above the columns it introduces and a full-width footer below them. Vertical Japanese keeps
+ * the engine's authoritative right-to-left order instead.
+ */
+function twoColumnOrder(lines: readonly OcrTextLine[], pageWidth: number): OcrTextLine[] {
+  if (pageWidth <= 0 || lines.length < 2 || lines.some(verticalLine)) return [...lines];
+  const ordered: OcrTextLine[] = [];
+  let run: OcrTextLine[] = [];
+  const flush = (): void => {
+    if (run.length === 0) return;
+    ordered.push(
+      ...run
+        .map((line, index) => ({ line, index, column: lineColumn(line, pageWidth) }))
+        .sort((a, b) => a.column - b.column || a.line.box.y - b.line.box.y || a.index - b.index)
+        .map((entry) => entry.line),
+    );
+    run = [];
+  };
+  for (const line of lines) {
+    if (lineColumn(line, pageWidth) === SPANNING_COLUMN) {
+      flush();
+      ordered.push(line);
+    } else {
+      run.push(line);
+    }
+  }
+  flush();
+  return ordered;
 }
 
 const CAPTION_LINE = /^(?:Fig(?:ure)?|Tab(?:le)?|Alg(?:orithm)?)\.?\s*\d/iu;
@@ -442,7 +518,7 @@ function groupBlocks(
   bodySize: number,
 ): OcrBlockGroup[] {
   const groups: OcrBlockGroup[] = [];
-  for (const line of lines) {
+  for (const line of twoColumnOrder(lines, pageWidth)) {
     const last = groups.at(-1);
     const previous = last?.lines.at(-1);
     const vertical = verticalLine(line);

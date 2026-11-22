@@ -1,7 +1,13 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { readRgbaFixture } from '../scripts/bench/ocr-engine.ts';
+import { readRgbaFixture, type LoadedPairing } from '../scripts/bench/ocr-engine.ts';
+import {
+  DEFAULT_DETECTION_MAX_SIDE,
+  EXPERIMENTS,
+  detectionPreprocessFor,
+  makePipeline,
+} from '../scripts/bench/ocr-lab.ts';
 import {
   FIXTURE_DIRECTORY,
   FIXTURE_MANIFEST,
@@ -147,7 +153,60 @@ describe('OCR preprocessing and layout metrics', () => {
     ).toBe(1);
     expect(blockIoU([quad(0, 0, 10, 10)], [quad(0, 0, 10, 10)])).toBe(1);
   });
+  it('requires matching column labels instead of only counting inversions', () => {
+    const left = quad(0, 0, 100, 10);
+    const right = quad(400, 0, 100, 10);
+
+    expect(columnOrderAccuracy([left, right], [left, right], 595)).toBe(1);
+    expect(columnOrderAccuracy([left, right], [right, left], 595)).toBe(0);
+    // All-left and empty hypotheses have no inversions but only one of two columns.
+    expect(columnOrderAccuracy([left, right], [left, left], 595)).toBe(0.5);
+    expect(columnOrderAccuracy([left, right], [], 595)).toBe(0);
+    expect(
+      columnOrderAccuracy(
+        [left, right],
+        [quad(0, 0, 40, 10), quad(50, 0, 40, 10), quad(80, 0, 40, 10)],
+        595,
+      ),
+    ).toBe(0.5);
+    // A single-column reference is scored on its label too, not given a free pass.
+    expect(columnOrderAccuracy([left], [left], 595)).toBe(1);
+    expect(columnOrderAccuracy([left], [right], 595)).toBe(0);
+  });
 });
+describe('OCR lab detection resolution', () => {
+  const loaded = {
+    pipeline: {},
+    runner: {},
+    dictionary: ['A'],
+    detection: {},
+    initializationMs: 0,
+    models: [],
+    release: async () => {},
+  } as unknown as LoadedPairing;
+
+  it('holds every approach at the fixed baseline unless it explicitly varies maxSide', () => {
+    expect(DEFAULT_DETECTION_MAX_SIDE).toBe(960);
+    for (const experiment of EXPERIMENTS) {
+      expect(detectionPreprocessFor(experiment).maxSide).toBe(
+        experiment.detectionMaxSide ?? DEFAULT_DETECTION_MAX_SIDE,
+      );
+    }
+    const gray = EXPERIMENTS.find((experiment) => experiment.id === 'gray');
+    expect(detectionPreprocessFor(gray ?? { id: 'gray', category: 'preprocess' })).toEqual({
+      maxSide: 960,
+      multiple: 32,
+    });
+  });
+
+  it('never reuses the loaded 1600px pipeline for step-only experiments', () => {
+    const experiment = { id: 'gray', category: 'preprocess', steps: ['grayscale'] } as const;
+    const variant = makePipeline(loaded, experiment);
+    expect(variant.pipeline).not.toBe(loaded.pipeline);
+    expect(detectionPreprocessFor(experiment).maxSide).toBe(DEFAULT_DETECTION_MAX_SIDE);
+  });
+});
+
 describe('optional real tiny-model OCR smoke', () => {
   it.runIf(process.env.OCR_BENCH_SMOKE === '1')(
     'runs official tiny_det + small_rec on generated EN scan',

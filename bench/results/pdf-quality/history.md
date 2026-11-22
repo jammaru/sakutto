@@ -9,9 +9,16 @@ re-scored in baseline.json / baseline.md with the current definition: 13.8%).
 iter1 / iter2 runs are kept as separate JSON/MD files; the garbledToken metric was refined once
 after iter2 to also count a whole English clause left inside a translated block, and baseline and
 final above use that final definition.
-| ocr-iter | 5 | 0.0% | 4.3% | 0.24% | 0.000 | 0.175 | 89.6% | 295 | 896 |
-| ocr-iter2 | 5 | 0.0% | 10.8% | 0.28% | 0.000 | 0.046 | 98.3% | 244 | 794 |
-| final | 5 | 0.0% | 10.8% | 0.28% | 0.000 | 0.046 | 98.3% | 261 | 823 |
-| final | 5 | 0.0% | 10.8% | 0.28% | 0.000 | 0.046 | 98.3% | 245 | 791 |
-| final | 5 | 0.0% | 6.7% | 0.24% | 0.000 | 0.066 | 97.9% | 274 | 859 |
-| final | 5 | 2 | 1.9% | 6.7% | 0.24% | 0.000 | 0.066 | 97.9% | 316 | 930 |
+
+Later runs of the same label are numbered below. The current row is the committed `final.json`,
+regenerated after the simulated-scan word boxes and raw-source garbling metric were corrected.
+
+| label           | pages | skipped prose | untranslated prose | mixed language | garbled tokens | overlap/box | overflow/box | reading order | first block ms | full ms |
+| --------------- | ----: | ------------: | -----------------: | -------------: | -------------: | ----------: | -----------: | ------------: | -------------: | ------: |
+| ocr-iter        |     5 |             — |               0.0% |           4.3% |          0.24% |       0.000 |        0.175 |         89.6% |            295 |     896 |
+| ocr-iter2       |     5 |             — |               0.0% |          10.8% |          0.28% |       0.000 |        0.046 |         98.3% |            244 |     794 |
+| final (r1)      |     5 |             — |               0.0% |          10.8% |          0.28% |       0.000 |        0.046 |         98.3% |            261 |     823 |
+| final (r2)      |     5 |             — |               0.0% |          10.8% |          0.28% |       0.000 |        0.046 |         98.3% |            245 |     791 |
+| final (r3)      |     5 |             — |               0.0% |           6.7% |          0.24% |       0.000 |        0.066 |         97.9% |            274 |     859 |
+| final (r4)      |     5 |             2 |               1.9% |           6.7% |          0.24% |       0.000 |        0.066 |         97.9% |            316 |     930 |
+| final (current) |     5 |             1 |               1.3% |           8.8% |          0.25% |       0.000 |        0.082 |         96.5% |            284 |     866 |

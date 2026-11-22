@@ -22,7 +22,10 @@ interface Box {
 export function normalizeOcrText(text: string): string {
   return text.normalize('NFC').replace(/\s+/gu, ' ').trim();
 }
-export function levenshtein(a: readonly string[], b: readonly string[]): number {
+export function levenshtein(
+  a: readonly (string | number)[],
+  b: readonly (string | number)[],
+): number {
   if (a.length === 0) return b.length;
   if (b.length === 0) return a.length;
   let previous = Array.from({ length: b.length + 1 }, (_, index) => index);
@@ -163,7 +166,14 @@ export function lineOrderAccuracy(
   };
 }
 
-/** Column order: left-to-right and top-to-bottom, for two-page newspaper layouts. */
+/**
+ * Column order: left-to-right and top-to-bottom, for two-column newspaper layouts.
+ *
+ * Consecutive boxes in the same column are compressed into one run so a detector that emits
+ * word boxes instead of lines is not penalized for segmentation. The resulting label sequence
+ * must still match the reference: an all-left (or empty) hypothesis has no inversions but is not
+ * a correct reading of a two-column page.
+ */
 export function columnOrderAccuracy(
   reference: readonly BenchQuad[],
   hypothesis: readonly BenchQuad[],
@@ -173,13 +183,14 @@ export function columnOrderAccuracy(
     const center = quad.reduce((sum, point) => sum + point.x, 0) / 4;
     return center < pageWidth / 2 ? 0 : 1;
   };
-  const expected = reference.map(column);
-  const observed = hypothesis.map(column);
-  if (expected.length < 2 || observed.length === 0 || new Set(expected).size < 2) return 1;
-  const inversions = observed.filter(
-    (value, index) => index > 0 && value < (observed[index - 1] ?? value),
-  ).length;
-  return 1 - inversions / Math.max(1, observed.length - 1);
+  const runs = (quads: readonly BenchQuad[]): number[] =>
+    quads.map(column).filter((value, index, labels) => index === 0 || value !== labels[index - 1]);
+  const expected = runs(reference);
+  const observed = runs(hypothesis);
+  if (expected.length === 0) return observed.length === 0 ? 1 : 0;
+  if (observed.length === 0) return 0;
+  const distance = levenshtein(expected, observed);
+  return Math.max(0, 1 - distance / Math.max(expected.length, observed.length));
 }
 
 /** Mean best IoU between paragraph groups built from adjacent matched lines. */

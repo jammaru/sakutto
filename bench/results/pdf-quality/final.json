@@ -1,6 +1,6 @@
 {
   "label": "final",
-  "generatedAt": "2026-11-22T18:51:45.962Z",
+  "generatedAt": "2026-11-22T19:38:41.676Z",
   "engine": "deterministic local fake",
   "pace": {
     "ttfbMs": 6,
@@ -27,8 +27,8 @@
         "overflowRate": 0,
         "readingOrderAccuracy": 0.9791666666666666,
         "twoColumnPages": 1,
-        "firstTranslatedBlockMs": 316,
-        "fullDocumentMs": 207,
+        "firstTranslatedBlockMs": 284,
+        "fullDocumentMs": 203,
         "meanScale": 0.9846128195131897
       }
     },
@@ -36,18 +36,18 @@
       "pages": 1,
       "summary": {
         "pages": 1,
-        "proseBlocks": 49,
-        "skippedProseBlocks": 1,
-        "untranslatedProseRate": 0.02040816326530612,
-        "mixedLanguageRate": 0.0625,
+        "proseBlocks": 23,
+        "skippedProseBlocks": 0,
+        "untranslatedProseRate": 0,
+        "mixedLanguageRate": 0.13043478260869565,
         "garbledTokenRate": 0,
         "overlapRate": 0,
-        "overflowRate": 0.16,
-        "readingOrderAccuracy": 0.9787234042553191,
-        "twoColumnPages": 0,
-        "firstTranslatedBlockMs": 851,
-        "fullDocumentMs": 84,
-        "meanScale": 0.986536931309762
+        "overflowRate": 0.3076923076923077,
+        "readingOrderAccuracy": 0.9090909090909091,
+        "twoColumnPages": 1,
+        "firstTranslatedBlockMs": 812,
+        "fullDocumentMs": 60,
+        "meanScale": 0.9934318168260319
       }
     }
   },
@@ -172,18 +172,18 @@
   },
   "summary": {
     "pages": 5,
-    "proseBlocks": 106,
-    "skippedProseBlocks": 2,
-    "untranslatedProseRate": 0.018867924528301886,
-    "mixedLanguageRate": 0.06666666666666667,
-    "garbledTokenRate": 0.00244926522043387,
+    "proseBlocks": 80,
+    "skippedProseBlocks": 1,
+    "untranslatedProseRate": 0.0125,
+    "mixedLanguageRate": 0.0875,
+    "garbledTokenRate": 0.002476123098691192,
     "overlapRate": 0,
-    "overflowRate": 0.06611570247933884,
-    "readingOrderAccuracy": 0.9790780141843971,
-    "twoColumnPages": 1,
-    "firstTranslatedBlockMs": 316,
-    "fullDocumentMs": 930,
-    "meanScale": 0.9854062676767245
+    "overflowRate": 0.08247422680412371,
+    "readingOrderAccuracy": 0.9651515151515151,
+    "twoColumnPages": 2,
+    "firstTranslatedBlockMs": 284,
+    "fullDocumentMs": 866,
+    "meanScale": 0.9864501106200319
   },
   "pages": [
     {
@@ -740,8 +740,8 @@
       "skippedProse": 0,
       "readingOrder": 0.9166666666666666,
       "twoColumn": true,
-      "firstBlockMs": 316,
-      "pageMs": 75
+      "firstBlockMs": 284,
+      "pageMs": 73
     },
     {
       "fixture": "arxiv",
@@ -1137,8 +1137,8 @@
       "skippedProse": 1,
       "readingOrder": 1,
       "twoColumn": false,
-      "firstBlockMs": 442,
-      "pageMs": 37
+      "firstBlockMs": 408,
+      "pageMs": 38
     },
     {
       "fixture": "arxiv",
@@ -1334,8 +1334,8 @@
       "skippedProse": 0,
       "readingOrder": 1,
       "twoColumn": false,
-      "firstBlockMs": 506,
-      "pageMs": 26
+      "firstBlockMs": 473,
+      "pageMs": 25
     },
     {
       "fixture": "arxiv",
@@ -1671,8 +1671,8 @@
       "skippedProse": 0,
       "readingOrder": 1,
       "twoColumn": false,
-      "firstBlockMs": 558,
-      "pageMs": 69
+      "firstBlockMs": 533,
+      "pageMs": 67
     },
     {
       "fixture": "scan",
@@ -1686,7 +1686,7 @@
           "box": {
             "x": 46.62886641225548,
             "y": 49.75502689055372,
-            "width": 560.9623085352348,
+            "width": 501.4663061148312,
             "height": 16.99460392021149
           },
           "painted": true,
@@ -1726,7 +1726,7 @@
           "box": {
             "x": 273.24077619775494,
             "y": 100.003855930849,
-            "width": 54.271378946156915,
+            "width": 48.24122572991723,
             "height": 10.994743604209134
           },
           "painted": true,
@@ -1746,7 +1746,7 @@
           "box": {
             "x": 263.09257521384666,
             "y": 118.90341530377088,
-            "width": 83.6877711359407,
+            "width": 79.88378153885247,
             "height": 20.59452001981481
           },
           "painted": true,
@@ -1766,7 +1766,7 @@
           "box": {
             "x": 79.00701805029078,
             "y": 176.4495744959653,
-            "width": 525.0012161956445,
+            "width": 436.72667541938563,
             "height": 80.7956165854846
           },
           "painted": true,
@@ -1786,7 +1786,7 @@
           "box": {
             "x": 79.00701805029078,
             "y": 260.44761682004673,
-            "width": 304.6303825770283,
+            "width": 251.82778293034332,
             "height": 8.79729459341479
           },
           "painted": true,
@@ -1800,37 +1800,17 @@
           "scale": 1
         },
         {
-          "source": "ships its own build of the runtime at a pinned commit, patched",
-          "translation": "語語語語語語のその語語語語一つの語語語語,語語語",
-          "role": "prose",
-          "box": {
-            "x": 307.2946700305926,
-            "y": 286.09701887972506,
-            "width": 294.7346644802913,
-            "height": 9.397280760011881
-          },
-          "painted": true,
-          "overflow": false,
-          "delivered": true,
-          "placeholders": 0,
-          "untranslated": false,
-          "prose": true,
-          "mixedLanguage": false,
-          "garbled": [],
-          "scale": 1
-        },
-        {
-          "source": "1. Introduction in two places so that workers and the WebAssembly module",
-          "translation": "1.語語語語において語語語語その語語語そしてその語語語語語語",
+          "source": "1. Introduction",
+          "translation": "1.語語語語",
           "role": "heading",
           "box": {
             "x": 44.999998125,
             "y": 298.2467355658904,
-            "width": 551.164703613897,
+            "width": 64.2466508065761,
             "height": 9.997266926608972
           },
-          "painted": true,
-          "overflow": false,
+          "painted": false,
+          "overflow": true,
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
@@ -1840,454 +1820,14 @@
           "scale": 1
         },
         {
-          "source": "A reader who wants an English article in Japanese has three",
-          "translation": "一つの語語語語語一つの語語語語語語において語語語語語語",
+          "source": "A reader who wants an English article in Japanese has three choices: paste it into a translation website, install a browser extension that forwards the page to a server, or read the English.",
+          "translation": "一つの語語語語語一つの語語語語語語において語語語語語語語語語:語語それは語語一つの翻訳語語語,語語語一つの語語語語語語その語語語その語語へ一つの語語,または語語その語語語.",
           "role": "prose",
           "box": {
             "x": 44.999998125,
             "y": 315.3463371890035,
-            "width": 291.91551837053083,
-            "height": 9.397280760011881
-          },
-          "painted": true,
-          "overflow": false,
-          "delivered": true,
-          "placeholders": 0,
-          "untranslated": false,
-          "prose": true,
-          "mixedLanguage": false,
-          "garbled": [],
-          "scale": 1
-        },
-        {
-          "source": "load from packaged files rather than from blob URLs, which",
-          "translation": "語語から語語語語語語語語語から語語語語,語語",
-          "role": "prose",
-          "box": {
-            "x": 307.2946700305926,
-            "y": 311.5964245852498,
-            "width": 286.9760652825169,
-            "height": 9.397280760011881
-          },
-          "painted": true,
-          "overflow": false,
-          "delivered": true,
-          "placeholders": 0,
-          "untranslated": false,
-          "prose": true,
-          "mixedLanguage": false,
-          "garbled": [],
-          "scale": 1
-        },
-        {
-          "source": "choices: paste it into a translation website, install a browser Manifest ex‐ V3 forbids.",
-          "translation": "語語語:語語それは語語一つの翻訳語語語,語語語一つの語語語語‐V³語語語.",
-          "role": "prose",
-          "box": {
-            "x": 44.999998125,
-            "y": 325.0961099587629,
-            "width": 349.2978082131593,
-            "height": 12.397210843014818
-          },
-          "painted": true,
-          "overflow": false,
-          "delivered": true,
-          "placeholders": 0,
-          "untranslated": false,
-          "prose": true,
-          "mixedLanguage": false,
-          "garbled": [],
-          "scale": 1
-        },
-        {
-          "source": "tension that forwards the page to a server, or read the English.",
-          "translation": "語語語その語語語その語語へ一つの語語,または語語その語語語.",
-          "role": "prose",
-          "box": {
-            "x": 44.999998125,
-            "y": 340.84574289452814,
-            "width": 292.7595513677675,
-            "height": 9.397280760011881
-          },
-          "painted": true,
-          "overflow": false,
-          "delivered": true,
-          "placeholders": 0,
-          "untranslated": false,
-          "prose": true,
-          "mixedLanguage": false,
-          "garbled": [],
-          "scale": 1
-        },
-        {
-          "source": "The runtime offers two backends. The WebGPU backend",
-          "translation": "その語語語語語語語語語.その語語語語語",
-          "role": "prose",
-          "box": {
-            "x": 318.62643343014804,
-            "y": 342.3457079360296,
-            "width": 267.8732609145485,
-            "height": 9.397280760011881
-          },
-          "painted": true,
-          "overflow": false,
-          "delivered": true,
-          "placeholders": 0,
-          "untranslated": false,
-          "prose": true,
-          "mixedLanguage": false,
-          "garbled": [],
-          "scale": 1
-        },
-        {
-          "source": "The first two send the page, and every selection the reader",
-          "translation": "その語語語語語その語語,そして語語語語語その語語",
-          "role": "prose",
-          "box": {
-            "x": 44.999998125,
-            "y": 353.59544574729057,
-            "width": 291.9124600558755,
-            "height": 9.397280760011824
-          },
-          "painted": false,
-          "overflow": true,
-          "delivered": true,
-          "placeholders": 0,
-          "untranslated": false,
-          "prose": true,
-          "mixedLanguage": false,
-          "garbled": [],
-          "scale": 1
-        },
-        {
-          "source": "keeps two sequences resident and decodes a batch of up to eight",
-          "translation": "語語語語語語語語語そして語語語一つの語語の語へ語語",
-          "role": "prose",
-          "box": {
-            "x": 307.2946700305926,
-            "y": 355.09541078879204,
-            "width": 293.73251212041515,
-            "height": 9.397280760011824
-          },
-          "painted": true,
-          "overflow": false,
-          "delivered": true,
-          "placeholders": 0,
-          "untranslated": false,
-          "prose": true,
-          "mixedLanguage": false,
-          "garbled": [],
-          "scale": 1
-        },
-        {
-          "source": "makes afterwards, to a third party. For a research paper under",
-          "translation": "語語語語語語,へ一つの語語語語.のために一つの語語語論文語語",
-          "role": "prose",
-          "box": {
-            "x": 44.999998125,
-            "y": 366.3451486000529,
-            "width": 289.0577087272432,
-            "height": 9.397280760011881
-          },
-          "painted": true,
-          "overflow": false,
-          "delivered": true,
-          "placeholders": 0,
-          "untranslated": false,
-          "prose": true,
-          "mixedLanguage": false,
-          "garbled": [],
-          "scale": 1
-        },
-        {
-          "source": "short segments in a single completion. The CPU backend keeps",
-          "translation": "語語語語語において一つの語語語語語語.その語語語語語語",
-          "role": "prose",
-          "box": {
-            "x": 307.2946700305926,
-            "y": 367.84511364155435,
-            "width": 285.2261536844408,
-            "height": 9.397280760011881
-          },
-          "painted": true,
-          "overflow": false,
-          "delivered": true,
-          "placeholders": 0,
-          "untranslated": false,
-          "prose": true,
-          "mixedLanguage": false,
-          "garbled": [],
-          "scale": 1
-        },
-        {
-          "source": "review, a private issue tracker or a medical record this is often",
-          "translation": "語語,一つの語語語語語語語語または一つの語語語語語このである語語",
-          "role": "prose",
-          "box": {
-            "x": 44.999998125,
-            "y": 379.0948514528153,
-            "width": 291.8303731827308,
-            "height": 9.397280760011824
-          },
-          "painted": true,
-          "overflow": false,
-          "delivered": true,
-          "placeholders": 0,
-          "untranslated": false,
-          "prose": true,
-          "mixedLanguage": false,
-          "garbled": [],
-          "scale": 1
-        },
-        {
-          "source": "one sequence and uses four to eight threads, depending on the",
-          "translation": "語語語語そして語語語語へ語語語語語,語語語の上でその",
-          "role": "prose",
-          "box": {
-            "x": 307.2946700305926,
-            "y": 380.5948164943168,
-            "width": 289.98574814990144,
-            "height": 9.397280760011824
-          },
-          "painted": true,
-          "overflow": false,
-          "delivered": true,
-          "placeholders": 0,
-          "untranslated": false,
-          "prose": true,
-          "mixedLanguage": false,
-          "garbled": [],
-          "scale": 1
-        },
-        {
-          "source": "unacceptable, and it is frequently prohibited by the terms the",
-          "translation": "語語語語,そしてそれはである語語語語語語語語によりその語語その",
-          "role": "prose",
-          "box": {
-            "x": 44.999998125,
-            "y": 391.8445543055776,
-            "width": 283.60922303796724,
-            "height": 9.397280760011881
-          },
-          "painted": false,
-          "overflow": true,
-          "delivered": true,
-          "placeholders": 0,
-          "untranslated": false,
-          "prose": true,
-          "mixedLanguage": false,
-          "garbled": [],
-          "scale": 1
-        },
-        {
-          "source": "machine. A probe runs at startup, and a failed GPU load falls",
-          "translation": "語語語.一つの語語語語語語語語,そして一つの語語語語語語語",
-          "role": "prose",
-          "box": {
-            "x": 307.2946700305926,
-            "y": 393.3445193470791,
-            "width": 295.78150403805654,
-            "height": 9.397280760011824
-          },
-          "painted": true,
-          "overflow": false,
-          "delivered": true,
-          "placeholders": 0,
-          "untranslated": false,
-          "prose": true,
-          "mixedLanguage": false,
-          "garbled": [],
-          "scale": 1
-        },
-        {
-          "source": "reader is bound by. back to the CPU path rather than failing the translation.",
-          "translation": "語語ⁱs語語by.語語へその語語語語語語語語語語その翻訳.",
-          "role": "prose",
-          "box": {
-            "x": 44.999998125,
-            "y": 405.3442396790907,
-            "width": 509.3109876890101,
-            "height": 10.147263280762559
-          },
-          "painted": true,
-          "overflow": false,
-          "delivered": true,
-          "placeholders": 0,
-          "untranslated": false,
-          "prose": true,
-          "mixedLanguage": false,
-          "garbled": [],
-          "scale": 1
-        },
-        {
-          "source": "Running the model in the browser removes that transfer. The St = (I − βt) St−1",
-          "translation": "語語語そのモデルにおいてその語語語語語語その語語語.その語=語₋ βt₎ St₋₁",
-          "role": "prose",
-          "box": {
-            "x": 56.33176527446801,
-            "y": 422.59383765635744,
-            "width": 434.09380218841045,
-            "height": 10.897245801513293
-          },
-          "painted": true,
-          "overflow": false,
-          "delivered": true,
-          "placeholders": 0,
-          "untranslated": false,
-          "prose": true,
-          "mixedLanguage": false,
-          "garbled": [],
-          "scale": 1
-        },
-        {
-          "source": "page text never leaves the process, no account is needed, and the extension works offline once the weights are downloaded.",
-          "translation": "語語語語語語語語その語語語,語語語語である語語,そしてその語語語語語語語語語語その語語語である語語語語.",
-          "role": "prose",
-          "box": {
-            "x": 44.999998125,
-            "y": 435.34354050911975,
-            "width": 289.981208513123,
-            "height": 22.14698361277425
-          },
-          "painted": true,
-          "overflow": false,
-          "delivered": true,
-          "placeholders": 0,
-          "untranslated": false,
-          "prose": true,
-          "mixedLanguage": false,
-          "garbled": [],
-          "scale": 0.89
-        },
-        {
-          "source": "Proposition 1. A block whose translation does not fit its own",
-          "translation": "語語語語1.一つの語語語語翻訳語語語語語語",
-          "role": "prose",
-          "box": {
-            "x": 315.87259511167906,
-            "y": 449.24071639363603,
-            "width": 271.2425478548206,
-            "height": 8.999790249008697
-          },
-          "painted": true,
-          "overflow": false,
-          "delivered": true,
-          "placeholders": 0,
-          "untranslated": false,
-          "prose": true,
-          "mixedLanguage": false,
-          "garbled": [],
-          "scale": 1
-        },
-        {
-          "source": "The cost is latency and memory: a transformer that a server",
-          "translation": "その語語である語語語そして語語:一つの語語語語その一つの語語",
-          "role": "prose",
-          "box": {
-            "x": 44.999998125,
-            "y": 460.8429462146445,
-            "width": 291.92089327718645,
-            "height": 9.397280760011881
-          },
-          "painted": true,
-          "overflow": false,
-          "delivered": true,
-          "placeholders": 0,
-          "untranslated": false,
-          "prose": true,
-          "mixedLanguage": false,
-          "garbled": [],
-          "scale": 1
-        },
-        {
-          "source": "box is left in the source typesetting rather than shown cut",
-          "translation": "語である語語においてその語語語語語語語語語語語語語",
-          "role": "prose",
-          "box": {
-            "x": 315.87259511167906,
-            "y": 461.9904192463984,
-            "width": 273.0620646409377,
-            "height": 8.999790249008697
-          },
-          "painted": true,
-          "overflow": false,
-          "delivered": true,
-          "placeholders": 0,
-          "untranslated": false,
-          "prose": true,
-          "mixedLanguage": false,
-          "garbled": [],
-          "scale": 1
-        },
-        {
-          "source": "would run on an accelerator has to fit in a tab, compete with short. the page for the GPU, and produce tokens one at a time in front of a reader who is already looking at the text.",
-          "translation": "語語語の上で一つの語語語語語へ語において一つの語,語語語ともに語語.その語語のためにその語,そして語語語語語語語一つの語語において語語の一つの語語語である語語語語語語語その語語.",
-          "role": "prose",
-          "box": {
-            "x": 44.999998125,
-            "y": 473.5926490674069,
-            "width": 310.33263975146053,
-            "height": 34.89668646553656
-          },
-          "painted": true,
-          "overflow": false,
-          "delivered": true,
-          "placeholders": 0,
-          "untranslated": false,
-          "prose": true,
-          "mixedLanguage": false,
-          "garbled": [],
-          "scale": 0.945
-        },
-        {
-          "source": "This paper reports a working system rather than a 2 new if is_equation(block): continue",
-          "translation": "この論文語語語一つの語語語システム語語語語一つの²語ⁱf語語語語):語語語",
-          "role": "prose",
-          "box": {
-            "x": 56.33176527446801,
-            "y": 513.9942073852503,
-            "width": 451.29341302187936,
-            "height": 11.744726124959925
-          },
-          "painted": true,
-          "overflow": false,
-          "delivered": true,
-          "placeholders": 0,
-          "untranslated": false,
-          "prose": true,
-          "mixedLanguage": false,
-          "garbled": [],
-          "scale": 1
-        },
-        {
-          "source": "ing rules that decide what to translate first, and Section 4 the measurements. Section 5 discusses the failure modes we could 2.2 Page model not design away, and Section 6 lists the work that remains.",
-          "translation": "語語語その語語語語へ語語語語語,そして語語語4その語語語語.語語語5語語語その語語語語語我々は語語².2語語モデル語語語語語,そして語語語6語語その語語その語語語.",
-          "role": "prose",
-          "box": {
-            "x": 44.999998125,
-            "y": 541.841058455723,
-            "width": 331.3349533718545,
-            "height": 34.89668646553662
-          },
-          "painted": true,
-          "overflow": false,
-          "delivered": true,
-          "placeholders": 0,
-          "untranslated": false,
-          "prose": true,
-          "mixedLanguage": false,
-          "garbled": [],
-          "scale": 1
-        },
-        {
-          "source": "A page is not a list of paragraphs. The collector therefore walks the document rather than selecting a fixed set of tags, and it",
-          "translation": "一つの語語である語一つの語語の語語語語.その語語語語語語語語その語語語語語語語語語語一つの語語語の語語,そしてそれは",
-          "role": "prose",
-          "box": {
-            "x": 307.2946700305926,
-            "y": 565.0905165989956,
-            "width": 294.7389108365921,
-            "height": 22.146983612774193
+            "width": 242.44410286664902,
+            "height": 34.896686465536504
           },
           "painted": false,
           "overflow": true,
@@ -2300,14 +1840,54 @@
           "scale": 0.9450000000000001
         },
         {
-          "source": "2. System Design treats four shapes differently: ordinary prose, an item of a grid",
-          "translation": "₂.システム語語語語語語語語語語語語:語語語語語,一つの語語の一つの語語",
+          "source": "The first two send the page, and every selection the reader makes afterwards, to a third party. For a research paper under review, a private issue tracker or a medical record this is often unacceptable, and it is frequently prohibited by the terms the reader is bound by.",
+          "translation": "その語語語語語その語語,そして語語語語語その語語語語語語語語,へ一つの語語語語.のために一つの語語語論文語語語語,一つの語語語語語語語語または一つの語語語語語このである語語語語語語,そしてそれはである語語語語語語語語によりその語語その語語である語語により.",
           "role": "prose",
           "box": {
             "x": 44.999998125,
-            "y": 590.5899223045203,
-            "width": 548.8252051230941,
-            "height": 10.897245801513236
+            "y": 353.59544574729057,
+            "width": 242.44369464411483,
+            "height": 61.146074691811975
+          },
+          "painted": false,
+          "overflow": true,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "prose": true,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "Running the model in the browser removes that transfer. The page text never leaves the process, no account is needed, and the extension works offline once the weights are downloaded.",
+          "translation": "語語語そのモデルにおいてその語語語語語語その語語語.その語語語語語語語語その語語語,語語語語である語語,そしてその語語語語語語語語語語その語語語である語語語語.",
+          "role": "prose",
+          "box": {
+            "x": 44.999998125,
+            "y": 422.59383765635744,
+            "width": 242.4433054781848,
+            "height": 34.89668646553656
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "prose": true,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 0.9450000000000001
+        },
+        {
+          "source": "The cost is latency and memory: a transformer that a server would run on an accelerator has to fit in a tab, compete with the page for the GPU, and produce tokens one at a time in front of a reader who is already looking at the text.",
+          "translation": "その語語である語語語そして語語:一つの語語語語その一つの語語語語語の上で一つの語語語語語へ語において一つの語,語語語ともにその語語のためにその語,そして語語語語語語語一つの語語において語語の一つの語語語である語語語語語語語その語語.",
+          "role": "prose",
+          "box": {
+            "x": 44.999998125,
+            "y": 460.8429462146445,
+            "width": 242.44737480582853,
+            "height": 47.646389318298986
           },
           "painted": true,
           "overflow": false,
@@ -2320,34 +1900,54 @@
           "scale": 1
         },
         {
-          "source": "or flex container, a cell of a repeating data row, and a container",
-          "translation": "または語語語語語,一つの語語の一つの語語語データ語,そして一つの語語語",
+          "source": "This paper reports a working system rather than a new model. Section 2 describes the runtime, Section 3 the scheduling rules that decide what to translate first, and Section 4 the measurements. Section 5 discusses the failure modes we could not design away, and Section 6 lists the work that remains.",
+          "translation": "この論文語語語一つの語語語システム語語語語一つの語モデル.語語語2語語語その語語語,語語語3その語語語語語語その語語語語へ語語語語語,そして語語語4その語語語語.語語語5語語語その語語語語語我々は語語語語語語語,そして語語語6語語その語語その語語語.",
           "role": "prose",
           "box": {
-            "x": 307.2946700305926,
-            "y": 603.3396251572826,
-            "width": 296.3212978950556,
-            "height": 9.397280760011881
+            "x": 44.999998125,
+            "y": 516.3416527501984,
+            "width": 242.44410286664902,
+            "height": 60.39609217106124
           },
-          "painted": true,
-          "overflow": false,
+          "painted": false,
+          "overflow": true,
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
           "prose": true,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 0.8350000000000001
+          "scale": 1
         },
         {
-          "source": "The extension is a Manifest V3 package with four processes. A",
-          "translation": "その語語語である一つの語語語V3語語語ともに語語語語語.一つの",
+          "source": "2. System Design",
+          "translation": "2.システム語語",
+          "role": "heading",
+          "box": {
+            "x": 44.999998125,
+            "y": 591.4899011794246,
+            "width": 71.91440272534831,
+            "height": 9.997266926608972
+          },
+          "painted": false,
+          "overflow": true,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "prose": true,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "The extension is a Manifest V3 package with four processes. A service worker owns the lifetime of everything else. An offscreen document hosts the runtime, because a service worker cannot hold a WebAssembly heap across a suspension. A content script walks the page and writes translations back into the document. Popup, options and onboarding pages render the",
+          "translation": "その語語語である一つの語語語V3語語語ともに語語語語語.一つの語語語語語語語その語語語の語語語語語語.一つの語語語語語語語語その語語語,語語語一つの語語語語語語語語語一つの語語語語語語語語一つの語語語語.一つの語語語語語語語その語語そして語語語語語語語語語語その語語語.語語,語語語そして語語語語語語語語その",
           "role": "prose",
           "box": {
             "x": 44.999998125,
             "y": 609.3394853232884,
-            "width": 289.9803161375154,
-            "height": 9.397280760011881
+            "width": 242.44655102502753,
+            "height": 73.14579502382378
           },
           "painted": false,
           "overflow": true,
@@ -2357,17 +1957,17 @@
           "prose": true,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 0.9450000000000001
         },
         {
-          "source": "that owns text of its own beside its children. The distinction",
-          "translation": "その語語語語の語語語語語語語語.その語語語語",
+          "source": "ships its own build of the runtime at a pinned commit, patched in two places so that workers and the WebAssembly module load from packaged files rather than from blob URLs, which Manifest V3 forbids.",
+          "translation": "語語語語語語のその語語語語一つの語語語語,語語語において語語語語その語語語そしてその語語語語語語語語から語語語語語語語語語から語語語語,語語語語語V3語語語.",
           "role": "prose",
           "box": {
             "x": 307.2946700305926,
-            "y": 616.0893280100449,
-            "width": 289.0725029750036,
-            "height": 9.397280760011881
+            "y": 286.09701887972506,
+            "width": 242.44529653178148,
+            "height": 48.39637183904972
           },
           "painted": true,
           "overflow": false,
@@ -2380,34 +1980,14 @@
           "scale": 1
         },
         {
-          "source": "service worker owns the lifetime of everything else. An off‐",
-          "translation": "語語語語語語語その語語語の語語語語語語.一つの語‐",
-          "role": "prose",
-          "box": {
-            "x": 44.999998125,
-            "y": 622.0891881760508,
-            "width": 285.2283563137047,
-            "height": 9.397280760011881
-          },
-          "painted": false,
-          "overflow": true,
-          "delivered": true,
-          "placeholders": 0,
-          "untranslated": false,
-          "prose": true,
-          "mixedLanguage": false,
-          "garbled": [],
-          "scale": 1
-        },
-        {
-          "source": "matters because a translation is written back into the text nodes",
-          "translation": "語語語語語語一つの翻訳である語語語語語語語その語語語語",
+          "source": "The runtime offers two backends. The WebGPU backend keeps two sequences resident and decodes a batch of up to eight short segments in a single completion. The CPU backend keeps one sequence and uses four to eight threads, depending on the machine. A probe runs at startup, and a failed GPU load falls back to the CPU path rather than failing the translation.",
+          "translation": "その語語語語語語語語語.その語語語語語語語語語語語語語語そして語語語一つの語語の語へ語語語語語語語において一つの語語語語語語.その語語語語語語語語語語そして語語語語へ語語語語語,語語語の上でその語語語.一つの語語語語語語語語,そして一つの語語語語語語語語語へその語語語語語語語語語語その翻訳.",
           "role": "prose",
           "box": {
             "x": 307.2946700305926,
-            "y": 628.8390308628074,
-            "width": 286.5195251373321,
-            "height": 9.397280760011881
+            "y": 342.3457079360296,
+            "width": 242.44710091221265,
+            "height": 73.14579502382367
           },
           "painted": true,
           "overflow": false,
@@ -2420,74 +2000,14 @@
           "scale": 1
         },
         {
-          "source": "screen document hosts the runtime, because a service worker",
-          "translation": "語語語語語語語その語語語,語語語一つの語語語語語",
+          "source": "St = (I − βt) St−1 Proposition 1. A block whose translation does not fit its own box is left in the source typesetting rather than shown cut short.",
+          "translation": "語=語−語)St−1語語語語1.一つの語語語語翻訳語語語語語語語である語語においてその語語語語語語語語語語語語語語語.",
           "role": "prose",
           "box": {
-            "x": 44.999998125,
-            "y": 634.8388910288131,
-            "width": 280.46729553981373,
-            "height": 9.397280760011881
-          },
-          "painted": false,
-          "overflow": true,
-          "delivered": true,
-          "placeholders": 0,
-          "untranslated": false,
-          "prose": true,
-          "mixedLanguage": false,
-          "garbled": [],
-          "scale": 1
-        },
-        {
-          "source": "the source already had. A row laid out as a grid becomes a verti‐",
-          "translation": "その語語語語語語.一つの語語語語として一つの語語語語語一つの語語‐",
-          "role": "prose",
-          "box": {
-            "x": 307.2946700305926,
-            "y": 641.5887337155697,
-            "width": 303.0551285833113,
-            "height": 9.397280760011881
-          },
-          "painted": true,
-          "overflow": false,
-          "delivered": true,
-          "placeholders": 0,
-          "untranslated": false,
-          "prose": true,
-          "mixedLanguage": false,
-          "garbled": [],
-          "scale": 0.89
-        },
-        {
-          "source": "cannot hold a WebAssembly heap across a suspension. A con‐",
-          "translation": "語語語語一つの語語語語語語語語一つの語語語語.一つの語‐",
-          "role": "prose",
-          "box": {
-            "x": 44.999998125,
-            "y": 647.5885938815755,
-            "width": 286.9746523727683,
-            "height": 9.397280760011881
-          },
-          "painted": false,
-          "overflow": true,
-          "delivered": true,
-          "placeholders": 0,
-          "untranslated": false,
-          "prose": true,
-          "mixedLanguage": false,
-          "garbled": [],
-          "scale": 1
-        },
-        {
-          "source": "cal pile if its translation lands between the cells instead of inside",
-          "translation": "語語語語語翻訳語語語語語その語語語語語の語語",
-          "role": "prose",
-          "box": {
-            "x": 307.2946700305926,
-            "y": 654.3384365683321,
-            "width": 288.42858325447133,
-            "height": 9.397280760011881
+            "x": 315.87259511167906,
+            "y": 424.0938026978589,
+            "width": 226.78035876959234,
+            "height": 58.89612712955983
           },
           "painted": true,
           "overflow": false,
@@ -2500,17 +2020,17 @@
           "scale": 1
         },
         {
-          "source": "tent script walks the page and writes translations back into the",
-          "translation": "語語語語語語その語語そして語語語語語語語語語語その",
-          "role": "prose",
+          "source": "2.2 Page model",
+          "translation": "2.2語語モデル",
+          "role": "heading",
           "box": {
-            "x": 44.999998125,
-            "y": 660.3382967343379,
-            "width": 287.3346742928634,
-            "height": 9.397280760011881
+            "x": 307.2946700305926,
+            "y": 549.3408836632303,
+            "width": 59.177384113938786,
+            "height": 9.397280760011768
           },
-          "painted": false,
-          "overflow": true,
+          "painted": true,
+          "overflow": false,
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
@@ -2520,14 +2040,14 @@
           "scale": 1
         },
         {
-          "source": "document. Popup, options and onboarding pages render the",
-          "translation": "語語語.語語,語語語そして語語語語語語語語その",
+          "source": "A page is not a list of paragraphs. The collector therefore walks the document rather than selecting a fixed set of tags, and it treats four shapes differently: ordinary prose, an item of a grid or flex container, a cell of a repeating data row, and a container that owns text of its own beside its children. The distinction matters because a translation is written back into the text nodes the source already had. A row laid out as a grid becomes a vertical pile if its translation lands between the cells instead of inside them.",
+          "translation": "一つの語語である語一つの語語の語語語語.その語語語語語語語語その語語語語語語語語語語一つの語語語の語語,そしてそれは語語語語語語語語語語:語語語語語,一つの語語の一つの語語または語語語語語,一つの語語の一つの語語語データ語,そして一つの語語語その語語語語の語語語語語語語語.その語語語語語語語語語語一つの翻訳である語語語語語語語その語語語語その語語語語語語.一つの語語語語として一つの語語語語語一つの語語語語語語語翻訳語語語語語その語語語語語の語語語語.",
           "role": "prose",
           "box": {
-            "x": 44.999998125,
-            "y": 673.0879995871003,
-            "width": 277.08177260003146,
-            "height": 9.397280760011881
+            "x": 307.2946700305926,
+            "y": 565.0905165989956,
+            "width": 242.44891272250123,
+            "height": 111.39490358211071
           },
           "painted": true,
           "overflow": false,
@@ -2546,7 +2066,7 @@
           "box": {
             "x": 44.999998125,
             "y": 684.3377373983611,
-            "width": 548.0610383159865,
+            "width": 504.7292588932226,
             "height": 10.89724580151335
           },
           "painted": true,
@@ -2560,37 +2080,17 @@
           "scale": 1
         },
         {
-          "source": "sample output, pronunciation and citation markers — stay in the",
-          "translation": "語語語語,語語語語そして語語語語語語—語語においてその",
-          "role": "prose",
-          "box": {
-            "x": 307.2946700305926,
-            "y": 697.0874402511236,
-            "width": 282.853348539097,
-            "height": 9.397280760011881
-          },
-          "painted": true,
-          "overflow": false,
-          "delivered": true,
-          "placeholders": 0,
-          "untranslated": false,
-          "prose": true,
-          "mixedLanguage": false,
-          "garbled": [],
-          "scale": 1
-        },
-        {
-          "source": "2.1 Runtime document untouched and become numbered placeholders in the",
-          "translation": "².1語語語語語語語語語そして語語語語語語語語語においてその",
+          "source": "2.1 Runtime",
+          "translation": "2.1語語語",
           "role": "heading",
           "box": {
             "x": 44.999998125,
             "y": 706.8372130208829,
-            "width": 538.0092987532869,
-            "height": 12.397210843014818
+            "width": 47.468970788236554,
+            "height": 9.397280760011881
           },
-          "painted": true,
-          "overflow": false,
+          "painted": false,
+          "overflow": true,
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
@@ -2600,17 +2100,17 @@
           "scale": 1
         },
         {
-          "source": "The model is PLaMo 3 Translate, an 0.8-billion-parameter text de‐ the model sees. The model is asked to keep each placecoder trained for translation in 53 languages in either direction, holder where the sentence had it, and a translation that moves or quantised to four bits per weight. The published WebAssembly drops one is rejected and retried without placeholders.",
-          "translation": "そのモデルである語語3語語語,一つの0.8-billion-parameter語語語‐そのモデル語語.そのモデルである語語へ語語語語語語語語語語語のために翻訳において53語語語において語語語語語,語語語語その語語語語それは,そして一つの翻訳その語語または語語語へ語語語語語語語.その語語語語語語語語語語である語語語そして語語語語語語語語語語.",
+          "source": "The model is PLaMo 3 Translate, an 0.8-billion-parameter decoder trained for translation in 53 languages in either direction, quantised to four bits per weight. The published WebAssembly build of llama.cpp cannot load its tokenizer, so the extension",
+          "translation": "そのモデルである語語3語語語,一つの0.8-billion-parameter語語語語語語のために翻訳において53語語語において語語語語語,語語語へ語語語語語語語.その語語語語語語語語語の語語語語語語語語語語語,語その語語語",
           "role": "prose",
           "box": {
             "x": 44.999998125,
             "y": 722.5868459566482,
-            "width": 560.2988816791819,
-            "height": 34.89668646553662
+            "width": 242.4459835157699,
+            "height": 47.64638931829904
           },
-          "painted": true,
-          "overflow": false,
+          "painted": false,
+          "overflow": true,
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
@@ -2620,14 +2120,14 @@
           "scale": 0.9450000000000001
         },
         {
-          "source": "build of llama.cpp cannot load its tokenizer, so the extension",
-          "translation": "語語の語語語語語語語語語語語,語その語語語",
+          "source": "sample output, pronunciation and citation markers — stay in the document untouched and become numbered placeholders in the text the model sees. The model is asked to keep each placeholder where the sentence had it, and a translation that moves or drops one is rejected and retried without placeholders.",
+          "translation": "語語語語,語語語語そして語語語語語語—語語においてその語語語語語語そして語語語語語語語語語においてその語語そのモデル語語.そのモデルである語語へ語語語語語語語語語語その語語語語それは,そして一つの翻訳その語語または語語語である語語語そして語語語語語語語語語語.",
           "role": "prose",
           "box": {
-            "x": 44.999998125,
-            "y": 760.8359545149353,
-            "width": 283.61485081352157,
-            "height": 9.397280760011881
+            "x": 307.2946700305926,
+            "y": 697.0874402511236,
+            "width": 242.44572731922602,
+            "height": 60.39609217106124
           },
           "painted": true,
           "overflow": false,
@@ -2646,7 +2146,7 @@
           "box": {
             "x": 315.1226125909283,
             "y": 503.4944520947401,
-            "width": 117.9831621318034,
+            "width": 100.71729236343339,
             "height": 7.994813521206254
           },
           "painted": false,
@@ -2660,21 +2160,41 @@
           "scale": 1
         },
         {
-          "source": "model. Section 2 describes the runtime, Section 3 the schedul‐ 3 emit(translate(block))",
+          "source": "2 if is_equation(block): continue",
           "translation": "",
           "role": "code",
           "box": {
-            "x": 44.999998125,
-            "y": 525.2439451965112,
-            "width": 409.2077562202502,
-            "height": 13.244691166461394
+            "x": 315.1226125909283,
+            "y": 513.9942073852503,
+            "width": 182.24897231907124,
+            "height": 7.994813521206197
           },
           "painted": false,
           "overflow": false,
           "delivered": false,
           "placeholders": 0,
           "untranslated": true,
-          "prose": true,
+          "prose": false,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "3 emit(translate(block))",
+          "translation": "",
+          "role": "code",
+          "box": {
+            "x": 315.1226125909283,
+            "y": 525.2439451965112,
+            "width": 139.08514175432185,
+            "height": 7.994813521206311
+          },
+          "painted": false,
+          "overflow": false,
+          "delivered": false,
+          "placeholders": 0,
+          "untranslated": true,
+          "prose": false,
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
@@ -2683,13 +2203,13 @@
       "overlapPairs": 0,
       "overflow": 8,
       "shrunk": 0,
-      "untranslatedProse": 1,
-      "proseBlocks": 49,
-      "skippedProse": 1,
-      "readingOrder": 0.9787234042553191,
-      "twoColumn": false,
-      "firstBlockMs": 851,
-      "pageMs": 84
+      "untranslatedProse": 0,
+      "proseBlocks": 23,
+      "skippedProse": 0,
+      "readingOrder": 0.9090909090909091,
+      "twoColumn": true,
+      "firstBlockMs": 812,
+      "pageMs": 60
     }
   ]
 }
