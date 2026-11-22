@@ -1,0 +1,2787 @@
+{
+  "label": "matrix",
+  "pairing": "tiny_det+small_rec",
+  "results": [
+    {
+      "experiment": "baseline",
+      "category": "baseline",
+      "cases": [
+        {
+          "fixture": "en-scan",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.4502283874258389,
+          "ms": 1437.360776,
+          "lines": 7
+        },
+        {
+          "fixture": "ja-horizontal",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.5731439410036404,
+          "ms": 1229.4588170000002,
+          "lines": 6
+        },
+        {
+          "fixture": "ja-vertical",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 0.75,
+          "blockIoU": 0.8019301734792579,
+          "ms": 836.9864699999998,
+          "lines": 5
+        },
+        {
+          "fixture": "slides",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8697026487989619,
+          "ms": 1122.395337,
+          "lines": 6
+        },
+        {
+          "fixture": "low-res-skew",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.9264346928035136,
+          "ms": 1022.9124519999996,
+          "lines": 6
+        },
+        {
+          "fixture": "two-column",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8777215996952323,
+          "ms": 1413.154208,
+          "lines": 8
+        },
+        {
+          "fixture": "mixed-ja-en",
+          "cer": 0.06896551724137931,
+          "wer": 0.75,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.7674748764768778,
+          "ms": 1089.0451649999995,
+          "lines": 6
+        },
+        {
+          "fixture": "small-text",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8633894359868102,
+          "ms": 1319.3710629999987,
+          "lines": 8
+        }
+      ],
+      "summary": {
+        "cer": 0.008620689655172414,
+        "wer": 0.09375,
+        "recall": 1,
+        "order": 1,
+        "column": 0.96875,
+        "blockIoU": 0.7662532194587666,
+        "ms": 1183.8355359999996
+      }
+    },
+    {
+      "experiment": "dpi150",
+      "category": "render",
+      "cases": [
+        {
+          "fixture": "en-scan",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.4502283874258389,
+          "ms": 1293.3203580000009,
+          "lines": 7
+        },
+        {
+          "fixture": "ja-horizontal",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.5731439410036404,
+          "ms": 1151.7689070000015,
+          "lines": 6
+        },
+        {
+          "fixture": "ja-vertical",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 0.75,
+          "blockIoU": 0.8019301734792579,
+          "ms": 777.8461729999999,
+          "lines": 5
+        },
+        {
+          "fixture": "slides",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8697026487989619,
+          "ms": 1049.6261940000004,
+          "lines": 6
+        },
+        {
+          "fixture": "low-res-skew",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.9264346928035136,
+          "ms": 972.3799250000011,
+          "lines": 6
+        },
+        {
+          "fixture": "two-column",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8777215996952323,
+          "ms": 1390.8810830000002,
+          "lines": 8
+        },
+        {
+          "fixture": "mixed-ja-en",
+          "cer": 0.06896551724137931,
+          "wer": 0.75,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.7674748764768778,
+          "ms": 1100.3722110000017,
+          "lines": 6
+        },
+        {
+          "fixture": "small-text",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8633894359868102,
+          "ms": 1343.6855460000006,
+          "lines": 8
+        }
+      ],
+      "summary": {
+        "cer": 0.008620689655172414,
+        "wer": 0.09375,
+        "recall": 1,
+        "order": 1,
+        "column": 0.96875,
+        "blockIoU": 0.7662532194587666,
+        "ms": 1134.9850496250008
+      }
+    },
+    {
+      "experiment": "dpi200",
+      "category": "render",
+      "cases": [
+        {
+          "fixture": "en-scan",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.4631925145328134,
+          "ms": 1521.5461829999986,
+          "lines": 7
+        },
+        {
+          "fixture": "ja-horizontal",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.5593878702590261,
+          "ms": 1359.1277280000031,
+          "lines": 6
+        },
+        {
+          "fixture": "ja-vertical",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 0.75,
+          "blockIoU": 0.7571264476069453,
+          "ms": 990.0101590000013,
+          "lines": 5
+        },
+        {
+          "fixture": "slides",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8816111160168375,
+          "ms": 1241.4577659999995,
+          "lines": 6
+        },
+        {
+          "fixture": "low-res-skew",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.9238410682173652,
+          "ms": 1178.126022999997,
+          "lines": 6
+        },
+        {
+          "fixture": "two-column",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.888071748359857,
+          "ms": 1712.329318,
+          "lines": 8
+        },
+        {
+          "fixture": "mixed-ja-en",
+          "cer": 0.06896551724137931,
+          "wer": 0.75,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.77459049698261,
+          "ms": 1253.1763539999993,
+          "lines": 6
+        },
+        {
+          "fixture": "small-text",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.876183093670476,
+          "ms": 1557.594924000001,
+          "lines": 8
+        }
+      ],
+      "summary": {
+        "cer": 0.008620689655172414,
+        "wer": 0.09375,
+        "recall": 1,
+        "order": 1,
+        "column": 0.96875,
+        "blockIoU": 0.7655005444557412,
+        "ms": 1351.671056875
+      }
+    },
+    {
+      "experiment": "dpi300",
+      "category": "render",
+      "cases": [
+        {
+          "fixture": "en-scan",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.6441302442658084,
+          "ms": 2198.842875000002,
+          "lines": 7
+        },
+        {
+          "fixture": "ja-horizontal",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.5795061818787405,
+          "ms": 1994.0107409999982,
+          "lines": 6
+        },
+        {
+          "fixture": "ja-vertical",
+          "cer": 0.019230769230769232,
+          "wer": 0.2,
+          "recall": 1,
+          "order": 1,
+          "column": 0.75,
+          "blockIoU": 0.7842300393687112,
+          "ms": 1617.0942730000024,
+          "lines": 5
+        },
+        {
+          "fixture": "slides",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8354477049854573,
+          "ms": 2017.644791000006,
+          "lines": 6
+        },
+        {
+          "fixture": "low-res-skew",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.9277910734467603,
+          "ms": 1721.9419310000012,
+          "lines": 6
+        },
+        {
+          "fixture": "two-column",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8990979516530204,
+          "ms": 2266.0425600000017,
+          "lines": 8
+        },
+        {
+          "fixture": "mixed-ja-en",
+          "cer": 0.04310344827586207,
+          "wer": 0.5625,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8205686674231258,
+          "ms": 1898.1164319999953,
+          "lines": 6
+        },
+        {
+          "fixture": "small-text",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8829174305574033,
+          "ms": 2245.3947340000013,
+          "lines": 8
+        }
+      ],
+      "summary": {
+        "cer": 0.007791777188328913,
+        "wer": 0.0953125,
+        "recall": 1,
+        "order": 1,
+        "column": 0.96875,
+        "blockIoU": 0.7967111616973784,
+        "ms": 1994.886042125001
+      }
+    },
+    {
+      "experiment": "gray",
+      "category": "preprocess",
+      "cases": [
+        {
+          "fixture": "en-scan",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.44923843712210154,
+          "ms": 1273.9212200000038,
+          "lines": 7
+        },
+        {
+          "fixture": "ja-horizontal",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.5608850431923282,
+          "ms": 1135.4726660000015,
+          "lines": 6
+        },
+        {
+          "fixture": "ja-vertical",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 0.75,
+          "blockIoU": 0.824401386436483,
+          "ms": 758.5313929999975,
+          "lines": 5
+        },
+        {
+          "fixture": "slides",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8601601243887149,
+          "ms": 1052.2570999999953,
+          "lines": 6
+        },
+        {
+          "fixture": "low-res-skew",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.9341819970038292,
+          "ms": 986.1221409999998,
+          "lines": 6
+        },
+        {
+          "fixture": "two-column",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8791050577849544,
+          "ms": 1400.8326339999985,
+          "lines": 8
+        },
+        {
+          "fixture": "mixed-ja-en",
+          "cer": 0.04310344827586207,
+          "wer": 0.5625,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.7735096186906226,
+          "ms": 1077.405310999995,
+          "lines": 6
+        },
+        {
+          "fixture": "small-text",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8637783611212735,
+          "ms": 1305.565066999996,
+          "lines": 8
+        }
+      ],
+      "summary": {
+        "cer": 0.005387931034482759,
+        "wer": 0.0703125,
+        "recall": 1,
+        "order": 1,
+        "column": 0.96875,
+        "blockIoU": 0.7681575032175385,
+        "ms": 1123.7634414999984
+      }
+    },
+    {
+      "experiment": "contrast",
+      "category": "preprocess",
+      "cases": [
+        {
+          "fixture": "en-scan",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.4641890308850427,
+          "ms": 1277.319432999997,
+          "lines": 7
+        },
+        {
+          "fixture": "ja-horizontal",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.5609379388676362,
+          "ms": 1137.512032000006,
+          "lines": 6
+        },
+        {
+          "fixture": "ja-vertical",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 0.75,
+          "blockIoU": 0.8414266444618976,
+          "ms": 741.5761629999979,
+          "lines": 5
+        },
+        {
+          "fixture": "slides",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 0.8333333333333334,
+          "blockIoU": 0.7207062223469068,
+          "ms": 1083.1092779999963,
+          "lines": 6
+        },
+        {
+          "fixture": "low-res-skew",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.9377465854086364,
+          "ms": 963.2438460000049,
+          "lines": 6
+        },
+        {
+          "fixture": "two-column",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8882990553942647,
+          "ms": 1387.4175079999986,
+          "lines": 8
+        },
+        {
+          "fixture": "mixed-ja-en",
+          "cer": 0.034482758620689655,
+          "wer": 0.4375,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.7747197495638538,
+          "ms": 1060.6550530000022,
+          "lines": 6
+        },
+        {
+          "fixture": "small-text",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8633894359868102,
+          "ms": 1278.6924029999936,
+          "lines": 8
+        }
+      ],
+      "summary": {
+        "cer": 0.004310344827586207,
+        "wer": 0.0546875,
+        "recall": 1,
+        "order": 1,
+        "column": 0.9479166666666667,
+        "blockIoU": 0.756426832864381,
+        "ms": 1116.1907144999996
+      }
+    },
+    {
+      "experiment": "gray+contrast",
+      "category": "preprocess",
+      "cases": [
+        {
+          "fixture": "en-scan",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.4641857531277143,
+          "ms": 1289.0568050000002,
+          "lines": 7
+        },
+        {
+          "fixture": "ja-horizontal",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.5609379388676362,
+          "ms": 1168.7250090000016,
+          "lines": 6
+        },
+        {
+          "fixture": "ja-vertical",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 0.75,
+          "blockIoU": 0.8414266444618976,
+          "ms": 775.7189840000065,
+          "lines": 5
+        },
+        {
+          "fixture": "slides",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 0.8333333333333334,
+          "blockIoU": 0.7207062223469068,
+          "ms": 1132.9801000000007,
+          "lines": 6
+        },
+        {
+          "fixture": "low-res-skew",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.9377465854086364,
+          "ms": 953.2895560000034,
+          "lines": 6
+        },
+        {
+          "fixture": "two-column",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8882990553942647,
+          "ms": 1416.459977999999,
+          "lines": 8
+        },
+        {
+          "fixture": "mixed-ja-en",
+          "cer": 0.034482758620689655,
+          "wer": 0.4375,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.7747197495638538,
+          "ms": 1069.1342489999952,
+          "lines": 6
+        },
+        {
+          "fixture": "small-text",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8637783611212735,
+          "ms": 1311.0666099999944,
+          "lines": 8
+        }
+      ],
+      "summary": {
+        "cer": 0.004310344827586207,
+        "wer": 0.0546875,
+        "recall": 1,
+        "order": 1,
+        "column": 0.9479166666666667,
+        "blockIoU": 0.7564750387865229,
+        "ms": 1139.553911375
+      }
+    },
+    {
+      "experiment": "otsu",
+      "category": "preprocess",
+      "cases": [
+        {
+          "fixture": "en-scan",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.34673278400922625,
+          "ms": 1328.261274000004,
+          "lines": 7
+        },
+        {
+          "fixture": "ja-horizontal",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.5791824954926958,
+          "ms": 1151.6364530000137,
+          "lines": 6
+        },
+        {
+          "fixture": "ja-vertical",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 0.75,
+          "blockIoU": 0.8275745119753115,
+          "ms": 769.5126060000039,
+          "lines": 5
+        },
+        {
+          "fixture": "slides",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8237570792948277,
+          "ms": 1086.173432999989,
+          "lines": 6
+        },
+        {
+          "fixture": "low-res-skew",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.9133033683355053,
+          "ms": 976.8707869999926,
+          "lines": 6
+        },
+        {
+          "fixture": "two-column",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8831694619477651,
+          "ms": 1365.897352999993,
+          "lines": 8
+        },
+        {
+          "fixture": "mixed-ja-en",
+          "cer": 0.02586206896551724,
+          "wer": 0.375,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.7708740867937284,
+          "ms": 1039.7229369999986,
+          "lines": 6
+        },
+        {
+          "fixture": "small-text",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8776383537643613,
+          "ms": 1298.0103769999987,
+          "lines": 8
+        }
+      ],
+      "summary": {
+        "cer": 0.003232758620689655,
+        "wer": 0.046875,
+        "recall": 1,
+        "order": 1,
+        "column": 0.96875,
+        "blockIoU": 0.7527790177016777,
+        "ms": 1127.0106524999992
+      }
+    },
+    {
+      "experiment": "sauvola",
+      "category": "preprocess",
+      "cases": [
+        {
+          "fixture": "en-scan",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.34069061562594777,
+          "ms": 1259.0894509999926,
+          "lines": 7
+        },
+        {
+          "fixture": "ja-horizontal",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.5828336240630633,
+          "ms": 1128.049616999997,
+          "lines": 6
+        },
+        {
+          "fixture": "ja-vertical",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 0.75,
+          "blockIoU": 0.8374609229362762,
+          "ms": 749.2134010000009,
+          "lines": 5
+        },
+        {
+          "fixture": "slides",
+          "cer": 0.015873015873015872,
+          "wer": 0.15,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.9062532703329644,
+          "ms": 1016.9040309999982,
+          "lines": 6
+        },
+        {
+          "fixture": "low-res-skew",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.92572241657106,
+          "ms": 953.9835389999935,
+          "lines": 6
+        },
+        {
+          "fixture": "two-column",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8826680848872702,
+          "ms": 1401.9081450000085,
+          "lines": 8
+        },
+        {
+          "fixture": "mixed-ja-en",
+          "cer": 0.008620689655172414,
+          "wer": 0.125,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.7876350588649217,
+          "ms": 1021.5753890000051,
+          "lines": 6
+        },
+        {
+          "fixture": "small-text",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.879672721793055,
+          "ms": 1311.7331140000024,
+          "lines": 8
+        }
+      ],
+      "summary": {
+        "cer": 0.0030617131910235357,
+        "wer": 0.034375,
+        "recall": 1,
+        "order": 1,
+        "column": 0.96875,
+        "blockIoU": 0.7678670893843198,
+        "ms": 1105.3070858749998
+      }
+    },
+    {
+      "experiment": "denoise",
+      "category": "preprocess",
+      "cases": [
+        {
+          "fixture": "en-scan",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.3444395289672734,
+          "ms": 1312.9550369999924,
+          "lines": 7
+        },
+        {
+          "fixture": "ja-horizontal",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.5748864073844849,
+          "ms": 1153.1765099999902,
+          "lines": 6
+        },
+        {
+          "fixture": "ja-vertical",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 0.75,
+          "blockIoU": 0.805734258268479,
+          "ms": 799.4597369999974,
+          "lines": 5
+        },
+        {
+          "fixture": "slides",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.855138292997944,
+          "ms": 1067.9080050000048,
+          "lines": 6
+        },
+        {
+          "fixture": "low-res-skew",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.9400279712463255,
+          "ms": 965.868730999995,
+          "lines": 6
+        },
+        {
+          "fixture": "two-column",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.9092950686661954,
+          "ms": 1344.1109999999899,
+          "lines": 8
+        },
+        {
+          "fixture": "mixed-ja-en",
+          "cer": 0.04310344827586207,
+          "wer": 0.5625,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.7731336262415476,
+          "ms": 1015.3151150000049,
+          "lines": 6
+        },
+        {
+          "fixture": "small-text",
+          "cer": 0.014218009478672985,
+          "wer": 0.125,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8872721678647033,
+          "ms": 1273.9519700000092,
+          "lines": 8
+        }
+      ],
+      "summary": {
+        "cer": 0.007165182219316882,
+        "wer": 0.0859375,
+        "recall": 1,
+        "order": 1,
+        "column": 0.96875,
+        "blockIoU": 0.7612409152046191,
+        "ms": 1116.593263124998
+      }
+    },
+    {
+      "experiment": "deskew",
+      "category": "preprocess",
+      "cases": [
+        {
+          "fixture": "en-scan",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.4502283874258389,
+          "ms": 1256.3327789999894,
+          "lines": 7
+        },
+        {
+          "fixture": "ja-horizontal",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.5731439410036404,
+          "ms": 1102.645187999995,
+          "lines": 6
+        },
+        {
+          "fixture": "ja-vertical",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 0.75,
+          "blockIoU": 0.829523167028292,
+          "ms": 742.165737999996,
+          "lines": 5
+        },
+        {
+          "fixture": "slides",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8697026487989619,
+          "ms": 1030.1085230000026,
+          "lines": 6
+        },
+        {
+          "fixture": "low-res-skew",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.9465500839108867,
+          "ms": 940.3626429999858,
+          "lines": 6
+        },
+        {
+          "fixture": "two-column",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8777215996952323,
+          "ms": 1367.327118000001,
+          "lines": 8
+        },
+        {
+          "fixture": "mixed-ja-en",
+          "cer": 0.06896551724137931,
+          "wer": 0.75,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.7674748764768778,
+          "ms": 1026.5337620000064,
+          "lines": 6
+        },
+        {
+          "fixture": "small-text",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8633894359868102,
+          "ms": 1297.6579550000024,
+          "lines": 8
+        }
+      ],
+      "summary": {
+        "cer": 0.008620689655172414,
+        "wer": 0.09375,
+        "recall": 1,
+        "order": 1,
+        "column": 0.96875,
+        "blockIoU": 0.7722167675408175,
+        "ms": 1095.3917132499973
+      }
+    },
+    {
+      "experiment": "trim",
+      "category": "preprocess",
+      "cases": [
+        {
+          "fixture": "en-scan",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.2683431799156302,
+          "ms": 1291.596418000001,
+          "lines": 7
+        },
+        {
+          "fixture": "ja-horizontal",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.5891268260726418,
+          "ms": 828.606025999994,
+          "lines": 6
+        },
+        {
+          "fixture": "ja-vertical",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 0.75,
+          "blockIoU": 0.8102008882577042,
+          "ms": 718.9911589999974,
+          "lines": 5
+        },
+        {
+          "fixture": "slides",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8758386938686984,
+          "ms": 1079.2241219999996,
+          "lines": 6
+        },
+        {
+          "fixture": "low-res-skew",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.9150681541493175,
+          "ms": 905.7244429999992,
+          "lines": 6
+        },
+        {
+          "fixture": "two-column",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.931529818114441,
+          "ms": 1187.558600999997,
+          "lines": 8
+        },
+        {
+          "fixture": "mixed-ja-en",
+          "cer": 0.06896551724137931,
+          "wer": 0.75,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8108965462608834,
+          "ms": 899.9141150000069,
+          "lines": 6
+        },
+        {
+          "fixture": "small-text",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8641667747911067,
+          "ms": 1349.9421060000022,
+          "lines": 8
+        }
+      ],
+      "summary": {
+        "cer": 0.008620689655172414,
+        "wer": 0.09375,
+        "recall": 1,
+        "order": 1,
+        "column": 0.96875,
+        "blockIoU": 0.7581463601788029,
+        "ms": 1032.6946237499997
+      }
+    },
+    {
+      "experiment": "gray+contrast+deskew",
+      "category": "preprocess",
+      "cases": [
+        {
+          "fixture": "en-scan",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.4641857531277143,
+          "ms": 1334.591155000002,
+          "lines": 7
+        },
+        {
+          "fixture": "ja-horizontal",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.5609379388676362,
+          "ms": 1237.4572560000088,
+          "lines": 6
+        },
+        {
+          "fixture": "ja-vertical",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 0.75,
+          "blockIoU": 0.8812686623356427,
+          "ms": 764.9604089999921,
+          "lines": 5
+        },
+        {
+          "fixture": "slides",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 0.8333333333333334,
+          "blockIoU": 0.7207062223469068,
+          "ms": 1179.2917159999924,
+          "lines": 6
+        },
+        {
+          "fixture": "low-res-skew",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.9567011971784336,
+          "ms": 970.4248700000026,
+          "lines": 6
+        },
+        {
+          "fixture": "two-column",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8882990553942647,
+          "ms": 1377.2765100000106,
+          "lines": 8
+        },
+        {
+          "fixture": "mixed-ja-en",
+          "cer": 0.034482758620689655,
+          "wer": 0.4375,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.7747197495638538,
+          "ms": 1080.3211379999993,
+          "lines": 6
+        },
+        {
+          "fixture": "small-text",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8637783611212735,
+          "ms": 1329.8441669999884,
+          "lines": 8
+        }
+      ],
+      "summary": {
+        "cer": 0.004310344827586207,
+        "wer": 0.0546875,
+        "recall": 1,
+        "order": 1,
+        "column": 0.9479166666666667,
+        "blockIoU": 0.7638246174919656,
+        "ms": 1159.2709026249995
+      }
+    },
+    {
+      "experiment": "otsu+trim",
+      "category": "preprocess",
+      "cases": [
+        {
+          "fixture": "en-scan",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8998376792608971,
+          "ms": 1023.840750000003,
+          "lines": 7
+        },
+        {
+          "fixture": "ja-horizontal",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.6275126948585651,
+          "ms": 828.8334810000088,
+          "lines": 6
+        },
+        {
+          "fixture": "ja-vertical",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 0.75,
+          "blockIoU": 0.8152255904657709,
+          "ms": 654.8465809999907,
+          "lines": 5
+        },
+        {
+          "fixture": "slides",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8270197253278281,
+          "ms": 1056.4577890000073,
+          "lines": 6
+        },
+        {
+          "fixture": "low-res-skew",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.9059580497587277,
+          "ms": 875.1607819999917,
+          "lines": 6
+        },
+        {
+          "fixture": "two-column",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.9087414901620714,
+          "ms": 1168.873167999991,
+          "lines": 8
+        },
+        {
+          "fixture": "mixed-ja-en",
+          "cer": 0.034482758620689655,
+          "wer": 0.4375,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.7928856776174981,
+          "ms": 816.4026240000094,
+          "lines": 6
+        },
+        {
+          "fixture": "small-text",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8687702219291336,
+          "ms": 1161.9015870000003,
+          "lines": 8
+        }
+      ],
+      "summary": {
+        "cer": 0.004310344827586207,
+        "wer": 0.0546875,
+        "recall": 1,
+        "order": 1,
+        "column": 0.96875,
+        "blockIoU": 0.8307438911725614,
+        "ms": 948.2895952500003
+      }
+    },
+    {
+      "experiment": "sauvola+trim",
+      "category": "preprocess",
+      "cases": [
+        {
+          "fixture": "en-scan",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.26910776482099724,
+          "ms": 1228.4159269999946,
+          "lines": 7
+        },
+        {
+          "fixture": "ja-horizontal",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.6191676593855157,
+          "ms": 800.5099320000154,
+          "lines": 6
+        },
+        {
+          "fixture": "ja-vertical",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 0.75,
+          "blockIoU": 0.8295873281831666,
+          "ms": 642.2295440000016,
+          "lines": 5
+        },
+        {
+          "fixture": "slides",
+          "cer": 0.015873015873015872,
+          "wer": 0.15,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.9071437664202705,
+          "ms": 995.9649149999896,
+          "lines": 6
+        },
+        {
+          "fixture": "low-res-skew",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.9166658670328917,
+          "ms": 845.9423940000124,
+          "lines": 6
+        },
+        {
+          "fixture": "two-column",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.9246164689523397,
+          "ms": 1142.9430900000152,
+          "lines": 8
+        },
+        {
+          "fixture": "mixed-ja-en",
+          "cer": 0.017241379310344827,
+          "wer": 0.25,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.7874425857914922,
+          "ms": 911.6609729999909,
+          "lines": 6
+        },
+        {
+          "fixture": "small-text",
+          "cer": 0.004739336492890996,
+          "wer": 0.03125,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.893393953926326,
+          "ms": 1269.916299000004,
+          "lines": 8
+        }
+      ],
+      "summary": {
+        "cer": 0.004731716459531462,
+        "wer": 0.05390625,
+        "recall": 1,
+        "order": 1,
+        "column": 0.96875,
+        "blockIoU": 0.768390674314125,
+        "ms": 979.697884250003
+      }
+    },
+    {
+      "experiment": "det-threshold-0.3",
+      "category": "detection",
+      "cases": [
+        {
+          "fixture": "en-scan",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.33601467205692465,
+          "ms": 1293.7032469999976,
+          "lines": 7
+        },
+        {
+          "fixture": "ja-horizontal",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.5734527333959154,
+          "ms": 1121.9719469999836,
+          "lines": 6
+        },
+        {
+          "fixture": "ja-vertical",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 0.75,
+          "blockIoU": 0.786807158776524,
+          "ms": 775.2406229999906,
+          "lines": 5
+        },
+        {
+          "fixture": "slides",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8556291184734164,
+          "ms": 1045.249254000024,
+          "lines": 6
+        },
+        {
+          "fixture": "low-res-skew",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.9221192747869289,
+          "ms": 980.4485939999868,
+          "lines": 6
+        },
+        {
+          "fixture": "two-column",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8740574492214888,
+          "ms": 1398.1751979999826,
+          "lines": 8
+        },
+        {
+          "fixture": "mixed-ja-en",
+          "cer": 0.0603448275862069,
+          "wer": 0.625,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.7672925811360414,
+          "ms": 1040.6374209999922,
+          "lines": 6
+        },
+        {
+          "fixture": "small-text",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.872276031048727,
+          "ms": 1331.3596060000127,
+          "lines": 8
+        }
+      ],
+      "summary": {
+        "cer": 0.007543103448275862,
+        "wer": 0.078125,
+        "recall": 1,
+        "order": 1,
+        "column": 0.96875,
+        "blockIoU": 0.7484561273619958,
+        "ms": 1123.3482362499963
+      }
+    },
+    {
+      "experiment": "det-threshold-0.1",
+      "category": "detection",
+      "cases": [
+        {
+          "fixture": "en-scan",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.45573122911316954,
+          "ms": 1266.803791000013,
+          "lines": 7
+        },
+        {
+          "fixture": "ja-horizontal",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.5748572836520299,
+          "ms": 1116.3628249999892,
+          "lines": 6
+        },
+        {
+          "fixture": "ja-vertical",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 0.75,
+          "blockIoU": 0.8252616080767984,
+          "ms": 770.5605790000118,
+          "lines": 5
+        },
+        {
+          "fixture": "slides",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8675702397873343,
+          "ms": 1043.3770150000055,
+          "lines": 6
+        },
+        {
+          "fixture": "low-res-skew",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.9320903591463228,
+          "ms": 955.1678539999994,
+          "lines": 6
+        },
+        {
+          "fixture": "two-column",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8791488719044902,
+          "ms": 1360.7464009999821,
+          "lines": 8
+        },
+        {
+          "fixture": "mixed-ja-en",
+          "cer": 0.0603448275862069,
+          "wer": 0.625,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.7735343361606094,
+          "ms": 1015.416870999994,
+          "lines": 6
+        },
+        {
+          "fixture": "small-text",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8607984058672382,
+          "ms": 1257.1498439999996,
+          "lines": 8
+        }
+      ],
+      "summary": {
+        "cer": 0.007543103448275862,
+        "wer": 0.078125,
+        "recall": 1,
+        "order": 1,
+        "column": 0.96875,
+        "blockIoU": 0.771124041713499,
+        "ms": 1098.1981474999993
+      }
+    },
+    {
+      "experiment": "box-0.35",
+      "category": "detection",
+      "cases": [
+        {
+          "fixture": "en-scan",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.4502283874258389,
+          "ms": 1257.390986000013,
+          "lines": 7
+        },
+        {
+          "fixture": "ja-horizontal",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.5731439410036404,
+          "ms": 1099.8753889999934,
+          "lines": 6
+        },
+        {
+          "fixture": "ja-vertical",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 0.75,
+          "blockIoU": 0.8019301734792579,
+          "ms": 761.0374609999999,
+          "lines": 5
+        },
+        {
+          "fixture": "slides",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8697026487989619,
+          "ms": 1047.958225999988,
+          "lines": 6
+        },
+        {
+          "fixture": "low-res-skew",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.9264346928035136,
+          "ms": 977.2558480000007,
+          "lines": 6
+        },
+        {
+          "fixture": "two-column",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8777215996952323,
+          "ms": 1382.7537139999913,
+          "lines": 8
+        },
+        {
+          "fixture": "mixed-ja-en",
+          "cer": 0.06896551724137931,
+          "wer": 0.75,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.7674748764768778,
+          "ms": 1035.767273000005,
+          "lines": 6
+        },
+        {
+          "fixture": "small-text",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8633894359868102,
+          "ms": 1264.5553650000074,
+          "lines": 8
+        }
+      ],
+      "summary": {
+        "cer": 0.008620689655172414,
+        "wer": 0.09375,
+        "recall": 1,
+        "order": 1,
+        "column": 0.96875,
+        "blockIoU": 0.7662532194587666,
+        "ms": 1103.3242827499998
+      }
+    },
+    {
+      "experiment": "box-0.55",
+      "category": "detection",
+      "cases": [
+        {
+          "fixture": "en-scan",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.4502283874258389,
+          "ms": 1265.782594999997,
+          "lines": 7
+        },
+        {
+          "fixture": "ja-horizontal",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.5731439410036404,
+          "ms": 1124.5584200000158,
+          "lines": 6
+        },
+        {
+          "fixture": "ja-vertical",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 0.75,
+          "blockIoU": 0.8019301734792579,
+          "ms": 773.5763269999879,
+          "lines": 5
+        },
+        {
+          "fixture": "slides",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8697026487989619,
+          "ms": 1042.9755459999724,
+          "lines": 6
+        },
+        {
+          "fixture": "low-res-skew",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.9264346928035136,
+          "ms": 969.0135319999827,
+          "lines": 6
+        },
+        {
+          "fixture": "two-column",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8777215996952323,
+          "ms": 1371.0539730000019,
+          "lines": 8
+        },
+        {
+          "fixture": "mixed-ja-en",
+          "cer": 0.06896551724137931,
+          "wer": 0.75,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.7674748764768778,
+          "ms": 1022.9651510000112,
+          "lines": 6
+        },
+        {
+          "fixture": "small-text",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8633894359868102,
+          "ms": 1250.3200650000072,
+          "lines": 8
+        }
+      ],
+      "summary": {
+        "cer": 0.008620689655172414,
+        "wer": 0.09375,
+        "recall": 1,
+        "order": 1,
+        "column": 0.96875,
+        "blockIoU": 0.7662532194587666,
+        "ms": 1102.530701124997
+      }
+    },
+    {
+      "experiment": "unclip-1.1",
+      "category": "detection",
+      "cases": [
+        {
+          "fixture": "en-scan",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.24178219562851924,
+          "ms": 1371.9403670000029,
+          "lines": 7
+        },
+        {
+          "fixture": "ja-horizontal",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.5205791841758808,
+          "ms": 1196.9437840000028,
+          "lines": 6
+        },
+        {
+          "fixture": "ja-vertical",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 0.75,
+          "blockIoU": 0.7005053629761571,
+          "ms": 827.9604099999997,
+          "lines": 5
+        },
+        {
+          "fixture": "slides",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.7601164761977715,
+          "ms": 1138.0050120000087,
+          "lines": 6
+        },
+        {
+          "fixture": "low-res-skew",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8732676124176235,
+          "ms": 1055.5062099999923,
+          "lines": 6
+        },
+        {
+          "fixture": "two-column",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.7751414957900162,
+          "ms": 1493.5555689999892,
+          "lines": 8
+        },
+        {
+          "fixture": "mixed-ja-en",
+          "cer": 0.04310344827586207,
+          "wer": 0.5625,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.6802920221967983,
+          "ms": 1161.925967999996,
+          "lines": 6
+        },
+        {
+          "fixture": "small-text",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.9073551015393546,
+          "ms": 1398.7217780000065,
+          "lines": 8
+        }
+      ],
+      "summary": {
+        "cer": 0.005387931034482759,
+        "wer": 0.0703125,
+        "recall": 1,
+        "order": 1,
+        "column": 0.96875,
+        "blockIoU": 0.6823799313652651,
+        "ms": 1205.5698872499997
+      }
+    },
+    {
+      "experiment": "unclip-1.8",
+      "category": "detection",
+      "cases": [
+        {
+          "fixture": "en-scan",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.9578083589584111,
+          "ms": 1131.5519560000103,
+          "lines": 7
+        },
+        {
+          "fixture": "ja-horizontal",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.6340086068462623,
+          "ms": 1015.5267920000188,
+          "lines": 6
+        },
+        {
+          "fixture": "ja-vertical",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 0.75,
+          "blockIoU": 0.9146506091669044,
+          "ms": 707.5518129999982,
+          "lines": 5
+        },
+        {
+          "fixture": "slides",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.9024484456017209,
+          "ms": 931.2552020000003,
+          "lines": 6
+        },
+        {
+          "fixture": "low-res-skew",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.9724370501138375,
+          "ms": 935.8718250000093,
+          "lines": 6
+        },
+        {
+          "fixture": "two-column",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.9168082767855503,
+          "ms": 1252.6683229999908,
+          "lines": 8
+        },
+        {
+          "fixture": "mixed-ja-en",
+          "cer": 0.0603448275862069,
+          "wer": 0.625,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8313206349272345,
+          "ms": 935.0894499999995,
+          "lines": 6
+        },
+        {
+          "fixture": "small-text",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.7693241542431722,
+          "ms": 1131.493048000004,
+          "lines": 8
+        }
+      ],
+      "summary": {
+        "cer": 0.007543103448275862,
+        "wer": 0.078125,
+        "recall": 1,
+        "order": 1,
+        "column": 0.96875,
+        "blockIoU": 0.8623507670803866,
+        "ms": 1005.1260511250039
+      }
+    },
+    {
+      "experiment": "tiling-512-64",
+      "category": "tiling",
+      "cases": [
+        {
+          "fixture": "en-scan",
+          "cer": 0.08205128205128205,
+          "wer": 0.14705882352941177,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.37000310541891296,
+          "ms": 1323.6201920000021,
+          "lines": 7
+        },
+        {
+          "fixture": "ja-horizontal",
+          "cer": 0.3333333333333333,
+          "wer": 1.6666666666666667,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.34037241722396355,
+          "ms": 1522.3095929999836,
+          "lines": 6
+        },
+        {
+          "fixture": "ja-vertical",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 0.75,
+          "blockIoU": 0.8120009791556921,
+          "ms": 907.3119390000065,
+          "lines": 5
+        },
+        {
+          "fixture": "slides",
+          "cer": 0.06349206349206349,
+          "wer": 0.2,
+          "recall": 1,
+          "order": 1,
+          "column": 0.8888888888888888,
+          "blockIoU": 0.5568144674839584,
+          "ms": 1307.8159929999965,
+          "lines": 7
+        },
+        {
+          "fixture": "low-res-skew",
+          "cer": 0.1079136690647482,
+          "wer": 0.125,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.43837024911494804,
+          "ms": 1113.450318999996,
+          "lines": 6
+        },
+        {
+          "fixture": "two-column",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8651449381572863,
+          "ms": 1501.9922800000058,
+          "lines": 8
+        },
+        {
+          "fixture": "mixed-ja-en",
+          "cer": 0.13793103448275862,
+          "wer": 0.5625,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.5952199325725234,
+          "ms": 1268.2268719999993,
+          "lines": 6
+        },
+        {
+          "fixture": "small-text",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.9092512896272555,
+          "ms": 1472.1007969999919,
+          "lines": 8
+        }
+      ],
+      "summary": {
+        "cer": 0.0905901728030232,
+        "wer": 0.3376531862745098,
+        "recall": 1,
+        "order": 1,
+        "column": 0.9548611111111112,
+        "blockIoU": 0.6108971723443175,
+        "ms": 1302.1034981249977
+      }
+    },
+    {
+      "experiment": "rerun-0.5",
+      "category": "confidence",
+      "cases": [
+        {
+          "fixture": "en-scan",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.4502283874258389,
+          "ms": 1244.891994000005,
+          "lines": 7
+        },
+        {
+          "fixture": "ja-horizontal",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.5731439410036404,
+          "ms": 1098.9080949999916,
+          "lines": 6
+        },
+        {
+          "fixture": "ja-vertical",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 0.75,
+          "blockIoU": 0.8019301734792579,
+          "ms": 755.824964999978,
+          "lines": 5
+        },
+        {
+          "fixture": "slides",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8697026487989619,
+          "ms": 1020.7883540000184,
+          "lines": 6
+        },
+        {
+          "fixture": "low-res-skew",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.9264346928035136,
+          "ms": 981.4379809999955,
+          "lines": 6
+        },
+        {
+          "fixture": "two-column",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8777215996952323,
+          "ms": 1411.9326989999972,
+          "lines": 8
+        },
+        {
+          "fixture": "mixed-ja-en",
+          "cer": 0.06896551724137931,
+          "wer": 0.75,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.7674748764768778,
+          "ms": 1070.8075989999925,
+          "lines": 6
+        },
+        {
+          "fixture": "small-text",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8633894359868102,
+          "ms": 1300.354503999988,
+          "lines": 8
+        }
+      ],
+      "summary": {
+        "cer": 0.008620689655172414,
+        "wer": 0.09375,
+        "recall": 1,
+        "order": 1,
+        "column": 0.96875,
+        "blockIoU": 0.7662532194587666,
+        "ms": 1110.6182738749958
+      }
+    },
+    {
+      "experiment": "rerun-0.7",
+      "category": "confidence",
+      "cases": [
+        {
+          "fixture": "en-scan",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.4502283874258389,
+          "ms": 1312.3865039999946,
+          "lines": 7
+        },
+        {
+          "fixture": "ja-horizontal",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.5731439410036404,
+          "ms": 1163.1105289999978,
+          "lines": 6
+        },
+        {
+          "fixture": "ja-vertical",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 0.75,
+          "blockIoU": 0.8019301734792579,
+          "ms": 804.5622529999819,
+          "lines": 5
+        },
+        {
+          "fixture": "slides",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8697026487989619,
+          "ms": 1090.3345530000224,
+          "lines": 6
+        },
+        {
+          "fixture": "low-res-skew",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.9264346928035136,
+          "ms": 1000.4392399999779,
+          "lines": 6
+        },
+        {
+          "fixture": "two-column",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8777215996952323,
+          "ms": 1380.3847839999944,
+          "lines": 8
+        },
+        {
+          "fixture": "mixed-ja-en",
+          "cer": 0.06896551724137931,
+          "wer": 0.75,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.7674748764768778,
+          "ms": 1030.9846510000061,
+          "lines": 6
+        },
+        {
+          "fixture": "small-text",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8633894359868102,
+          "ms": 1302.1999779999896,
+          "lines": 8
+        }
+      ],
+      "summary": {
+        "cer": 0.008620689655172414,
+        "wer": 0.09375,
+        "recall": 1,
+        "order": 1,
+        "column": 0.96875,
+        "blockIoU": 0.7662532194587666,
+        "ms": 1135.5503114999956
+      }
+    },
+    {
+      "experiment": "adaptive-14",
+      "category": "adaptive",
+      "cases": [
+        {
+          "fixture": "en-scan",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.4502283874258389,
+          "ms": 1271.5854199999885,
+          "lines": 7
+        },
+        {
+          "fixture": "ja-horizontal",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.5731439410036404,
+          "ms": 1115.5216349999828,
+          "lines": 6
+        },
+        {
+          "fixture": "ja-vertical",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 0.75,
+          "blockIoU": 0.8019301734792579,
+          "ms": 769.3808919999865,
+          "lines": 5
+        },
+        {
+          "fixture": "slides",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8697026487989619,
+          "ms": 1035.274877000018,
+          "lines": 6
+        },
+        {
+          "fixture": "low-res-skew",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.9264346928035136,
+          "ms": 957.8867529999989,
+          "lines": 6
+        },
+        {
+          "fixture": "two-column",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8777215996952323,
+          "ms": 1396.8577389999991,
+          "lines": 8
+        },
+        {
+          "fixture": "mixed-ja-en",
+          "cer": 0.06896551724137931,
+          "wer": 0.75,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.7674748764768778,
+          "ms": 1048.3419250000152,
+          "lines": 6
+        },
+        {
+          "fixture": "small-text",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8633894359868102,
+          "ms": 1272.7654639999964,
+          "lines": 8
+        }
+      ],
+      "summary": {
+        "cer": 0.008620689655172414,
+        "wer": 0.09375,
+        "recall": 1,
+        "order": 1,
+        "column": 0.96875,
+        "blockIoU": 0.7662532194587666,
+        "ms": 1108.4518381249982
+      }
+    },
+    {
+      "experiment": "adaptive-18",
+      "category": "adaptive",
+      "cases": [
+        {
+          "fixture": "en-scan",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.4502283874258389,
+          "ms": 1278.7943559999985,
+          "lines": 7
+        },
+        {
+          "fixture": "ja-horizontal",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.5731439410036404,
+          "ms": 1120.4682230000035,
+          "lines": 6
+        },
+        {
+          "fixture": "ja-vertical",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 0.75,
+          "blockIoU": 0.8019301734792579,
+          "ms": 775.3777679999766,
+          "lines": 5
+        },
+        {
+          "fixture": "slides",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8697026487989619,
+          "ms": 1045.0796479999844,
+          "lines": 6
+        },
+        {
+          "fixture": "low-res-skew",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.9264346928035136,
+          "ms": 978.505222000007,
+          "lines": 6
+        },
+        {
+          "fixture": "two-column",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8777215996952323,
+          "ms": 1379.4825919999857,
+          "lines": 8
+        },
+        {
+          "fixture": "mixed-ja-en",
+          "cer": 0.06896551724137931,
+          "wer": 0.75,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.7674748764768778,
+          "ms": 1032.7308909999847,
+          "lines": 6
+        },
+        {
+          "fixture": "small-text",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8633894359868102,
+          "ms": 1259.5222939999949,
+          "lines": 8
+        }
+      ],
+      "summary": {
+        "cer": 0.008620689655172414,
+        "wer": 0.09375,
+        "recall": 1,
+        "order": 1,
+        "column": 0.96875,
+        "blockIoU": 0.7662532194587666,
+        "ms": 1108.745124249992
+      }
+    },
+    {
+      "experiment": "best-combo",
+      "category": "combined",
+      "cases": [
+        {
+          "fixture": "en-scan",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.46599483133331504,
+          "ms": 1445.1486279999954,
+          "lines": 7
+        },
+        {
+          "fixture": "ja-horizontal",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.5722179445421012,
+          "ms": 1333.4438019999943,
+          "lines": 6
+        },
+        {
+          "fixture": "ja-vertical",
+          "cer": 0.019230769230769232,
+          "wer": 0.2,
+          "recall": 1,
+          "order": 1,
+          "column": 0.75,
+          "blockIoU": 0.7977728381943379,
+          "ms": 975.3721950000036,
+          "lines": 5
+        },
+        {
+          "fixture": "slides",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8589743530784838,
+          "ms": 1274.8764700000174,
+          "lines": 6
+        },
+        {
+          "fixture": "low-res-skew",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.9296880488418557,
+          "ms": 1150.2156390000018,
+          "lines": 6
+        },
+        {
+          "fixture": "two-column",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8894829457534174,
+          "ms": 1616.0021549999947,
+          "lines": 8
+        },
+        {
+          "fixture": "mixed-ja-en",
+          "cer": 0.04310344827586207,
+          "wer": 0.5,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.7864783675215881,
+          "ms": 1227.924828999996,
+          "lines": 6
+        },
+        {
+          "fixture": "small-text",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8595722962922878,
+          "ms": 1512.7815220000048,
+          "lines": 8
+        }
+      ],
+      "summary": {
+        "cer": 0.007791777188328913,
+        "wer": 0.0875,
+        "recall": 1,
+        "order": 1,
+        "column": 0.96875,
+        "blockIoU": 0.7700227031946733,
+        "ms": 1316.970655000001
+      }
+    }
+  ]
+}
