@@ -86,9 +86,11 @@ async function main(): Promise<void> {
     await page.goto(server.origin + VIEWER);
     await page.waitForFunction('window.__pdfReady === true', null, { timeout: 20_000 });
     const variants: Array<{ id: string; scale: number; steps: readonly OcrPreprocessStep[]; maxSide: number }> = [
-      { id: 'baseline', scale: 1, steps: [], maxSide: 960 },
+      { id: 'baseline-1x', scale: 1, steps: [], maxSide: 960 },
       { id: 'dpi200', scale: 4 / 3, steps: [], maxSide: 1280 },
-      // Shipped default: the reader renders at 2x and detects at maxSide 1600.
+      // The actual pre-change shipped path: reader renders at 2x, detector capped at 960.
+      { id: 'shipped-baseline', scale: 2, steps: [], maxSide: 960 },
+      // Current shipped default: the reader renders at 2x and detects at maxSide 1600.
       { id: 'default-1600', scale: 2, steps: [], maxSide: 1600 },
       { id: 'dpi300', scale: 2, steps: [], maxSide: 1920 },
       { id: 'sauvola', scale: 1, steps: ['sauvola'], maxSide: 960 },

@@ -17,6 +17,8 @@ import {
   serializeTranslateOptions,
 } from '@/engine/offscreen/protocol';
 import type { TranslateOptions, TranslationChunk } from '@/engine/types';
+import { lineFrom } from '@/pdf/lines';
+import { piece } from './support/pdf-pieces';
 
 function block(text: string, overrides: Partial<LayoutBlock> = {}): LayoutBlock {
   return {
@@ -48,6 +50,13 @@ function layoutOf(text: string): PageLayout {
     pageIndex: 0,
     obstacles: [],
   };
+}
+
+function notationLayoutOf(text: string): PageLayout {
+  const layout = layoutOf(text);
+  const first = layout.blocks[0];
+  if (first) first.lines = [lineFrom([piece(text, 40, 100, 300)])];
+  return layout;
 }
 
 function sessionOf(
@@ -124,6 +133,64 @@ describe('PdfSession stream handling', () => {
     expect(session.pageBlocks(0)[0]?.translation).toBe('');
     expect(session.pageBlocks(0)[0]?.overflow).toBe(false);
     expect(session.progress().failed).toBe(1);
+  });
+
+  it('does not retranslate a notation block whose placeholder arrived in the final chunk', async () => {
+    let calls = 0;
+    const engine = engineOf(async function* (segments) {
+      calls += 1;
+      const id = segments[0]?.id ?? 'b1';
+      // A normal stream has no tag yet in its first delta.
+      yield { id, textDelta: '訳文' };
+      yield { id, final: '訳文です。<i0>' };
+    });
+    const session = sessionOf(engine);
+    session.addPage(0, notationLayoutOf('The projection uses Q ∈ R d model and is reused.'));
+    await waitFor(() => session.pageBlocks(0)[0]?.state === 'done');
+    const state = session.pageBlocks(0)[0];
+    expect(calls).toBe(1);
+    expect(state?.translation).toContain('Q ∈ R');
+    expect(state?.translation).not.toContain('<i0>');
+    expect(state?.paint).toBe(true);
+  });
+
+  it('keeps a good notation translation when later retries would fail', async () => {
+    let calls = 0;
+    const engine = engineOf(async function* (segments) {
+      calls += 1;
+      const id = segments[0]?.id ?? 'b1';
+      if (calls > 1) {
+        // A preempted retry would have cleared the already-good translation.
+        yield { id, final: segments[0]?.text ?? 'source', error: true };
+        return;
+      }
+      yield { id, textDelta: '訳文' };
+      yield { id, final: '訳文です。<i0>' };
+    });
+    const session = sessionOf(engine);
+    session.addPage(0, notationLayoutOf('The projection uses Q ∈ R d model and is reused.'));
+    await waitFor(() => session.pageBlocks(0)[0]?.state === 'done');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(calls).toBe(1);
+    const state = session.pageBlocks(0)[0];
+    expect(state?.state).toBe('done');
+    expect(state?.translation).toContain('Q ∈ R');
+    expect(state?.paint).toBe(true);
+  });
+
+  it('still retries when the final text drops a placeholder', async () => {
+    let calls = 0;
+    const engine = engineOf(async function* (segments) {
+      calls += 1;
+      const id = segments[0]?.id ?? 'b1';
+      yield { id, textDelta: '訳文' };
+      yield { id, final: calls === 1 ? '訳文です。' : '訳文です。<i0>' };
+    });
+    const session = sessionOf(engine);
+    session.addPage(0, notationLayoutOf('The projection uses Q ∈ R d model and is reused.'));
+    await waitFor(() => session.pageBlocks(0)[0]?.state === 'done');
+    expect(calls).toBe(2);
+    expect(session.pageBlocks(0)[0]?.translation).toContain('Q ∈ R');
   });
 
   it('sends a long PDF paragraph as one prompt instead of splitting it again', async () => {

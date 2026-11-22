@@ -405,6 +405,107 @@ describe('OCR geometry and layout conversion', () => {
     for (const block of layout.blocks.slice(1)) expect(block.room.width).toBe(240);
   });
 
+  it('translates prose that merely starts with a programming keyword', () => {
+    const sentences = [
+      'For each batch we compute the loss',
+      'For the first time, the model converges',
+      'If the input is empty the function returns zero',
+      'Return to the previous section for details',
+      'While the model trains the logs are written',
+    ];
+    for (const text of sentences) {
+      const item = region(text, quad(50, 100, 240, 20));
+      const layout = ocrResultToPageLayout(
+        ocrResult([item], [readingLine('horizontal', [item])]),
+        { pageIndex: 0, pageWidth: 595, pageHeight: 800 },
+      );
+      expect(layout.blocks.map((block) => block.text)).toEqual([text]);
+      expect(layout.blocks[0]?.role).toBe('prose');
+      expect(layout.skipped).toEqual([]);
+    }
+  });
+
+  it('still skips bare listing lines whose punctuation survived OCR', () => {
+    const statements = ['for i in range(10):', 'if loss > 0:', 'return result;', '1 while queue:'];
+    const items = statements.map((text, index) => region(text, quad(50, 100 + index * 30, 240, 20)));
+    const layout = ocrResultToPageLayout(
+      ocrResult(items, items.map((item) => readingLine('horizontal', [item]))),
+      { pageIndex: 0, pageWidth: 595, pageHeight: 800 },
+    );
+    expect(layout.blocks).toEqual([]);
+    expect(layout.skipped.map((block) => block.role)).toEqual(statements.map(() => 'code'));
+  });
+
+  it('keeps a small figure caption instead of withholding it as a figure label', () => {
+    const first = region('The runtime offers two backends for local translation.', quad(50, 100, 240, 20));
+    const second = region('The CPU backend keeps one sequence on this machine.', quad(50, 130, 240, 20));
+    const caption = region(
+      'Figure 1: A small caption with enough words to translate.',
+      quad(50, 180, 300, 10),
+    );
+    const layout = ocrResultToPageLayout(
+      ocrResult([first, second, caption], [
+        readingLine('horizontal', [first]),
+        readingLine('horizontal', [second]),
+        readingLine('horizontal', [caption]),
+      ]),
+      { pageIndex: 0, pageWidth: 595, pageHeight: 800 },
+    );
+    expect(layout.blocks.map((block) => block.role)).toEqual(['prose', 'prose', 'caption']);
+    expect(layout.skipped).toEqual([]);
+    expect(layout.obstacles).toEqual([]);
+  });
+
+  it('splits a wide reading line that combines both body columns', () => {
+    const leftText = 'The runtime offers two backends and keeps two sequences resident.';
+    const rightText = 'The first two send the page and every selection to a third party.';
+    const left = region(leftText, quad(45, 340, 240, 20));
+    const right = region(rightText, quad(320, 340, 240, 20));
+    const result = ocrResult([left, right], [readingLine('horizontal', [left, right])]);
+    const conversion = { pageIndex: 0, pageWidth: 595, pageHeight: 800 };
+
+    expect(ocrResultToTextLines(result, conversion).map((line) => line.text)).toEqual([
+      leftText,
+      rightText,
+    ]);
+    const layout = ocrResultToPageLayout(result, conversion);
+    expect(layout.blocks.map((block) => block.column)).toEqual([0, 1]);
+    expect(layout.blocks.map((block) => block.text)).toEqual([leftText, rightText]);
+    const gutter = conversion.pageWidth * 0.49;
+    for (const block of layout.blocks) {
+      expect(block.box.x + block.box.width <= gutter || block.box.x >= gutter).toBe(true);
+      expect(block.room.width).toBeLessThan(conversion.pageWidth * 0.6);
+    }
+  });
+
+  it('splits a merged row whose two columns sit on slightly different baselines', () => {
+    const leftText = 'The runtime offers two backends here.';
+    const rightText = 'The first two send the page onward.';
+    const items = [
+      region('The runtime offers', quad(45, 340.8, 120, 11)),
+      region('two backends here.', quad(170, 340.8, 115, 11)),
+      region('The first two send', quad(302, 342.3, 130, 11)),
+      region('the page onward.', quad(437, 342.3, 123, 11)),
+    ];
+    const result = ocrResult([...items], [readingLine('horizontal', items)]);
+    const conversion = { pageIndex: 0, pageWidth: 595, pageHeight: 800 };
+
+    expect(ocrResultToTextLines(result, conversion).map((line) => line.text)).toEqual([
+      leftText,
+      rightText,
+    ]);
+    expect(ocrResultToPageLayout(result, conversion).blocks.map((block) => block.column)).toEqual([
+      0, 1,
+    ]);
+  });
+
+  it('keeps a full-width title whose words only straddle the gutter', () => {
+    const left = region('Long paper title about translation', quad(50, 50, 240, 30));
+    const right = region('quality for on-device readers', quad(300, 50, 240, 30));
+    const result = ocrResult([left, right], [readingLine('horizontal', [left, right])]);
+    expect(ocrResultToTextLines(result, { pageIndex: 0, pageWidth: 595, pageHeight: 800 })).toHaveLength(1);
+  });
+
   it('supports an empty OCR result', () => {
     const empty: OcrResult = { regions: [], lines: [], text: '' };
     expect(ocrResultToTextLines(empty, CONVERSION)).toEqual([]);

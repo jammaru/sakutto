@@ -397,6 +397,52 @@ export function blockSpansGutter(
 }
 
 /**
+ * True when one source line holds text from both columns.
+ *
+ * A title or byline also spans the page, but its word gaps are ordinary spacing and its pieces
+ * share one baseline. A merged reading line either leaves a white gutter between two column
+ * chunks or combines two source rows at slightly different y. A cover for such a block paints
+ * over the neighbouring column even though `blockSpansGutter` reports a legitimate span.
+ */
+function blockMergesColumns(block: LayoutBlock, pageWidth: number): boolean {
+  if (pageWidth <= 0) return false;
+  const gutter = pageWidth * 0.49;
+  return block.lines.some((line) => {
+    const pieces = line.pieces;
+    if (pieces.length < 2) return false;
+    const left = pieces.filter((piece) => piece.box.x + piece.box.width / 2 < gutter);
+    const right = pieces.filter((piece) => piece.box.x + piece.box.width / 2 >= gutter);
+    if (left.length > 0 && right.length > 0) {
+      const leftEnd = Math.max(...left.map((piece) => piece.box.x + piece.box.width));
+      const rightStart = Math.min(...right.map((piece) => piece.box.x));
+      if (rightStart - leftEnd > 18) return true;
+    }
+    if (pieces.length < 4) return false;
+    const height = pieces.reduce((sum, piece) => sum + piece.box.height, 0) / pieces.length;
+    const tops = pieces.map((piece) => piece.box.y).sort((a, b) => a - b);
+    let step = 0;
+    let boundary = -1;
+    for (let index = 1; index < tops.length; index += 1) {
+      const gap = (tops[index] ?? 0) - (tops[index - 1] ?? 0);
+      if (gap > step) {
+        step = gap;
+        boundary = index;
+      }
+    }
+    if (boundary < 0 || step <= Math.max(0.5, height * 0.08)) return false;
+    const splitAt = ((tops[boundary - 1] ?? 0) + (tops[boundary] ?? 0)) / 2;
+    const upper = pieces.filter((piece) => piece.box.y < splitAt);
+    const lower = pieces.filter((piece) => piece.box.y >= splitAt);
+    if (upper.length < 2 || lower.length < 2) return false;
+    const centre = (group: typeof pieces): number =>
+      (Math.min(...group.map((piece) => piece.box.x)) +
+        Math.max(...group.map((piece) => piece.box.x + piece.box.width))) /
+      2;
+    return Math.abs(centre(upper) - centre(lower)) > pageWidth * 0.2;
+  });
+}
+
+/**
  * Column side for capping, from source geometry. Layout `column` can be 0 on a right-column
  * paragraph when the region tree stayed on the left branch; capping with metadata then paints
  * a one-point sliver and leaves English visible beside it.
@@ -482,10 +528,20 @@ export function paintIntegrityMetrics(
     ) {
       drawnPaintMismatches += 1;
     }
-    if (!blockSpansGutter(block, pageWidth)) {
-      const side = columnSideForCap(block, entry.drawn.x, pageWidth);
-      if (side === 0 && paint.x + paint.width > gutter + 2) crossColumnCovers += 1;
-      if (side !== null && side > 0 && paint.x < gutter - 2) crossColumnCovers += 1;
+    const side = blockSpansGutter(block, pageWidth)
+      ? null
+      : columnSideForCap(block, entry.drawn.x, pageWidth);
+    if (side === 0 && paint.x + paint.width > gutter + 2) crossColumnCovers += 1;
+    if (side !== null && side > 0 && paint.x < gutter - 2) crossColumnCovers += 1;
+    // A merged two-column reading line also counts as a "spanning" source, so the old
+    // spanning-source exemption hid exactly the covers the gutter rule is meant to catch.
+    if (
+      side === null &&
+      blockMergesColumns(block, pageWidth) &&
+      paint.x < gutter - 2 &&
+      paint.x + paint.width > gutter + 2
+    ) {
+      crossColumnCovers += 1;
     }
     for (const line of block.lines) {
       const needLeft = line.box.x - COVER_LINE_PAD_X;

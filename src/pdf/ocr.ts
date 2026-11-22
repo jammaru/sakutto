@@ -193,6 +193,54 @@ function readingLines(result: OcrResult): readonly ReadingLine<OcrRegion>[] {
 }
 
 /**
+ * Splits a wide reading line that combined two body rows at slightly different baselines.
+ *
+ * The detector emits one quad per word, and a reading-line merger can join the left and right
+ * column words of the same printed row. Their x gap is then only a word space, so a gutter
+ * distance test alone misses them. The two source rows usually differ by a point or two in y;
+ * when the pieces form two horizontally disjoint rows with a clear baseline step, they are
+ * separate native lines and must not become one translated block.
+ */
+function splitMergedBodyLine(
+  pieces: readonly OcrTextPiece[],
+  pageWidth: number,
+): readonly [OcrTextPiece[], OcrTextPiece[]] | null {
+  if (pieces.length < 4) return null;
+  const height = median(pieces.map((piece) => piece.box.height));
+  const tops = pieces.map((piece) => piece.box.y).sort((left, right) => left - right);
+  let step = 0;
+  let boundary = -1;
+  for (let index = 1; index < tops.length; index += 1) {
+    const gap = (tops[index] ?? 0) - (tops[index - 1] ?? 0);
+    if (gap > step) {
+      step = gap;
+      boundary = index;
+    }
+  }
+  if (boundary < 0 || step <= Math.max(0.5, height * 0.08)) return null;
+  const splitAt = ((tops[boundary - 1] ?? 0) + (tops[boundary] ?? 0)) / 2;
+  const upper = pieces.filter((piece) => piece.box.y < splitAt);
+  const lower = pieces.filter((piece) => piece.box.y >= splitAt);
+  if (upper.length < 2 || lower.length < 2) return null;
+  const span = (group: readonly OcrTextPiece[]): { left: number; right: number } => ({
+    left: Math.min(...group.map((piece) => piece.box.x)),
+    right: Math.max(...group.map((piece) => piece.box.x + piece.box.width)),
+  });
+  const first = span(upper);
+  const second = span(lower);
+  // Two column rows sit side by side; the words of one wavy full-width line would interleave
+  // in x and give both clusters the same centre. Long lines may still overlap at the gutter,
+  // so compare centres rather than requiring perfectly disjoint boxes.
+  const firstCentre = (first.left + first.right) / 2;
+  const secondCentre = (second.left + second.right) / 2;
+  if (Math.abs(firstCentre - secondCentre) < pageWidth * 0.2) return null;
+  if (first.right - first.left < pageWidth * 0.18 || second.right - second.left < pageWidth * 0.18) {
+    return null;
+  }
+  return firstCentre <= secondCentre ? [upper, lower] : [lower, upper];
+}
+
+/**
  * Converts OCR reading lines to the PDF reader's native line model.
  *
  * Reading-line and item order are authoritative; `result.regions` is not re-sorted when lines
@@ -226,22 +274,56 @@ export function ocrResultToTextLines(
       Math.min(...pieces.map((piece) => piece.box.x));
     const leftPieces = pieces.filter((piece) => piece.box.x + piece.box.width / 2 < middle);
     const rightPieces = pieces.filter((piece) => piece.box.x + piece.box.width / 2 >= middle);
-    const gutterGap =
+    const leftEnd =
+      leftPieces.length > 0
+        ? Math.max(...leftPieces.map((piece) => piece.box.x + piece.box.width))
+        : Number.NEGATIVE_INFINITY;
+    const rightStart =
+      rightPieces.length > 0
+        ? Math.min(...rightPieces.map((piece) => piece.box.x))
+        : Number.POSITIVE_INFINITY;
+    const leftWidth =
       rightPieces.length > 0 && leftPieces.length > 0
-        ? Math.min(...rightPieces.map((piece) => piece.box.x)) -
-          Math.max(...leftPieces.map((piece) => piece.box.x + piece.box.width))
+        ? Math.max(...leftPieces.map((piece) => piece.box.x + piece.box.width)) -
+          Math.min(...leftPieces.map((piece) => piece.box.x))
         : 0;
+    const rightWidth =
+      rightPieces.length > 0 && leftPieces.length > 0
+        ? Math.max(...rightPieces.map((piece) => piece.box.x + piece.box.width)) -
+          rightStart
+        : 0;
+    const gutterGap =
+      rightPieces.length > 0 && leftPieces.length > 0 ? rightStart - leftEnd : 0;
+    // A reading line can combine the two body columns even when their pieces together span
+    // nearly the whole page: the old `< 82% of page width` guard left those merged and painted
+    // one cover across the gutter. Require a real white gap at the centre, with substantial text
+    // on both sides, so a full-width title whose words merely straddle the middle stays whole.
+    const wideTwoColumnLine =
+      lineWidth >= resolved.pageWidth * 0.82 &&
+      leftWidth > resolved.pageWidth * 0.18 &&
+      rightWidth > resolved.pageWidth * 0.18 &&
+      leftEnd <= middle + 4 &&
+      rightStart >= middle - 4 &&
+      gutterGap > Math.max(18, resolved.pageWidth * 0.035);
     const crossesGutter =
       resolved.pageWidth > 0 &&
       !pieceVertical &&
-      lineWidth < resolved.pageWidth * 0.82 &&
-      gutterGap > 18;
+      gutterGap > Math.max(18, resolved.pageWidth * 0.035) &&
+      (lineWidth < resolved.pageWidth * 0.82 || wideTwoColumnLine);
     const pushLine = (selected: OcrTextPiece[], id: string): void => {
       if (selected.length === 0) return;
       const line = lineFrom(selected);
       const text = selected.map((piece) => piece.text).join(pieceVertical ? '' : ' ');
       output.push({ ...line, text, id, pieces: selected });
     };
+    if (resolved.pageWidth > 0 && !pieceVertical && lineWidth >= resolved.pageWidth * 0.82) {
+      const rows = splitMergedBodyLine(pieces, resolved.pageWidth);
+      if (rows) {
+        pushLine(rows[0], lineId + ':left');
+        pushLine(rows[1], lineId + ':right');
+        continue;
+      }
+    }
     if (crossesGutter) {
       pushLine(leftPieces, lineId + ':left');
       pushLine(rightPieces, lineId + ':right');
@@ -276,6 +358,23 @@ function lineColumn(line: OcrTextLine, pageWidth: number): number {
 const CAPTION_LINE = /^(?:Fig(?:ure)?|Tab(?:le)?|Alg(?:orithm)?)\.?\s*\d/iu;
 const SECTION_LINE = /^\d+(?:\.\d+)*\.?\s+\p{Lu}/u;
 
+/**
+ * A listing line whose OCR lost its indentation but kept code punctuation.
+ *
+ * Treating leading `for`, `if`, `return`, ... as proof of code skips ordinary paper sentences
+ * (`For each batch we compute the loss`), so the punctuation is required: colons, brackets,
+ * semicolons and operators are what distinguish a bare statement from prose. Sentences that
+ * end in a full stop are prose regardless of their first word.
+ */
+function looksLikeBareCodeLine(text: string): boolean {
+  const trimmed = text.trim();
+  if (trimmed.length === 0 || trimmed.length >= 140 || /[.!?。]$/u.test(trimmed)) return false;
+  const statement = trimmed.replace(/^\d+\s+/u, '');
+  if (!/^(?:for|foreach|if|while|emit|return|continue|def)\b/iu.test(statement)) return false;
+  if (/^(?:for example|for instance|if so|if any)\b/iu.test(statement)) return false;
+  return /[;{}\]()=+*\x2f%<>_:]/u.test(statement);
+}
+
 function groupText(lines: readonly OcrTextLine[]): string {
   const vertical = lines.length > 0 && lines.every(verticalLine);
   let output = '';
@@ -296,10 +395,7 @@ function groupRole(group: readonly OcrTextLine[], bodySize: number): AnyBlockRol
   const text = groupText(group);
   if (CAPTION_LINE.test(text)) return 'caption';
   if (
-    group.some((line) => looksLikeCodeLine(line.text)) ||
-    (text.length < 140 &&
-      /^(?:\d+\s+)?(?:for|if|while|emit|return|continue|def)\b/iu.test(text) &&
-      !/[.!?]$/u.test(text))
+    group.some((line) => looksLikeCodeLine(line.text) || looksLikeBareCodeLine(line.text))
   ) {
     return 'code';
   }
@@ -354,7 +450,9 @@ function groupBlocks(
       CAPTION_LINE.test(line.text) ||
       SECTION_LINE.test(line.text) ||
       looksLikeCodeLine(line.text) ||
-      looksLikeCodeLine(previous.text);
+      looksLikeBareCodeLine(line.text) ||
+      looksLikeCodeLine(previous.text) ||
+      looksLikeBareCodeLine(previous.text);
     if (startsNew) {
       groups.push({
         lines: [line],
@@ -481,11 +579,19 @@ function layoutFromLines(
   const figureLabels = blocks.filter(
     (block) =>
       !skipped.includes(block) &&
+      !tableCells.includes(block) &&
+      // A caption OCRed in small type is still a caption, not a label inside its own figure.
+      block.role !== 'caption' &&
       bodySize > 0 &&
       block.fontSize < bodySize * 0.75 &&
-      captions.some((caption) => Math.abs(block.box.y - caption.box.y) < 160),
+      captions.some(
+        (caption) =>
+          Math.abs(block.box.y - caption.box.y) < 160 &&
+          block.box.x < caption.box.x + caption.box.width + 80 &&
+          block.box.x + block.box.width > caption.box.x - 80,
+      ),
   );
-  const withheld = [...skipped, ...tableCells, ...figureLabels];
+  const withheld = [...new Set([...skipped, ...tableCells, ...figureLabels])];
   const kept = blocks.filter((block) => !withheld.includes(block));
   // Spanning blocks are their own shape, not members of a body column: including a full-width
   // title in column 0 made every left paragraph's room reach across the gutter while the

@@ -185,7 +185,8 @@ export async function loadPairing(pairing: Pairing): Promise<LoadedPairing> {
         minSize: 3,
         verticalRatio: 1.5,
       },
-      detectionPreprocess: { maxSide: 960, multiple: 32 },
+      // Match the shipped OCR runtime so this bench measures the real default.
+      detectionPreprocess: { maxSide: 1600, multiple: 32 },
       recognitionPreprocess: { height: 48, maxWidth: DEFAULT_RECOGNITION_MAX_WIDTH },
     });
     return {

@@ -687,6 +687,9 @@ export class PdfSession {
     const parts: string[] = Array.from({ length: pieces.length }, () => '');
     const finals = Array.from({ length: pieces.length }, () => false);
     const errors = Array.from({ length: pieces.length }, () => false);
+    // Only a completed final chunk can prove that the model dropped a placeholder. A delta
+    // that arrives before all placeholders have streamed in cannot restore yet; treating that
+    // as a failure would re-ask every notation block and could discard a good final.
     let restoreFailed = false;
 
     try {
@@ -704,6 +707,7 @@ export class PdfSession {
         if (chunk.engine) state.engine = chunk.engine;
         const index = pieceIndex(chunk.id);
         if (index < 0 || index >= pieces.length) continue;
+        const isFinal = chunk.final !== undefined;
         if (chunk.textDelta !== undefined) {
           const before = chunk.restart === true ? '' : (parts[index] ?? '');
           parts[index] = before + chunk.textDelta;
@@ -723,15 +727,18 @@ export class PdfSession {
         const joined = joinParts(parts, this.target);
         const restored = restoreInlineMath(joined, protectedText.slots);
         if (restored === null) {
-          // The model dropped a formula. Showing the hole would be a wrong translation;
-          // re-ask once with a fresh prompt rather than leaving the sentence in English.
-          restoreFailed = true;
+          // A partial delta may simply be missing the tag that arrives in a later chunk. Never
+          // paint a translation with a hole in it, but only a failed final is a real failure.
+          if (isFinal) restoreFailed = true;
           state.translation = '';
           state.fit = null;
           state.paint = false;
           state.overflow = false;
           continue;
         }
+        // The model kept every placeholder in the finished text: any earlier partial miss
+        // was a streaming artefact, not a reason to retranslate this block.
+        if (isFinal) restoreFailed = false;
         state.translation = restored;
         this.layout(state, job.page);
         this.noteOutput(chunk.final ?? chunk.textDelta ?? '', 1);
@@ -753,8 +760,10 @@ export class PdfSession {
     }
 
     if (this.stale(generation, signal)) return;
-    if (restoreFailed && this.retry(job)) return;
     const allFinal = pieces.length === 0 || finals.every(Boolean);
+    // Re-ask only for a placeholder missing from the finished text, and only after every piece
+    // has finalised. A single spurious retry that errors would otherwise clear a good cover.
+    if (allFinal && restoreFailed && this.retry(job)) return;
     const anyError = errors.some(Boolean);
     if (!allFinal || anyError) {
       if (this.retry(job)) return;

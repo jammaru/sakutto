@@ -1,6 +1,6 @@
 {
   "label": "final",
-  "generatedAt": "2026-11-22T17:21:07.762Z",
+  "generatedAt": "2026-11-22T18:08:56.165Z",
   "engine": "deterministic local fake",
   "pace": {
     "ttfbMs": 6,
@@ -30,8 +30,8 @@
         "overflowRate": 0,
         "readingOrderAccuracy": 0.9791666666666666,
         "twoColumnPages": 1,
-        "firstTranslatedBlockMs": 245,
-        "fullDocumentMs": 189,
+        "firstTranslatedBlockMs": 274,
+        "fullDocumentMs": 200,
         "meanScale": 0.9846128195131897
       }
     },
@@ -39,17 +39,17 @@
       "pages": 1,
       "summary": {
         "pages": 1,
-        "proseBlocks": 36,
+        "proseBlocks": 48,
         "untranslatedProseRate": 0,
-        "mixedLanguageRate": 0.16666666666666666,
-        "garbledTokenRate": 0.001201923076923077,
+        "mixedLanguageRate": 0.0625,
+        "garbledTokenRate": 0,
         "overlapRate": 0,
-        "overflowRate": 0.13157894736842105,
-        "readingOrderAccuracy": 1,
+        "overflowRate": 0.16,
+        "readingOrderAccuracy": 0.9787234042553191,
         "twoColumnPages": 0,
-        "firstTranslatedBlockMs": 724,
-        "fullDocumentMs": 73,
-        "meanScale": 0.9808541049158219
+        "firstTranslatedBlockMs": 783,
+        "fullDocumentMs": 83,
+        "meanScale": 0.986536931309762
       }
     }
   },
@@ -59,14 +59,14 @@
     "report": "bench/results/scan-ocr/report.json",
     "runs": [
       {
-        "variant": "baseline",
-        "ms": 23812.73835,
+        "variant": "baseline-1x",
+        "ms": 23677.741722,
         "cer": 0.9121402293875784,
         "wer": 1.782994923857868,
         "lines": 58,
-        "blocks": 35,
+        "blocks": 47,
         "skipped": 10,
-        "crossColumnCovers": 0,
+        "crossColumnCovers": 5,
         "overlapPairs": 0,
         "overflow": 0,
         "proseCovered": 1,
@@ -74,27 +74,41 @@
       },
       {
         "variant": "dpi200",
-        "ms": 30652.868415000004,
+        "ms": 29990.170129,
         "cer": 1.3886604631032244,
         "wer": 1.7246192893401016,
         "lines": 69,
-        "blocks": 52,
-        "skipped": 4,
-        "crossColumnCovers": 2,
+        "blocks": 61,
+        "skipped": 3,
+        "crossColumnCovers": 9,
         "overlapPairs": 0,
         "overflow": 0,
         "proseCovered": 1,
         "text": "Sakutto: On-Device Page Translation with a Small Instruction-Tuned Model\nJ. Ammara\nIndependee mearcher\nskamgeample.org\nABSTRACT\nMachine nandation of web pages Is esally a cllent of a memote servtce. T"
       },
       {
+        "variant": "shipped-baseline",
+        "ms": 26386.509551999996,
+        "cer": 1.4613719974031596,
+        "wer": 1.6928934010152283,
+        "lines": 61,
+        "blocks": 50,
+        "skipped": 9,
+        "crossColumnCovers": 8,
+        "overlapPairs": 0,
+        "overflow": 0,
+        "proseCovered": 1,
+        "text": "Sakutto: On-Device Page Translation with a Small Instruction-Tuned Model\nJ. Ammaru\nIndependent researcher\nsakutto@example.org\nABSTRACT\ntuned model into a browser tab costs and what it buys. The extens"
+      },
+      {
         "variant": "default-1600",
-        "ms": 34498.53223,
+        "ms": 33822.10488099999,
         "cer": 1.4111664141960614,
         "wer": 1.6269035532994924,
         "lines": 72,
-        "blocks": 55,
-        "skipped": 6,
-        "crossColumnCovers": 0,
+        "blocks": 61,
+        "skipped": 5,
+        "crossColumnCovers": 8,
         "overlapPairs": 0,
         "overflow": 0,
         "proseCovered": 1,
@@ -102,13 +116,13 @@
       },
       {
         "variant": "dpi300",
-        "ms": 35728.591866999996,
+        "ms": 35262.95710500001,
         "cer": 1.4122484310755248,
         "wer": 1.6281725888324874,
         "lines": 72,
-        "blocks": 54,
-        "skipped": 5,
-        "crossColumnCovers": 0,
+        "blocks": 61,
+        "skipped": 4,
+        "crossColumnCovers": 8,
         "overlapPairs": 0,
         "overflow": 0,
         "proseCovered": 1,
@@ -116,13 +130,13 @@
       },
       {
         "variant": "sauvola",
-        "ms": 21828.704291999995,
+        "ms": 21020.817238999996,
         "cer": 0.7253841159922095,
         "wer": 0.9631979695431472,
         "lines": 65,
         "blocks": 36,
         "skipped": 30,
-        "crossColumnCovers": 3,
+        "crossColumnCovers": 5,
         "overlapPairs": 0,
         "overflow": 0,
         "proseCovered": 1,
@@ -130,13 +144,13 @@
       },
       {
         "variant": "dpi200+sauvola",
-        "ms": 27396.35124400002,
+        "ms": 27899.464451999986,
         "cer": 0.7922527591430426,
         "wer": 1.368020304568528,
         "lines": 66,
-        "blocks": 36,
-        "skipped": 13,
-        "crossColumnCovers": 2,
+        "blocks": 42,
+        "skipped": 14,
+        "crossColumnCovers": 8,
         "overlapPairs": 0,
         "overflow": 0,
         "proseCovered": 1,
@@ -144,13 +158,13 @@
       },
       {
         "variant": "dpi200+gray",
-        "ms": 30102.48195800002,
+        "ms": 30211.242838000006,
         "cer": 1.3996970352737503,
         "wer": 1.7423857868020305,
         "lines": 66,
-        "blocks": 46,
+        "blocks": 55,
         "skipped": 5,
-        "crossColumnCovers": 2,
+        "crossColumnCovers": 11,
         "overlapPairs": 0,
         "overflow": 0,
         "proseCovered": 1,
@@ -160,17 +174,17 @@
   },
   "summary": {
     "pages": 5,
-    "proseBlocks": 92,
+    "proseBlocks": 104,
     "untranslatedProseRate": 0,
-    "mixedLanguageRate": 0.10752688172043011,
-    "garbledTokenRate": 0.00280014000700035,
+    "mixedLanguageRate": 0.06666666666666667,
+    "garbledTokenRate": 0.00244926522043387,
     "overlapRate": 0,
-    "overflowRate": 0.045871559633027525,
-    "readingOrderAccuracy": 0.9833333333333332,
+    "overflowRate": 0.06611570247933884,
+    "readingOrderAccuracy": 0.9790780141843971,
     "twoColumnPages": 1,
-    "firstTranslatedBlockMs": 245,
-    "fullDocumentMs": 791,
-    "meanScale": 0.9832887268709348
+    "firstTranslatedBlockMs": 274,
+    "fullDocumentMs": 859,
+    "meanScale": 0.9854062676767245
   },
   "pages": [
     {
@@ -699,8 +713,8 @@
       "proseBlocks": 24,
       "readingOrder": 0.9166666666666666,
       "twoColumn": true,
-      "firstBlockMs": 245,
-      "pageMs": 73
+      "firstBlockMs": 274,
+      "pageMs": 74
     },
     {
       "fixture": "arxiv",
@@ -1078,8 +1092,8 @@
       "proseBlocks": 9,
       "readingOrder": 1,
       "twoColumn": false,
-      "firstBlockMs": 366,
-      "pageMs": 37
+      "firstBlockMs": 399,
+      "pageMs": 38
     },
     {
       "fixture": "arxiv",
@@ -1265,7 +1279,7 @@
       "proseBlocks": 9,
       "readingOrder": 1,
       "twoColumn": false,
-      "firstBlockMs": 427,
+      "firstBlockMs": 466,
       "pageMs": 26
     },
     {
@@ -1593,8 +1607,8 @@
       "proseBlocks": 14,
       "readingOrder": 1,
       "twoColumn": false,
-      "firstBlockMs": 478,
-      "pageMs": 53
+      "firstBlockMs": 525,
+      "pageMs": 62
     },
     {
       "fixture": "scan",
@@ -1754,21 +1768,40 @@
           "scale": 1
         },
         {
-          "source": "A reader who wants an English article in Japanese has load three from packaged files rather than from blob URLs, which",
-          "translation": "一つの語語語語語一つの語語語語語語において語語語語loa語語fro語語語語語語語語tha語から語語語語,語語",
+          "source": "A reader who wants an English article in Japanese has three",
+          "translation": "一つの語語語語語一つの語語語語語語において語語語語語語",
           "role": "prose",
           "box": {
             "x": 44.999998125,
-            "y": 311.5964245852498,
-            "width": 549.2707371881095,
-            "height": 13.14719336376561
+            "y": 315.3463371890035,
+            "width": 291.91551837053083,
+            "height": 9.397280760011881
           },
           "painted": true,
           "overflow": false,
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
-          "mixedLanguage": true,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "load from packaged files rather than from blob URLs, which",
+          "translation": "語語から語語語語語語語語語から語語語語,語語",
+          "role": "prose",
+          "box": {
+            "x": 307.2946700305926,
+            "y": 311.5964245852498,
+            "width": 286.9760652825169,
+            "height": 9.397280760011881
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
           "garbled": [],
           "scale": 1
         },
@@ -1792,21 +1825,211 @@
           "scale": 1
         },
         {
-          "source": "tension that forwards the page to a server, or read the English. The runtime offers two backends. The WebGPU backend The first two send the page, and every selection the reader keeps two sequences resident and decodes a batch of up to eight makes afterwards, to a third party. For a research paper short under segments in a single completion. The CPU backend keeps review, a private issue tracker or a medical record this is one often sequence and uses four to eight threads, depending on the unacceptable, and it is frequently prohibited by the terms machine. the A probe runs at startup, and a failed GPU load falls reader is bound by. back to the CPU path rather than failing the translation.",
-          "translation": "語語語その語語語その語語へ一つの語語,または語語その語語語.Thₑ語語語語語twₒ語語語.Thₑ語語語語語The語語two語語その語語,aⁿd語語語語語the語語語語語語語語語語語そして語語語一つの語語の語へ語語語語語語語語,へ一つの語語語語.のために一つの語語語語語語語語語語in一つの語語語語語語.Thₑ語語語語語語語語,一つの語語語語語語語語または一つの語語語語語このであるₒnₑ語語語語and uses four to語語語語語,語語語ₒnその語語語語,そしてそれはである語語語語語語語語によりその語語語語A語語run語語語語語,ₐnd一つの語語GPU語語語語語語ⁱs語語by.語語へその語語語語語語語語語語その翻訳.",
+          "source": "tension that forwards the page to a server, or read the English.",
+          "translation": "語語語その語語語その語語へ一つの語語,または語語その語語語.",
           "role": "prose",
           "box": {
             "x": 44.999998125,
             "y": 340.84574289452814,
-            "width": 558.0761759436491,
-            "height": 74.64576006532513
+            "width": 292.7595513677675,
+            "height": 9.397280760011881
           },
           "painted": true,
           "overflow": false,
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
-          "mixedLanguage": true,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "The runtime offers two backends. The WebGPU backend",
+          "translation": "その語語語語語語語語語.その語語語語語",
+          "role": "prose",
+          "box": {
+            "x": 318.62643343014804,
+            "y": 342.3457079360296,
+            "width": 267.8732609145485,
+            "height": 9.397280760011881
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "The first two send the page, and every selection the reader",
+          "translation": "その語語語語語その語語,そして語語語語語その語語",
+          "role": "prose",
+          "box": {
+            "x": 44.999998125,
+            "y": 353.59544574729057,
+            "width": 291.9124600558755,
+            "height": 9.397280760011824
+          },
+          "painted": false,
+          "overflow": true,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "keeps two sequences resident and decodes a batch of up to eight",
+          "translation": "語語語語語語語語語そして語語語一つの語語の語へ語語",
+          "role": "prose",
+          "box": {
+            "x": 307.2946700305926,
+            "y": 355.09541078879204,
+            "width": 293.73251212041515,
+            "height": 9.397280760011824
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "makes afterwards, to a third party. For a research paper under",
+          "translation": "語語語語語語,へ一つの語語語語.のために一つの語語語論文語語",
+          "role": "prose",
+          "box": {
+            "x": 44.999998125,
+            "y": 366.3451486000529,
+            "width": 289.0577087272432,
+            "height": 9.397280760011881
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "short segments in a single completion. The CPU backend keeps",
+          "translation": "語語語語語において一つの語語語語語語.その語語語語語語",
+          "role": "prose",
+          "box": {
+            "x": 307.2946700305926,
+            "y": 367.84511364155435,
+            "width": 285.2261536844408,
+            "height": 9.397280760011881
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "review, a private issue tracker or a medical record this is often",
+          "translation": "語語,一つの語語語語語語語語または一つの語語語語語このである語語",
+          "role": "prose",
+          "box": {
+            "x": 44.999998125,
+            "y": 379.0948514528153,
+            "width": 291.8303731827308,
+            "height": 9.397280760011824
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "one sequence and uses four to eight threads, depending on the",
+          "translation": "語語語語そして語語語語へ語語語語語,語語語の上でその",
+          "role": "prose",
+          "box": {
+            "x": 307.2946700305926,
+            "y": 380.5948164943168,
+            "width": 289.98574814990144,
+            "height": 9.397280760011824
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "unacceptable, and it is frequently prohibited by the terms the",
+          "translation": "語語語語,そしてそれはである語語語語語語語語によりその語語その",
+          "role": "prose",
+          "box": {
+            "x": 44.999998125,
+            "y": 391.8445543055776,
+            "width": 283.60922303796724,
+            "height": 9.397280760011881
+          },
+          "painted": false,
+          "overflow": true,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "machine. A probe runs at startup, and a failed GPU load falls",
+          "translation": "語語語.一つの語語語語語語語語,そして一つの語語語語語語語",
+          "role": "prose",
+          "box": {
+            "x": 307.2946700305926,
+            "y": 393.3445193470791,
+            "width": 295.78150403805654,
+            "height": 9.397280760011824
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "reader is bound by. back to the CPU path rather than failing the translation.",
+          "translation": "語語ⁱs語語by.語語へその語語語語語語語語語語その翻訳.",
+          "role": "prose",
+          "box": {
+            "x": 44.999998125,
+            "y": 405.3442396790907,
+            "width": 509.3109876890101,
+            "height": 10.147263280762559
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
           "garbled": [],
           "scale": 1
         },
@@ -1830,13 +2053,51 @@
           "scale": 1
         },
         {
-          "source": "page text never leaves the process, no account is needed, and",
-          "translation": "語語語語語語語語その語語語,語語語語である語語,そして",
+          "source": "page text never leaves the process, no account is needed, and the extension works offline once the weights are downloaded.",
+          "translation": "語語語語語語語語その語語語,語語語語である語語,そしてその語語語語語語語語語語その語語語である語語語語.",
           "role": "prose",
           "box": {
             "x": 44.999998125,
             "y": 435.34354050911975,
             "width": 289.981208513123,
+            "height": 22.14698361277425
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 0.89
+        },
+        {
+          "source": "Proposition 1. A block whose translation does not fit its own",
+          "translation": "語語語語1.一つの語語語語翻訳語語語語語語",
+          "role": "prose",
+          "box": {
+            "x": 315.87259511167906,
+            "y": 449.24071639363603,
+            "width": 271.2425478548206,
+            "height": 8.999790249008697
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "The cost is latency and memory: a transformer that a server",
+          "translation": "その語語である語語語そして語語:一つの語語語語その一つの語語",
+          "role": "prose",
+          "box": {
+            "x": 44.999998125,
+            "y": 460.8429462146445,
+            "width": 291.92089327718645,
             "height": 9.397280760011881
           },
           "painted": true,
@@ -1849,25 +2110,23 @@
           "scale": 1
         },
         {
-          "source": "the extension works offline once the weights are downloaded. Proposition 1. A block whose translation does not fit its own The cost is latency and memory: a transformer that a server box is left in the source typesetting rather than shown cut",
-          "translation": "その語語語語語語語語語語その語語語である語語語語₁.一つの語語語語翻訳does not fit its ownその語語である語語語そして語語:一つの語語語語その一つの語語box is left in the語語語語語語語語thₐ語語語cut",
+          "source": "box is left in the source typesetting rather than shown cut",
+          "translation": "語である語語においてその語語語語語語語語語語語語語",
           "role": "prose",
           "box": {
-            "x": 44.999998125,
-            "y": 448.0932433618822,
-            "width": 543.9346616276167,
-            "height": 22.896966133524927
+            "x": 315.87259511167906,
+            "y": 461.9904192463984,
+            "width": 273.0620646409377,
+            "height": 8.999790249008697
           },
           "painted": true,
           "overflow": false,
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
-          "mixedLanguage": true,
-          "garbled": [
-            "does not fit its own"
-          ],
-          "scale": 0.945
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
         },
         {
           "source": "would run on an accelerator has to fit in a tab, compete with short. the page for the GPU, and produce tokens one at a time in front of a reader who is already looking at the text.",
@@ -1908,33 +2167,14 @@
           "scale": 1
         },
         {
-          "source": "ing rules that decide what to translate first, and Section 4 the measurements. Section 5 discusses the failure modes we could 2.2 Page model",
-          "translation": "語語語その語語語語へ語語語語語,そして語語語4その語語語語.語語語5語語語その語語語語語我々は語語².2語語モデル",
+          "source": "ing rules that decide what to translate first, and Section 4 the measurements. Section 5 discusses the failure modes we could 2.2 Page model not design away, and Section 6 lists the work that remains.",
+          "translation": "語語語その語語語語へ語語語語語,そして語語語4その語語語語.語語語5語語語その語語語語語我々は語語².2語語モデル語語語語語,そして語語語6語語その語語その語語語.",
           "role": "prose",
           "box": {
             "x": 44.999998125,
             "y": 541.841058455723,
             "width": 331.3349533718545,
-            "height": 22.146983612774306
-          },
-          "painted": true,
-          "overflow": false,
-          "delivered": true,
-          "placeholders": 0,
-          "untranslated": false,
-          "mixedLanguage": false,
-          "garbled": [],
-          "scale": 0.89
-        },
-        {
-          "source": "not design away, and Section 6 lists the work that remains. A page is not a list of paragraphs. The collector therefore walks",
-          "translation": "nₒt語語語語,ₐnd語語語₆語語thₑ語語その語語語語語である語一つの語語の語語語語.その語語語語語語語語",
-          "role": "prose",
-          "box": {
-            "x": 44.999998125,
-            "y": 565.0905165989956,
-            "width": 554.1265895589029,
-            "height": 11.647228322264027
+            "height": 34.89668646553662
           },
           "painted": true,
           "overflow": false,
@@ -1946,23 +2186,23 @@
           "scale": 1
         },
         {
-          "source": "the document rather than selecting a fixed set of tags, and it",
-          "translation": "その語語語語語語語語語語一つの語語語の語語,そしてそれは",
+          "source": "A page is not a list of paragraphs. The collector therefore walks the document rather than selecting a fixed set of tags, and it",
+          "translation": "一つの語語である語一つの語語の語語語語.その語語語語語語語語その語語語語語語語語語語一つの語語語の語語,そしてそれは",
           "role": "prose",
           "box": {
             "x": 307.2946700305926,
-            "y": 577.8402194517579,
+            "y": 565.0905165989956,
             "width": 294.7389108365921,
-            "height": 9.397280760011881
+            "height": 22.146983612774193
           },
-          "painted": true,
-          "overflow": false,
+          "painted": false,
+          "overflow": true,
           "delivered": true,
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 0.9450000000000001
         },
         {
           "source": "2. System Design treats four shapes differently: ordinary prose, an item of a grid",
@@ -2327,14 +2567,14 @@
         }
       ],
       "overlapPairs": 0,
-      "overflow": 5,
+      "overflow": 8,
       "shrunk": 0,
       "untranslatedProse": 0,
-      "proseBlocks": 36,
-      "readingOrder": 1,
+      "proseBlocks": 48,
+      "readingOrder": 0.9787234042553191,
       "twoColumn": false,
-      "firstBlockMs": 724,
-      "pageMs": 73
+      "firstBlockMs": 783,
+      "pageMs": 83
     }
   ]
 }

@@ -22,9 +22,13 @@ import { joinPieces, lineFrom, type TextLine, type TextPiece } from './lines';
  * `Q ∈ R d` or `×d k` in italic Times. Left in the prompt they come back rewritten, which is
  * worse than leaving the equation alone. A span is protected only when it contains a strong
  * mathematical operator; neighbouring prose words are never swallowed.
+ *
+ * Every operand is a whole word (`\p{L}` included in the lookarounds): without the bounds a
+ * short variable could start inside `speedup` or steal the `s` from `matrices`, asking the
+ * model to translate a misspelled word and leaving only the tail in the prompt.
  */
 const TEXT_NOTATION =
-  /(?:[\p{Lu}\p{N}_^][\p{L}\p{N}_^]{0,4}|[a-z][\p{N}_^]{0,3})(?:\s+(?:\p{Lu}[\p{L}\p{N}_^]{0,4}|[a-z][\p{N}_^]{0,3}|[\p{N}_^]{1,4})){0,4}(?:\s*(?:∈|×|÷|≈|≤|≥|≠|∑|∏|∫|∂|∇|\^)\s*(?:[\p{Lu}\p{N}_^][\p{L}\p{N}_^]{0,6}|[a-z][\p{N}_^]{0,3})){1,8}/gu;
+  /(?<![\p{L}\p{N}_])(?:[\p{Lu}\p{N}_^][\p{L}\p{N}_^]{0,4}|[a-z][\p{N}_^]{0,3})(?![\p{L}\p{N}_])(?:\s+(?:\p{Lu}[\p{L}\p{N}_^]{0,4}|[a-z][\p{N}_^]{0,3}|[\p{N}_^]{1,4})(?![\p{L}\p{N}_])){0,4}(?:\s*(?:∈|×|÷|≈|≤|≥|≠|∑|∏|∫|∂|∇|\^)\s*(?:[\p{Lu}\p{N}_^][\p{L}\p{N}_^]{0,6}|[a-z][\p{N}_^]{0,3})(?![\p{L}\p{N}_])){1,8}/gu;
 
 function protectTextNotation(text: string, slots: ProtectedSlot[]): string {
   return text.replace(TEXT_NOTATION, (match) => {

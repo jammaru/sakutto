@@ -4,6 +4,17 @@ import { layoutPage } from '@/pdf/layout';
 import { protectInlineMath, restoreInlineMath, shouldSkipInlineMath } from '@/pdf/protect';
 import { piece } from './support/pdf-pieces';
 
+/** A placeholder must stand for whole notation, never for half of an ordinary word. */
+function expectSourcePreserved(
+  protectedText: { text: string; slots: { text: string }[] },
+  source: string,
+): void {
+  const original = protectedText.text.replace(/<i(\d+)>/gu, (match, index: string) => {
+    return protectedText.slots[Number(index)]?.text ?? match;
+  });
+  expect(original).toBe(source);
+}
+
 describe('protectInlineMath', () => {
   it('replaces a mixed sentence’s variables with placeholders and restores them', () => {
     const lines = groupLines([
@@ -160,20 +171,44 @@ describe('protectInlineMath', () => {
   });
 
   it('protects notation set in an ordinary text face and restores fullwidth tags', () => {
-    const lines = groupLines([
-      piece('Where the projections are matrices Q ∈ R d model × d k and W O ∈ R h×d .', 49, 100, 430),
-    ]);
+    const source = 'Where the projections are matrices Q ∈ R d model × d k and W O ∈ R h×d .';
+    const lines = groupLines([piece(source, 49, 100, 430)]);
     const layout = layoutPage(lines);
     const block = layout.blocks[0];
     if (!block) throw new Error('expected a block');
     const protectedText = protectInlineMath(block);
     expect(protectedText.text).toContain('<i0>');
     expect(protectedText.slots.some((slot) => slot.text.includes('∈'))).toBe(true);
+    expectSourcePreserved(protectedText, source);
+    // No slot may begin or end in the middle of a prose word.
+    expect(protectedText.text).not.toMatch(/matrice<i|mode<i|d W O|an<i/u);
+    expect(protectedText.slots.map((slot) => slot.text)).not.toContain('s Q ∈ R');
     const tags = protectedText.slots.map((_slot, index) => `＜i${String(index)}＞`).join('');
     const restored = restoreInlineMath(`射影は ${tags} である。`, protectedText.slots);
     expect(restored).not.toBeNull();
     expect(restored).toContain('∈');
     expect(restored).not.toContain('<i0>');
+  });
+
+  it('leaves an ordinary sentence containing a multiplication sign untouched', () => {
+    const source = 'This is a 10× speedup over the baseline.';
+    const lines = groupLines([piece(source, 49, 100, 300)]);
+    const block = layoutPage(lines).blocks[0];
+    if (!block) throw new Error('expected a block');
+    const protectedText = protectInlineMath(block);
+    expect(protectedText.slots).toEqual([]);
+    expect(protectedText.text).toBe(source);
+  });
+
+  it('does not swallow the word before a numeric expression', () => {
+    const source = 'We used 3 × 3 convolutions and a batch size of 32.';
+    const lines = groupLines([piece(source, 49, 100, 320)]);
+    const block = layoutPage(lines).blocks[0];
+    if (!block) throw new Error('expected a block');
+    const protectedText = protectInlineMath(block);
+    expect(protectedText.text).toContain('We used ');
+    expect(protectedText.slots).not.toContainEqual({ text: 'd 3 × 3', script: 'none' });
+    expectSourcePreserved(protectedText, source);
   });
   it('leaves a sentence with no mathematics unchanged', () => {
     const lines = groupLines([
