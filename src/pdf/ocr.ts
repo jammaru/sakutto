@@ -252,14 +252,6 @@ export function ocrResultToTextLines(
   return output;
 }
 
-/**
- * Extra shape the reader needs to keep OCR columns and figure areas apart.
- */
-export interface OcrPageStructure extends OcrPageLayout {
-  /** Reading columns detected from line geometry, left to right. */
-  columns: readonly { index: number; minX: number; maxX: number }[];
-}
-
 interface OcrBlockGroup {
   lines: OcrTextLine[];
   role: AnyBlockRole;
@@ -270,11 +262,14 @@ function verticalLine(line: OcrTextLine): boolean {
   return line.pieces.length > 0 && line.pieces.every((piece) => piece.displayed === 90);
 }
 
+/** Column of a line that spans the page: a title, abstract or byline, not a body column. */
+const SPANNING_COLUMN = -1;
+
 /** Geometric column of a line. Full-width lines get a group of their own. */
 function lineColumn(line: OcrTextLine, pageWidth: number): number {
   if (pageWidth <= 0) return 0;
   const mid = line.box.x + line.box.width / 2;
-  if (line.box.width > pageWidth * 0.6) return -1;
+  if (line.box.width > pageWidth * 0.6) return SPANNING_COLUMN;
   return mid < pageWidth / 2 ? 0 : 1;
 }
 
@@ -454,7 +449,9 @@ export function ocrLinesToLayoutBlocks(
       italic: group.lines.every(
         (line) => line.pieces.length > 0 && line.pieces.every((piece) => piece.italic),
       ),
-      column: Math.max(0, group.column),
+      // Keep -1 for spanning lines. Folding them into column 0 would let a full-width
+      // title widen the left column's room across the gutter and clip its translation.
+      column: group.column,
       advance: vertical ? box.height : box.width,
       writing: vertical ? 90 : 0,
     };
@@ -471,7 +468,7 @@ export function ocrResultToLayoutBlocks(
 function layoutFromLines(
   lines: readonly OcrTextLine[],
   options: OcrConversionOptions,
-): OcrPageStructure {
+): OcrPageLayout {
   const blocks = ocrLinesToLayoutBlocks(lines, options);
   const bodySize = bodyFontSize(lines);
   // Code, numeric labels and small text attached to a figure caption are not prose. Keeping
@@ -490,12 +487,16 @@ function layoutFromLines(
   );
   const withheld = [...skipped, ...tableCells, ...figureLabels];
   const kept = blocks.filter((block) => !withheld.includes(block));
-  const columns = [...new Set(kept.map((block) => block.column))].sort((a, b) => a - b);
+  // Spanning blocks are their own shape, not members of a body column: including a full-width
+  // title in column 0 made every left paragraph's room reach across the gutter while the
+  // painted cover was still capped there, so the translation was clipped without a marker.
+  const body = kept.filter((block) => block.column >= 0);
+  const columns = [...new Set(body.map((block) => block.column))].sort((a, b) => a - b);
   // A cover may wrap through its column's white space, but never across the gutter into the
   // neighbouring column. Native blocks get this from the XY-cut; OCR needs it explicitly.
   const ranges = new Map(
     columns.map((index) => {
-      const members = kept.filter((block) => block.column === index);
+      const members = body.filter((block) => block.column === index);
       return [index, {
         minX: Math.min(...members.map((block) => block.box.x)),
         maxX: Math.max(...members.map((block) => block.box.x + block.box.width)),
@@ -504,6 +505,11 @@ function layoutFromLines(
   );
   if (options.pageWidth > 0) {
     for (const block of kept) {
+      if (block.column < 0) {
+        // A spanning block wraps to its own source measure, so fit and paint agree.
+        block.room = { ...block.box };
+        continue;
+      }
       const range = ranges.get(block.column);
       const left = range?.minX ?? block.box.x;
       const right = range?.maxX ?? options.pageWidth;
@@ -526,15 +532,6 @@ function layoutFromLines(
     // Caption-adjacent small type sits inside the figure; give it to the fitter as a wall so a
     // neighbouring paragraph cannot wrap across the drawing.
     obstacles: [...figureLabels, ...tableCells].map((block) => ({ ...block.box })),
-    columns: columns.map((index) => ({
-      index,
-      minX: Math.min(...kept.filter((block) => block.column === index).map((block) => block.box.x)),
-      maxX: Math.max(
-        ...kept
-          .filter((block) => block.column === index)
-          .map((block) => block.box.x + block.box.width),
-      ),
-    })),
   };
 }
 
@@ -646,7 +643,10 @@ export function ocrResultToHybridPage(
       blocks: [...native.blocks, ...scanned.blocks],
       bodySize: native.bodySize || scanned.bodySize,
       lineHeight: native.lineHeight || scanned.lineHeight,
-      obstacles: native.blocks.length > 0 ? native.obstacles : scanned.obstacles,
+      // A mixed page needs both sets: native geometry is not a substitute for scanned
+      // code/figure areas, and dropping scanned.skipped undercounted them in the report.
+      skipped: [...native.skipped, ...scanned.skipped],
+      obstacles: [...native.obstacles, ...scanned.obstacles],
     },
   };
 }

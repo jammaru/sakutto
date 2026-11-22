@@ -37,6 +37,8 @@ export interface QualityEntry {
 
 export interface QualityPage {
   fixture: string;
+  /** Where this page's text came from; scan.pdf's committed fixture is simulated, not OCR. */
+  textSource: 'native' | 'simulated-ocr';
   page: number;
   entries: QualityEntry[];
   /** Painted-box overlap pairs from the renderer's own metric. */

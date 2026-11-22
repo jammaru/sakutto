@@ -1,6 +1,6 @@
 {
   "label": "final",
-  "generatedAt": "2026-11-22T16:38:53.948Z",
+  "generatedAt": "2026-11-22T17:21:07.762Z",
   "engine": "deterministic local fake",
   "pace": {
     "ttfbMs": 6,
@@ -12,6 +12,152 @@
     "arxiv",
     "scan"
   ],
+  "textSources": {
+    "native": "paper.pdf and arXiv 1706.03762 use their own PDF text layer.",
+    "simulated-ocr": "scan.pdf page geometry and background, word boxes synthesized from paper.pdf text (not OCR).",
+    "realOcr": "bench/pdf/scan.pdf page 1 recognized by pnpm bench:pdf:scan:ocr; see realOcr."
+  },
+  "byTextSource": {
+    "native": {
+      "pages": 4,
+      "summary": {
+        "pages": 4,
+        "proseBlocks": 56,
+        "untranslatedProseRate": 0,
+        "mixedLanguageRate": 0.07017543859649122,
+        "garbledTokenRate": 0.0034567901234567903,
+        "overlapRate": 0,
+        "overflowRate": 0,
+        "readingOrderAccuracy": 0.9791666666666666,
+        "twoColumnPages": 1,
+        "firstTranslatedBlockMs": 245,
+        "fullDocumentMs": 189,
+        "meanScale": 0.9846128195131897
+      }
+    },
+    "simulated-ocr": {
+      "pages": 1,
+      "summary": {
+        "pages": 1,
+        "proseBlocks": 36,
+        "untranslatedProseRate": 0,
+        "mixedLanguageRate": 0.16666666666666666,
+        "garbledTokenRate": 0.001201923076923077,
+        "overlapRate": 0,
+        "overflowRate": 0.13157894736842105,
+        "readingOrderAccuracy": 1,
+        "twoColumnPages": 0,
+        "firstTranslatedBlockMs": 724,
+        "fullDocumentMs": 73,
+        "meanScale": 0.9808541049158219
+      }
+    }
+  },
+  "realOcr": {
+    "command": "pnpm bench:pdf:scan:ocr",
+    "input": "bench/pdf/scan.pdf page 1",
+    "report": "bench/results/scan-ocr/report.json",
+    "runs": [
+      {
+        "variant": "baseline",
+        "ms": 23812.73835,
+        "cer": 0.9121402293875784,
+        "wer": 1.782994923857868,
+        "lines": 58,
+        "blocks": 35,
+        "skipped": 10,
+        "crossColumnCovers": 0,
+        "overlapPairs": 0,
+        "overflow": 0,
+        "proseCovered": 1,
+        "text": "Sakutto: On-Device Page Translation with a Small Instruction-Tuned Model\nJ. Ammaru\nIndependeme reseucher\nukumgmunple.og\nABSTRACT\nMeoe slte of so pes ko a ce l aom as Te ppe dee Som almoe eome tt somia"
+      },
+      {
+        "variant": "dpi200",
+        "ms": 30652.868415000004,
+        "cer": 1.3886604631032244,
+        "wer": 1.7246192893401016,
+        "lines": 69,
+        "blocks": 52,
+        "skipped": 4,
+        "crossColumnCovers": 2,
+        "overlapPairs": 0,
+        "overflow": 0,
+        "proseCovered": 1,
+        "text": "Sakutto: On-Device Page Translation with a Small Instruction-Tuned Model\nJ. Ammara\nIndependee mearcher\nskamgeample.org\nABSTRACT\nMachine nandation of web pages Is esally a cllent of a memote servtce. T"
+      },
+      {
+        "variant": "default-1600",
+        "ms": 34498.53223,
+        "cer": 1.4111664141960614,
+        "wer": 1.6269035532994924,
+        "lines": 72,
+        "blocks": 55,
+        "skipped": 6,
+        "crossColumnCovers": 0,
+        "overlapPairs": 0,
+        "overflow": 0,
+        "proseCovered": 1,
+        "text": "Sakutto: On-Device Page Translation with a Small Instruction-Tuned Model\nJ. Ammaru\nIndependent researcher\nsakutto@example.org\nABSTRACT\nMachine translation of web pages is usually a client of a remote "
+      },
+      {
+        "variant": "dpi300",
+        "ms": 35728.591866999996,
+        "cer": 1.4122484310755248,
+        "wer": 1.6281725888324874,
+        "lines": 72,
+        "blocks": 54,
+        "skipped": 5,
+        "crossColumnCovers": 0,
+        "overlapPairs": 0,
+        "overflow": 0,
+        "proseCovered": 1,
+        "text": "Sakutto: On-Device Page Translation with a Small Instruction-Tuned Model\nJ. Ammaru\nIndependent researcher\nsakutto@example.org\nABSTRACT\nMachine translation of web pages is usually a client of a remote "
+      },
+      {
+        "variant": "sauvola",
+        "ms": 21828.704291999995,
+        "cer": 0.7253841159922095,
+        "wer": 0.9631979695431472,
+        "lines": 65,
+        "blocks": 36,
+        "skipped": 30,
+        "crossColumnCovers": 3,
+        "overlapPairs": 0,
+        "overflow": 0,
+        "proseCovered": 1,
+        "text": "Sakuttw: Op-Device Page Translation with a Somall Instrution-Tuned Model\n1. Ammnaru\nkclramdins srane I\nwinsynept e\nA自寸\n Thu s Sas W c 0d\nPl sh raee skman e Wo Lamkh raie -e lme SrtY mnlarm é aap ltmce"
+      },
+      {
+        "variant": "dpi200+sauvola",
+        "ms": 27396.35124400002,
+        "cer": 0.7922527591430426,
+        "wer": 1.368020304568528,
+        "lines": 66,
+        "blocks": 36,
+        "skipped": 13,
+        "crossColumnCovers": 2,
+        "overlapPairs": 0,
+        "overflow": 0,
+        "proseCovered": 1,
+        "text": "Sakutto: On-Device Page Translation with a Small Instruction-Tuned Model\n1. Amnurs\nlnemeims rneder\nr \nABSTRACT\n       \nbed u b b  nd wh       T  b .      bs  e   irnsd  bk by bk  e\nmader sorolls. Us a"
+      },
+      {
+        "variant": "dpi200+gray",
+        "ms": 30102.48195800002,
+        "cer": 1.3996970352737503,
+        "wer": 1.7423857868020305,
+        "lines": 66,
+        "blocks": 46,
+        "skipped": 5,
+        "crossColumnCovers": 2,
+        "overlapPairs": 0,
+        "overflow": 0,
+        "proseCovered": 1,
+        "text": "Sakutto: On-Device Page Translation with a Small Instruction-Tuned Model\nJ. Ammara\nIndependent researcher\nskamo@example.ong\nABSTRACT\nMachine sanslaton of web pages Is essally a cient of a remote servt"
+      }
+    ]
+  },
   "summary": {
     "pages": 5,
     "proseBlocks": 92,
@@ -22,13 +168,14 @@
     "overflowRate": 0.045871559633027525,
     "readingOrderAccuracy": 0.9833333333333332,
     "twoColumnPages": 1,
-    "firstTranslatedBlockMs": 261,
-    "fullDocumentMs": 823,
-    "meanScale": 0.9851637268709349
+    "firstTranslatedBlockMs": 245,
+    "fullDocumentMs": 791,
+    "meanScale": 0.9832887268709348
   },
   "pages": [
     {
       "fixture": "paper",
+      "textSource": "native",
       "page": 1,
       "entries": [
         {
@@ -552,11 +699,12 @@
       "proseBlocks": 24,
       "readingOrder": 0.9166666666666666,
       "twoColumn": true,
-      "firstBlockMs": 261,
+      "firstBlockMs": 245,
       "pageMs": 73
     },
     {
       "fixture": "arxiv",
+      "textSource": "native",
       "page": 1,
       "entries": [
         {
@@ -930,11 +1078,12 @@
       "proseBlocks": 9,
       "readingOrder": 1,
       "twoColumn": false,
-      "firstBlockMs": 382,
-      "pageMs": 38
+      "firstBlockMs": 366,
+      "pageMs": 37
     },
     {
       "fixture": "arxiv",
+      "textSource": "native",
       "page": 3,
       "entries": [
         {
@@ -1116,11 +1265,12 @@
       "proseBlocks": 9,
       "readingOrder": 1,
       "twoColumn": false,
-      "firstBlockMs": 446,
+      "firstBlockMs": 427,
       "pageMs": 26
     },
     {
       "fixture": "arxiv",
+      "textSource": "native",
       "page": 5,
       "entries": [
         {
@@ -1443,11 +1593,12 @@
       "proseBlocks": 14,
       "readingOrder": 1,
       "twoColumn": false,
-      "firstBlockMs": 504,
-      "pageMs": 63
+      "firstBlockMs": 478,
+      "pageMs": 53
     },
     {
       "fixture": "scan",
+      "textSource": "simulated-ocr",
       "page": 1,
       "entries": [
         {
@@ -1735,7 +1886,7 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 0.945
         },
         {
           "source": "This paper reports a working system rather than a 2 new if is_equation(block): continue",
@@ -1773,7 +1924,7 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 1
+          "scale": 0.89
         },
         {
           "source": "not design away, and Section 6 lists the work that remains. A page is not a list of paragraphs. The collector therefore walks",
@@ -2182,8 +2333,8 @@
       "proseBlocks": 36,
       "readingOrder": 1,
       "twoColumn": false,
-      "firstBlockMs": 756,
-      "pageMs": 74
+      "firstBlockMs": 724,
+      "pageMs": 73
     }
   ]
 }

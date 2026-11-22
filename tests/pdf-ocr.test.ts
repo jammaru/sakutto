@@ -362,7 +362,8 @@ describe('OCR geometry and layout conversion', () => {
       align: 'left',
       bold: false,
       italic: false,
-      column: 0,
+      // One line wider than 60% of the page is a spanning block, not a body column.
+      column: -1,
       writing: 0,
     });
     expect(block?.box).toEqual(line?.box);
@@ -381,6 +382,27 @@ describe('OCR geometry and layout conversion', () => {
       skipped: [],
     });
     expect(layout.blocks[0]?.id).toBe('ocr:p3:l0:block');
+  });
+
+  it('keeps a full-width title out of the body columns and their room widths', () => {
+    const conversion = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+    const title = region('Paper title spanning both columns', quad(50, 50, 500, 30));
+    const left = region('Left column prose with enough words to translate.', quad(50, 120, 240, 20));
+    const leftNext = region('More left column prose with enough words.', quad(50, 145, 240, 20));
+    const right = region('Right column prose with enough words to translate.', quad(320, 120, 240, 20));
+    const result = ocrResult([title, left, leftNext, right], [
+      readingLine('horizontal', [title]),
+      readingLine('horizontal', [left]),
+      readingLine('horizontal', [leftNext]),
+      readingLine('horizontal', [right]),
+    ]);
+
+    const layout = ocrResultToPageLayout(result, conversion);
+    expect(layout.blocks.map((block) => block.column)).toEqual([-1, 0, 0, 1]);
+    // The title wraps to its own measure; the body paragraphs keep the true column width
+    // instead of inheriting the title's page-wide room and clipping under the cover cap.
+    expect(layout.blocks[0]?.room.width).toBe(500);
+    for (const block of layout.blocks.slice(1)) expect(block.room.width).toBe(240);
   });
 
   it('supports an empty OCR result', () => {

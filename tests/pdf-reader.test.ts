@@ -974,4 +974,56 @@ describe('PdfReader viewport observer', () => {
     expect(reader.isCompare()).toBe(false);
     reader.destroy();
   });
+
+  it('keeps the original canvas and two-column sizing through bilingual redraws', async () => {
+    vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver);
+    vi.stubGlobal('ResizeObserver', FakeResizeObserver);
+    stubCanvas();
+    const renders = { count: 0 };
+    const root = document.createElement('div');
+    Object.defineProperty(root, 'clientWidth', { configurable: true, get: () => 520 });
+    document.body.append(root);
+
+    const reader = new PdfReader(root, geometries(1), {
+      document: fakeDocument(renders, 1),
+      engine: silentEngine,
+      labels,
+      targetLanguage: 'ja',
+      form: 'plain',
+      onProgress: () => undefined,
+    });
+    const host = pageHost(root, 0);
+    placeHost(host, 20);
+    intersect(host, 20);
+    const waitForRender = async (count: number): Promise<void> => {
+      const started = Date.now();
+      while (renders.count < count && Date.now() - started < 1000) {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
+      expect(renders.count).toBeGreaterThanOrEqual(count);
+    };
+    await waitForRender(1);
+    const original = host.querySelector('.sakutto-page__canvas--original');
+    if (!(original instanceof HTMLCanvasElement)) throw new Error('expected original canvas');
+    expect(original.width).toBe(0);
+
+    reader.setBilingual(true);
+    await waitForRender(2);
+    // Both panes share the row: two page widths plus the gap, no fixed row height, and the
+    // translated stage grows with its reflowed rows while the original keeps the page height.
+    expect(Number.parseFloat(host.style.width)).toBeCloseTo(200 * 1.18 * 2 + 12, 1);
+    expect(host.style.height).toBe('');
+    const stages = [...host.querySelectorAll('.sakutto-page__stage')] as HTMLElement[];
+    expect(Number.parseFloat(stages[0]?.style.height ?? '')).toBeCloseTo(280 * 1.18, 1);
+    expect(stages[1]?.style.height).toBe('');
+    expect(original.width).toBeGreaterThan(0);
+
+    Object.defineProperty(root, 'clientWidth', { configurable: true, get: () => 600 });
+    resizeCallback?.([], {} as ResizeObserver);
+    await waitForRender(3);
+    expect(Number.parseFloat(host.style.width)).toBeCloseTo(200 * 1.38 * 2 + 12, 1);
+    expect(original.width).toBeGreaterThan(0);
+
+    reader.destroy();
+  });
 });

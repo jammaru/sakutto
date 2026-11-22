@@ -1,7 +1,7 @@
 [
   {
     "variant": "baseline",
-    "ms": 22695.53646,
+    "ms": 23812.73835,
     "cer": 0.9121402293875784,
     "wer": 1.782994923857868,
     "lines": 58,
@@ -15,7 +15,7 @@
   },
   {
     "variant": "dpi200",
-    "ms": 29559.722741999998,
+    "ms": 30652.868415000004,
     "cer": 1.3886604631032244,
     "wer": 1.7246192893401016,
     "lines": 69,
@@ -28,8 +28,22 @@
     "text": "Sakutto: On-Device Page Translation with a Small Instruction-Tuned Model\nJ. Ammara\nIndependee mearcher\nskamgeample.org\nABSTRACT\nMachine nandation of web pages Is esally a cllent of a memote servtce. T"
   },
   {
+    "variant": "default-1600",
+    "ms": 34498.53223,
+    "cer": 1.4111664141960614,
+    "wer": 1.6269035532994924,
+    "lines": 72,
+    "blocks": 55,
+    "skipped": 6,
+    "crossColumnCovers": 0,
+    "overlapPairs": 0,
+    "overflow": 0,
+    "proseCovered": 1,
+    "text": "Sakutto: On-Device Page Translation with a Small Instruction-Tuned Model\nJ. Ammaru\nIndependent researcher\nsakutto@example.org\nABSTRACT\nMachine translation of web pages is usually a client of a remote "
+  },
+  {
     "variant": "dpi300",
-    "ms": 35735.651625000006,
+    "ms": 35728.591866999996,
     "cer": 1.4122484310755248,
     "wer": 1.6281725888324874,
     "lines": 72,
@@ -43,7 +57,7 @@
   },
   {
     "variant": "sauvola",
-    "ms": 20933.288109,
+    "ms": 21828.704291999995,
     "cer": 0.7253841159922095,
     "wer": 0.9631979695431472,
     "lines": 65,
@@ -57,7 +71,7 @@
   },
   {
     "variant": "dpi200+sauvola",
-    "ms": 27955.100441000002,
+    "ms": 27396.35124400002,
     "cer": 0.7922527591430426,
     "wer": 1.368020304568528,
     "lines": 66,
@@ -71,7 +85,7 @@
   },
   {
     "variant": "dpi200+gray",
-    "ms": 29571.190355,
+    "ms": 30102.48195800002,
     "cer": 1.3996970352737503,
     "wer": 1.7423857868020305,
     "lines": 66,

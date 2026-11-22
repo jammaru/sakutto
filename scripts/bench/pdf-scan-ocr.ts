@@ -88,6 +88,8 @@ async function main(): Promise<void> {
     const variants: Array<{ id: string; scale: number; steps: readonly OcrPreprocessStep[]; maxSide: number }> = [
       { id: 'baseline', scale: 1, steps: [], maxSide: 960 },
       { id: 'dpi200', scale: 4 / 3, steps: [], maxSide: 1280 },
+      // Shipped default: the reader renders at 2x and detects at maxSide 1600.
+      { id: 'default-1600', scale: 2, steps: [], maxSide: 1600 },
       { id: 'dpi300', scale: 2, steps: [], maxSide: 1920 },
       { id: 'sauvola', scale: 1, steps: ['sauvola'], maxSide: 960 },
       { id: 'dpi200+sauvola', scale: 4 / 3, steps: ['sauvola'], maxSide: 1280 },

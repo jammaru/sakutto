@@ -286,6 +286,9 @@ export class PdfReader {
     } else {
       for (const element of this.pageElements.values()) copyOriginalCanvas(element, false);
     }
+    // fitScale already reserves a second column for compare/bilingual; use it when the mode
+    // changes so the two panes still fit the reader instead of overflowing its width.
+    this.scale = this.fitScale();
     this.applyScale();
   }
 
@@ -315,6 +318,7 @@ export class PdfReader {
         element.bilingualRows.clear();
       }
     }
+    this.scale = this.fitScale();
     this.applyScale();
   }
 
@@ -644,13 +648,19 @@ export class PdfReader {
       if (!geometry) continue;
       const pageWidth = geometry.width * this.scale;
       const pageHeight = geometry.height * this.scale;
-      element.host.style.width = this.compare
+      // Both two-pane modes use the same two columns + gap as fitScale(). The host must
+      // keep growing with its rows: a bilingual translation can be taller than the source
+      // page, so only the original stage is pinned to the page's own height.
+      const twoColumns = this.compare || this.bilingual;
+      element.host.style.width = twoColumns
         ? `${(pageWidth * 2 + 12).toFixed(2)}px`
         : `${pageWidth.toFixed(2)}px`;
-      element.host.style.height = this.compare ? '' : `${pageHeight.toFixed(2)}px`;
+      element.host.style.height = twoColumns ? '' : `${pageHeight.toFixed(2)}px`;
       element.translatedPane.style.width = `${pageWidth.toFixed(2)}px`;
       element.originalPane.style.width = `${pageWidth.toFixed(2)}px`;
-      element.translatedStage.style.height = `${pageHeight.toFixed(2)}px`;
+      element.translatedStage.style.height = this.bilingual
+        ? ''
+        : `${pageHeight.toFixed(2)}px`;
       element.originalStage.style.height = `${pageHeight.toFixed(2)}px`;
       // A canvas drawn at the old scale has the wrong size for the new one. Cancelling
       // bumps the draw generation so the abandoned render cannot mark this as a failure.
@@ -754,7 +764,9 @@ export class PdfReader {
       element.drawn = true;
       delete element.renderTask;
       element.host.removeAttribute('data-render-failed');
-      copyOriginalCanvas(element, this.compare);
+      // The original is visible in both two-pane modes, and every redraw (refit, scroll
+      // back after release, retry) renders into a fresh canvas. Copy it whenever it shows.
+      copyOriginalCanvas(element, this.compare || this.bilingual);
     } catch (error) {
       if (this.destroyed || element.drawGeneration !== generation) return;
       delete element.renderTask;

@@ -8,6 +8,11 @@
  * is downloaded once into bench/.cache when it is not already there. A deterministic local
  * fake engine turns prose into Japanese-shaped output, so the same input measures paragraph
  * reconstruction, protection, placement and scheduling rather than model quality.
+ *
+ * The 'scan' fixture is a SIMULATED OCR input: it uses scan.pdf's page size and background but
+ * word boxes synthesized from paper.pdf's native text. Real OCR on scan.pdf page 1 is measured
+ * by 'pnpm bench:pdf:scan:ocr'; that result is included in this report under a separate heading
+ * and never folded into the simulated scan numbers. Run both with 'pnpm bench:pdf:quality:scan'.
  */
 import { mkdir, readFile, writeFile, appendFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
@@ -262,7 +267,7 @@ async function arxivBytes(): Promise<Uint8Array> {
   }
 }
 
-/** Turns native lines of the printed paper into word-level OCR regions for scan.pdf. */
+/** Simulated detector output for scan.pdf: perfect word boxes from paper.pdf's text layer. */
 function pseudoOcrRegions(lines: readonly TextLine[]): unknown[] {
   const regions: Array<{ text: string; quad: unknown; confidence: number; vertical: boolean; recognitionConfidence: number; symbolScores: number[] }> = [];
   for (const line of lines) {
@@ -297,13 +302,15 @@ function pseudoOcrRegions(lines: readonly TextLine[]): unknown[] {
 }
 
 async function renderShots(report: unknown): Promise<void> {
-  const server = await startStaticServer({ directory: ROOT, isolated: false });
-  const browser = await chromium.launch({
-    executablePath: process.env['CHROME_PATH'] || '/usr/local/bin/google-chrome',
-    headless: true,
-    args: ['--no-sandbox'],
-  });
+  let server: Awaited<ReturnType<typeof startStaticServer>> | null = null;
+  let browser: Awaited<ReturnType<typeof chromium.launch>> | null = null;
   try {
+    server = await startStaticServer({ directory: ROOT, isolated: false });
+    browser = await chromium.launch({
+      executablePath: process.env['CHROME_PATH'] || '/usr/local/bin/google-chrome',
+      headless: true,
+      args: ['--no-sandbox'],
+    });
     const page = await browser.newPage({ viewport: { width: 1100, height: 1500 }, deviceScaleFactor: 1 });
     page.on('pageerror', (error) => console.error('viewer:', error.message));
     await page.goto(server.origin + '/scripts/bench/pdf-quality-view.html');
@@ -336,8 +343,8 @@ async function renderShots(report: unknown): Promise<void> {
     }
     await page.close();
   } finally {
-    await browser.close();
-    await server.close();
+    await browser?.close();
+    await server?.close();
   }
 }
 
@@ -504,6 +511,7 @@ async function main(): Promise<void> {
       const coverOverlaps = paintedCoverOverlaps(placed, extracted.width);
       pages.push({
         fixture,
+        textSource: fixture === 'scan' ? 'simulated-ocr' : 'native',
         page: number,
         entries,
         overlapPairs: Math.max(metrics.overlapPairs, coverOverlaps),
@@ -546,36 +554,98 @@ async function main(): Promise<void> {
 
   const totalMs = Date.now() - started;
   const summary = summarize(pages, firstBlockMs, totalMs);
+  const sourceSummary = (source: 'native' | 'simulated-ocr') => {
+    const subset = pages.filter((page) => page.textSource === source);
+    const first = subset.reduce((min, page) => Math.min(min, page.firstBlockMs), Infinity);
+    return {
+      pages: subset.length,
+      summary: summarize(
+        subset,
+        Number.isFinite(first) ? first : 0,
+        subset.reduce((sum, page) => sum + page.pageMs, 0),
+      ),
+    };
+  };
+  const byTextSource = {
+    native: sourceSummary('native'),
+    'simulated-ocr': sourceSummary('simulated-ocr'),
+  };
+  // Real OCR is a separate model-backed bench. Read its committed result here so a simulated
+  // scan measurement is never presented as an OCR measurement.
+  const realOcr = await readFile(join(ROOT, 'bench/results/scan-ocr/report.json'), 'utf8')
+    .then((text) => JSON.parse(text) as unknown)
+    .catch(() => null);
   const report = {
     label,
     generatedAt: new Date().toISOString(),
     engine: 'deterministic local fake',
     pace: { ttfbMs, msPerChar, concurrency },
     fixtures: [...sources.keys()],
+    textSources: {
+      native: 'paper.pdf and arXiv 1706.03762 use their own PDF text layer.',
+      'simulated-ocr':
+        'scan.pdf page geometry and background, word boxes synthesized from paper.pdf text (not OCR).',
+      realOcr: 'bench/pdf/scan.pdf page 1 recognized by pnpm bench:pdf:scan:ocr; see realOcr.',
+    },
+    byTextSource,
+    realOcr: {
+      command: 'pnpm bench:pdf:scan:ocr',
+      input: 'bench/pdf/scan.pdf page 1',
+      report: 'bench/results/scan-ocr/report.json',
+      runs: realOcr,
+    },
     summary,
     pages,
   };
   const reportPath = join(OUT, label + '.json');
   await writeFile(reportPath, JSON.stringify(report, null, 2) + '\n');
 
+  const markdownRow = (name: string, s: ReturnType<typeof summarize>): string =>
+    '| ' + name + ' | ' + String(s.pages) + ' | ' + (s.untranslatedProseRate * 100).toFixed(1) + '% | ' +
+      (s.mixedLanguageRate * 100).toFixed(1) + '% | ' + (s.garbledTokenRate * 100).toFixed(2) + '% | ' +
+      s.overlapRate.toFixed(3) + ' | ' + s.overflowRate.toFixed(3) + ' |';
   const markdown = [
     '| label | pages | untranslated prose | mixed language | garbled tokens | overlap/box | overflow/box | reading order | first block ms | full ms |',
-    '| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |',
+    '| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |',
     '| ' + label + ' | ' + String(summary.pages) + ' | ' + (summary.untranslatedProseRate * 100).toFixed(1) + '% | ' +
       (summary.mixedLanguageRate * 100).toFixed(1) + '% | ' + (summary.garbledTokenRate * 100).toFixed(2) + '% | ' +
       summary.overlapRate.toFixed(3) + ' | ' + summary.overflowRate.toFixed(3) + ' | ' +
       (summary.readingOrderAccuracy * 100).toFixed(1) + '% | ' + String(summary.firstTranslatedBlockMs) + ' | ' +
       String(summary.fullDocumentMs) + ' |',
   ].join('\n');
+  const realRuns = Array.isArray(realOcr) ? realOcr : [];
+  const fullMarkdown = [
+    markdown,
+    '',
+    '## Text source split',
+    '',
+    'The scan fixture above is SIMULATED OCR: scan.pdf supplies the page size and background, but word boxes are synthesized from paper.pdf text. It measures OCR layout and placement, not recognition. Real recognition on scan.pdf is measured separately with pnpm bench:pdf:scan:ocr and listed below; never read the simulated scan row as a real-scan result.',
+    '',
+    '| text source | pages | untranslated prose | mixed language | garbled tokens | overlap/box | overflow/box |',
+    '| --- | ---: | ---: | ---: | ---: | ---: | ---: |',
+    markdownRow('native (paper, arxiv)', byTextSource.native.summary),
+    markdownRow('simulated OCR (scan)', byTextSource['simulated-ocr'].summary),
+    '',
+    '## Real OCR on scan.pdf page 1 (pnpm bench:pdf:scan:ocr)',
+    '',
+    '| variant | CER | WER | lines | blocks | skipped | cross-column | overlaps | overflow |',
+    '| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |',
+    ...realRuns.map((run) => {
+      const item = run as Record<string, number | string>;
+      return '| ' + item.variant + ' | ' + Number(item.cer).toFixed(3) + ' | ' + Number(item.wer).toFixed(3) +
+        ' | ' + item.lines + ' | ' + item.blocks + ' | ' + item.skipped + ' | ' +
+        item.crossColumnCovers + ' | ' + item.overlapPairs + ' | ' + item.overflow + ' |';
+    }),
+  ].join('\n');
   const historyPath = join(OUT, 'history.md');
   const previousHistory = await readFile(historyPath, 'utf8').catch(() => '');
   await appendFile(historyPath, previousHistory.includes('| label | pages |') ? markdown.split('\n').slice(2).join('\n') + '\n' : markdown + '\n');
-  await writeFile(join(OUT, label + '.md'), markdown + '\n');
+  await writeFile(join(OUT, label + '.md'), fullMarkdown + '\n');
 
   if (takeShots && shots.length > 0) await renderShots(shots);
 
   console.log('PDF quality bench — ' + label);
-  console.log(markdown);
+  console.log(fullMarkdown);
   for (const page of pages) {
     const untranslated = page.entries.filter((entry) => entry.untranslated).slice(0, 3);
     console.log(
