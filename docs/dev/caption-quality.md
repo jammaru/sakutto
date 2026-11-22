@@ -157,9 +157,8 @@ harness-only), the feel-test fails every new metric; on this branch all six pass
 
 Raw per-run metrics, samples and screenshots are written under
 `CAPTION_QUALITY_ARTIFACTS` as `metrics-{baseline,head}-{ja,en,asr,feeltest}.json`.
-The owner-derived lag analysis lives in
-`/cursor/stores/bc-df1ba74e-ebfd-59a3-80e9-0569718830e5/artifacts/caption-quality-feeltest/owner-video-lag.md`;
-the measured root-cause write-up is `/home/ubuntu/dsh-reports/feeltest-lag-root-causes.md`.
+Owner-derived lag analysis and measured root-cause notes remain external rollout evidence;
+they are not replay inputs or required checkout paths.
 
 ## Synthetic VOD json3 replay
 
@@ -217,7 +216,10 @@ the scenario; paint and dwell evidence comes from mutations and interpolated med
 | Live isolation   | Positive incremental JA paint plus VOD scheduler/request mode spy                                                                               | zero VOD scheduler activity in live mode                                                                                  |
 
 Seek/source transitions censor the previously active dwell interval and report it separately;
-they never turn a short interval into a pass. Pause samples must not advance the playhead or clear
+they never turn a short interval into a pass or count as observed content. Every report requires
+at least one fully observed, uncensored Japanese dwell interval. Cue-start crossings are linearly
+interpolated only from independent playhead samples; requests, mutations, and cache-hit paints
+cannot establish their own crossing timestamps. Pause samples must not advance the playhead or clear
 the active caption. Rewind must produce a cache hit. Seek/rate phases must request or reuse the
 destination before far work and advance the scheduling generation without another track GET.
 A same-value cached repaint may not emit a DOM mutation, so its paint cache-hit supplies the
@@ -225,10 +227,14 @@ presentation timestamp. Artifacts preserve non-finite values as `Infinity`/`-Inf
 rather than JSON `null`.
 
 The 1,200 ms dwell, no-drop, and latency targets can conflict when cue starts are closer than
-1,200 ms in wall time. At 2x that means 2,400 ms of media spacing. The targeted 2x gate covers
-the first two cues; the same artifact also includes `denseRateReport` for all four dense cues
-through FIFO completion. That report keeps its failed lag metrics visible rather than treating
-out-of-scope valid cues as partial content or skipping them to claim a pass.
+1,200 ms in wall time. At 2x that means 2,400 ms of media spacing. The interaction artifact
+includes `denseRateReport` for all four dense cues through FIFO completion; there is no separate
+passing two-cue rate claim that could hide their backlog. **Owner-visible trade-off:** the test explicitly requires
+that dense report to fail both `median cue-start lag` and `p95 cue-start lag`, and rejects any
+additional dense content, ordering, numeric, request, or dwell failure. Thus the suite cannot turn
+green by dropping cues, shortening dwell, censoring content, or silently omitting the dense lag
+failures. If a future scheduler meets both dense targets, update this explicit expectation and the
+rollout decision together rather than hiding the improvement or the previous constraint.
 
 ### Scheduler trace contract and baseline gaps
 
@@ -258,18 +264,19 @@ network counts.
 
 ### Implemented head results and residual limits
 
-The implemented continuous replay (final full-suite run) measured **3 ms median cue-start lag**,
-**329.06 ms p95**, **476.50 ms worst**, and **1,204.90 ms shortest JA dwell**. All nine source/JA cues appeared once in order, all three decimals round-tripped exactly,
-and the track produced one json3 GET, zero VTT GETs, at most two outstanding requests, and no
-DOM-decoy translation. Forward/backward seeks and return to 1x reused cache with 0–0.2 ms lag;
-the targeted 2x report measured 249.80 ms median, 474.62 ms p95, and 1,207.30 ms shortest dwell.
-The 96-cue long-track scenario used one GET and at most two outstanding requests; seven initial
-requests over the load interval were not a whole-track burst. Existing live ASR and rolling VOD
-quality scenarios remained green.
+The implemented continuous replay (final full-suite run) measured **4.90 ms median cue-start
+lag**, **211.34 ms p95**, **275.70 ms worst**, and **1,209.50 ms shortest JA dwell**. All nine
+source/JA cues appeared once in order, all three decimals round-tripped exactly, and the track
+produced one json3 GET, zero VTT GETs, at most two outstanding requests, and no DOM-decoy
+translation. Independent playhead evidence measured 10.50 ms forward-seek lag, 150.60 ms
+backward-seek lag, and 7.80 ms after returning to 1x; each interaction report contained fully
+observed uncensored dwell. The 96-cue long-track scenario used one GET, at most two outstanding
+requests, and exactly two initial-load starts. Existing live ASR and rolling VOD quality scenarios
+remained green.
 
-The fully observed four-cue dense 2x FIFO tells a different, explicit result: **724.75 ms median**,
-**1,544.90 ms p95**, **1,649.90 ms worst**, with no missing/duplicate/reordered cues and a
-**1,207.30 ms** shortest dwell. It therefore misses the lag targets while preserving dwell and
+The fully observed four-cue dense 2x FIFO tells a different, explicit result: **801.65 ms median**,
+**1,603.19 ms p95**, **1,708.20 ms worst**, with no missing/duplicate/reordered cues and a
+**1,213.00 ms** shortest dwell. It therefore misses the lag targets while preserving dwell and
 content. This is the documented dense/rate trade-off, not a passing latency claim. Real upstream
 ASR may already contain `55`; this implementation preserves source numerics but does not invent a
 decimal correction. The fixture is synthetic, so these numbers do not certify an unrecorded real
