@@ -1,7 +1,7 @@
 import { OCR_PAGE_TIMEOUT_MS } from '@/engine/offscreen/protocol';
 import { groupReadingLines } from '@/engine/ocr/order';
 import type { ImageDataLike, OcrQuad, OcrRegion, OcrResult, ReadingLine } from '@/engine/ocr/types';
-import { isImageOnlyPage, type ExtractedPage } from './extract';
+import { isImageOnlyPage, normalizeGlyphRun, type ExtractedPage } from './extract';
 import type { FigureAreas } from './figures';
 import { median, type Box } from './geometry';
 import { layoutPage, looksLikeCodeLine, type AnyBlockRole, type LayoutBlock, type PageLayout } from './layout';
@@ -166,7 +166,7 @@ function regionPiece(
   const quad = scaleQuad(region.quad, scaleX, scaleY);
   return {
     id,
-    text: region.text.trim(),
+    text: normalizeGlyphRun(region.text.trim()),
     box: quadBox(quad),
     // PDF extraction uses the advance origin: the bottom edge horizontally and the right
     // edge for text running down a vertical column.
@@ -219,12 +219,35 @@ export function ocrResultToTextLines(
       pieces.push(regionPiece(region, region.vertical, id, resolved.scaleX, resolved.scaleY));
     }
     if (pieces.length === 0) continue;
-    const line = lineFrom(pieces);
-    // OCR region boundaries are authoritative, unlike gaps between native PDF text runs.
-    // Match the pipeline's separator so touching or overlapping horizontal regions stay distinct.
     const pieceVertical = pieces.every((piece) => piece.displayed === 90);
-    const text = pieces.map((piece) => piece.text).join(pieceVertical ? '' : ' ');
-    output.push({ ...line, text, id: lineId, pieces });
+    const middle = resolved.pageWidth / 2;
+    const lineWidth =
+      Math.max(...pieces.map((piece) => piece.box.x + piece.box.width)) -
+      Math.min(...pieces.map((piece) => piece.box.x));
+    const leftPieces = pieces.filter((piece) => piece.box.x + piece.box.width / 2 < middle);
+    const rightPieces = pieces.filter((piece) => piece.box.x + piece.box.width / 2 >= middle);
+    const gutterGap =
+      rightPieces.length > 0 && leftPieces.length > 0
+        ? Math.min(...rightPieces.map((piece) => piece.box.x)) -
+          Math.max(...leftPieces.map((piece) => piece.box.x + piece.box.width))
+        : 0;
+    const crossesGutter =
+      resolved.pageWidth > 0 &&
+      !pieceVertical &&
+      lineWidth < resolved.pageWidth * 0.82 &&
+      gutterGap > 18;
+    const pushLine = (selected: OcrTextPiece[], id: string): void => {
+      if (selected.length === 0) return;
+      const line = lineFrom(selected);
+      const text = selected.map((piece) => piece.text).join(pieceVertical ? '' : ' ');
+      output.push({ ...line, text, id, pieces: selected });
+    };
+    if (crossesGutter) {
+      pushLine(leftPieces, lineId + ':left');
+      pushLine(rightPieces, lineId + ':right');
+      continue;
+    }
+    pushLine(pieces, lineId);
   }
   return output;
 }
@@ -260,20 +283,43 @@ const SECTION_LINE = /^\d+(?:\.\d+)*\.?\s+\p{Lu}/u;
 
 function groupText(lines: readonly OcrTextLine[]): string {
   const vertical = lines.length > 0 && lines.every(verticalLine);
-  return lines
-    .map((line) => line.text.trim())
-    .filter(Boolean)
-    .join(vertical ? '' : ' ')
-    .replace(/\s+/gu, ' ')
-    .trim();
+  let output = '';
+  for (const line of lines) {
+    const value = line.text.trim();
+    if (value.length === 0) continue;
+    if (output.length === 0) {
+      output = value;
+      continue;
+    }
+    const hyphenated = /[-‐‑‒–]\p{L}?$/u.test(output) && /^[\p{Ll}]/u.test(value);
+    output = hyphenated ? output.replace(/[-‐‑‒–]\p{L}?$/u, '') + value : output + (vertical ? '' : ' ') + value;
+  }
+  return output.replace(/\s+/gu, ' ').trim();
 }
 
 function groupRole(group: readonly OcrTextLine[], bodySize: number): AnyBlockRole {
   const text = groupText(group);
   if (CAPTION_LINE.test(text)) return 'caption';
-  if (group.some((line) => looksLikeCodeLine(line.text))) return 'code';
+  if (
+    group.some((line) => looksLikeCodeLine(line.text)) ||
+    (text.length < 140 &&
+      /^(?:\d+\s+)?(?:for|if|while|emit|return|continue|def)\b/iu.test(text) &&
+      !/[.!?]$/u.test(text))
+  ) {
+    return 'code';
+  }
   if (/^[^\p{L}]*\d+[^\p{L}]*$/u.test(text)) return 'label';
   const first = group[0];
+  // A row of values or short numbers is table typesetting, not a sentence to translate.
+  const tokens = text.split(/\s+/u).filter(Boolean);
+  const numeric = tokens.filter((token) => /\d/u.test(token)).length;
+  if (
+    tokens.length >= 2 &&
+    numeric * 2 >= tokens.length &&
+    (bodySize <= 0 || (first?.height ?? 0) < bodySize * 0.95)
+  ) {
+    return 'label';
+  }
   if (
     group.length === 1 &&
     text.length <= 80 &&
@@ -328,6 +374,33 @@ function groupBlocks(
   return groups;
 }
 
+
+/** Blocks that share a horizontal band in short runs are table cells, not paragraphs. */
+function detectTableRows(blocks: readonly OcrLayoutBlock[], bodySize: number): OcrLayoutBlock[] {
+  const rows: OcrLayoutBlock[][] = [];
+  for (const block of blocks) {
+    const center = block.box.y + block.box.height / 2;
+    const row = rows.find(
+      (candidate) =>
+        candidate[0]?.column === block.column &&
+        Math.abs(candidate[0].box.y + candidate[0].box.height / 2 - center) < 8,
+    );
+    if (row) row.push(block);
+    else rows.push([block]);
+  }
+  return rows
+    .filter((row) => {
+      if (row.length < 2) return false;
+      if (row.some((block) => block.role === 'heading' || block.role === 'caption')) return false;
+      return row.every(
+        (block) =>
+          block.text.length <= 32 &&
+          (bodySize <= 0 || block.fontSize < bodySize * 1.05) &&
+          !/[.!?]$/u.test(block.text),
+      );
+    })
+    .flat();
+}
 /**
  * Groups OCR reading lines into paragraphs, in the order the detector already established.
  *
@@ -406,6 +479,7 @@ function layoutFromLines(
   const skipped = blocks.filter(
     (block) => block.role === 'code' || block.role === 'label' || block.role === 'furniture',
   );
+  const tableCells = detectTableRows(blocks.filter((block) => !skipped.includes(block)), bodySize);
   const captions = blocks.filter((block) => block.role === 'caption');
   const figureLabels = blocks.filter(
     (block) =>
@@ -414,9 +488,33 @@ function layoutFromLines(
       block.fontSize < bodySize * 0.75 &&
       captions.some((caption) => Math.abs(block.box.y - caption.box.y) < 160),
   );
-  const withheld = [...skipped, ...figureLabels];
+  const withheld = [...skipped, ...tableCells, ...figureLabels];
   const kept = blocks.filter((block) => !withheld.includes(block));
   const columns = [...new Set(kept.map((block) => block.column))].sort((a, b) => a - b);
+  // A cover may wrap through its column's white space, but never across the gutter into the
+  // neighbouring column. Native blocks get this from the XY-cut; OCR needs it explicitly.
+  const ranges = new Map(
+    columns.map((index) => {
+      const members = kept.filter((block) => block.column === index);
+      return [index, {
+        minX: Math.min(...members.map((block) => block.box.x)),
+        maxX: Math.max(...members.map((block) => block.box.x + block.box.width)),
+      }];
+    }),
+  );
+  if (options.pageWidth > 0) {
+    for (const block of kept) {
+      const range = ranges.get(block.column);
+      const left = range?.minX ?? block.box.x;
+      const right = range?.maxX ?? options.pageWidth;
+      block.room = {
+        x: left,
+        y: block.box.y,
+        width: Math.max(block.box.width, right - left - 4),
+        height: block.box.height,
+      };
+    }
+  }
   return {
     blocks: kept,
     bodySize,
@@ -427,7 +525,7 @@ function layoutFromLines(
     pageIndex: options.pageIndex,
     // Caption-adjacent small type sits inside the figure; give it to the fitter as a wall so a
     // neighbouring paragraph cannot wrap across the drawing.
-    obstacles: figureLabels.map((block) => ({ ...block.box })),
+    obstacles: [...figureLabels, ...tableCells].map((block) => ({ ...block.box })),
     columns: columns.map((index) => ({
       index,
       minX: Math.min(...kept.filter((block) => block.column === index).map((block) => block.box.x)),

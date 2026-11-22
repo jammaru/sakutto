@@ -55,7 +55,9 @@
     "bench:ocr": "node --experimental-strip-types --no-warnings --import ./scripts/bench/register-ts.mjs scripts/bench/ocr-run.ts",
     "bench:ocr:render": "node --experimental-strip-types --no-warnings --import ./scripts/bench/register-ts.mjs scripts/bench/ocr-render.ts",
     "bench:pdf:layout": "node --experimental-strip-types --no-warnings --import ./scripts/bench/register-ts.mjs scripts/bench/pdf-layout.ts",
-    "bench:pdf:quality": "node --experimental-transform-types --no-warnings --import ./scripts/bench/register-ts.mjs scripts/bench/pdf-quality.ts"
+    "bench:pdf:quality": "node --experimental-transform-types --no-warnings --import ./scripts/bench/register-ts.mjs scripts/bench/pdf-quality.ts",
+    "bench:ocr:lab": "node --experimental-transform-types --no-warnings --import ./scripts/bench/register-ts.mjs scripts/bench/ocr-lab.ts",
+    "bench:pdf:scan:ocr": "node --experimental-transform-types --no-warnings --import ./scripts/bench/register-ts.mjs scripts/bench/pdf-scan-ocr.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

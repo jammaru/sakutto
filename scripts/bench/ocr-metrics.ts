@@ -124,6 +124,104 @@ export function microErrorRate(
     ? characterErrorRate(reference, hypothesis)
     : wordErrorRate(reference, hypothesis);
 }
+
+/** Match hypothesis lines to ground truth by text similarity and score reading order. */
+export function lineOrderAccuracy(
+  reference: readonly string[],
+  hypothesis: readonly string[],
+): { accuracy: number; matched: number; reference: number } {
+  const normalizedReference = reference.map(normalizeOcrText);
+  const normalizedHypothesis = hypothesis.map(normalizeOcrText);
+  const candidates = normalizedHypothesis.flatMap((text, index) =>
+    normalizedReference.map((expected, rank) => ({
+      index,
+      rank,
+      similarity:
+        1 -
+        characterErrorRate(expected, text).rate +
+        (expected === text ? 0.5 : 0),
+    })),
+  );
+  const usedHypothesis = new Set<number>();
+  const usedRank = new Set<number>();
+  const matches: { index: number; rank: number }[] = [];
+  for (const candidate of candidates.sort((a, b) => b.similarity - a.similarity)) {
+    if (candidate.similarity < 0.55) continue;
+    if (usedHypothesis.has(candidate.index) || usedRank.has(candidate.rank)) continue;
+    usedHypothesis.add(candidate.index);
+    usedRank.add(candidate.rank);
+    matches.push({ index: candidate.index, rank: candidate.rank });
+  }
+  matches.sort((a, b) => a.index - b.index);
+  let correct = 0;
+  for (let position = 1; position < matches.length; position += 1) {
+    const previous = matches[position - 1];
+    const current = matches[position];
+    if (previous && current && previous.rank <= current.rank) correct += 1;
+  }
+  return {
+    accuracy: matches.length < 2 ? (matches.length === 0 ? 0 : 1) : correct / (matches.length - 1),
+    matched: matches.length,
+    reference: reference.length,
+  };
+}
+
+/** Column order: left-to-right and top-to-bottom, for two-page newspaper layouts. */
+export function columnOrderAccuracy(
+  reference: readonly BenchQuad[],
+  hypothesis: readonly BenchQuad[],
+  pageWidth: number,
+): number {
+  const column = (quad: BenchQuad): number => {
+    const center = quad.reduce((sum, point) => sum + point.x, 0) / 4;
+    return center < pageWidth / 2 ? 0 : 1;
+  };
+  const expected = reference.map(column);
+  const observed = hypothesis.map(column);
+  if (expected.length < 2 || observed.length === 0 || new Set(expected).size < 2) return 1;
+  const inversions = observed.filter((value, index) => index > 0 && value < (observed[index - 1] ?? value)).length;
+  return 1 - inversions / Math.max(1, observed.length - 1);
+}
+
+/** Mean best IoU between paragraph groups built from adjacent matched lines. */
+export function blockIoU(
+  reference: readonly BenchQuad[],
+  hypothesis: readonly BenchQuad[],
+): number {
+  const group = (quads: readonly BenchQuad[]): BenchQuad[][] => {
+    const groups: BenchQuad[][] = [];
+    for (const quad of quads) {
+      const last = groups.at(-1)?.at(-1);
+      const gap = last ? Math.min(...[0, 1, 2, 3].map((index) => quad[index]?.y ?? 0)) - Math.max(...[0, 1, 2, 3].map((index) => last[index]?.y ?? 0)) : Infinity;
+      if (last && Math.abs(gap) < 24) groups.at(-1)?.push(quad);
+      else groups.push([quad]);
+    }
+    return groups;
+  };
+  const referenceGroups = group(reference);
+  const hypothesisGroups = group(hypothesis);
+  if (referenceGroups.length === 0) return 1;
+  let total = 0;
+  for (const groupQuads of hypothesisGroups) {
+    const box = (quads: readonly BenchQuad[]) => ({
+      left: Math.min(...quads.flatMap((quad) => quad.map((point) => point.x))),
+      right: Math.max(...quads.flatMap((quad) => quad.map((point) => point.x))),
+      top: Math.min(...quads.flatMap((quad) => quad.map((point) => point.y))),
+      bottom: Math.max(...quads.flatMap((quad) => quad.map((point) => point.y))),
+    });
+    const candidate = box(groupQuads);
+    let best = 0;
+    for (const expected of referenceGroups) {
+      const target = box(expected);
+      const intersection = Math.max(0, Math.min(candidate.right, target.right) - Math.max(candidate.left, target.left)) * Math.max(0, Math.min(candidate.bottom, target.bottom) - Math.max(candidate.top, target.top));
+      const areaA = (candidate.right - candidate.left) * (candidate.bottom - candidate.top);
+      const areaB = (target.right - target.left) * (target.bottom - target.top);
+      best = Math.max(best, intersection / Math.max(1, areaA + areaB - intersection));
+    }
+    total += best;
+  }
+  return total / hypothesisGroups.length;
+}
 export function fixtureGroundTruth(fixture: OcrFixture): string {
   return fixture.lines.map((line) => line.text).join('\n');
 }

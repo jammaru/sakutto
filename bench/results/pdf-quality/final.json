@@ -1,6 +1,6 @@
 {
   "label": "final",
-  "generatedAt": "2026-11-22T15:49:56.836Z",
+  "generatedAt": "2026-11-22T16:38:53.948Z",
   "engine": "deterministic local fake",
   "pace": {
     "ttfbMs": 6,
@@ -17,14 +17,14 @@
     "proseBlocks": 92,
     "untranslatedProseRate": 0,
     "mixedLanguageRate": 0.10752688172043011,
-    "garbledTokenRate": 0.0031479538300104933,
+    "garbledTokenRate": 0.00280014000700035,
     "overlapRate": 0,
-    "overflowRate": 0.046296296296296294,
+    "overflowRate": 0.045871559633027525,
     "readingOrderAccuracy": 0.9833333333333332,
     "twoColumnPages": 1,
-    "firstTranslatedBlockMs": 248,
-    "fullDocumentMs": 840,
-    "meanScale": 0.9820387268709347
+    "firstTranslatedBlockMs": 261,
+    "fullDocumentMs": 823,
+    "meanScale": 0.9851637268709349
   },
   "pages": [
     {
@@ -552,7 +552,7 @@
       "proseBlocks": 24,
       "readingOrder": 0.9166666666666666,
       "twoColumn": true,
-      "firstBlockMs": 248,
+      "firstBlockMs": 261,
       "pageMs": 73
     },
     {
@@ -930,8 +930,8 @@
       "proseBlocks": 9,
       "readingOrder": 1,
       "twoColumn": false,
-      "firstBlockMs": 370,
-      "pageMs": 36
+      "firstBlockMs": 382,
+      "pageMs": 38
     },
     {
       "fixture": "arxiv",
@@ -1116,7 +1116,7 @@
       "proseBlocks": 9,
       "readingOrder": 1,
       "twoColumn": false,
-      "firstBlockMs": 429,
+      "firstBlockMs": 446,
       "pageMs": 26
     },
     {
@@ -1443,8 +1443,8 @@
       "proseBlocks": 14,
       "readingOrder": 1,
       "twoColumn": false,
-      "firstBlockMs": 479,
-      "pageMs": 61
+      "firstBlockMs": 504,
+      "pageMs": 63
     },
     {
       "fixture": "scan",
@@ -1527,8 +1527,8 @@
           "scale": 1
         },
         {
-          "source": "Machine translation of web pages is usually a client of a remote service. This paper describes Sakutto, a browser extension that translates a page entirely on the reader's own machine, and reports what moving a 0.8-billion-parameter instruction- tuned model into a browser tab costs and what it buys. The extension runs PLaMo 3 Translate through a WebAssembly build of llama.cpp, keeps the model weights in the browser's private file system, and translates a page block by block as the reader scrolls. On a four-core laptop with a discrete GPU the model reaches 34.8 tokens per second and finishes a 1,900- word article in 41 seconds; on the same machine's CPU it reaches 9.1 tokens per second. We describe the scheduling rules that keep the first paragraph visible within two seconds, the cache that makes a revisited page free, and the failure modes",
-          "translation": "語語語翻訳の語語語である語語語一つの語語の一つの語語語語語.この論文語語語語語語,一つの語語語語語語その語語語語一つの語語語語語の上でその語語語語語語語,そして語語語語語語語一つの0.8-billion-parameter語語語語-語語モデル語語一つの語語語語語語そして語語それは語語.その語語語語語語語3語語語語語語一つの語語語語語語の語語語,語語そのモデル語語語においてその語語語語語語語語システム,そして語語語語一つの語語語語により語語としてその語語語語語.の上で一つの語語語語語ともに一つの語語語語そのモデル語語語34.8語語語語語そして語語語一つの1,900-語語語語語において41語語語;の上でその語語語語語語それは語語語9.1語語語語語.我々は語語語その語語語語語語その語語その語語語語語語語語語語語語語語,その語語その語語一つの語語語語語語語,そしてその語語語語語",
+          "source": "Machine translation of web pages is usually a client of a remote service. This paper describes Sakutto, a browser extension that translates a page entirely on the reader's own machine, and reports what moving a 0.8-billion-parameter instructiontuned model into a browser tab costs and what it buys. The extension runs PLaMo 3 Translate through a WebAssembly build of llama.cpp, keeps the model weights in the browser's private file system, and translates a page block by block as the reader scrolls. On a four-core laptop with a discrete GPU the model reaches 34.8 tokens per second and finishes a 1,900word article in 41 seconds; on the same machine's CPU it reaches 9.1 tokens per second. We describe the scheduling rules that keep the first paragraph visible within two seconds, the cache that makes a revisited page free, and the failure modes",
+          "translation": "語語語翻訳の語語語である語語語一つの語語の一つの語語語語語.この論文語語語語語語,一つの語語語語語語その語語語語一つの語語語語語の上でその語語語語語語語,そして語語語語語語語一つの0.8-billion-parameter語語語語モデル語語一つの語語語語語語そして語語それは語語.その語語語語語語語3語語語語語語一つの語語語語語語の語語語,語語そのモデル語語語においてその語語語語語語語語システム,そして語語語語一つの語語語語により語語としてその語語語語語.の上で一つの語語語語語ともに一つの語語語語そのモデル語語語34.8語語語語語そして語語語一つの1,900word語語語において41語語語;の上でその語語語語語語それは語語語9.1語語語語語.我々は語語語その語語語語語語その語語その語語語語語語語語語語語語語語,その語語その語語一つの語語語語語語語,そしてその語語語語語",
           "role": "prose",
           "box": {
             "x": 79.00701805029078,
@@ -1542,9 +1542,7 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": true,
-          "garbled": [
-            "n- t"
-          ],
+          "garbled": [],
           "scale": 0.9564772523904788
         },
         {
@@ -1721,14 +1719,14 @@
           "scale": 0.945
         },
         {
-          "source": "would run on an accelerator has to fit in a tab, compete with short. the page for the GPU, and produce tokens one at a time in front of a",
-          "translation": "語語語の上で一つの語語語語語へ語において一つの語,語語語ともに語語.その語語のためにその語,そして語語語語語語語一つの語語において語語の一つの",
+          "source": "would run on an accelerator has to fit in a tab, compete with short. the page for the GPU, and produce tokens one at a time in front of a reader who is already looking at the text.",
+          "translation": "語語語の上で一つの語語語語語へ語において一つの語,語語語ともに語語.その語語のためにその語,そして語語語語語語語一つの語語において語語の一つの語語語である語語語語語語語その語語.",
           "role": "prose",
           "box": {
             "x": 44.999998125,
             "y": 473.5926490674069,
             "width": 310.33263975146053,
-            "height": 22.146983612774193
+            "height": 34.89668646553656
           },
           "painted": true,
           "overflow": false,
@@ -1737,17 +1735,17 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 0.945
+          "scale": 1
         },
         {
-          "source": "reader who is already looking at the text. 1 for block in page: This paper reports a working system rather than a 2 new if is_equation(block): continue",
-          "translation": "語語語である語語語語語語語その語語.₁のために語語in語語:この論文語語語一つの語語語システム語語語語一つの²語ⁱf語語語語):語語語",
+          "source": "This paper reports a working system rather than a 2 new if is_equation(block): continue",
+          "translation": "この論文語語語一つの語語語システム語語語語一つの²語ⁱf語語語語):語語語",
           "role": "prose",
           "box": {
-            "x": 44.999998125,
-            "y": 499.09205477293165,
-            "width": 462.6251801713474,
-            "height": 26.6468787372786
+            "x": 56.33176527446801,
+            "y": 513.9942073852503,
+            "width": 451.29341302187936,
+            "height": 11.744726124959925
           },
           "painted": true,
           "overflow": false,
@@ -1756,7 +1754,7 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 0.89
+          "scale": 1
         },
         {
           "source": "ing rules that decide what to translate first, and Section 4 the measurements. Section 5 discusses the failure modes we could 2.2 Page model",
@@ -1775,7 +1773,7 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [],
-          "scale": 0.89
+          "scale": 1
         },
         {
           "source": "not design away, and Section 6 lists the work that remains. A page is not a list of paragraphs. The collector therefore walks",
@@ -2101,8 +2099,8 @@
           "scale": 1
         },
         {
-          "source": "The model is PLaMo 3 Translate, an 0.8-billion-parameter text de‐ the model sees. The model is asked to keep each place‐ coder trained for translation in 53 languages in either direction, holder where the sentence had it, and a translation that moves or quantised to four bits per weight. The published WebAssembly drops one is rejected and retried without placeholders.",
-          "translation": "そのモデルである語語3語語語,一つの0.8-billion-parameter語語語‐そのモデル語語.そのモデルである語語へ語語語語語語‐語語語語語のために翻訳において53語語語において語語語語語,語語語語その語語語語それは,そして一つの翻訳その語語または語語語へ語語語語語語語.その語語語語語語語語語語である語語語そして語語語語語語語語語語.",
+          "source": "The model is PLaMo 3 Translate, an 0.8-billion-parameter text de‐ the model sees. The model is asked to keep each placecoder trained for translation in 53 languages in either direction, holder where the sentence had it, and a translation that moves or quantised to four bits per weight. The published WebAssembly drops one is rejected and retried without placeholders.",
+          "translation": "そのモデルである語語3語語語,一つの0.8-billion-parameter語語語‐そのモデル語語.そのモデルである語語へ語語語語語語語語語語語のために翻訳において53語語語において語語語語語,語語語語その語語語語それは,そして一つの翻訳その語語または語語語へ語語語語語語語.その語語語語語語語語語語である語語語そして語語語語語語語語語語.",
           "role": "prose",
           "box": {
             "x": 44.999998125,
@@ -2139,6 +2137,25 @@
           "scale": 1
         },
         {
+          "source": "1 for block in page:",
+          "translation": "",
+          "role": "code",
+          "box": {
+            "x": 315.1226125909283,
+            "y": 503.4944520947401,
+            "width": 117.9831621318034,
+            "height": 7.994813521206254
+          },
+          "painted": false,
+          "overflow": false,
+          "delivered": false,
+          "placeholders": 0,
+          "untranslated": true,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
           "source": "model. Section 2 describes the runtime, Section 3 the schedul‐ 3 emit(translate(block))",
           "translation": "",
           "role": "code",
@@ -2165,8 +2182,8 @@
       "proseBlocks": 36,
       "readingOrder": 1,
       "twoColumn": false,
-      "firstBlockMs": 768,
-      "pageMs": 77
+      "firstBlockMs": 756,
+      "pageMs": 74
     }
   ]
 }

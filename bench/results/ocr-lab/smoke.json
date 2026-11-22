@@ -1,0 +1,154 @@
+{
+  "label": "smoke",
+  "pairing": "tiny_det+small_rec",
+  "results": [
+    {
+      "experiment": "baseline",
+      "category": "baseline",
+      "cases": [
+        {
+          "fixture": "en-scan",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.4502283874258389,
+          "ms": 1451.667723,
+          "lines": 7
+        },
+        {
+          "fixture": "two-column",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8777215996952323,
+          "ms": 1461.2297779999997,
+          "lines": 8
+        }
+      ],
+      "summary": {
+        "cer": 0,
+        "wer": 0,
+        "recall": 1,
+        "order": 1,
+        "column": 1,
+        "blockIoU": 0.6639749935605357,
+        "ms": 1456.4487504999997
+      }
+    },
+    {
+      "experiment": "dpi200",
+      "category": "render",
+      "cases": [
+        {
+          "fixture": "en-scan",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.4631925145328134,
+          "ms": 1562.3194679999997,
+          "lines": 7
+        },
+        {
+          "fixture": "two-column",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.888071748359857,
+          "ms": 1836.7283589999997,
+          "lines": 8
+        }
+      ],
+      "summary": {
+        "cer": 0,
+        "wer": 0,
+        "recall": 1,
+        "order": 1,
+        "column": 1,
+        "blockIoU": 0.6756321314463352,
+        "ms": 1699.5239134999997
+      }
+    },
+    {
+      "experiment": "gray+contrast",
+      "category": "preprocess",
+      "cases": [
+        {
+          "fixture": "en-scan",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.4641857531277143,
+          "ms": 1312.1281440000002,
+          "lines": 7
+        },
+        {
+          "fixture": "two-column",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8882990553942647,
+          "ms": 1444.6489139999994,
+          "lines": 8
+        }
+      ],
+      "summary": {
+        "cer": 0,
+        "wer": 0,
+        "recall": 1,
+        "order": 1,
+        "column": 1,
+        "blockIoU": 0.6762424042609895,
+        "ms": 1378.3885289999998
+      }
+    },
+    {
+      "experiment": "otsu",
+      "category": "preprocess",
+      "cases": [
+        {
+          "fixture": "en-scan",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.34673278400922625,
+          "ms": 1327.1535970000004,
+          "lines": 7
+        },
+        {
+          "fixture": "two-column",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8831694619477651,
+          "ms": 1417.7039000000004,
+          "lines": 8
+        }
+      ],
+      "summary": {
+        "cer": 0,
+        "wer": 0,
+        "recall": 1,
+        "order": 1,
+        "column": 1,
+        "blockIoU": 0.6149511229784956,
+        "ms": 1372.4287485000004
+      }
+    }
+  ]
+}

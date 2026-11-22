@@ -1,0 +1,624 @@
+{
+  "label": "matrix-tail",
+  "pairing": "tiny_det+small_rec",
+  "results": [
+    {
+      "experiment": "tiling-512-64",
+      "category": "tiling",
+      "cases": [
+        {
+          "fixture": "en-scan",
+          "cer": 0.08205128205128205,
+          "wer": 0.14705882352941177,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.37000310541891296,
+          "ms": 1476.2520760000002,
+          "lines": 7
+        },
+        {
+          "fixture": "ja-horizontal",
+          "cer": 0.3333333333333333,
+          "wer": 1.6666666666666667,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.34037241722396355,
+          "ms": 1593.992193,
+          "lines": 6
+        },
+        {
+          "fixture": "ja-vertical",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 0.75,
+          "blockIoU": 0.8120009791556921,
+          "ms": 926.5881189999996,
+          "lines": 5
+        },
+        {
+          "fixture": "slides",
+          "cer": 0.06349206349206349,
+          "wer": 0.2,
+          "recall": 1,
+          "order": 1,
+          "column": 0.8888888888888888,
+          "blockIoU": 0.5568144674839584,
+          "ms": 1339.1537180000005,
+          "lines": 7
+        },
+        {
+          "fixture": "low-res-skew",
+          "cer": 0.1079136690647482,
+          "wer": 0.125,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.43837024911494804,
+          "ms": 1151.2191270000003,
+          "lines": 6
+        },
+        {
+          "fixture": "two-column",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8651449381572863,
+          "ms": 1508.444004,
+          "lines": 8
+        },
+        {
+          "fixture": "mixed-ja-en",
+          "cer": 0.13793103448275862,
+          "wer": 0.5625,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.5952199325725234,
+          "ms": 1295.8842430000004,
+          "lines": 6
+        },
+        {
+          "fixture": "small-text",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.9092512896272555,
+          "ms": 1526.1070459999992,
+          "lines": 8
+        }
+      ],
+      "summary": {
+        "cer": 0.0905901728030232,
+        "wer": 0.3376531862745098,
+        "recall": 1,
+        "order": 1,
+        "column": 0.9548611111111112,
+        "blockIoU": 0.6108971723443175,
+        "ms": 1352.2050657500001
+      }
+    },
+    {
+      "experiment": "rerun-0.5",
+      "category": "confidence",
+      "cases": [
+        {
+          "fixture": "en-scan",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.4502283874258389,
+          "ms": 1310.6321050000006,
+          "lines": 7
+        },
+        {
+          "fixture": "ja-horizontal",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.5731439410036404,
+          "ms": 1114.1287819999998,
+          "lines": 6
+        },
+        {
+          "fixture": "ja-vertical",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 0.75,
+          "blockIoU": 0.8019301734792579,
+          "ms": 758.4706029999998,
+          "lines": 5
+        },
+        {
+          "fixture": "slides",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8697026487989619,
+          "ms": 1044.2457940000004,
+          "lines": 6
+        },
+        {
+          "fixture": "low-res-skew",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.9264346928035136,
+          "ms": 979.1995850000021,
+          "lines": 6
+        },
+        {
+          "fixture": "two-column",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8777215996952323,
+          "ms": 1368.0082679999978,
+          "lines": 8
+        },
+        {
+          "fixture": "mixed-ja-en",
+          "cer": 0.06896551724137931,
+          "wer": 0.75,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.7674748764768778,
+          "ms": 1041.1695800000016,
+          "lines": 6
+        },
+        {
+          "fixture": "small-text",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8633894359868102,
+          "ms": 1305.8913629999988,
+          "lines": 8
+        }
+      ],
+      "summary": {
+        "cer": 0.008620689655172414,
+        "wer": 0.09375,
+        "recall": 1,
+        "order": 1,
+        "column": 0.96875,
+        "blockIoU": 0.7662532194587666,
+        "ms": 1115.21826
+      }
+    },
+    {
+      "experiment": "rerun-0.7",
+      "category": "confidence",
+      "cases": [
+        {
+          "fixture": "en-scan",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.4502283874258389,
+          "ms": 1275.3311859999994,
+          "lines": 7
+        },
+        {
+          "fixture": "ja-horizontal",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.5731439410036404,
+          "ms": 1132.5590069999998,
+          "lines": 6
+        },
+        {
+          "fixture": "ja-vertical",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 0.75,
+          "blockIoU": 0.8019301734792579,
+          "ms": 793.2908580000003,
+          "lines": 5
+        },
+        {
+          "fixture": "slides",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8697026487989619,
+          "ms": 1065.9226420000014,
+          "lines": 6
+        },
+        {
+          "fixture": "low-res-skew",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.9264346928035136,
+          "ms": 983.0222299999987,
+          "lines": 6
+        },
+        {
+          "fixture": "two-column",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8777215996952323,
+          "ms": 1448.866188,
+          "lines": 8
+        },
+        {
+          "fixture": "mixed-ja-en",
+          "cer": 0.06896551724137931,
+          "wer": 0.75,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.7674748764768778,
+          "ms": 1050.7059319999971,
+          "lines": 6
+        },
+        {
+          "fixture": "small-text",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8633894359868102,
+          "ms": 1284.8929800000005,
+          "lines": 8
+        }
+      ],
+      "summary": {
+        "cer": 0.008620689655172414,
+        "wer": 0.09375,
+        "recall": 1,
+        "order": 1,
+        "column": 0.96875,
+        "blockIoU": 0.7662532194587666,
+        "ms": 1129.3238778749997
+      }
+    },
+    {
+      "experiment": "adaptive-14",
+      "category": "adaptive",
+      "cases": [
+        {
+          "fixture": "en-scan",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.4502283874258389,
+          "ms": 1297.7730069999998,
+          "lines": 7
+        },
+        {
+          "fixture": "ja-horizontal",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.5731439410036404,
+          "ms": 1149.6272559999998,
+          "lines": 6
+        },
+        {
+          "fixture": "ja-vertical",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 0.75,
+          "blockIoU": 0.8019301734792579,
+          "ms": 784.2789150000026,
+          "lines": 5
+        },
+        {
+          "fixture": "slides",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8697026487989619,
+          "ms": 1037.697836999996,
+          "lines": 6
+        },
+        {
+          "fixture": "low-res-skew",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.9264346928035136,
+          "ms": 970.8080579999951,
+          "lines": 6
+        },
+        {
+          "fixture": "two-column",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8777215996952323,
+          "ms": 1383.1398340000014,
+          "lines": 8
+        },
+        {
+          "fixture": "mixed-ja-en",
+          "cer": 0.06896551724137931,
+          "wer": 0.75,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.7674748764768778,
+          "ms": 1043.4765350000016,
+          "lines": 6
+        },
+        {
+          "fixture": "small-text",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8633894359868102,
+          "ms": 1277.003002999998,
+          "lines": 8
+        }
+      ],
+      "summary": {
+        "cer": 0.008620689655172414,
+        "wer": 0.09375,
+        "recall": 1,
+        "order": 1,
+        "column": 0.96875,
+        "blockIoU": 0.7662532194587666,
+        "ms": 1117.9755556249993
+      }
+    },
+    {
+      "experiment": "adaptive-18",
+      "category": "adaptive",
+      "cases": [
+        {
+          "fixture": "en-scan",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.4502283874258389,
+          "ms": 1275.8362500000003,
+          "lines": 7
+        },
+        {
+          "fixture": "ja-horizontal",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.5731439410036404,
+          "ms": 1145.544722999999,
+          "lines": 6
+        },
+        {
+          "fixture": "ja-vertical",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 0.75,
+          "blockIoU": 0.8019301734792579,
+          "ms": 793.5718810000035,
+          "lines": 5
+        },
+        {
+          "fixture": "slides",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8697026487989619,
+          "ms": 1080.9225220000008,
+          "lines": 6
+        },
+        {
+          "fixture": "low-res-skew",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.9264346928035136,
+          "ms": 1000.1795480000001,
+          "lines": 6
+        },
+        {
+          "fixture": "two-column",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8777215996952323,
+          "ms": 1430.2879329999996,
+          "lines": 8
+        },
+        {
+          "fixture": "mixed-ja-en",
+          "cer": 0.06896551724137931,
+          "wer": 0.75,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.7674748764768778,
+          "ms": 1071.864039,
+          "lines": 6
+        },
+        {
+          "fixture": "small-text",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8633894359868102,
+          "ms": 1305.7017169999963,
+          "lines": 8
+        }
+      ],
+      "summary": {
+        "cer": 0.008620689655172414,
+        "wer": 0.09375,
+        "recall": 1,
+        "order": 1,
+        "column": 0.96875,
+        "blockIoU": 0.7662532194587666,
+        "ms": 1137.988576625
+      }
+    },
+    {
+      "experiment": "best-combo",
+      "category": "combined",
+      "cases": [
+        {
+          "fixture": "en-scan",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.46599483133331504,
+          "ms": 1493.600817999999,
+          "lines": 7
+        },
+        {
+          "fixture": "ja-horizontal",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.5722179445421012,
+          "ms": 1361.936877,
+          "lines": 6
+        },
+        {
+          "fixture": "ja-vertical",
+          "cer": 0.019230769230769232,
+          "wer": 0.2,
+          "recall": 1,
+          "order": 1,
+          "column": 0.75,
+          "blockIoU": 0.7977728381943379,
+          "ms": 975.5030169999955,
+          "lines": 5
+        },
+        {
+          "fixture": "slides",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8589743530784838,
+          "ms": 1278.6765429999941,
+          "lines": 6
+        },
+        {
+          "fixture": "low-res-skew",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.9296880488418557,
+          "ms": 1148.3947860000044,
+          "lines": 6
+        },
+        {
+          "fixture": "two-column",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8894829457534174,
+          "ms": 1625.7333370000051,
+          "lines": 8
+        },
+        {
+          "fixture": "mixed-ja-en",
+          "cer": 0.04310344827586207,
+          "wer": 0.5,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.7864783675215881,
+          "ms": 1246.3126389999961,
+          "lines": 6
+        },
+        {
+          "fixture": "small-text",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8595722962922878,
+          "ms": 1529.2126680000001,
+          "lines": 8
+        }
+      ],
+      "summary": {
+        "cer": 0.007791777188328913,
+        "wer": 0.0875,
+        "recall": 1,
+        "order": 1,
+        "column": 0.96875,
+        "blockIoU": 0.7700227031946733,
+        "ms": 1332.4213356249993
+      }
+    }
+  ]
+}

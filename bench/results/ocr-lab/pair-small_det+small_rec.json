@@ -1,0 +1,183 @@
+{
+  "label": "pair-small_det+small_rec",
+  "pairing": "small_det+small_rec",
+  "results": [
+    {
+      "experiment": "baseline",
+      "category": "baseline",
+      "cases": [
+        {
+          "fixture": "en-scan",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.3524352910934068,
+          "ms": 1839.493625,
+          "lines": 7
+        },
+        {
+          "fixture": "two-column",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8773405220706054,
+          "ms": 1944.053281,
+          "lines": 8
+        },
+        {
+          "fixture": "mixed-ja-en",
+          "cer": 0.06896551724137931,
+          "wer": 0.75,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.7592256829143073,
+          "ms": 1504.6990939999996,
+          "lines": 6
+        },
+        {
+          "fixture": "small-text",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8896541650231304,
+          "ms": 1889.9403090000005,
+          "lines": 8
+        }
+      ],
+      "summary": {
+        "cer": 0.017241379310344827,
+        "wer": 0.1875,
+        "recall": 1,
+        "order": 1,
+        "column": 1,
+        "blockIoU": 0.7196639152753624,
+        "ms": 1794.54657725
+      }
+    },
+    {
+      "experiment": "sauvola",
+      "category": "preprocess",
+      "cases": [
+        {
+          "fixture": "en-scan",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.3501561549481704,
+          "ms": 1735.176879999999,
+          "lines": 7
+        },
+        {
+          "fixture": "two-column",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8956484135756753,
+          "ms": 1869.0390990000014,
+          "lines": 8
+        },
+        {
+          "fixture": "mixed-ja-en",
+          "cer": 0.034482758620689655,
+          "wer": 0.4375,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.7652439494846872,
+          "ms": 1555.986132,
+          "lines": 6
+        },
+        {
+          "fixture": "small-text",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8836882770561134,
+          "ms": 1961.002668000001,
+          "lines": 8
+        }
+      ],
+      "summary": {
+        "cer": 0.008620689655172414,
+        "wer": 0.109375,
+        "recall": 1,
+        "order": 1,
+        "column": 1,
+        "blockIoU": 0.7236841987661615,
+        "ms": 1780.3011947500004
+      }
+    },
+    {
+      "experiment": "otsu+trim",
+      "category": "preprocess",
+      "cases": [
+        {
+          "fixture": "en-scan",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.6159606959739602,
+          "ms": 1317.9804840000015,
+          "lines": 7
+        },
+        {
+          "fixture": "two-column",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8327630407633674,
+          "ms": 1359.055516999997,
+          "lines": 8
+        },
+        {
+          "fixture": "mixed-ja-en",
+          "cer": 0.02586206896551724,
+          "wer": 0.375,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.7615347812686853,
+          "ms": 919.949147000003,
+          "lines": 6
+        },
+        {
+          "fixture": "small-text",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.917046931272285,
+          "ms": 1209.0885720000006,
+          "lines": 8
+        }
+      ],
+      "summary": {
+        "cer": 0.00646551724137931,
+        "wer": 0.09375,
+        "recall": 1,
+        "order": 1,
+        "column": 1,
+        "blockIoU": 0.7818263623195745,
+        "ms": 1201.5184300000005
+      }
+    }
+  ]
+}

@@ -157,7 +157,9 @@ export class OcrRuntime {
           minSize: 3,
           verticalRatio: 1.5,
         },
-        detectionPreprocess: { maxSide: 960, multiple: 32 },
+        // PDF OCR rasters are rendered at 2x page scale. A 960px cap threw that detail away
+        // before detection; 1600 keeps a full A4 scan (about 1224x1584) at native resolution.
+        detectionPreprocess: { maxSide: 1600, multiple: 32 },
         recognitionPreprocess: { height: 48, maxWidth: DEFAULT_RECOGNITION_MAX_WIDTH },
       });
       return new OcrRuntime(det, rec, pipeline);

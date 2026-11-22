@@ -16,7 +16,11 @@ import {
   normalizeOcrText,
   practicality,
   wordErrorRate,
+  lineOrderAccuracy,
+  columnOrderAccuracy,
+  blockIoU,
 } from '../scripts/bench/ocr-metrics.ts';
+import { scaleOcrImage, otsuBinarizeOcrImage, contrastOcrImage } from '../src/engine/ocr/preprocess.ts';
 
 const quad = (x: number, y: number, width: number, height: number): BenchQuad => [
   { x, y },
@@ -106,6 +110,33 @@ describe('OCR benchmark metrics', () => {
   });
 });
 
+
+describe('OCR preprocessing and layout metrics', () => {
+  const tiny = {
+    data: new Uint8ClampedArray([0, 0, 0, 255, 255, 255, 255, 255, 20, 20, 20, 255, 240, 240, 240, 255]),
+    width: 2,
+    height: 2,
+  };
+  it('scales an image and maps quads back to source coordinates', () => {
+    const scaled = scaleOcrImage(tiny, 2);
+    expect(scaled.image.width).toBe(4);
+    expect(scaled.image.height).toBe(4);
+    expect(scaled.mapBack({ x: 3, y: 5 })).toEqual({ x: 1.5, y: 2.5 });
+  });
+  it('normalizes contrast and binarizes without changing geometry', () => {
+    for (const processed of [contrastOcrImage(tiny), otsuBinarizeOcrImage(tiny)]) {
+      expect(processed.image.width).toBe(2);
+      expect(processed.mapBack({ x: 1, y: 1 })).toEqual({ x: 1, y: 1 });
+      expect(processed.image.data[0]).toBe(processed.image.data[1]);
+    }
+  });
+  it('scores reading order, column order and block geometry', () => {
+    expect(lineOrderAccuracy(['a b', 'c d'], ['a b', 'c d']).accuracy).toBe(1);
+    expect(lineOrderAccuracy(['a b', 'c d'], ['c d', 'a b']).accuracy).toBe(0);
+    expect(columnOrderAccuracy([quad(0, 0, 10, 10), quad(50, 0, 10, 10)], [quad(0, 0, 10, 10), quad(50, 0, 10, 10)], 100)).toBe(1);
+    expect(blockIoU([quad(0, 0, 10, 10)], [quad(0, 0, 10, 10)])).toBe(1);
+  });
+});
 describe('optional real tiny-model OCR smoke', () => {
   it.runIf(process.env.OCR_BENCH_SMOKE === '1')(
     'runs official tiny_det + small_rec on generated EN scan',

@@ -27,6 +27,7 @@ bench/.chrome-profile/
 bench/.engine-profile/
 bench/.quant-profile/
 bench/results/pdf/
+bench/results/scan-ocr/*.png
 coverage/
 .env*
 *.tsbuildinfo
