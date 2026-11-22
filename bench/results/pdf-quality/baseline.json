@@ -1,0 +1,2744 @@
+{
+  "label": "baseline",
+  "generatedAt": "2026-11-22T15:30:39.110Z",
+  "engine": "deterministic local fake",
+  "pace": {
+    "ttfbMs": 6,
+    "msPerChar": 0.04,
+    "concurrency": 8
+  },
+  "fixtures": [
+    "paper",
+    "arxiv",
+    "scan"
+  ],
+  "summary": {
+    "pages": 5,
+    "proseBlocks": 108,
+    "untranslatedProseRate": 0.12962962962962962,
+    "mixedLanguageRate": 0.20869565217391303,
+    "garbledTokenRate": 0.03848641655886158,
+    "overlapRate": 0,
+    "overflowRate": 0.06201550387596899,
+    "readingOrderAccuracy": 0.9833333333333332,
+    "twoColumnPages": 1,
+    "firstTranslatedBlockMs": 242,
+    "fullDocumentMs": 772,
+    "meanScale": 0.9834835635324822
+  },
+  "pages": [
+    {
+      "fixture": "paper",
+      "page": 1,
+      "entries": [
+        {
+          "source": "Sakutto: On-Device Page Translation with a Small Instruction-Tuned",
+          "translation": "語語語:語語語語語翻訳ともに一つの語語語語語語",
+          "role": "heading",
+          "box": {
+            "x": 46.62886641225548,
+            "y": 49.75502689055372,
+            "width": 501.4663061148312,
+            "height": 16.99460392021149
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [
+            "語:語語語語語翻訳ともに一つの語語語語語語"
+          ],
+          "scale": 1
+        },
+        {
+          "source": "Model",
+          "translation": "モデル",
+          "role": "label",
+          "box": {
+            "x": 274.2368429832144,
+            "y": 70.00455495082338,
+            "width": 46.246994757730874,
+            "height": 16.99460392021149
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "ABSTRACT",
+          "translation": "語語語",
+          "role": "heading",
+          "box": {
+            "x": 268.79946970777166,
+            "y": 159.34997287285216,
+            "width": 56.388044313913554,
+            "height": 9.397280760011881
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "Machine translation of web pages is usually a client of a remote service. This paper describes Sakutto, a browser extension that translates a page entirely on the reader's own machine, and reports what moving a 0.8-billion-parameter instructiontuned model into a browser tab costs and what it buys.",
+          "translation": "語語語翻訳の語語語である語語語一つの語語の一つの語語語語語.この論文語語語語語語,一つの語語語語語語その語語語語一つの語語語語語の上でその語語語語語語語,そして語語語語語語語一つの0.8-billion-parameter語語語語モデル語語一つの語語語語語語そして語語それは語語.",
+          "role": "prose",
+          "box": {
+            "x": 79.00701805029078,
+            "y": 176.4495744959653,
+            "width": 436.72667541938563,
+            "height": 32.79673525743806
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": true,
+          "garbled": [
+            "語,一つの語語語語語語その語語語語一つの語語語語語の上でその語語語語語語語"
+          ],
+          "scale": 0.9564772523904788
+        },
+        {
+          "source": "The extension runs PLaMo 3 Translate through a WebAssembly build of llama.cpp, keeps the model weights in the browser's private file system, and translates a page block by block as the reader scrolls.",
+          "translation": "その語語語語語語語3語語語語語語一つの語語語語語語の語語語,語語そのモデル語語語においてその語語語語語語語語システム,そして語語語語一つの語語語語により語語としてその語語語語語.",
+          "role": "prose",
+          "box": {
+            "x": 79.00701805029078,
+            "y": 212.4487354920002,
+            "width": 436.72642018524186,
+            "height": 20.797014925426424
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [
+            "語,語語そのモデル語語語においてその語語語語語語語語システム"
+          ],
+          "scale": 0.9564772523904788
+        },
+        {
+          "source": "On a four-core laptop with a discrete GPU the model reaches 34.8 tokens per second and finishes a 1,900- word article in 41 seconds; on the same machine's CPU it reaches 9.1 tokens per second. We describe the scheduling rules that keep the first paragraph visible within two seconds, the cache that makes a revisited page free, and the failure modes that a page collector has to handle before a reader will accept the result.",
+          "translation": "の上で一つの語語語語語ともに一つの語語語語そのモデル語語語34.8語語語語語そして語語語一つの1,900-語語語語語において41語語語;の上でその語語語語語語それは語語語9.1語語語語語.我々は語語語その語語語語語語その語語その語語語語語語語語語語語語語語,その語語その語語一つの語語語語語語語,そしてその語語語語語その一つの語語語語語語へ語語語語一つの語語語語語語その結果.",
+          "role": "prose",
+          "box": {
+            "x": 79.00701805029078,
+            "y": 236.44817615602346,
+            "width": 436.72115227227425,
+            "height": 32.79673525743806
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [
+            "語;の上でその語語語語語語それは語語語",
+            "語,その語語その語語一つの語語語語語語語"
+          ],
+          "scale": 1
+        },
+        {
+          "source": "1. Introduction",
+          "translation": "1.語語語語",
+          "role": "heading",
+          "box": {
+            "x": 44.999998125,
+            "y": 298.2467355658904,
+            "width": 64.2466508065761,
+            "height": 9.997266926608972
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "A reader who wants an English article in Japanese has three choices: paste it into a translation website, install a browser extension that forwards the page to a server, or read the English. The first two send the page, and every selection the reader makes afterwards, to a third party. For a research paper under review, a private issue tracker or a medical record this is often unacceptable, and it is frequently prohibited by the terms the reader is bound by.",
+          "translation": "一つの語語語語語一つの語語語語語語において語語語語語語語語語:語語それは語語一つの翻訳語語語,語語語一つの語語語語語語その語語語その語語へ一つの語語,または語語その語語語.その語語語語語その語語,そして語語語語語その語語語語語語語語,へ一つの語語語語.のために一つの語語語論文語語語語,一つの語語語語語語語語または一つの語語語語語このである語語語語語語,そしてそれはである語語語語語語語語によりその語語その語語である語語により.",
+          "role": "prose",
+          "box": {
+            "x": 44.999998125,
+            "y": 315.3463371890035,
+            "width": 242.44410286664902,
+            "height": 99.39518325009902
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [
+            "語:語語それは語語一つの翻訳語語語",
+            "語,または語語その語語語",
+            "語,そして語語語語語その語語語語語語語語",
+            "語,一つの語語語語語語語語または一つの語語語語語このである語語語語語語"
+          ],
+          "scale": 1
+        },
+        {
+          "source": "Running the model in the browser removes that transfer. The page text never leaves the process, no account is needed, and",
+          "translation": "語語語そのモデルにおいてその語語語語語語その語語語.その語語語語語語語語その語語語,語語語語である語語,そして",
+          "role": "prose",
+          "box": {
+            "x": 44.999998125,
+            "y": 422.59383765635744,
+            "width": 242.4433054781848,
+            "height": 22.146983612774193
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [
+            "語,語語語語である語語"
+          ],
+          "scale": 0.9450000000000001
+        },
+        {
+          "source": "the extension works offline once the weights are downloaded. The cost is latency and memory: a transformer that a server would run on an accelerator has to fit in a tab, compete with the page for the GPU, and produce tokens one at a time in front of a reader who is already looking at the text.",
+          "translation": "その語語語語語語語語語語その語語語である語語語語.その語語である語語語そして語語:一つの語語語語その一つの語語語語語の上で一つの語語語語語へ語において一つの語,語語語ともにその語語のためにその語,そして語語語語語語語一つの語語において語語の一つの語語語である語語語語語語語その語語.",
+          "role": "prose",
+          "box": {
+            "x": 44.999998125,
+            "y": 448.0932433618822,
+            "width": 242.44737480582853,
+            "height": 60.3960921710613
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [
+            "語:一つの語語語語その一つの語語語語語の上で一つの語語語語語へ語において一つの語",
+            "語,そして語語語語語語語一つの語語において語語の一つの語語語である語語語語語語語その語語"
+          ],
+          "scale": 0.945
+        },
+        {
+          "source": "This paper reports a working system rather than a new model. Section 2 describes the runtime, Section 3 the scheduling rules that decide what to translate first, and Section 4 the measurements. Section 5 discusses the failure modes we could",
+          "translation": "この論文語語語一つの語語語システム語語語語一つの語モデル.語語語2語語語その語語語,語語語3その語語語語語語その語語語語へ語語語語語,そして語語語4その語語語語.語語語5語語語その語語語語語我々は語語",
+          "role": "prose",
+          "box": {
+            "x": 44.999998125,
+            "y": 516.3416527501984,
+            "width": 242.44410286664902,
+            "height": 47.64638931829893
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [
+            "語,語語語",
+            "語,そして語語語"
+          ],
+          "scale": 0.9450000000000001
+        },
+        {
+          "source": "not design away, and Section 6 lists the work that remains.",
+          "translation": "語語語語語,そして語語語6語語その語語その語語語.",
+          "role": "prose",
+          "box": {
+            "x": 44.999998125,
+            "y": 567.3404641612477,
+            "width": 219.93408561401446,
+            "height": 9.397280760011881
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [
+            "語,そして語語語"
+          ],
+          "scale": 1
+        },
+        {
+          "source": "2. System Design",
+          "translation": "2.システム語語",
+          "role": "heading",
+          "box": {
+            "x": 44.999998125,
+            "y": 591.4899011794246,
+            "width": 71.91440272534831,
+            "height": 9.997266926608972
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "The extension is a Manifest V3 package with four processes. A service worker owns the lifetime of everything else. An offscreen document hosts the runtime, because a service worker cannot hold a WebAssembly heap across a suspension. A content script walks the page and writes translations back into the document. Popup, options and onboarding pages render the",
+          "translation": "その語語語である一つの語語語V3語語語ともに語語語語語.一つの語語語語語語語その語語語の語語語語語語.一つの語語語語語語語語その語語語,語語語一つの語語語語語語語語語一つの語語語語語語語語一つの語語語語.一つの語語語語語語語その語語そして語語語語語語語語語語その語語語.語語,語語語そして語語語語語語語語その",
+          "role": "prose",
+          "box": {
+            "x": 44.999998125,
+            "y": 609.3394853232884,
+            "width": 242.44655102502753,
+            "height": 73.14579502382378
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [
+            "語,語語語一つの語語語語語語語語語一つの語語語語語語語語一つの語語語語",
+            "語,語語語そして語語語語語語語語その"
+          ],
+          "scale": 0.9450000000000001
+        },
+        {
+          "source": "settings.",
+          "translation": "語語語.",
+          "role": "prose",
+          "box": {
+            "x": 44.999998125,
+            "y": 685.8377024398626,
+            "width": 31.031345120739296,
+            "height": 9.397280760011881
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "2.1 Runtime",
+          "translation": "2.1語語語",
+          "role": "heading",
+          "box": {
+            "x": 44.999998125,
+            "y": 706.8372130208829,
+            "width": 47.468970788236554,
+            "height": 9.397280760011881
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "The model is PLaMo 3 Translate, an 0.8-billion-parameter decoder trained for translation in 53 languages in either direction, quantised to four bits per weight. The published WebAssembly build of llama.cpp cannot load its tokenizer, so the extension",
+          "translation": "そのモデルである語語3語語語,一つの0.8-billion-parameter語語語語語語のために翻訳において53語語語において語語語語語,語語語へ語語語語語語語.その語語語語語語語語語の語語語語語語語語語語語,語その語語語",
+          "role": "prose",
+          "box": {
+            "x": 44.999998125,
+            "y": 722.5868459566482,
+            "width": 242.4459835157699,
+            "height": 47.64638931829904
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": true,
+          "garbled": [
+            "語,一つの",
+            "語,語語語へ語語語語語語語",
+            "語,語その語語語"
+          ],
+          "scale": 0.9450000000000001
+        },
+        {
+          "source": "Proposition 1. A block whose translation does not fit its own box is left in the source typesetting rather than shown cut short.",
+          "translation": "語語語語1.一つの語語語語翻訳語語語語語語語である語語においてその語語語語語語語語語語語語語語語.",
+          "role": "prose",
+          "box": {
+            "x": 315.87259511167906,
+            "y": 449.24071639363603,
+            "width": 226.78035876959234,
+            "height": 33.7492134337827
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "2.2 Page model",
+          "translation": "2.2語語モデル",
+          "role": "heading",
+          "box": {
+            "x": 307.2946700305926,
+            "y": 549.3408836632303,
+            "width": 59.177384113938786,
+            "height": 9.397280760011768
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "A page is not a list of paragraphs. The collector therefore walks the document rather than selecting a fixed set of tags, and it treats four shapes differently: ordinary prose, an item of a grid or flex container, a cell of a repeating data row, and a container",
+          "translation": "一つの語語である語一つの語語の語語語語.その語語語語語語語語その語語語語語語語語語語一つの語語語の語語,そしてそれは語語語語語語語語語語:語語語語語,一つの語語の一つの語語または語語語語語,一つの語語の一つの語語語データ語,そして一つの語語語",
+          "role": "prose",
+          "box": {
+            "x": 307.2946700305926,
+            "y": 565.0905165989956,
+            "width": 242.44891272250123,
+            "height": 47.64638931829893
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [
+            "語,そしてそれは語語語語語語語語語語",
+            "語,一つの語語の一つの語語または語語語語語",
+            "語,そして一つの語語語"
+          ],
+          "scale": 0.9450000000000001
+        },
+        {
+          "source": "that owns text of its own beside its children. The distinction matters because a translation is written back into the text nodes the source already had. A row laid out as a grid becomes a vertical pile if its translation lands between the cells instead of inside them.",
+          "translation": "その語語語語の語語語語語語語語.その語語語語語語語語語語一つの翻訳である語語語語語語語その語語語語その語語語語語語.一つの語語語語として一つの語語語語語一つの語語語語語語語翻訳語語語語語その語語語語語の語語語語.",
+          "role": "prose",
+          "box": {
+            "x": 307.2946700305926,
+            "y": 616.0893280100449,
+            "width": 242.4479057209707,
+            "height": 60.396092171061355
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "Inline elements that are not prose — code, keyboard keys, sample output, pronunciation and citation markers — stay in the document untouched and become numbered placeholders in the",
+          "translation": "語語語語語そのである語語語—語語,語語語語語,語語語語,語語語語そして語語語語語語—語語においてその語語語語語語そして語語語語語語語語語においてその",
+          "role": "prose",
+          "box": {
+            "x": 307.2946700305926,
+            "y": 684.3377373983611,
+            "width": 242.44572731922602,
+            "height": 34.89668646553662
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [
+            "語,語語語語語",
+            "語,語語語語そして語語語語語語"
+          ],
+          "scale": 0.9450000000000001
+        },
+        {
+          "source": "text the model sees. The model is asked to keep each placeholder where the sentence had it, and a translation that moves or drops one is rejected and retried without placeholders.",
+          "translation": "語語そのモデル語語.そのモデルである語語へ語語語語語語語語語語その語語語語それは,そして一つの翻訳その語語または語語語である語語語そして語語語語語語語語語語.",
+          "role": "prose",
+          "box": {
+            "x": 307.2946700305926,
+            "y": 722.5868459566482,
+            "width": 242.44410286664896,
+            "height": 34.89668646553662
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [
+            "は,そして一つの翻訳その語語または語語語である語語語そして語語語語語語語語語語"
+          ],
+          "scale": 1
+        },
+        {
+          "source": "ships its own build of the runtime at a pinned commit, patched in two places so that workers and the WebAssembly module load from packaged files rather than from blob URLs, which Manifest V3 forbids.",
+          "translation": "語語語語語語のその語語語語一つの語語語語,語語語において語語語語その語語語そしてその語語語語語語語語から語語語語語語語語語から語語語語,語語語語語V3語語語.",
+          "role": "prose",
+          "box": {
+            "x": 307.2946700305926,
+            "y": 286.09701887972506,
+            "width": 242.44529653178148,
+            "height": 48.39637183904972
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [
+            "語,語語語において語語語語その語語語そしてその語語語語語語語語から語語語語語語語語語から語語語語"
+          ],
+          "scale": 1
+        },
+        {
+          "source": "The runtime offers two backends. The WebGPU backend keeps two sequences resident and decodes a batch of up to eight short segments in a single completion. The CPU backend keeps one sequence and uses four to eight threads, depending on the machine. A probe runs at startup, and a failed GPU load falls back to the CPU path rather than failing the translation.",
+          "translation": "その語語語語語語語語語.その語語語語語語語語語語語語語語そして語語語一つの語語の語へ語語語語語語語において一つの語語語語語語.その語語語語語語語語語語そして語語語語へ語語語語語,語語語の上でその語語語.一つの語語語語語語語語,そして一つの語語語語語語語語語へその語語語語語語語語語語その翻訳.",
+          "role": "prose",
+          "box": {
+            "x": 307.2946700305926,
+            "y": 342.3457079360296,
+            "width": 242.44710091221265,
+            "height": 73.14579502382367
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [
+            "語,語語語の上でその語語語",
+            "語,そして一つの語語語語語語語語語へその語語語語語語語語語語その翻訳"
+          ],
+          "scale": 1
+        },
+        {
+          "source": "Independent researcher sakutto@example.org",
+          "translation": "",
+          "role": "identity",
+          "box": {
+            "x": 263.09257521384666,
+            "y": 118.90341530377088,
+            "width": 79.88378153885247,
+            "height": 20.59452001981481
+          },
+          "painted": false,
+          "overflow": false,
+          "delivered": false,
+          "placeholders": 0,
+          "untranslated": true,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "1 for block in page: 2 if is_equation(block): continue 3 emit(translate(block))",
+          "translation": "",
+          "role": "code",
+          "box": {
+            "x": 315.1226125909283,
+            "y": 503.4944520947401,
+            "width": 182.24897231907124,
+            "height": 29.744306622977376
+          },
+          "painted": false,
+          "overflow": false,
+          "delivered": false,
+          "placeholders": 0,
+          "untranslated": true,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        }
+      ],
+      "overlapPairs": 0,
+      "overflow": 0,
+      "shrunk": 0,
+      "untranslatedProse": 0,
+      "proseBlocks": 24,
+      "readingOrder": 0.9166666666666666,
+      "twoColumn": true,
+      "firstBlockMs": 242,
+      "pageMs": 72
+    },
+    {
+      "fixture": "arxiv",
+      "page": 1,
+      "entries": [
+        {
+          "source": "Provided proper attribution is provided, Google hereby grants permission to reproduce the tables and figures in this paper solely for use in journalistic or",
+          "translation": "語語語その語語そして語語語においてこの論文語語のために語において語語語語またはPro語語語語語語語語である語語語,語語語語語語語語語語へ",
+          "role": "heading",
+          "box": {
+            "x": 124.313,
+            "y": 70.00779999999997,
+            "width": 363.58154240000016,
+            "height": 25.902199999999993
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [
+            "語,語語語語語語語語語語へ"
+          ],
+          "scale": 0.9066666666666666
+        },
+        {
+          "source": "scholarly works.",
+          "translation": "語語語語語.",
+          "role": "heading",
+          "box": {
+            "x": 267.594,
+            "y": 97.90279999999996,
+            "width": 78.90432000000004,
+            "height": 11.95519999999999
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "Attention Is All You Need",
+          "translation": "注意である語語語語",
+          "role": "heading",
+          "box": {
+            "x": 211.488,
+            "y": 144.82759999999996,
+            "width": 188.4053376000001,
+            "height": 17.215400000000045
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "Abstract",
+          "translation": "語語語",
+          "role": "heading",
+          "box": {
+            "x": 283.7579999999999,
+            "y": 382.8258,
+            "width": 44.485299199999986,
+            "height": 11.95519999999999
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "The dominant sequence transduction models are based on complex recurrent or convolutional neural networks that include an encoder and a decoder. The best performing models also connect the encoder and decoder through an attention mechanism. We propose a new simple network architecture, the Transformer, based solely on attention mechanisms, dispensing with recurrence and convolutions entirely. Experiments on two machine translation tasks show these models to be superior in quality while being more parallelizable and requiring significantly less time to train.",
+          "translation": "語語語語の上で注意語語語語,語語語語ともに語語語語そして語語語語mec語語.我々は語語語一つの語語語語語語語語語語,その語語語語語語語語語語語その語語語そして語語語語語語一つの注意である語語語において語語語語語語語語語語語語語そして語語語語語語語entirely.less time to train. Our model achieves 28.4 BLEU on the WMT 2014 English-Experiments on two machine translation tasks show these models to",
+          "role": "prose",
+          "box": {
+            "x": 143.557,
+            "y": 411.00239999999997,
+            "width": 326.2300791959997,
+            "height": 86.32560000000001
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": true,
+          "mixedLanguage": true,
+          "garbled": [
+            "語,語語語語ともに語語語語そして語語語語mec語語",
+            "語,その語語語語語語語語語語語その語語語そして語語語語語語一つの注意である語語語において語語語語語語語語語語語語語そして語語語語語語語entirely"
+          ],
+          "scale": 1
+        },
+        {
+          "source": "Our model achieves 28.4 BLEU on the WMT 2014 English- to-German translation task, improving over the existing best results, including ensembles, by over 2 BLEU. On the WMT 2014 English-to-French translation task, our model establishes a new single-model state-of-the-art BLEU score of 41.8 after training for 3.5 days on eight GPUs, a small fraction of the training costs of the best models from the literature. We show that the Transformer generalizes well to other tasks by applying it successfully to English constituency parsing both with large and limited training data.",
+          "translation": "語モデル語語語語一つの語語語語語語語語語語語語語の41.8語語eⁿs語語,により語語2語語.の上でその語2014語語語語翻訳語語語語翻訳語語,語語語語語その語語語語語語語語,語語語ₒth語語語により語語語それは語語語語へ語語語語語語語語語語語語語語語語語からその語語語語.我々は語語そのその語語語語語語語語語語語語語語のために3.5語語の上で語語語語,一つの語語語語語のその語語語語語のそのlₐr語そして語語語語語語データ.",
+          "role": "prose",
+          "box": {
+            "x": 143.866,
+            "y": 498.2754,
+            "width": 325.51002231999985,
+            "height": 75.41660000000002
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [
+            "h- t",
+            "語,により語語",
+            "語,語語語語語その語語語語語語語語",
+            "語,一つの語語語語語のその語語語語語のそのlₐr語そして語語語語語語データ",
+            "eⁿ",
+            "語ₒ",
+            "lₐ"
+          ],
+          "scale": 1
+        },
+        {
+          "source": "the effort to evaluate this idea. Ashish, with Illia, designed and implemented the first Transformer models and has been crucially involved in every aspect of this work. Noam proposed scaled dot-product attention, multi-head attention and the parameter-free position representation and became the other person involved in nearly every detail.",
+          "translation": "ₐtt語語そしてその語語語語語語語語語語語そして語語その語語語語語語語において語語語語語語語語語語語語語において語語語語のこの語語.語語語語語語語語語語語注意,語語語the effort to evaluate this idea. Ashish, with Illia, designed and implemented the first Transformer models anddetail. Niki designed, implemented, tuned and evaluated countless model variants in our original codebase and",
+          "role": "prose",
+          "box": {
+            "x": 108,
+            "y": 606.8506,
+            "width": 396.3140640576004,
+            "height": 38.854400000000055
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": true,
+          "mixedLanguage": true,
+          "garbled": [
+            "意,語語語the"
+          ],
+          "scale": 0.9083095408041869
+        },
+        {
+          "source": "Niki designed, implemented, tuned and evaluated countless model variants in our original codebase and tensor2tensor. Llion also experimented with novel model variants, was responsible for our initial codebase, and efficient inference and visualizations. Lukasz and Aidan spent countless long days designing various parts of and implementing tensor2tensor, replacing our earlier codebase, greatly improving results and massively accelerating our research.",
+          "translation": "imp語語語tensor2tensor,語語語語語語語語語語,語語語語語語語語語そして語語語語語語語語語語そして語語語語.語語そして語語語語語語語語語語語語語語語語語語語のそしてtensor2tensor. Llion also experimented with novel model variants, was responsible for our initial codebase, andour research.",
+          "role": "prose",
+          "box": {
+            "x": 108,
+            "y": 646.7016,
+            "width": 395.9995496448,
+            "height": 38.854400000000055
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": true,
+          "mixedLanguage": true,
+          "garbled": [
+            "r,語語語語語語語語語語"
+          ],
+          "scale": 1
+        },
+        {
+          "source": "31st Conference on Neural Information Processing Systems (NIPS 2017), Long Beach, CA, USA.",
+          "translation": "31st語語語語の上で語語語語語語語語語語語語語語語2017),語語語語,語,語.",
+          "role": "prose",
+          "box": {
+            "x": 108.00000000000001,
+            "y": 730.9106,
+            "width": 352.13742720000016,
+            "height": 8.966399999999908
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [
+            "語,語"
+          ],
+          "scale": 1
+        },
+        {
+          "source": "avaswani@google.com",
+          "translation": "",
+          "role": "identity",
+          "box": {
+            "x": 116.68099999999998,
+            "y": 254.55040000000008,
+            "width": 99.35800605999998,
+            "height": 9.962599999999952
+          },
+          "painted": false,
+          "overflow": false,
+          "delivered": false,
+          "placeholders": 0,
+          "untranslated": true,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "llion@google.com",
+          "translation": "",
+          "role": "identity",
+          "box": {
+            "x": 126.88199999999998,
+            "y": 304.5484,
+            "width": 83.66989984,
+            "height": 9.962600000000009
+          },
+          "painted": false,
+          "overflow": false,
+          "delivered": false,
+          "placeholders": 0,
+          "untranslated": true,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "noam@google.com",
+          "translation": "",
+          "role": "identity",
+          "box": {
+            "x": 230.69199999999998,
+            "y": 254.55040000000008,
+            "width": 78.44053109999996,
+            "height": 9.962599999999952
+          },
+          "painted": false,
+          "overflow": false,
+          "delivered": false,
+          "placeholders": 0,
+          "untranslated": true,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "aidan@cs.toronto.edu",
+          "translation": "",
+          "role": "identity",
+          "box": {
+            "x": 235.40699999999995,
+            "y": 304.5484,
+            "width": 104.58737479999999,
+            "height": 9.962600000000009
+          },
+          "painted": false,
+          "overflow": false,
+          "delivered": false,
+          "placeholders": 0,
+          "untranslated": true,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "illia.polosukhin@gmail.com",
+          "translation": "",
+          "role": "identity",
+          "box": {
+            "x": 238.0219999999999,
+            "y": 343.6364,
+            "width": 135.95362463999996,
+            "height": 9.962600000000009
+          },
+          "painted": false,
+          "overflow": false,
+          "delivered": false,
+          "placeholders": 0,
+          "untranslated": true,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "nikip@google.com",
+          "translation": "",
+          "role": "identity",
+          "box": {
+            "x": 323.787,
+            "y": 254.55040000000008,
+            "width": 83.66989983999997,
+            "height": 9.962599999999952
+          },
+          "painted": false,
+          "overflow": false,
+          "delivered": false,
+          "placeholders": 0,
+          "untranslated": true,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "usz@google.com",
+          "translation": "",
+          "role": "identity",
+          "box": {
+            "x": 422.11199999999997,
+            "y": 254.55040000000008,
+            "width": 73.21116236,
+            "height": 9.962599999999952
+          },
+          "painted": false,
+          "overflow": false,
+          "delivered": false,
+          "placeholders": 0,
+          "untranslated": true,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "lukaszkaiser@google.com",
+          "translation": "",
+          "role": "identity",
+          "box": {
+            "x": 364.84899999999993,
+            "y": 304.5474,
+            "width": 120.26551841999998,
+            "height": 9.962600000000009
+          },
+          "painted": false,
+          "overflow": false,
+          "delivered": false,
+          "placeholders": 0,
+          "untranslated": true,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "∗Equal contribution. Listing order is random. Jakob proposed replacing RNNs with self-attention and started",
+          "translation": "",
+          "role": "furniture",
+          "box": {
+            "x": 119.822,
+            "y": 596.0684,
+            "width": 384.1749183039999,
+            "height": 9.786600000000021
+          },
+          "painted": false,
+          "overflow": false,
+          "delivered": false,
+          "placeholders": 0,
+          "untranslated": true,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "†Work performed while at Google Brain. ‡Work performed while at Google Research.",
+          "translation": "",
+          "role": "furniture",
+          "box": {
+            "x": 120.21000000000001,
+            "y": 686.7184,
+            "width": 160.0798560000001,
+            "height": 20.735599999999977
+          },
+          "painted": false,
+          "overflow": false,
+          "delivered": false,
+          "placeholders": 0,
+          "untranslated": true,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        }
+      ],
+      "overlapPairs": 0,
+      "overflow": 0,
+      "shrunk": 0,
+      "untranslatedProse": 3,
+      "proseBlocks": 9,
+      "readingOrder": 1,
+      "twoColumn": false,
+      "firstBlockMs": 362,
+      "pageMs": 34
+    },
+    {
+      "fixture": "arxiv",
+      "page": 3,
+      "entries": [
+        {
+          "source": "Figure 1: The Transformer - model architecture.",
+          "translation": "語語1:その語語語語-モデル語語語語.",
+          "role": "caption",
+          "box": {
+            "x": 210.011,
+            "y": 402.3384,
+            "width": 191.97930200000016,
+            "height": 9.962600000000009
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "The Transformer follows this overall architecture using stacked self-attention and point-wise, fully connected layers for both the encoder and decoder, shown in the left and right halves of Figure 1, respectively.",
+          "translation": "その語語語語語語語この語語語語語語語を用いて語語語語語語語そして語語語,語語語語語語語のために語語その語語語そして語語語,語語においてその語語そして語語語語の語語1,語語語語.",
+          "role": "prose",
+          "box": {
+            "x": 107.691,
+            "y": 434.3904,
+            "width": 397.5561183840001,
+            "height": 31.780599999999993
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [
+            "語,語語語語語語語のために語語その語語語そして語語語"
+          ],
+          "scale": 1
+        },
+        {
+          "source": "3.1 Encoder and Decoder Stacks",
+          "translation": "3.1語語語そして語語語語語",
+          "role": "heading",
+          "box": {
+            "x": 108,
+            "y": 480.67539999999997,
+            "width": 145.00564300000002,
+            "height": 9.962600000000009
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "Encoder: The encoder is composed of a stack of N = 6 identical layers. Each layer has two sub-layers. The first is a multi-head self-attention mechanism, and the second is a simple, positionwise fully connected feed-forward network.",
+          "translation": "語語語.その語語である一つの語語語語語語語語語語,そしてその語語である一つの語語,語語語-Encoder: The encoder is composed of a stack of N=6ⁱde語語語語.語語層語語語語語語語語語語語語語語語語.我々は語語一つの語語語語語語語[11]語語語語の",
+          "role": "prose",
+          "box": {
+            "x": 107.641,
+            "y": 500.6534,
+            "width": 398.0164878405998,
+            "height": 31.780599999999993
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": true,
+          "garbled": [
+            "語,そしてその語語である一つの語語"
+          ],
+          "scale": 0.8900000000000001
+        },
+        {
+          "source": "We employ a residual connection [11] around each of the two sub-layers, followed by layer normalization [1]. That is, the output of each sub-layer is LayerNorm(x + Sublayer(x)), where Sublayer(x) is the function implemented by the sub-layer itself. To facilitate these residual connections, all sub-layers in the model, as well as the embedding layers, produce outputs of dimension dmodel = 512.",
+          "translation": "その語語語語,語語語により層語語語語[1].そのである,その語語の語語語語語である語語語(x+語語語(x)),語語語語語(x)であるその語語語語語語語によりその語語語lₐy語,語語語語語語の語語語語.へ語語語語語語語語語語語語語,語語語語においてそのモデル,として語語としてその語語語dmodel=512.",
+          "role": "prose",
+          "box": {
+            "x": 108,
+            "y": 533.3804,
+            "width": 396.16604712000003,
+            "height": 44.184600000000046
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [
+            "語,語語語により層語語語語",
+            "る,その語語の語語語語語である語語語",
+            "語,語語語語語語の語語語語",
+            "語,語語語語においてそのモデル",
+            "lₐ"
+          ],
+          "scale": 1
+        },
+        {
+          "source": "Decoder: The decoder is also composed of a stack of N = 6 identical layers. In addition to the two sub-layers in each encoder layer, the decoder inserts a third sub-layer, which performs multi-head attention over the output of the encoder stack.",
+          "translation": "sub語語において語語語語語層,その語語語語語語一つの語語語語語,語語語語語語語語語語語その語語のその語語語語語.語語語へその語語語,我々は語語語語語語語語語The decoder is also composed of a stack of N=6ⁱde語語語語.において語語語へその語",
+          "role": "prose",
+          "box": {
+            "x": 108,
+            "y": 589.2293999999999,
+            "width": 396.00139487999985,
+            "height": 31.78060000000005
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": true,
+          "garbled": [
+            "層,その語語語語語語一つの語語語語語",
+            "語,我々は語語語語語語語語語The"
+          ],
+          "scale": 0.89
+        },
+        {
+          "source": "Similar to the encoder, we employ residual connections around each of the sub-layers, followed by layer normalization. We also modify the self-attention sub-layer in the decoder stack to prevent positions from attending to subsequent positions. This masking, combined with fact that the output embeddings are offset by one position, ensures that the predictions for position i can depend only on the known outputs at positions less than i.",
+          "translation": "語語語,語語語ともに語語そのその語語語語語語である語語により語語語語,語語語そのそのsub層においてその語語語語語へ語語語語語語から語語語へ語語語語語語語.語語語語語語のその語語語,語語語により層語語語語.我々は語語語語その語語語語語語語語のために語語語iできる語語語語の上でその語語語語語語語語語語語語語i.",
+          "role": "prose",
+          "box": {
+            "x": 108,
+            "y": 621.9564,
+            "width": 395.9972105879997,
+            "height": 42.68959999999993
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [
+            "語,語語語ともに語語そのその語語語語語語である語語により語語語語",
+            "語,語語語により層語語語語"
+          ],
+          "scale": 1
+        },
+        {
+          "source": "3.2 Attention",
+          "translation": "3.2注意",
+          "role": "heading",
+          "box": {
+            "x": 108,
+            "y": 679.1504,
+            "width": 62.81419300000002,
+            "height": 9.962600000000066
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "An attention function can be described as mapping a query and a set of key-value pairs to an output, where the query, keys, values, and output are all vectors. The output is computed as a weighted sum",
+          "translation": "whₑ語その語語,語語,語語,そして語語である語語語語.その語語である語語語として一つの語語語語語注意語語語できるである語語語として語語語一つの語語そして一つの語の語語語語語へ一つの語語,",
+          "role": "prose",
+          "box": {
+            "x": 107.641,
+            "y": 699.1284,
+            "width": 397.60756525199946,
+            "height": 20.871599999999944
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [
+            "語,語語",
+            "語,そして語語である語語語語",
+            "hₑ"
+          ],
+          "scale": 1
+        }
+      ],
+      "overlapPairs": 0,
+      "overflow": 0,
+      "shrunk": 0,
+      "untranslatedProse": 0,
+      "proseBlocks": 9,
+      "readingOrder": 1,
+      "twoColumn": false,
+      "firstBlockMs": 417,
+      "pageMs": 25
+    },
+    {
+      "fixture": "arxiv",
+      "page": 5,
+      "entries": [
+        {
+          "source": "output values. These are concatenated and once again projected, resulting in the final values, as depicted in Figure 2.",
+          "translation": "dₑp語語において語語2.output語語.語語である語語語語そして語語語語語語語,語語語においてその語語語語,として",
+          "role": "prose",
+          "box": {
+            "x": 108,
+            "y": 72.00040000000001,
+            "width": 395.99721058799986,
+            "height": 20.871599999999944
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [
+            "語,語語語においてその語語語語",
+            "dₑ"
+          ],
+          "scale": 1
+        },
+        {
+          "source": "Multi-head attention allows the model to jointly attend to information from different representation subspaces at different positions. With a single attention head, averaging inhibits this.",
+          "translation": "sub語語語語語語語語語.ともに一つの語語注意語語,語語語語語語語語語語注意語語そのモデルへ語語語語語へ語語語語から語語語語語語語",
+          "role": "prose",
+          "box": {
+            "x": 108,
+            "y": 99.29740000000004,
+            "width": 395.99701133599973,
+            "height": 20.871599999999944
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [
+            "語,語語語語語語語語語語注意語語そのモデルへ語語語語語へ語語語語から語語語語語語語"
+          ],
+          "scale": 1
+        },
+        {
+          "source": "Where the projections are parameter matrices Wi Q ∈ R d model ×d k , Wi K ∈ R d model ×d k , Wi V ∈ R d model ×d v and W O ∈ Rhdv×dmodel .",
+          "translation": "語語その語語語語である語語語語語語WiQ∈ Rdモデル×dk , WiK∈ Rdモデル×dk , WiV∈ Rdモデル×dvそしてW O ∈ Rhdv×dmodel .",
+          "role": "prose",
+          "box": {
+            "x": 107.532,
+            "y": 201.54719999999998,
+            "width": 395.29249486000003,
+            "height": 23.99279999999999
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": true,
+          "mixedLanguage": true,
+          "garbled": [
+            "Q ∈ R",
+            "K ∈ R",
+            "V ∈ R",
+            "O ∈ R",
+            "O ∈ R"
+          ],
+          "scale": 1
+        },
+        {
+          "source": "In this work we employ h = 8 parallel attention layers, or heads. For each of these we use dk = dv = dmodel/h = 64. Due to the reduced dimension of each head, the total computational cost is similar to that of single-head attention with full dimensionality.",
+          "translation": "においてこの語語我々は語語h=8語語語注意語語,または語語.のために語語の語語我々は語dis similar to that of single-head attention with full dimensionality.k = dv = dmodel/h=64.語へその語語語語語語の語語語語,その語語語語語語語語",
+          "role": "prose",
+          "box": {
+            "x": 108,
+            "y": 231.96540000000005,
+            "width": 396.00182671199946,
+            "height": 31.781599999999912
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": true,
+          "mixedLanguage": true,
+          "garbled": [
+            "語,または語語",
+            "語,その語語語語語語語語"
+          ],
+          "scale": 1
+        },
+        {
+          "source": "3.2.3 Applications of Attention in our Model",
+          "translation": "3.2.3語語語語の注意において語モデル",
+          "role": "heading",
+          "box": {
+            "x": 108,
+            "y": 277.95640000000003,
+            "width": 194.85849340000004,
+            "height": 9.962599999999952
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "The Transformer uses multi-head attention in three different ways:",
+          "translation": "その語語語語語語語語語注意において語語語語語語語:",
+          "role": "prose",
+          "box": {
+            "x": 107.691,
+            "y": 297.01039999999995,
+            "width": 264.9154966000001,
+            "height": 9.962600000000009
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "• In \"encoder-decoder attention\" layers, the queries come from the previous decoder layer, and the memory keys and values come from the output of the encoder. This allows every position in the decoder to attend over all positions in the input sequence. This mimics the typical encoder-decoder attention mechanisms in sequence-to-sequence models such as [38, 2, 9].",
+          "translation": "•において語語語語注意\"語語,その語語語語語からその語語語語語語層,typ語語語語語語注意語語語語において語語語語語語語語語語語語においてその語語語へ語語語語語語語語においてその語語語語語.この語語そのaⁿdその語語語語そして語語語語からその語語のその語語語.この語語語語[38,2,9].",
+          "role": "prose",
+          "box": {
+            "x": 135.397,
+            "y": 317.85439999999994,
+            "width": 369.8447808239999,
+            "height": 53.599600000000066
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [
+            "語,その語語語語語からその語語語語語語層",
+            "aⁿ"
+          ],
+          "scale": 1
+        },
+        {
+          "source": "• The encoder contains self-attention layers. In a self-attention layer all of the keys, values and queries come from the same place, in this case, the output of the previous layer in the encoder. Each position in the encoder can attend to all positions in the previous layer of the encoder.",
+          "translation": "•その語語語語語語語語語語語語.において一つの語語語語層語のその語語,語語ₐnd語語語語語からその語語語語,においてこの語語,その語語のその語語語層においてそのₑnc語語語語.語語語語語においてその語語語できる語語へ語語語語においてその語語語層のその",
+          "role": "prose",
+          "box": {
+            "x": 135.39700000000002,
+            "y": 377.3274,
+            "width": 368.60641968139987,
+            "height": 42.689599999999984
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [
+            "語,語語ₐnd語語語語語からその語語語語",
+            "語,その語語のその語語語層においてそのₑnc語語語語",
+            "語ₐ",
+            "のₑ"
+          ],
+          "scale": 1
+        },
+        {
+          "source": "• Similarly, self-attention layers in the decoder allow each position in the decoder to attend to all positions in the decoder up to and including that position. We need to prevent leftward information flow in the decoder to preserve the auto-regressive property. We implement this inside of scaled dot-product attention by masking out (setting to −∞) all values in the input of the softmax which correspond to illegal connections. See Figure 2.",
+          "translation": "•語語語,語語語語語語においてその語語語語語語語語語語においてその語語語へ語語へₐll語語語においてその語語語語へそして語語語その語語語.我々は語語へ語語語語語語語語の語語語語語語注意により語語語語語語語へinformation flow in the decoder to preserve the auto-regressive property. We implement thisof the softmax which correspond to illegal connections. See Figure 2.−∞)語語語においてその語語",
+          "role": "prose",
+          "box": {
+            "x": 135.39700000000002,
+            "y": 425.8904,
+            "width": 368.60613076599986,
+            "height": 53.598599999999976
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": true,
+          "mixedLanguage": true,
+          "garbled": [
+            "語,語語語語語語においてその語語語語語語語語語語においてその語語語へ語語へₐll語語語においてその語語語語へそして語語語その語語語",
+            "へₐ"
+          ],
+          "scale": 1
+        },
+        {
+          "source": "3.3 Position-wise Feed-Forward Networks",
+          "translation": "3.3語語語語語語語語語語語",
+          "role": "heading",
+          "box": {
+            "x": 108.00000000000001,
+            "y": 495.04439999999994,
+            "width": 184.8660056000001,
+            "height": 9.962600000000009
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "In addition to attention sub-layers, each of the layers in our encoder and decoder contains a fully connected feed-forward network, which is applied to each position separately and identically. This consists of two linear transformations with a ReLU activation in between.",
+          "translation": "cₒn語語の語語語語語語語ともに一つの語語語語語語において語語語語語語語語語語語,語語である語語語へ語語語語語語語語語そして語語語語.語語語語語へ注意語語語,語語のその語語において語語語語そして語語語語語語一つの語語",
+          "role": "prose",
+          "box": {
+            "x": 108,
+            "y": 515.4434,
+            "width": 396.34271355599986,
+            "height": 31.780599999999936
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [
+            "語,語語である語語語へ語語語語語語語語語そして語語語語",
+            "語,語語のその語語において語語語語そして語語語語語語一つの語語",
+            "cₒ"
+          ],
+          "scale": 1
+        },
+        {
+          "source": "While the linear transformations are the same across different positions, they use different parameters from layer to layer. Another way of describing this is as two convolutions with kernel size 1. The dimensionality of input and output is dmodel = 512, and the inner-layer has dimensionality df f = 2048.",
+          "translation": "その語語語語の語語そして語語であるdmodel=512,そしてその語語語語語語語語語df f=2048.",
+          "role": "prose",
+          "box": {
+            "x": 107.532,
+            "y": 587.7574,
+            "width": 398.21304913199987,
+            "height": 44.184600000000046
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "3.4 Embeddings and Softmax",
+          "translation": "3.4語語語語そして語語語",
+          "role": "heading",
+          "box": {
+            "x": 108,
+            "y": 646.0024,
+            "width": 132.0243752,
+            "height": 9.962600000000066
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "Similarly to other sequence transduction models, we use learned embeddings to convert the input tokens and output tokens to vectors of dimension dmodel. We also use the usual learned linear transformation and softmax function to convert the decoder output to predicted next-token probabilities. In our model, we share the same weight matrix between the two embedding layers and the pre-softmax√ linear transformation, similar to [30]. In the embedding layers, we multiply those weights by dmodel.",
+          "translation": "語語そして語語語語へ語語語の語語語Similarly to other sequence transduction models, we use learned embeddings to convert the inputdmodel.我々は語語語その語語語語語語語語語語-ₒurモデル,我々は語語その語語語語語語語語語その語語語語語語そしてその語語語語そして語語語語語語へ語語語その語語語語語へ語語語語語語語語語語.において√語語語語語語,語語語へ[30].においてその語語語語語,我々は語語語語語語語語によりdモデル.",
+          "role": "prose",
+          "box": {
+            "x": 108,
+            "y": 666.4014,
+            "width": 397.743837,
+            "height": 55.09260000000006
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": true,
+          "garbled": [
+            "ル,我々は語語その語語語語語語語語語その語語語語語語そしてその語語語語そして語語語語語語へ語語語その語語語語語へ語語語語語語語語語語",
+            "語,語語語へ",
+            "語,我々は語語語語語語語語によりdモデル"
+          ],
+          "scale": 1
+        },
+        {
+          "source": "MultiHead(Q, K, V ) = Concat(head1, ..., headh)W O",
+          "translation": "",
+          "role": "code",
+          "box": {
+            "x": 186.94,
+            "y": 144.2951999999999,
+            "width": 223.98153481999998,
+            "height": 12.581800000000044
+          },
+          "painted": false,
+          "overflow": false,
+          "delivered": false,
+          "placeholders": 0,
+          "untranslated": true,
+          "mixedLanguage": false,
+          "garbled": [
+            "...,"
+          ],
+          "scale": 1
+        },
+        {
+          "source": "where headi = Attention(QWi , KWi , V Wi ) Q K V",
+          "translation": "",
+          "role": "equation",
+          "box": {
+            "x": 224.49699999999996,
+            "y": 160.43219999999985,
+            "width": 200.56345513999992,
+            "height": 14.537799999999947
+          },
+          "painted": false,
+          "overflow": false,
+          "delivered": false,
+          "placeholders": 0,
+          "untranslated": true,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        }
+      ],
+      "overlapPairs": 0,
+      "overflow": 0,
+      "shrunk": 0,
+      "untranslatedProse": 3,
+      "proseBlocks": 14,
+      "readingOrder": 1,
+      "twoColumn": false,
+      "firstBlockMs": 467,
+      "pageMs": 52
+    },
+    {
+      "fixture": "scan",
+      "page": 1,
+      "entries": [
+        {
+          "source": "Sakutto: On-Device Page Translation with a Small Instruction-Tuned",
+          "translation": "語語語:語語語語語翻訳ともに一つの語語語語語語",
+          "role": "prose",
+          "box": {
+            "x": 46.62886641225548,
+            "y": 49.75502689055372,
+            "width": 560.9623085352348,
+            "height": 16.99460392021149
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [
+            "語:語語語語語翻訳ともに一つの語語語語語語"
+          ],
+          "scale": 1
+        },
+        {
+          "source": "Model",
+          "translation": "モデル",
+          "role": "label",
+          "box": {
+            "x": 274.2368429832144,
+            "y": 70.00455495082338,
+            "width": 46.246994757730874,
+            "height": 16.99460392021149
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 0.8133333333333334
+        },
+        {
+          "source": "J. Ammaru",
+          "translation": "語.語語",
+          "role": "label",
+          "box": {
+            "x": 273.24077619775494,
+            "y": 100.003855930849,
+            "width": 54.271378946156915,
+            "height": 10.994743604209134
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "Independent researcher",
+          "translation": "語語語語語語語語",
+          "role": "label",
+          "box": {
+            "x": 263.09257521384666,
+            "y": 118.90341530377088,
+            "width": 83.6877711359407,
+            "height": 8.594799687803288
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "sakutto@example.org",
+          "translation": "sakutto@example.org",
+          "role": "prose",
+          "box": {
+            "x": 265.40111141061993,
+            "y": 130.9031356357824,
+            "width": 75.2625732147489,
+            "height": 8.594799687803288
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": true,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "ABSTRACT",
+          "translation": "語語語",
+          "role": "label",
+          "box": {
+            "x": 268.79946970777166,
+            "y": 159.34997287285216,
+            "width": 56.388044313913554,
+            "height": 9.397280760011881
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "Machine translation of web pages is usually a client of a remote service. This paper describes Sakutto, a browser extension",
+          "translation": "語語語翻訳の語語語である語語語一つの語語の一つの語語語語語.この論文語語語語語語,一つの語語語語語語",
+          "role": "prose",
+          "box": {
+            "x": 79.00701805029078,
+            "y": 176.4495744959653,
+            "width": 516.5027230579021,
+            "height": 8.79729459341479
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [
+            "語,一つの語語語語語語"
+          ],
+          "scale": 1
+        },
+        {
+          "source": "that translates a page entirely on the reader's own machine, and reports what moving a 0.8-billion-parameter instruction-",
+          "translation": "その語語語語一つの語語語語語の上でその語語語語語語語,そして語語語語語語語一つの0.8-billion-parameter語語語語-",
+          "role": "prose",
+          "box": {
+            "x": 79.00701805029078,
+            "y": 188.44929482797693,
+            "width": 503.26641430655036,
+            "height": 8.79729459341479
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": true,
+          "garbled": [
+            "語,そして語語語語語語語一つの"
+          ],
+          "scale": 1
+        },
+        {
+          "source": "tuned model into a browser tab costs and what it buys. The extension runs PLaMo 3 Translate through a WebAssembly",
+          "translation": "語語モデル語語一つの語語語語語語そして語語それは語語.その語語語語語語語3語語語語語語一つの語語語語",
+          "role": "prose",
+          "box": {
+            "x": 79.00701805029078,
+            "y": 200.44901515998856,
+            "width": 525.0012161956445,
+            "height": 8.79729459341479
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "build of llama.cpp, keeps the model weights in the browser's private file system, and translates a page block by block as the",
+          "translation": "語語の語語語,語語そのモデル語語語においてその語語語語語語語語システム,そして語語語語一つの語語語語により語語としてその",
+          "role": "prose",
+          "box": {
+            "x": 79.00701805029078,
+            "y": 212.4487354920002,
+            "width": 524.9115627226464,
+            "height": 8.79729459341479
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [
+            "語,語語そのモデル語語語においてその語語語語語語語語システム"
+          ],
+          "scale": 0.9564772523904788
+        },
+        {
+          "source": "reader scrolls. On a four-core laptop with a discrete GPU the model reaches 34.8 tokens per second and finishes a 1,900-",
+          "translation": "語語語語語.の上で一つの語語語語語ともに一つの語語語語そのモデル語語語34.8語語語語語そして語語語一つの1,900-",
+          "role": "prose",
+          "box": {
+            "x": 79.00701805029078,
+            "y": 224.44845582401183,
+            "width": 524.0653496638189,
+            "height": 8.79729459341479
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "word article in 41 seconds; on the same machine's CPU it reaches 9.1 tokens per second. We describe the scheduling rules",
+          "translation": "語語語語語において41語語語;の上でその語語語語語語それは語語語9.1語語語語語.我々は語語語その語語語語語語",
+          "role": "prose",
+          "box": {
+            "x": 79.00701805029078,
+            "y": 236.44817615602346,
+            "width": 524.0653827267291,
+            "height": 8.79729459341479
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [
+            "語;の上でその語語語語語語それは語語語"
+          ],
+          "scale": 1
+        },
+        {
+          "source": "that keep the first paragraph visible within two seconds, the cache that makes a revisited page free, and the failure modes",
+          "translation": "その語語その語語語語語語語語語語語語語語,その語語その語語一つの語語語語語語語,そしてその語語語語語",
+          "role": "prose",
+          "box": {
+            "x": 79.00701805029078,
+            "y": 248.4478964880351,
+            "width": 521.5194068363292,
+            "height": 8.79729459341479
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [
+            "語,その語語その語語一つの語語語語語語語"
+          ],
+          "scale": 1
+        },
+        {
+          "source": "that a page collector has to handle before a reader will accept the result.",
+          "translation": "その一つの語語語語語語へ語語語語一つの語語語語語語その結果.",
+          "role": "prose",
+          "box": {
+            "x": 79.00701805029078,
+            "y": 260.44761682004673,
+            "width": 304.6303825770283,
+            "height": 8.79729459341479
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "ships its own build of the runtime at a pinned commit, patched",
+          "translation": "語語語語語語のその語語語語一つの語語語語,語語語",
+          "role": "prose",
+          "box": {
+            "x": 307.2946700305926,
+            "y": 286.09701887972506,
+            "width": 294.7346644802913,
+            "height": 9.397280760011881
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [
+            "語,語語語"
+          ],
+          "scale": 1
+        },
+        {
+          "source": "1. Introduction in two places so that workers and the WebAssembly module",
+          "translation": "1.語語語語において語語語語その語語語そしてその語語語語語語",
+          "role": "prose",
+          "box": {
+            "x": 44.999998125,
+            "y": 298.2467355658904,
+            "width": 551.164703613897,
+            "height": 9.997266926608972
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "A reader who wants an English article in Japanese has load three from packaged files rather than from blob URLs, which",
+          "translation": "一つの語語語語語一つの語語語語語語において語語語語loa語語from packaged files rather than from blob URLs, which",
+          "role": "prose",
+          "box": {
+            "x": 44.999998125,
+            "y": 311.5964245852498,
+            "width": 549.2707371881095,
+            "height": 13.14719336376561
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": true,
+          "mixedLanguage": true,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "choices: paste it into a translation website, install a browser Manifest ex‐ V3 forbids.",
+          "translation": "語語語:語語それは語語一つの翻訳語語語,語語語一つの語語語Maⁿ語語語‐V³語語語.",
+          "role": "prose",
+          "box": {
+            "x": 44.999998125,
+            "y": 325.0961099587629,
+            "width": 349.2978082131593,
+            "height": 12.397210843014818
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [
+            "語:語語それは語語一つの翻訳語語語",
+            "aⁿ"
+          ],
+          "scale": 1
+        },
+        {
+          "source": "tension that forwards the page to a server, or read the English. The runtime offers two backends. The WebGPU backend",
+          "translation": "語語語その語語語その語語へ一つの語語,または語語その語語語.The runtime offers two backends. The WebGPU backend",
+          "role": "prose",
+          "box": {
+            "x": 44.999998125,
+            "y": 340.84574289452814,
+            "width": 541.4996962196965,
+            "height": 10.89724580151335
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": true,
+          "garbled": [
+            "語,または語語その語語語"
+          ],
+          "scale": 1
+        },
+        {
+          "source": "The first two send the page, and every selection the reader keeps two sequences resident and decodes a batch of up to eight",
+          "translation": "The first two send the page, and every selection the reader語語語語語語語語語そして語語語一つの語語の語へ語語",
+          "role": "prose",
+          "box": {
+            "x": 44.999998125,
+            "y": 353.59544574729057,
+            "width": 556.0271840260077,
+            "height": 10.897245801513293
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": true,
+          "mixedLanguage": true,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "makes afterwards, to a third party. For a research paper short under segments in a single completion. The CPU backend keeps",
+          "translation": "語語語語語語,へ一つの語語語語.のために一つの語語語論文shₒ語語語segments in a single completion. The CPU backend keeps",
+          "role": "prose",
+          "box": {
+            "x": 44.999998125,
+            "y": 366.3451486000529,
+            "width": 547.5208255900334,
+            "height": 10.89724580151335
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": true,
+          "mixedLanguage": true,
+          "garbled": [
+            "語,へ一つの語語語語",
+            "hₒ"
+          ],
+          "scale": 0.9450000000000001
+        },
+        {
+          "source": "review, a private issue tracker or a medical record this is one often sequence and uses four to eight threads, depending on the",
+          "translation": "語語,一つの語語語語語語語語または一つの語語語語語このであるₒnₑ語語sequence and uses four to eight threads, depending on the",
+          "role": "prose",
+          "box": {
+            "x": 44.999998125,
+            "y": 379.0948514528153,
+            "width": 552.280420055494,
+            "height": 10.897245801513293
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": true,
+          "mixedLanguage": true,
+          "garbled": [
+            "語,一つの語語語語語語語語または一つの語語語語語このであるₒnₑ語語sequence",
+            "るₒ",
+            "nₑ"
+          ],
+          "scale": 0.89
+        },
+        {
+          "source": "unacceptable, and it is frequently prohibited by the terms machine. the A probe runs at startup, and a failed GPU load falls",
+          "translation": "語語語語,そしてそれはである語語語語語語語語によりその語語mₐc語語語A probe runs at startup, and a failed GPU load falls",
+          "role": "prose",
+          "box": {
+            "x": 44.999998125,
+            "y": 391.8445543055776,
+            "width": 558.0761759436491,
+            "height": 10.897245801513293
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": true,
+          "mixedLanguage": true,
+          "garbled": [
+            "語,そしてそれはである語語語語語語語語によりその語語mₐc語語語A",
+            "mₐ"
+          ],
+          "scale": 0.9450000000000001
+        },
+        {
+          "source": "reader is bound by. back to the CPU path rather than failing the translation.",
+          "translation": "reader is bound by.語語へその語語語語語語語語語語その翻訳.",
+          "role": "prose",
+          "box": {
+            "x": 44.999998125,
+            "y": 405.3442396790907,
+            "width": 509.3109876890101,
+            "height": 10.147263280762559
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": true,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "Running the model in the browser removes that transfer. The St = (I − βt) St−1",
+          "translation": "語語語そのモデルにおいてその語語語語語語その語語語.その語=語₋ βt₎ St₋₁",
+          "role": "prose",
+          "box": {
+            "x": 56.33176527446801,
+            "y": 422.59383765635744,
+            "width": 434.09380218841045,
+            "height": 10.897245801513293
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [
+            "語₋",
+            "t₎",
+            "t₋"
+          ],
+          "scale": 1
+        },
+        {
+          "source": "page text never leaves the process, no account is needed, and",
+          "translation": "語語語語語語語語その語語語,語語語語である語語,そして",
+          "role": "prose",
+          "box": {
+            "x": 44.999998125,
+            "y": 435.34354050911975,
+            "width": 289.981208513123,
+            "height": 9.397280760011881
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [
+            "語,語語語語である語語"
+          ],
+          "scale": 1
+        },
+        {
+          "source": "the extension works offline once the weights are downloaded. Proposition 1. A block whose translation does not fit its own",
+          "translation": "その語語語語語語語語語語その語語語である語語語語.Proposition 1. A block whose translation does not fit its own",
+          "role": "prose",
+          "box": {
+            "x": 44.999998125,
+            "y": 448.0932433618822,
+            "width": 542.1151448414996,
+            "height": 10.147263280762559
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": true,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "The cost is latency and memory: a transformer that a server box is left in the source typesetting rather than shown cut",
+          "translation": "その語語である語語語そして語語:一つの語語語語その一つの語語box is left in the source typesetting rather than shown cut",
+          "role": "prose",
+          "box": {
+            "x": 44.999998125,
+            "y": 460.8429462146445,
+            "width": 543.9346616276167,
+            "height": 10.147263280762616
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": true,
+          "mixedLanguage": true,
+          "garbled": [
+            "語:一つの語語語語その一つの語語box"
+          ],
+          "scale": 0.9450000000000001
+        },
+        {
+          "source": "would run on an accelerator has to fit in a tab, compete with short. the",
+          "translation": "語語語の上で一つの語語語語語へ語において一つの語,語語語ともに語語.その",
+          "role": "prose",
+          "box": {
+            "x": 44.999998125,
+            "y": 473.5926490674069,
+            "width": 303.05275281422666,
+            "height": 9.397280760011824
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [
+            "語,語語語ともに語語"
+          ],
+          "scale": 1
+        },
+        {
+          "source": "page for the GPU, and produce tokens one at a time in front of a",
+          "translation": "語語のためにその語,そして語語語語語語語一つの語語において語語の一つの",
+          "role": "prose",
+          "box": {
+            "x": 44.999998125,
+            "y": 486.3423519201692,
+            "width": 310.33263975146053,
+            "height": 9.397280760011881
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [
+            "語,そして語語語語語語語一つの語語において語語の一つの"
+          ],
+          "scale": 1
+        },
+        {
+          "source": "reader who is already looking at the text. 1 for block in page:",
+          "translation": "語語語である語語語語語語語その語語.1 for block in page:",
+          "role": "prose",
+          "box": {
+            "x": 44.999998125,
+            "y": 499.09205477293165,
+            "width": 388.10577659773173,
+            "height": 12.397210843014705
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": true,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "This paper reports a working system rather than a 2 new if is_equation(block): continue",
+          "translation": "この論文語語語一つの語語語システム語語語語一つの²語ⁱf語語語語):語語語",
+          "role": "prose",
+          "box": {
+            "x": 56.33176527446801,
+            "y": 513.9942073852503,
+            "width": 451.29341302187936,
+            "height": 11.744726124959925
+          },
+          "painted": false,
+          "overflow": true,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [
+            "語ⁱ"
+          ],
+          "scale": 1
+        },
+        {
+          "source": "model. Section 2 describes the runtime, Section 3 the schedul‐ 3 emit(translate(block))",
+          "translation": "モデル.語語語2語語語その語語語,語語語3その語語語‐³語語語語))",
+          "role": "prose",
+          "box": {
+            "x": 44.999998125,
+            "y": 525.2439451965112,
+            "width": 409.2077562202502,
+            "height": 13.244691166461394
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [
+            "語,語語語"
+          ],
+          "scale": 1
+        },
+        {
+          "source": "ing rules that decide what to translate first, and Section 4 the",
+          "translation": "語語語その語語語語へ語語語語語,そして語語語4その",
+          "role": "prose",
+          "box": {
+            "x": 44.999998125,
+            "y": 541.841058455723,
+            "width": 292.76069928514573,
+            "height": 9.397280760011881
+          },
+          "painted": false,
+          "overflow": true,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [
+            "語,そして語語語"
+          ],
+          "scale": 1
+        },
+        {
+          "source": "measurements. Section 5 discusses the failure modes we could 2.2 Page model",
+          "translation": "語語語語.語語語5語語語その語語語語語我々は語語².2語語モデル",
+          "role": "prose",
+          "box": {
+            "x": 44.999998125,
+            "y": 549.3408836632303,
+            "width": 331.3349533718545,
+            "height": 14.647158405266964
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "not design away, and Section 6 lists the work that remains. A page is not a list of paragraphs. The collector therefore walks",
+          "translation": "not design away, and Section 6 lists the work that remains.一つの語語である語一つの語語の語語語語.その語語語語語語語語",
+          "role": "prose",
+          "box": {
+            "x": 44.999998125,
+            "y": 565.0905165989956,
+            "width": 554.1265895589029,
+            "height": 11.647228322264027
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": true,
+          "mixedLanguage": true,
+          "garbled": [],
+          "scale": 0.9450000000000001
+        },
+        {
+          "source": "the document rather than selecting a fixed set of tags, and it",
+          "translation": "その語語語語語語語語語語一つの語語語の語語,そしてそれは",
+          "role": "prose",
+          "box": {
+            "x": 307.2946700305926,
+            "y": 577.8402194517579,
+            "width": 294.7389108365921,
+            "height": 9.397280760011881
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [
+            "語,そしてそれは"
+          ],
+          "scale": 1
+        },
+        {
+          "source": "2. System Design treats four shapes differently: ordinary prose, an item of a grid",
+          "translation": "₂.システム語語語語語語語語語語語語:語語語語語,一つの語語の一つの語語",
+          "role": "prose",
+          "box": {
+            "x": 44.999998125,
+            "y": 590.5899223045203,
+            "width": 548.8252051230941,
+            "height": 10.897245801513236
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [
+            "語:語語語語語"
+          ],
+          "scale": 1
+        },
+        {
+          "source": "or flex container, a cell of a repeating data row, and a container",
+          "translation": "または語語語語語,一つの語語の一つの語語語データ語,そして一つの語語語",
+          "role": "prose",
+          "box": {
+            "x": 307.2946700305926,
+            "y": 603.3396251572826,
+            "width": 296.3212978950556,
+            "height": 9.397280760011881
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [
+            "語,一つの語語の一つの語語語データ語"
+          ],
+          "scale": 0.8350000000000001
+        },
+        {
+          "source": "The extension is a Manifest V3 package with four processes. A",
+          "translation": "その語語語である一つの語語語V3語語語ともに語語語語語.一つの",
+          "role": "prose",
+          "box": {
+            "x": 44.999998125,
+            "y": 609.3394853232884,
+            "width": 289.9803161375154,
+            "height": 9.397280760011881
+          },
+          "painted": false,
+          "overflow": true,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "that owns text of its own beside its children. The distinction",
+          "translation": "その語語語語の語語語語語語語語.その語語語語",
+          "role": "prose",
+          "box": {
+            "x": 307.2946700305926,
+            "y": 616.0893280100449,
+            "width": 289.0725029750036,
+            "height": 9.397280760011881
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "service worker owns the lifetime of everything else. An off‐",
+          "translation": "語語語語語語語その語語語の語語語語語語.一つの語‐",
+          "role": "prose",
+          "box": {
+            "x": 44.999998125,
+            "y": 622.0891881760508,
+            "width": 285.2283563137047,
+            "height": 9.397280760011881
+          },
+          "painted": false,
+          "overflow": true,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "matters because a translation is written back into the text nodes",
+          "translation": "語語語語語語一つの翻訳である語語語語語語語その語語語語",
+          "role": "prose",
+          "box": {
+            "x": 307.2946700305926,
+            "y": 628.8390308628074,
+            "width": 286.5195251373321,
+            "height": 9.397280760011881
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "screen document hosts the runtime, because a service worker",
+          "translation": "語語語語語語語その語語語,語語語一つの語語語語語",
+          "role": "prose",
+          "box": {
+            "x": 44.999998125,
+            "y": 634.8388910288131,
+            "width": 280.46729553981373,
+            "height": 9.397280760011881
+          },
+          "painted": false,
+          "overflow": true,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [
+            "語,語語語一つの語語語語語"
+          ],
+          "scale": 1
+        },
+        {
+          "source": "the source already had. A row laid out as a grid becomes a verti‐",
+          "translation": "その語語語語語語.一つの語語語語として一つの語語語語語一つの語語‐",
+          "role": "prose",
+          "box": {
+            "x": 307.2946700305926,
+            "y": 641.5887337155697,
+            "width": 303.0551285833113,
+            "height": 9.397280760011881
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 0.89
+        },
+        {
+          "source": "cannot hold a WebAssembly heap across a suspension. A con‐",
+          "translation": "語語語語一つの語語語語語語語語一つの語語語語.一つの語‐",
+          "role": "prose",
+          "box": {
+            "x": 44.999998125,
+            "y": 647.5885938815755,
+            "width": 286.9746523727683,
+            "height": 9.397280760011881
+          },
+          "painted": false,
+          "overflow": true,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "cal pile if its translation lands between the cells instead of inside",
+          "translation": "語語語語語翻訳語語語語語その語語語語語の語語",
+          "role": "prose",
+          "box": {
+            "x": 307.2946700305926,
+            "y": 654.3384365683321,
+            "width": 288.42858325447133,
+            "height": 9.397280760011881
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "tent script walks the page and writes translations back into the",
+          "translation": "語語語語語語その語語そして語語語語語語語語語語その",
+          "role": "prose",
+          "box": {
+            "x": 44.999998125,
+            "y": 660.3382967343379,
+            "width": 287.3346742928634,
+            "height": 9.397280760011881
+          },
+          "painted": false,
+          "overflow": true,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "them.",
+          "translation": "語語.",
+          "role": "label",
+          "box": {
+            "x": 307.2946700305926,
+            "y": 667.0881394210944,
+            "width": 21.117754043963487,
+            "height": 9.397280760011881
+          },
+          "painted": false,
+          "overflow": true,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 0.8133333333333332
+        },
+        {
+          "source": "document. Popup, options and onboarding pages render the",
+          "translation": "語語語.語語,語語語そして語語語語語語語語その",
+          "role": "prose",
+          "box": {
+            "x": 44.999998125,
+            "y": 673.0879995871003,
+            "width": 277.08177260003146,
+            "height": 9.397280760011881
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [
+            "語,語語語そして語語語語語語語語その"
+          ],
+          "scale": 1
+        },
+        {
+          "source": "settings. Inline elements that are not prose — code, keyboard keys,",
+          "translation": "sₑt語語.語語語語語そのである語語語—語語,語語語語語,",
+          "role": "prose",
+          "box": {
+            "x": 44.999998125,
+            "y": 684.3377373983611,
+            "width": 548.0610383159865,
+            "height": 10.89724580151335
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [
+            "語,語語語語語",
+            "sₑ"
+          ],
+          "scale": 1
+        },
+        {
+          "source": "sample output, pronunciation and citation markers — stay in the",
+          "translation": "語語語語,語語語語そして語語語語語語—語語においてその",
+          "role": "prose",
+          "box": {
+            "x": 307.2946700305926,
+            "y": 697.0874402511236,
+            "width": 282.853348539097,
+            "height": 9.397280760011881
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [
+            "語,語語語語そして語語語語語語"
+          ],
+          "scale": 1
+        },
+        {
+          "source": "2.1 Runtime document untouched and become numbered placeholders in the",
+          "translation": "².1語語語語語語語語語そして語語語語語語語語語においてその",
+          "role": "prose",
+          "box": {
+            "x": 44.999998125,
+            "y": 706.8372130208829,
+            "width": 538.0092987532869,
+            "height": 12.397210843014818
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "The model is PLaMo 3 Translate, an 0.8-billion-parameter text de‐ the model sees. The model is asked to keep each place‐",
+          "translation": "そのモデルである語語3語語語,一つの0.8-billion-parameter語語語‐そのモデル語語.そのモデルである語語へ語語語語語語‐",
+          "role": "prose",
+          "box": {
+            "x": 44.999998125,
+            "y": 722.5868459566482,
+            "width": 560.2988816791819,
+            "height": 9.397280760011881
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": true,
+          "garbled": [
+            "語,一つの"
+          ],
+          "scale": 1
+        },
+        {
+          "source": "coder trained for translation in 53 languages in either direction, holder where the sentence had it, and a translation that moves or",
+          "translation": "語語語語語のために翻訳において53語語語において語語語語語,語語語語その語語語語それは,そして一つの翻訳その語語または",
+          "role": "prose",
+          "box": {
+            "x": 44.999998125,
+            "y": 735.3365488094106,
+            "width": 554.1211836451364,
+            "height": 9.397280760011881
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [
+            "語,語語語語その語語語語それは"
+          ],
+          "scale": 0.9450000000000001
+        },
+        {
+          "source": "quantised to four bits per weight. The published WebAssembly drops one is rejected and retried without placeholders.",
+          "translation": "語語語へ語語語語語語語.その語語語語語語語語語語である語語語そして語語語語語語語語語語.",
+          "role": "prose",
+          "box": {
+            "x": 44.999998125,
+            "y": 748.0862516621729,
+            "width": 495.2503047394426,
+            "height": 9.397280760011881
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        },
+        {
+          "source": "build of llama.cpp cannot load its tokenizer, so the extension",
+          "translation": "語語の語語語語語語語語語語語,語その語語語",
+          "role": "prose",
+          "box": {
+            "x": 44.999998125,
+            "y": 760.8359545149353,
+            "width": 283.61485081352157,
+            "height": 9.397280760011881
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [
+            "語,語その語語語"
+          ],
+          "scale": 1
+        },
+        {
+          "source": "41 s",
+          "translation": "41語",
+          "role": "label",
+          "box": {
+            "x": 68.49554428289386,
+            "y": 772.9856712011006,
+            "width": 15.290664186470792,
+            "height": 6.9973368436060355
+          },
+          "painted": true,
+          "overflow": false,
+          "delivered": true,
+          "placeholders": 0,
+          "untranslated": false,
+          "mixedLanguage": false,
+          "garbled": [],
+          "scale": 1
+        }
+      ],
+      "overlapPairs": 0,
+      "overflow": 8,
+      "shrunk": 0,
+      "untranslatedProse": 8,
+      "proseBlocks": 52,
+      "readingOrder": 1,
+      "twoColumn": false,
+      "firstBlockMs": 701,
+      "pageMs": 76
+    }
+  ]
+}
