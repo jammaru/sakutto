@@ -22,6 +22,7 @@ import {
   parseWebVtt,
   type CaptionCue,
 } from './cues';
+import { parseVodJson3Timeline, type VodTimeline } from './vod-json3';
 import {
   CAPTION_LIVE_PRIORITY,
   CAPTION_PLAYHEAD_PRIORITY,
@@ -140,6 +141,8 @@ export interface CaptionSessionOptions {
 interface LoadedTrack {
   key: string;
   cues: CaptionCue[];
+  source?: 'vod-json3' | 'cue-list' | 'live-incremental' | 'dom-fallback';
+  timeline?: VodTimeline | undefined;
   language?: string | undefined;
   /** YouTube auto-generated track: translate each visible chunk as it grows. */
   asr?: boolean | undefined;
@@ -686,7 +689,13 @@ export class VideoCaptionSession {
     }
 
     try {
-      const cues = await this.readYouTubeCues(selected.baseUrl, selected.languageCode);
+      const loaded = await this.readYouTubeCues(
+        selected.baseUrl,
+        selected.languageCode,
+        selected.asr,
+        live,
+      );
+      const cues = loaded.cues;
       if (!stillCurrent()) {
         this.timedtextGuard.reset(fetchKey);
         return null;
@@ -694,7 +703,14 @@ export class VideoCaptionSession {
       if (cues.length > 0) {
         if (!live) this.timedtextGuard.succeed(fetchKey);
         this.useDomCaptions = live;
-        return { cues, language: selected.languageCode, asr: selected.asr, live };
+        return {
+          cues,
+          language: selected.languageCode,
+          asr: selected.asr,
+          live,
+          source: live ? 'live-incremental' : loaded.timeline ? 'vod-json3' : 'cue-list',
+          timeline: loaded.timeline,
+        };
       }
       if (!live) this.timedtextGuard.fail(fetchKey, this.now());
       this.useDomCaptions = true;
@@ -1769,13 +1785,26 @@ export class VideoCaptionSession {
     this.hold = null;
   }
 
-  private async readYouTubeCues(baseUrl: string, language: string): Promise<CaptionCue[]> {
+  private async readYouTubeCues(
+    baseUrl: string,
+    language: string,
+    asr: boolean,
+    live: boolean,
+  ): Promise<{ cues: CaptionCue[]; timeline?: VodTimeline | undefined }> {
     const json3 = await this.readTrack(withTimedtextFormat(baseUrl, 'json3'));
     const parsedCues = parseTimedtextPayload(json3, 'json3', language);
-    const fromJson = buildSentenceUnitsFromTrack(parsedCues, json3);
-    if (fromJson.length > 0) return fromJson;
+    let rawJson3: unknown;
+    try {
+      rawJson3 = JSON.parse(json3) as unknown;
+    } catch {
+      rawJson3 = undefined;
+    }
+    const timeline = live ? null : parseVodJson3Timeline(rawJson3, language, asr);
+    if (timeline) return { cues: timeline.cues, timeline };
+    const fromJson = buildSentenceUnitsFromTrack(parsedCues, live ? undefined : rawJson3);
+    if (fromJson.length > 0) return { cues: fromJson };
     const vtt = await this.readTrack(withTimedtextFormat(baseUrl, 'vtt'));
-    return buildSentenceUnitsFromTrack(parseTimedtextPayload(vtt, 'vtt', language));
+    return { cues: buildSentenceUnitsFromTrack(parseTimedtextPayload(vtt, 'vtt', language)) };
   }
 
   private translateOptions(language?: string): CaptionTranslateOptions {
