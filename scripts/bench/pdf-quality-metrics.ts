@@ -108,6 +108,13 @@ export function garbledTokens(text: string): string[] {
   for (const match of normalized.match(/\p{L}-\s+\p{Ll}/gu) ?? []) push(match);
   // A base letter separated from its relation by spaces: "R d model × d k".
   for (const match of normalized.match(/\p{L}\s+[∈×÷≈]\s+\p{L}/gu) ?? []) push(match);
+  // A whole English clause left inside a Japanese translation: the visible symptom of lines
+  // from two columns being joined into one prompt.
+  if (CJK_CHAR.test(normalized)) {
+    for (const match of normalized.match(/(?<![A-Za-z])[A-Za-z]{3,}(?:\s+[A-Za-z]{3,}){3,}(?![A-Za-z])/gu) ?? []) {
+      push(match.slice(0, 48));
+    }
+  }
   // Doubled punctuation from two adjacent runs that were joined without repair.
   for (const match of normalized.match(/[,.:;]{2,}/gu) ?? []) push(match);
   // A character the engine could not decode, or a protection tag that was not restored.

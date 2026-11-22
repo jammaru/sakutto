@@ -1,6 +1,6 @@
 {
   "label": "baseline",
-  "generatedAt": "2026-11-22T15:37:09.315Z",
+  "generatedAt": "2026-11-22T15:49:46.531Z",
   "engine": "deterministic local fake",
   "pace": {
     "ttfbMs": 6,
@@ -17,13 +17,13 @@
     "proseBlocks": 108,
     "untranslatedProseRate": 0.12962962962962962,
     "mixedLanguageRate": 0.20869565217391303,
-    "garbledTokenRate": 0.002263906856403622,
+    "garbledTokenRate": 0.008408796895213453,
     "overlapRate": 0,
     "overflowRate": 0.06201550387596899,
     "readingOrderAccuracy": 0.9833333333333332,
     "twoColumnPages": 1,
-    "firstTranslatedBlockMs": 258,
-    "fullDocumentMs": 815,
+    "firstTranslatedBlockMs": 307,
+    "fullDocumentMs": 909,
     "meanScale": 0.9834835635324822
   },
   "pages": [
@@ -552,8 +552,8 @@
       "proseBlocks": 24,
       "readingOrder": 0.9166666666666666,
       "twoColumn": true,
-      "firstBlockMs": 258,
-      "pageMs": 72
+      "firstBlockMs": 307,
+      "pageMs": 85
     },
     {
       "fixture": "arxiv",
@@ -651,7 +651,9 @@
           "placeholders": 0,
           "untranslated": true,
           "mixedLanguage": true,
-          "garbled": [],
+          "garbled": [
+            "two machine translation tasks show these models"
+          ],
           "scale": 1
         },
         {
@@ -691,7 +693,11 @@
           "placeholders": 0,
           "untranslated": true,
           "mixedLanguage": true,
-          "garbled": [],
+          "garbled": [
+            "designed and implemented the first Transformer m",
+            "tuned and evaluated countless model variants",
+            "our original codebase and"
+          ],
           "scale": 0.9083095408041869
         },
         {
@@ -710,7 +716,10 @@
           "placeholders": 0,
           "untranslated": true,
           "mixedLanguage": true,
-          "garbled": [],
+          "garbled": [
+            "Llion also experimented with novel model variant",
+            "was responsible for our initial codebase"
+          ],
           "scale": 1
         },
         {
@@ -930,7 +939,7 @@
       "proseBlocks": 9,
       "readingOrder": 1,
       "twoColumn": false,
-      "firstBlockMs": 380,
+      "firstBlockMs": 449,
       "pageMs": 34
     },
     {
@@ -1116,8 +1125,8 @@
       "proseBlocks": 9,
       "readingOrder": 1,
       "twoColumn": false,
-      "firstBlockMs": 437,
-      "pageMs": 25
+      "firstBlockMs": 509,
+      "pageMs": 26
     },
     {
       "fixture": "arxiv",
@@ -1202,7 +1211,9 @@
           "placeholders": 0,
           "untranslated": true,
           "mixedLanguage": true,
-          "garbled": [],
+          "garbled": [
+            "head attention with full dimensionality"
+          ],
           "scale": 1
         },
         {
@@ -1297,7 +1308,9 @@
           "placeholders": 0,
           "untranslated": true,
           "mixedLanguage": true,
-          "garbled": [],
+          "garbled": [
+            "implement thisof the softmax which correspond"
+          ],
           "scale": 1
         },
         {
@@ -1392,7 +1405,9 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": true,
-          "garbled": [],
+          "garbled": [
+            "other sequence transduction models"
+          ],
           "scale": 1
         },
         {
@@ -1443,8 +1458,8 @@
       "proseBlocks": 14,
       "readingOrder": 1,
       "twoColumn": false,
-      "firstBlockMs": 486,
-      "pageMs": 60
+      "firstBlockMs": 565,
+      "pageMs": 46
     },
     {
       "fixture": "scan",
@@ -1770,7 +1785,9 @@
           "placeholders": 0,
           "untranslated": true,
           "mixedLanguage": true,
-          "garbled": [],
+          "garbled": [
+            "from packaged files rather than from blob URLs"
+          ],
           "scale": 1
         },
         {
@@ -1808,7 +1825,9 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": true,
-          "garbled": [],
+          "garbled": [
+            "The runtime offers two backends"
+          ],
           "scale": 1
         },
         {
@@ -1827,7 +1846,10 @@
           "placeholders": 0,
           "untranslated": true,
           "mixedLanguage": true,
-          "garbled": [],
+          "garbled": [
+            "The first two send the page",
+            "and every selection the reader"
+          ],
           "scale": 1
         },
         {
@@ -1846,7 +1868,9 @@
           "placeholders": 0,
           "untranslated": true,
           "mixedLanguage": true,
-          "garbled": [],
+          "garbled": [
+            "The CPU backend keeps"
+          ],
           "scale": 0.9450000000000001
         },
         {
@@ -1865,7 +1889,9 @@
           "placeholders": 0,
           "untranslated": true,
           "mixedLanguage": true,
-          "garbled": [],
+          "garbled": [
+            "sequence and uses four"
+          ],
           "scale": 0.89
         },
         {
@@ -1884,7 +1910,9 @@
           "placeholders": 0,
           "untranslated": true,
           "mixedLanguage": true,
-          "garbled": [],
+          "garbled": [
+            "failed GPU load falls"
+          ],
           "scale": 0.9450000000000001
         },
         {
@@ -1960,7 +1988,9 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": true,
-          "garbled": [],
+          "garbled": [
+            "block whose translation does not fit its own"
+          ],
           "scale": 1
         },
         {
@@ -1979,7 +2009,9 @@
           "placeholders": 0,
           "untranslated": true,
           "mixedLanguage": true,
-          "garbled": [],
+          "garbled": [
+            "the source typesetting rather than shown cut"
+          ],
           "scale": 0.9450000000000001
         },
         {
@@ -2131,7 +2163,9 @@
           "placeholders": 0,
           "untranslated": true,
           "mixedLanguage": true,
-          "garbled": [],
+          "garbled": [
+            "lists the work that remains"
+          ],
           "scale": 0.9450000000000001
         },
         {
@@ -2560,8 +2594,8 @@
       "proseBlocks": 52,
       "readingOrder": 1,
       "twoColumn": false,
-      "firstBlockMs": 745,
-      "pageMs": 76
+      "firstBlockMs": 814,
+      "pageMs": 101
     }
   ]
 }
