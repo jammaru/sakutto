@@ -143,6 +143,38 @@ describe('protectInlineMath', () => {
     expect(protectedText.text).toContain('Table 3.');
   });
 
+
+
+  it('does not mistake a long word on a shifted line for a superscript', () => {
+    const lines = groupLines([
+      piece('The dominant sequence transduction models are based on complex recurrent', 49, 100, 420),
+      piece('Experiments on two machine translation tasks show these models to', 38, 100, 360),
+      piece('be superior in quality while being more parallelizable and requiring', 27, 100, 360),
+    ]);
+    const layout = layoutPage(lines);
+    const block = layout.blocks[0];
+    if (!block) throw new Error('expected a block');
+    const protectedText = protectInlineMath(block);
+    expect(protectedText.slots).toEqual([]);
+    expect(protectedText.text).toBe(block.text);
+  });
+
+  it('protects notation set in an ordinary text face and restores fullwidth tags', () => {
+    const lines = groupLines([
+      piece('Where the projections are matrices Q ∈ R d model × d k and W O ∈ R h×d .', 49, 100, 430),
+    ]);
+    const layout = layoutPage(lines);
+    const block = layout.blocks[0];
+    if (!block) throw new Error('expected a block');
+    const protectedText = protectInlineMath(block);
+    expect(protectedText.text).toContain('<i0>');
+    expect(protectedText.slots.some((slot) => slot.text.includes('∈'))).toBe(true);
+    const tags = protectedText.slots.map((_slot, index) => `＜i${String(index)}＞`).join('');
+    const restored = restoreInlineMath(`射影は ${tags} である。`, protectedText.slots);
+    expect(restored).not.toBeNull();
+    expect(restored).toContain('∈');
+    expect(restored).not.toContain('<i0>');
+  });
   it('leaves a sentence with no mathematics unchanged', () => {
     const lines = groupLines([
       piece('The collector walks the document rather than selecting tags.', 40, 100, 400),

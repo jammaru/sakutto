@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { extractPage, placeTextItem, type PdfPage } from '@/pdf/extract';
+import { extractPage, normalizeGlyphRun, placeTextItem, type PdfPage } from '@/pdf/extract';
 import { layoutPage, orphanLineCount } from '@/pdf/layout';
 import {
   clippedPaintWidth,
@@ -238,6 +238,15 @@ describe('extractPage rotation', () => {
       index: 0,
     });
     expect(layout.bodySize).toBe(10);
+  });
+});
+
+
+describe('glyph run normalization', () => {
+  it('expands ligatures and removes invisible spacing before translation', () => {
+    expect(normalizeGlyphRun('e\ufb03cient\u00a0model')).toBe('efficient model');
+    expect(normalizeGlyphRun('instruc\u00adtion')).toBe('instruction');
+    expect(normalizeGlyphRun('caf\u00e9')).toBe('café');
   });
 });
 

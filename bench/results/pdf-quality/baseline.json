@@ -1,6 +1,6 @@
 {
   "label": "baseline",
-  "generatedAt": "2026-11-22T15:30:39.110Z",
+  "generatedAt": "2026-11-22T15:37:09.315Z",
   "engine": "deterministic local fake",
   "pace": {
     "ttfbMs": 6,
@@ -17,13 +17,13 @@
     "proseBlocks": 108,
     "untranslatedProseRate": 0.12962962962962962,
     "mixedLanguageRate": 0.20869565217391303,
-    "garbledTokenRate": 0.03848641655886158,
+    "garbledTokenRate": 0.002263906856403622,
     "overlapRate": 0,
     "overflowRate": 0.06201550387596899,
     "readingOrderAccuracy": 0.9833333333333332,
     "twoColumnPages": 1,
-    "firstTranslatedBlockMs": 242,
-    "fullDocumentMs": 772,
+    "firstTranslatedBlockMs": 258,
+    "fullDocumentMs": 815,
     "meanScale": 0.9834835635324822
   },
   "pages": [
@@ -47,9 +47,7 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": false,
-          "garbled": [
-            "語:語語語語語翻訳ともに一つの語語語語語語"
-          ],
+          "garbled": [],
           "scale": 1
         },
         {
@@ -106,9 +104,7 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": true,
-          "garbled": [
-            "語,一つの語語語語語語その語語語語一つの語語語語語の上でその語語語語語語語"
-          ],
+          "garbled": [],
           "scale": 0.9564772523904788
         },
         {
@@ -127,9 +123,7 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": false,
-          "garbled": [
-            "語,語語そのモデル語語語においてその語語語語語語語語システム"
-          ],
+          "garbled": [],
           "scale": 0.9564772523904788
         },
         {
@@ -148,10 +142,7 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": false,
-          "garbled": [
-            "語;の上でその語語語語語語それは語語語",
-            "語,その語語その語語一つの語語語語語語語"
-          ],
+          "garbled": [],
           "scale": 1
         },
         {
@@ -189,12 +180,7 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": false,
-          "garbled": [
-            "語:語語それは語語一つの翻訳語語語",
-            "語,または語語その語語語",
-            "語,そして語語語語語その語語語語語語語語",
-            "語,一つの語語語語語語語語または一つの語語語語語このである語語語語語語"
-          ],
+          "garbled": [],
           "scale": 1
         },
         {
@@ -213,9 +199,7 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": false,
-          "garbled": [
-            "語,語語語語である語語"
-          ],
+          "garbled": [],
           "scale": 0.9450000000000001
         },
         {
@@ -234,10 +218,7 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": false,
-          "garbled": [
-            "語:一つの語語語語その一つの語語語語語の上で一つの語語語語語へ語において一つの語",
-            "語,そして語語語語語語語一つの語語において語語の一つの語語語である語語語語語語語その語語"
-          ],
+          "garbled": [],
           "scale": 0.945
         },
         {
@@ -256,10 +237,7 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": false,
-          "garbled": [
-            "語,語語語",
-            "語,そして語語語"
-          ],
+          "garbled": [],
           "scale": 0.9450000000000001
         },
         {
@@ -278,9 +256,7 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": false,
-          "garbled": [
-            "語,そして語語語"
-          ],
+          "garbled": [],
           "scale": 1
         },
         {
@@ -318,10 +294,7 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": false,
-          "garbled": [
-            "語,語語語一つの語語語語語語語語語一つの語語語語語語語語一つの語語語語",
-            "語,語語語そして語語語語語語語語その"
-          ],
+          "garbled": [],
           "scale": 0.9450000000000001
         },
         {
@@ -378,11 +351,7 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": true,
-          "garbled": [
-            "語,一つの",
-            "語,語語語へ語語語語語語語",
-            "語,語その語語語"
-          ],
+          "garbled": [],
           "scale": 0.9450000000000001
         },
         {
@@ -439,11 +408,7 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": false,
-          "garbled": [
-            "語,そしてそれは語語語語語語語語語語",
-            "語,一つの語語の一つの語語または語語語語語",
-            "語,そして一つの語語語"
-          ],
+          "garbled": [],
           "scale": 0.9450000000000001
         },
         {
@@ -481,10 +446,7 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": false,
-          "garbled": [
-            "語,語語語語語",
-            "語,語語語語そして語語語語語語"
-          ],
+          "garbled": [],
           "scale": 0.9450000000000001
         },
         {
@@ -503,9 +465,7 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": false,
-          "garbled": [
-            "は,そして一つの翻訳その語語または語語語である語語語そして語語語語語語語語語語"
-          ],
+          "garbled": [],
           "scale": 1
         },
         {
@@ -524,9 +484,7 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": false,
-          "garbled": [
-            "語,語語語において語語語語その語語語そしてその語語語語語語語語から語語語語語語語語語から語語語語"
-          ],
+          "garbled": [],
           "scale": 1
         },
         {
@@ -545,10 +503,7 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": false,
-          "garbled": [
-            "語,語語語の上でその語語語",
-            "語,そして一つの語語語語語語語語語へその語語語語語語語語語語その翻訳"
-          ],
+          "garbled": [],
           "scale": 1
         },
         {
@@ -597,7 +552,7 @@
       "proseBlocks": 24,
       "readingOrder": 0.9166666666666666,
       "twoColumn": true,
-      "firstBlockMs": 242,
+      "firstBlockMs": 258,
       "pageMs": 72
     },
     {
@@ -620,9 +575,7 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": false,
-          "garbled": [
-            "語,語語語語語語語語語語へ"
-          ],
+          "garbled": [],
           "scale": 0.9066666666666666
         },
         {
@@ -698,10 +651,7 @@
           "placeholders": 0,
           "untranslated": true,
           "mixedLanguage": true,
-          "garbled": [
-            "語,語語語語ともに語語語語そして語語語語mec語語",
-            "語,その語語語語語語語語語語語その語語語そして語語語語語語一つの注意である語語語において語語語語語語語語語語語語語そして語語語語語語語entirely"
-          ],
+          "garbled": [],
           "scale": 1
         },
         {
@@ -721,13 +671,7 @@
           "untranslated": false,
           "mixedLanguage": false,
           "garbled": [
-            "h- t",
-            "語,により語語",
-            "語,語語語語語その語語語語語語語語",
-            "語,一つの語語語語語のその語語語語語のそのlₐr語そして語語語語語語データ",
-            "eⁿ",
-            "語ₒ",
-            "lₐ"
+            "h- t"
           ],
           "scale": 1
         },
@@ -747,9 +691,7 @@
           "placeholders": 0,
           "untranslated": true,
           "mixedLanguage": true,
-          "garbled": [
-            "意,語語語the"
-          ],
+          "garbled": [],
           "scale": 0.9083095408041869
         },
         {
@@ -768,9 +710,7 @@
           "placeholders": 0,
           "untranslated": true,
           "mixedLanguage": true,
-          "garbled": [
-            "r,語語語語語語語語語語"
-          ],
+          "garbled": [],
           "scale": 1
         },
         {
@@ -789,9 +729,7 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": false,
-          "garbled": [
-            "語,語"
-          ],
+          "garbled": [],
           "scale": 1
         },
         {
@@ -992,7 +930,7 @@
       "proseBlocks": 9,
       "readingOrder": 1,
       "twoColumn": false,
-      "firstBlockMs": 362,
+      "firstBlockMs": 380,
       "pageMs": 34
     },
     {
@@ -1034,9 +972,7 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": false,
-          "garbled": [
-            "語,語語語語語語語のために語語その語語語そして語語語"
-          ],
+          "garbled": [],
           "scale": 1
         },
         {
@@ -1074,9 +1010,7 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": true,
-          "garbled": [
-            "語,そしてその語語である一つの語語"
-          ],
+          "garbled": [],
           "scale": 0.8900000000000001
         },
         {
@@ -1095,13 +1029,7 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": false,
-          "garbled": [
-            "語,語語語により層語語語語",
-            "る,その語語の語語語語語である語語語",
-            "語,語語語語語語の語語語語",
-            "語,語語語語においてそのモデル",
-            "lₐ"
-          ],
+          "garbled": [],
           "scale": 1
         },
         {
@@ -1120,10 +1048,7 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": true,
-          "garbled": [
-            "層,その語語語語語語一つの語語語語語",
-            "語,我々は語語語語語語語語語The"
-          ],
+          "garbled": [],
           "scale": 0.89
         },
         {
@@ -1142,10 +1067,7 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": false,
-          "garbled": [
-            "語,語語語ともに語語そのその語語語語語語である語語により語語語語",
-            "語,語語語により層語語語語"
-          ],
+          "garbled": [],
           "scale": 1
         },
         {
@@ -1183,11 +1105,7 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": false,
-          "garbled": [
-            "語,語語",
-            "語,そして語語である語語語語",
-            "hₑ"
-          ],
+          "garbled": [],
           "scale": 1
         }
       ],
@@ -1198,7 +1116,7 @@
       "proseBlocks": 9,
       "readingOrder": 1,
       "twoColumn": false,
-      "firstBlockMs": 417,
+      "firstBlockMs": 437,
       "pageMs": 25
     },
     {
@@ -1221,10 +1139,7 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": false,
-          "garbled": [
-            "語,語語語においてその語語語語",
-            "dₑ"
-          ],
+          "garbled": [],
           "scale": 1
         },
         {
@@ -1243,9 +1158,7 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": false,
-          "garbled": [
-            "語,語語語語語語語語語語注意語語そのモデルへ語語語語語へ語語語語から語語語語語語語"
-          ],
+          "garbled": [],
           "scale": 1
         },
         {
@@ -1289,10 +1202,7 @@
           "placeholders": 0,
           "untranslated": true,
           "mixedLanguage": true,
-          "garbled": [
-            "語,または語語",
-            "語,その語語語語語語語語"
-          ],
+          "garbled": [],
           "scale": 1
         },
         {
@@ -1349,10 +1259,7 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": false,
-          "garbled": [
-            "語,その語語語語語からその語語語語語語層",
-            "aⁿ"
-          ],
+          "garbled": [],
           "scale": 1
         },
         {
@@ -1371,12 +1278,7 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": false,
-          "garbled": [
-            "語,語語ₐnd語語語語語からその語語語語",
-            "語,その語語のその語語語層においてそのₑnc語語語語",
-            "語ₐ",
-            "のₑ"
-          ],
+          "garbled": [],
           "scale": 1
         },
         {
@@ -1395,10 +1297,7 @@
           "placeholders": 0,
           "untranslated": true,
           "mixedLanguage": true,
-          "garbled": [
-            "語,語語語語語語においてその語語語語語語語語語語においてその語語語へ語語へₐll語語語においてその語語語語へそして語語語その語語語",
-            "へₐ"
-          ],
+          "garbled": [],
           "scale": 1
         },
         {
@@ -1436,11 +1335,7 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": false,
-          "garbled": [
-            "語,語語である語語語へ語語語語語語語語語そして語語語語",
-            "語,語語のその語語において語語語語そして語語語語語語一つの語語",
-            "cₒ"
-          ],
+          "garbled": [],
           "scale": 1
         },
         {
@@ -1497,11 +1392,7 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": true,
-          "garbled": [
-            "ル,我々は語語その語語語語語語語語語その語語語語語語そしてその語語語語そして語語語語語語へ語語語その語語語語語へ語語語語語語語語語語",
-            "語,語語語へ",
-            "語,我々は語語語語語語語語によりdモデル"
-          ],
+          "garbled": [],
           "scale": 1
         },
         {
@@ -1552,8 +1443,8 @@
       "proseBlocks": 14,
       "readingOrder": 1,
       "twoColumn": false,
-      "firstBlockMs": 467,
-      "pageMs": 52
+      "firstBlockMs": 486,
+      "pageMs": 60
     },
     {
       "fixture": "scan",
@@ -1575,9 +1466,7 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": false,
-          "garbled": [
-            "語:語語語語語翻訳ともに一つの語語語語語語"
-          ],
+          "garbled": [],
           "scale": 1
         },
         {
@@ -1691,9 +1580,7 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": false,
-          "garbled": [
-            "語,一つの語語語語語語"
-          ],
+          "garbled": [],
           "scale": 1
         },
         {
@@ -1712,9 +1599,7 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": true,
-          "garbled": [
-            "語,そして語語語語語語語一つの"
-          ],
+          "garbled": [],
           "scale": 1
         },
         {
@@ -1752,9 +1637,7 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": false,
-          "garbled": [
-            "語,語語そのモデル語語語においてその語語語語語語語語システム"
-          ],
+          "garbled": [],
           "scale": 0.9564772523904788
         },
         {
@@ -1792,9 +1675,7 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": false,
-          "garbled": [
-            "語;の上でその語語語語語語それは語語語"
-          ],
+          "garbled": [],
           "scale": 1
         },
         {
@@ -1813,9 +1694,7 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": false,
-          "garbled": [
-            "語,その語語その語語一つの語語語語語語語"
-          ],
+          "garbled": [],
           "scale": 1
         },
         {
@@ -1853,9 +1732,7 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": false,
-          "garbled": [
-            "語,語語語"
-          ],
+          "garbled": [],
           "scale": 1
         },
         {
@@ -1912,10 +1789,7 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": false,
-          "garbled": [
-            "語:語語それは語語一つの翻訳語語語",
-            "aⁿ"
-          ],
+          "garbled": [],
           "scale": 1
         },
         {
@@ -1934,9 +1808,7 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": true,
-          "garbled": [
-            "語,または語語その語語語"
-          ],
+          "garbled": [],
           "scale": 1
         },
         {
@@ -1974,10 +1846,7 @@
           "placeholders": 0,
           "untranslated": true,
           "mixedLanguage": true,
-          "garbled": [
-            "語,へ一つの語語語語",
-            "hₒ"
-          ],
+          "garbled": [],
           "scale": 0.9450000000000001
         },
         {
@@ -1996,11 +1865,7 @@
           "placeholders": 0,
           "untranslated": true,
           "mixedLanguage": true,
-          "garbled": [
-            "語,一つの語語語語語語語語または一つの語語語語語このであるₒnₑ語語sequence",
-            "るₒ",
-            "nₑ"
-          ],
+          "garbled": [],
           "scale": 0.89
         },
         {
@@ -2019,10 +1884,7 @@
           "placeholders": 0,
           "untranslated": true,
           "mixedLanguage": true,
-          "garbled": [
-            "語,そしてそれはである語語語語語語語語によりその語語mₐc語語語A",
-            "mₐ"
-          ],
+          "garbled": [],
           "scale": 0.9450000000000001
         },
         {
@@ -2060,11 +1922,7 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": false,
-          "garbled": [
-            "語₋",
-            "t₎",
-            "t₋"
-          ],
+          "garbled": [],
           "scale": 1
         },
         {
@@ -2083,9 +1941,7 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": false,
-          "garbled": [
-            "語,語語語語である語語"
-          ],
+          "garbled": [],
           "scale": 1
         },
         {
@@ -2123,9 +1979,7 @@
           "placeholders": 0,
           "untranslated": true,
           "mixedLanguage": true,
-          "garbled": [
-            "語:一つの語語語語その一つの語語box"
-          ],
+          "garbled": [],
           "scale": 0.9450000000000001
         },
         {
@@ -2144,9 +1998,7 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": false,
-          "garbled": [
-            "語,語語語ともに語語"
-          ],
+          "garbled": [],
           "scale": 1
         },
         {
@@ -2165,9 +2017,7 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": false,
-          "garbled": [
-            "語,そして語語語語語語語一つの語語において語語の一つの"
-          ],
+          "garbled": [],
           "scale": 1
         },
         {
@@ -2205,9 +2055,7 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": false,
-          "garbled": [
-            "語ⁱ"
-          ],
+          "garbled": [],
           "scale": 1
         },
         {
@@ -2226,9 +2074,7 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": false,
-          "garbled": [
-            "語,語語語"
-          ],
+          "garbled": [],
           "scale": 1
         },
         {
@@ -2247,9 +2093,7 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": false,
-          "garbled": [
-            "語,そして語語語"
-          ],
+          "garbled": [],
           "scale": 1
         },
         {
@@ -2306,9 +2150,7 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": false,
-          "garbled": [
-            "語,そしてそれは"
-          ],
+          "garbled": [],
           "scale": 1
         },
         {
@@ -2327,9 +2169,7 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": false,
-          "garbled": [
-            "語:語語語語語"
-          ],
+          "garbled": [],
           "scale": 1
         },
         {
@@ -2348,9 +2188,7 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": false,
-          "garbled": [
-            "語,一つの語語の一つの語語語データ語"
-          ],
+          "garbled": [],
           "scale": 0.8350000000000001
         },
         {
@@ -2445,9 +2283,7 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": false,
-          "garbled": [
-            "語,語語語一つの語語語語語"
-          ],
+          "garbled": [],
           "scale": 1
         },
         {
@@ -2561,9 +2397,7 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": false,
-          "garbled": [
-            "語,語語語そして語語語語語語語語その"
-          ],
+          "garbled": [],
           "scale": 1
         },
         {
@@ -2582,10 +2416,7 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": false,
-          "garbled": [
-            "語,語語語語語",
-            "sₑ"
-          ],
+          "garbled": [],
           "scale": 1
         },
         {
@@ -2604,9 +2435,7 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": false,
-          "garbled": [
-            "語,語語語語そして語語語語語語"
-          ],
+          "garbled": [],
           "scale": 1
         },
         {
@@ -2644,9 +2473,7 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": true,
-          "garbled": [
-            "語,一つの"
-          ],
+          "garbled": [],
           "scale": 1
         },
         {
@@ -2665,9 +2492,7 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": false,
-          "garbled": [
-            "語,語語語語その語語語語それは"
-          ],
+          "garbled": [],
           "scale": 0.9450000000000001
         },
         {
@@ -2705,9 +2530,7 @@
           "placeholders": 0,
           "untranslated": false,
           "mixedLanguage": false,
-          "garbled": [
-            "語,語その語語語"
-          ],
+          "garbled": [],
           "scale": 1
         },
         {
@@ -2737,7 +2560,7 @@
       "proseBlocks": 52,
       "readingOrder": 1,
       "twoColumn": false,
-      "firstBlockMs": 701,
+      "firstBlockMs": 745,
       "pageMs": 76
     }
   ]

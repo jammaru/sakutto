@@ -15,6 +15,27 @@ import { joinPieces, lineFrom, type TextLine, type TextPiece } from './lines';
  * tags are reused here so a PDF sentence is not a new prompt shape. A translation that drops
  * or invents a tag is refused, and the original sentence stays on the page.
  */
+/**
+ * A second pass for notation a typesetter set in an ordinary text face.
+ *
+ * Font detection handles LaTeX's math faces, but papers also write short expressions such as
+ * `Q ∈ R d` or `×d k` in italic Times. Left in the prompt they come back rewritten, which is
+ * worse than leaving the equation alone. A span is protected only when it contains a strong
+ * mathematical operator; neighbouring prose words are never swallowed.
+ */
+const TEXT_NOTATION =
+  /(?:[\p{Lu}\p{N}_^][\p{L}\p{N}_^]{0,4}|[a-z][\p{N}_^]{0,3})(?:\s+(?:\p{Lu}[\p{L}\p{N}_^]{0,4}|[a-z][\p{N}_^]{0,3}|[\p{N}_^]{1,4})){0,4}(?:\s*(?:∈|×|÷|≈|≤|≥|≠|∑|∏|∫|∂|∇|\^)\s*(?:[\p{Lu}\p{N}_^][\p{L}\p{N}_^]{0,6}|[a-z][\p{N}_^]{0,3})){1,8}/gu;
+
+function protectTextNotation(text: string, slots: ProtectedSlot[]): string {
+  return text.replace(TEXT_NOTATION, (match) => {
+    const value = match.trim();
+    if (value.length < 4) return match;
+    const index = slots.length;
+    slots.push({ text: value, script: 'none' });
+    return PLACEHOLDER(index);
+  });
+}
+
 export type ScriptRole = 'super' | 'sub' | 'none';
 
 export interface ProtectedSlot {
@@ -109,8 +130,10 @@ export function protectInlineMath(block: LayoutBlock): ProtectedText {
     parts.push(protectedLine);
   }
 
+  const joined = parts.join(' ').replace(/\s+/gu, ' ').trim();
+  const protectedText = protectTextNotation(joined, slots);
   if (slots.length === 0) return { text: block.text, slots: [] };
-  return { text: parts.join(' ').replace(/\s+/gu, ' ').trim(), slots };
+  return { text: protectedText, slots };
 }
 
 function protectLine(line: TextLine, slots: ProtectedSlot[]): string {
@@ -440,7 +463,11 @@ function scriptShiftThreshold(piece: TextPiece, lineHeight: number): number {
 }
 
 function isShiftedScript(piece: TextPiece, lineHeight: number, baseline: number): boolean {
-  const core = scriptCoreText(piece.text);
+  const trimmed = piece.text.trim();
+  // scriptCoreText takes the first few characters of a run. A whole sentence starting with
+  // "Exp" is not a superscript just because its baseline differs from another merged line.
+  if (trimmed.length === 0 || trimmed.length > 4) return false;
+  const core = scriptCoreText(trimmed);
   if (core.length === 0 || core.length > 3) return false;
   return Math.abs(piece.baseline - baseline) > scriptShiftThreshold(piece, lineHeight);
 }
@@ -529,7 +556,10 @@ export function restoreInlineMath(
   if (normalized.length === 0) return translated;
   const seen = new Set<number>();
   let count = 0;
-  const restored = translated.replace(PLACEHOLDER_PATTERN, (_match, raw: string) => {
+  const canonical = translated
+    .normalize('NFKC')
+    .replace(/[＜<]\s*i\s*(\d+)\s*[＞>]/gu, '<i$1>');
+  const restored = canonical.replace(PLACEHOLDER_PATTERN, (_match, raw: string) => {
     const index = Number(raw);
     if (!Number.isInteger(index) || index < 0 || index >= normalized.length) return '\u0000';
     count += 1;
@@ -574,7 +604,7 @@ export function shouldSkipInlineMath(protectedText: ProtectedText, source: strin
     .replace(/\s+/gu, '').length;
   const sourceChars = source.replace(/\s+/gu, '').length;
   const remaining = protectedText.text.replace(/<i\d+>/gu, '').replace(/\s+/gu, '');
-  if (sourceChars > 0 && slotChars >= sourceChars * 0.25 && protectedText.slots.length >= 2) {
+  if (sourceChars > 0 && slotChars >= sourceChars * 0.6 && protectedText.slots.length >= 3) {
     return true;
   }
   if (remaining.length < 24 && protectedText.slots.length >= 3) return true;

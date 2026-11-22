@@ -184,7 +184,7 @@ describe('PdfSession stream handling', () => {
     expect(session.pageBlocks(0)[0]?.translation).toBe('NEW');
   });
 
-  it('re-queues a failed block from retryFailed and bypasses its cached answer', async () => {
+  it('retries a failed block automatically and bypasses its cached answer', async () => {
     let calls = 0;
     const bypass: boolean[] = [];
     const engine = engineOf(async function* (segments, options) {
@@ -199,8 +199,6 @@ describe('PdfSession stream handling', () => {
     });
     const session = sessionOf(engine);
     session.addPage(0, layoutOf('A short paragraph of source text.'));
-    await waitFor(() => session.pageBlocks(0)[0]?.state === 'failed');
-    session.retryFailed();
     await waitFor(() => session.pageBlocks(0)[0]?.state === 'done');
     expect(session.pageBlocks(0)[0]?.translation).toBe('訳');
     expect(bypass).toEqual([false, true]);

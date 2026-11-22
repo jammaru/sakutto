@@ -137,7 +137,7 @@ export async function extractPage(
     };
 
     pieces.push({
-      text: item.str,
+      text: normalizeGlyphRun(item.str),
       box: placed.box,
       baseline: placed.baseline,
       fontName: item.fontName,
@@ -198,6 +198,24 @@ export function isImageOnlyPage(
   let figureArea = 0;
   for (const image of figures.images) figureArea += image.width * image.height;
   return figureArea > pageArea * 0.8 && chars < 80;
+}
+
+/** Expands the ligatures and invisible spacing PDF fonts put in glyph runs. */
+export function normalizeGlyphRun(text: string): string {
+  const LIGATURES: Readonly<Record<string, string>> = {
+    '\ufb00': 'ff',
+    '\ufb01': 'fi',
+    '\ufb02': 'fl',
+    '\ufb03': 'ffi',
+    '\ufb04': 'ffl',
+    '\ufb05': 'st',
+    '\ufb06': 'st',
+  };
+  return text
+    .normalize('NFC')
+    .replace(/[\ufb00-\ufb06]/gu, (character) => LIGATURES[character] ?? character)
+    .replace(/[\u00ad\u200b\u2060]/gu, '')
+    .replace(/[\u00a0\u202f]/gu, ' ');
 }
 
 /**

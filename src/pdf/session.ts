@@ -219,6 +219,9 @@ const PDF_PIECE_CHARS = 1200;
  */
 export const DEFAULT_PDF_CONCURRENCY = 8;
 
+/** How many times a prose block is retried before the page gives up on it. */
+const MAX_PDF_ATTEMPTS = 2;
+
 /**
  * Blocks in flight for the engine this reader is talking to.
  *
@@ -558,12 +561,12 @@ export class PdfSession {
     this.pump();
   }
 
-  private enqueue(state: BlockState, page: number, bypassCache = false): void {
+  private enqueue(state: BlockState, page: number, bypassCache = false, attempts = 0): void {
     if (state.state === 'running' || state.state === 'queued') return;
     this.nextJob += 1;
     state.state = 'queued';
     this.queue.enqueue(
-      { state, id: this.nextJob, page, bypassCache },
+      { state, id: this.nextJob, page, bypassCache, attempts },
       this.priorityOf(state.block, page),
     );
   }
@@ -627,6 +630,14 @@ export class PdfSession {
     return this.generation !== generation || signal.aborted;
   }
 
+  /** Re-queues an errored block instead of leaving prose in the source language. */
+  private retry(job: Job): boolean {
+    if (job.attempts >= MAX_PDF_ATTEMPTS) return false;
+    job.state.state = 'idle';
+    this.enqueue(job.state, job.page, true, job.attempts + 1);
+    return true;
+  }
+
   private failBlock(state: BlockState): void {
     state.translation = '';
     state.fit = null;
@@ -676,6 +687,7 @@ export class PdfSession {
     const parts: string[] = Array.from({ length: pieces.length }, () => '');
     const finals = Array.from({ length: pieces.length }, () => false);
     const errors = Array.from({ length: pieces.length }, () => false);
+    let restoreFailed = false;
 
     try {
       for await (const chunk of this.engine.translate(segments, {
@@ -711,7 +723,9 @@ export class PdfSession {
         const joined = joinParts(parts, this.target);
         const restored = restoreInlineMath(joined, protectedText.slots);
         if (restored === null) {
-          // The model dropped a formula. Showing the hole would be a wrong translation.
+          // The model dropped a formula. Showing the hole would be a wrong translation;
+          // re-ask once with a fresh prompt rather than leaving the sentence in English.
+          restoreFailed = true;
           state.translation = '';
           state.fit = null;
           state.paint = false;
@@ -733,14 +747,17 @@ export class PdfSession {
         this.enqueue(state, job.page);
         return;
       }
+      if (this.retry(job)) return;
       this.failBlock(state);
       return;
     }
 
     if (this.stale(generation, signal)) return;
+    if (restoreFailed && this.retry(job)) return;
     const allFinal = pieces.length === 0 || finals.every(Boolean);
     const anyError = errors.some(Boolean);
     if (!allFinal || anyError) {
+      if (this.retry(job)) return;
       this.failBlock(state);
       return;
     }
@@ -750,6 +767,7 @@ export class PdfSession {
       // keep. Short prose was slipping through the word-count gate above and was counted as
       // finished with no cover on the page.
       if (mayKeepOriginal(state.block, sourceText)) this.keepOriginal(state);
+      else if (this.retry(job)) return;
       else this.failBlock(state);
       return;
     }
@@ -912,6 +930,8 @@ interface Job {
   page: number;
   /** A retry of a failed block must not be answered by the translation it already failed on. */
   bypassCache: boolean;
+  /** Number of automatic retries after an engine error or a lost placeholder. */
+  attempts: number;
 }
 
 function pieceIndex(id: string): number {

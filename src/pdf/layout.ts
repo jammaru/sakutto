@@ -1758,6 +1758,14 @@ function shouldMergeAdjacentProse(
     xGap < columnSpan * 0.45 &&
     (continuesProseText(tail, head) || /Related\s+[Ww]ork\s*:/i.test(left.text));
   if (xGap > 12 && !hangingContinuation) return false;
+  // Two blocks in different columns can share a y band and a column id on a page whose
+  // gutter was not recognised. Requiring an actual horizontal overlap keeps their sentences
+  // apart, which is what prevents one column's text from being translated into the other's box.
+  const overlap =
+    Math.min(boxRight(left.box), boxRight(right.box)) - Math.max(left.box.x, right.box.x);
+  if (overlap < Math.min(left.box.width, right.box.width) * 0.6 && !hangingContinuation) {
+    return false;
+  }
   if (continuesProseText(tail, head)) return true;
   if (/[,;]\s*$/.test(tail) || /\band\s*$/i.test(tail)) return true;
   if (runInSectionHeadingPrefix(left.text) && !endsSentence(left.text)) return true;
@@ -1808,7 +1816,16 @@ function splitProseAroundInteriorBlocks(
     const firstBase = first.baseline;
     const lastBase = last.baseline;
     const interiors = prose.filter((other) => {
-      if (other === block || other.column !== block.column) return false;
+      if (other === block) return false;
+      if (other.column !== block.column && block.box.width <= 300) return false;
+      // A full-width abstract and a body column carry different column ids, but their lines
+      // still interleave in y. Split on geometry rather than on the column label so the
+      // abstract cannot absorb the first paragraph of the right-hand column.
+      if (other.column !== block.column) {
+        const overlap =
+          Math.min(boxRight(block.box), boxRight(other.box)) - Math.max(block.box.x, other.box.x);
+        if (overlap < Math.min(block.box.width, other.box.width) * 0.6) return false;
+      }
       const otherBase = other.lines[0]?.baseline ?? other.box.y;
       return otherBase > firstBase + 0.5 && otherBase < lastBase - 0.5;
     });
