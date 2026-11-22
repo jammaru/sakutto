@@ -916,6 +916,34 @@ describe('latest review blockers', () => {
     expect(layout.blocks.map((block) => block.column)).toEqual([0, 1]);
   });
 
+  it('B1: picks the widest centred gutter, not a word gap inside the right column', () => {
+    // pageWidth 595: the real gutter is 250..315 (65pt); the right column also has a 10pt
+    // word gap at 345..355 that is centred enough to qualify. Both clear MIN_COLUMN_GUTTER,
+    // so only a widest-gap rule keeps the right column's first word with its own block.
+    const items = [
+      region('left', quad(45, 340, 40, 20)),
+      region('column', quad(90, 340, 50, 20)),
+      region('words', quad(145, 340, 45, 20)),
+      region('here', quad(215, 340, 35, 20)),
+      region('right', quad(315, 340, 30, 20)),
+      region('wide', quad(355, 340, 40, 20)),
+      region('column', quad(400, 340, 50, 20)),
+      region('words', quad(455, 340, 45, 20)),
+      region('here', quad(505, 340, 35, 20)),
+    ];
+    const result = ocrResult([...items], [readingLine('horizontal', items)]);
+    const options = { pageIndex: 0, pageWidth: 595, pageHeight: 842 };
+
+    expect(ocrResultToTextLines(result, options).map((line) => line.text)).toEqual([
+      'left column words here',
+      'right wide column words here',
+    ]);
+    expect(ocrResultToPageLayout(result, options).blocks.map((block) => block.text)).toEqual([
+      'left column words here',
+      'right wide column words here',
+    ]);
+  });
+
   it('B2: splits a same-baseline row separated by only 10pt', () => {
     const leftText = 'left column words here';
     const rightText = 'right column words here';

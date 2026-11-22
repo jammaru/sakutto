@@ -159,12 +159,22 @@ export function isProseLike(text: string): boolean {
   const normalized = normalizeText(text);
   const words = normalized.match(LATIN_WORD) ?? [];
   if (words.length === 0) return false;
-  // A numbered listing line is code regardless of how English its keywords look.
-  if (/^\d+\s+(?:for|if|while|return|emit|continue|def|let|var)\b/iu.test(normalized)) {
+  const hasSectionMarker = /\b(?:section|figure|table)\b/iu.test(normalized);
+  // A listing line is code regardless of how English its keywords look. The leading number is
+  // optional: "for block in page:" is as much a listing as "1 for block in page:". A prose
+  // sentence that merely quotes Section/Figure/Table is still prose.
+  if (
+    !hasSectionMarker &&
+    /^(?:\d+[.)]?\s+)*(?:for|if|while|return|emit|continue|def|let|const|var|import|from|class|try|except|finally|switch|case|else|elif|do|break|pass|yield|raise|with|lambda|print|function|foreach)\b/iu.test(
+      normalized,
+    )
+  ) {
     return false;
   }
+  // A bare lowercase clause ending in a colon is a code statement or a field label, not a
+  // natural-language sentence.
+  if (!hasSectionMarker && /^[a-z][\p{L}\s]*[:{]\s*$/u.test(normalized)) return false;
   const codeMarkers = (normalized.match(/[{}();:=]/gu) ?? []).length;
-  const hasSectionMarker = /\b(?:section|figure|table)\b/iu.test(normalized);
   if (codeMarkers >= 3 && !hasSectionMarker) return false;
   // Short headings ("References", "Abstract", "We win.") used to vanish from the prose
   // denominator because this helper demanded three words and two function words. A short

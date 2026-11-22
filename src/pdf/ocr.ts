@@ -250,8 +250,10 @@ interface PieceSplit {
  * A two-column page can be asymmetric: the left measure may end past the midpoint, so a
  * word-level piece on the left can have its centre past it too. Splitting by piece centre then
  * moves that tail into the right block. Looking at the actual gaps between neighbouring boxes
- * finds the printed gutter; prefer the rightmost qualifying gap so an ordinary word space just
- * before the gutter cannot take its place.
+ * finds the printed gutter. Several gaps can pass the loose centred-band test (a word space in
+ * either column qualifies as well), so pick the one whose own centre is nearest the page
+ * midpoint — the printed gutter — and use the gap width only as a tie-break. Otherwise a wide
+ * word space inside the right column can steal a right-column word into the left translation.
  */
 function splitAtGutter(pieces: readonly OcrTextPiece[], pageWidth: number): PieceSplit {
   const middle = pageWidth / 2;
@@ -263,9 +265,20 @@ function splitAtGutter(pieces: readonly OcrTextPiece[], pageWidth: number): Piec
     if (rightStart - leftEnd < MIN_COLUMN_GUTTER) continue;
     if (!gutterCentred(leftEnd, rightStart, pageWidth)) continue;
     if (leftEnd < middle - pageWidth * 0.1) continue;
-    // Prefer the gap closest to (or just past) the midpoint: an asymmetric gutter's left edge
-    // can sit past it, while earlier word gaps still fall inside the allowed 10% band.
-    if (!best || leftEnd > best.leftEnd) best = { index, leftEnd, rightStart };
+    // The rightmost qualifying gap can be a word space inside the right column; taking it
+    // moves that column's first word into the left block. The gap nearest the page midpoint is
+    // the printed gutter. Prefer the wider gap only when two gaps are equally well centred.
+    const score = Math.abs((leftEnd + rightStart) / 2 - middle);
+    const bestScore =
+      best === undefined ? Infinity : Math.abs((best.leftEnd + best.rightStart) / 2 - middle);
+    if (
+      !best ||
+      score < bestScore - 0.001 ||
+      (Math.abs(score - bestScore) <= 0.001 &&
+        rightStart - leftEnd > best.rightStart - best.leftEnd)
+    ) {
+      best = { index, leftEnd, rightStart };
+    }
   }
   if (!best) {
     const left = pieces.filter((piece) => piece.box.x + piece.box.width / 2 < middle);

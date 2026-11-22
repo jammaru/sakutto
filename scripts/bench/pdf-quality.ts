@@ -755,11 +755,13 @@ async function main(): Promise<void> {
   ].join('\n');
   const historyPath = join(OUT, 'history.md');
   const previousHistory = await readFile(historyPath, 'utf8').catch(() => '');
+  // Prettier pads markdown table columns, so an exact header string is not a reliable test.
+  // Detect the header structurally; otherwise a run with this table appends a second header
+  // and separator, leaving unlabelled rows under the wrong table.
+  const hasTable = /^\|\s*label\s*\|\s*pages\s*\|/mu.test(previousHistory);
   await appendFile(
     historyPath,
-    previousHistory.includes('| label | pages |')
-      ? markdown.split('\n').slice(2).join('\n') + '\n'
-      : markdown + '\n',
+    hasTable ? markdown.split('\n').slice(2).join('\n') + '\n' : markdown + '\n',
   );
   await writeFile(join(OUT, label + '.md'), fullMarkdown + '\n');
 

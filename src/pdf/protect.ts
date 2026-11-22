@@ -45,7 +45,10 @@ const DIMENSION_CHAIN = new RegExp(
   String.raw`(?<![\p{L}\p{N}_])${NOTATION_OPERAND}(?:\s+${NOTATION_OPERAND}){0,3}` +
     String.raw`\s*(?:∈|×|÷|≈|≤|≥|≠)\s*${NOTATION_OPERAND}` +
     String.raw`(?:\s+${DIMENSION_WORD}){0,3}` +
-    String.raw`(?:\s*(?:×|÷)\s*${DIMENSION_WORD}(?:\s+${DIMENSION_WORD})?){0,6}`,
+    // A chained expression can continue with another bare operand ("3 × 3 × 3", "A × B × C"),
+    // not only with a named dimension. Without this branch the first pass protects only the
+    // prefix and the inserted placeholder stops a second pass from reaching the tail.
+    String.raw`(?:\s*(?:×|÷)\s*(?:${DIMENSION_WORD}|${NOTATION_OPERAND})(?:\s+${DIMENSION_WORD})?){0,6}`,
   'gu',
 );
 

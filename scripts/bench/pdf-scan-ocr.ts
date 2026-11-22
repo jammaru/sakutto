@@ -253,6 +253,7 @@ async function main(): Promise<void> {
   const { placePage, paintedCoverOverlaps } = await loadPdf<{
     placePage: (request: object) => Array<{
       paint: boolean;
+      overflow: boolean;
       drawn: object | null;
       translation: string;
       fit: { fontSize: number } | null;
@@ -397,7 +398,11 @@ async function main(): Promise<void> {
         skipped: layout.skipped.length,
         crossColumnCovers: metrics.crossColumnCovers,
         overlapPairs: Math.max(metrics.overlapPairs, overlaps),
-        overflow: metrics.overflow,
+        // pageMetrics only counts painted boxes that run off the page. Count the translations
+        // placePage refused to paint as well, exactly as the quality bench does, so the number
+        // includes the blank/marker boxes a reader actually sees.
+        overflow:
+          metrics.overflow + placed.filter((entry) => entry.overflow && !entry.paint).length,
         text: hypothesis.slice(0, 200),
       };
       report.push(record);

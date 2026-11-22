@@ -271,7 +271,7 @@ describe('PdfSession stream handling', () => {
     expect(bypass).toEqual([false, true]);
   });
 
-  it('finishes every other page when one block keeps failing, and still sweeps', async () => {
+  it('finishes every other page when one block keeps failing and never exceeds the retry cap', async () => {
     let failures = 0;
     const engine = engineOf(async function* (segments) {
       const id = segments[0]?.id ?? 'b1';
@@ -296,12 +296,44 @@ describe('PdfSession stream handling', () => {
     expect(session.pageBlocks(1)[0]?.state).toBe('failed');
     expect(session.pageBlocks(2)[0]?.state).toBe('done');
 
-    const requeued = session.sweepIncompleteBlocks();
-    expect(requeued).toBe(1);
-    await waitFor(() => session.progress().pending === 0);
-    expect(failures).toBeGreaterThanOrEqual(2);
+    // Initial call + two retries is the whole budget. The coverage sweeps must not hand the
+    // permanently failing block three more (or nine more) engine calls.
+    expect(failures).toBe(3);
+    expect(session.sweepIncompleteBlocks()).toBe(0);
+    expect(session.sweepIncompleteBlocks()).toBe(0);
+    expect(session.sweepIncompleteBlocks()).toBe(0);
+    expect(failures).toBe(3);
     expect(session.pageBlocks(0)[0]?.state).toBe('done');
     expect(session.pageBlocks(2)[0]?.state).toBe('done');
+  });
+
+  it('carries a partially spent retry budget into a coverage sweep', async () => {
+    let calls = 0;
+    const engine = engineOf(async function* (segments) {
+      calls += 1;
+      const id = segments[0]?.id ?? 'b1';
+      if (calls === 1 || calls === 3) {
+        yield { id, final: segments[0]?.text ?? '', error: true };
+        return;
+      }
+      yield { id, final: '訳' };
+    });
+    const session = sessionOf(engine);
+    session.addPage(0, layoutOf('A short paragraph of source text.'));
+    await waitFor(() => session.pageBlocks(0)[0]?.state === 'done');
+    expect(calls).toBe(2);
+    const state = session.pageBlocks(0)[0];
+    if (!state) throw new Error('expected a block');
+
+    // Pretend the delivered translation was not painted; the sweep re-queues it with its one
+    // already-spent retry. The next failure spends the last one, and no further retry happens.
+    state.paint = false;
+    expect(session.sweepIncompleteBlocks()).toBe(1);
+    await waitFor(() => state.state === 'done' && state.paint);
+    expect(calls).toBe(4);
+    state.paint = false;
+    expect(session.sweepIncompleteBlocks()).toBe(0);
+    expect(calls).toBe(4);
   });
 
   it('finishes a 24-page document when the focus moves to the last page', async () => {

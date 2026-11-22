@@ -55,6 +55,11 @@ export interface BlockState {
   overflow: boolean;
   /** Same-language or mostly-formula blocks the reader deliberately left as the page drew them. */
   intentionallyKept?: boolean;
+  /**
+   * Automatic retries already spent by this block. Kept on the state (not only on the queued
+   * job) so a focus change or a coverage sweep cannot reset the MAX_PDF_ATTEMPTS budget.
+   */
+  attempts?: number;
 }
 
 export function isTranslated(state: BlockState): boolean {
@@ -526,11 +531,15 @@ export class PdfSession {
           (text.length > 0 && translationEchoesSource(state.block.text, text, this.target)) ||
           (state.state === 'done' && !hasDeliverableTranslation(state));
         if (!needs) continue;
+        // A sweep is not a fresh translation run: it must not hand a permanently failing block
+        // a new retry budget. Without this, the reader's three automatic sweeps multiply one
+        // failed block's engine calls from three to nine.
+        if ((state.attempts ?? 0) >= MAX_PDF_ATTEMPTS) continue;
         // Keep the previous cover until the replacement arrives. Blanking it on every sweep
         // flashed the source through a box the reader was already reading.
         state.state = 'idle';
         state.intentionallyKept = false;
-        this.enqueue(state, page, true);
+        this.enqueue(state, page, true, state.attempts ?? 0);
         requeued += 1;
       }
     }
@@ -577,6 +586,7 @@ export class PdfSession {
     if (state.state === 'running' || state.state === 'queued') return;
     this.nextJob += 1;
     state.state = 'queued';
+    state.attempts = attempts;
     this.queue.enqueue(
       { state, id: this.nextJob, page, bypassCache, attempts },
       this.priorityOf(state.block, page),

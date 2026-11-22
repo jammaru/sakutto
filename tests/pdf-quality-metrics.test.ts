@@ -111,6 +111,9 @@ describe('honest quality denominators', () => {
     expect(isProseLike('We win.')).toBe(true);
     expect(isProseLike('maxSegmentTokens')).toBe(false);
     expect(isProseLike('1 for block in page:')).toBe(false);
+    expect(isProseLike('for block in page:')).toBe(false);
+    expect(isProseLike('if is_equation(block):')).toBe(false);
+    expect(isProseLike('Section 2 describes the runtime:')).toBe(true);
   });
 
   it('does not call isolated identifiers a language switch', () => {

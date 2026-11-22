@@ -12,6 +12,7 @@ PP-OCRv6 と ONNX Runtime Web を使い、スキャンPDFと画像の文字認�
 - 画像の右クリックメニューから OCR→翻訳パネルを表示
 - 英語・日本語など14の UI ロケール、プライバシー、CWS レビュー資料を更新
 - 今回のレビューの 6 件のブロッカーを修正：日本語・短い英文の見出し誤判定と段落分割、短い左段本文のページ横断見出し誤判定、単語単位の非対称ガター分割、スキャン正解テキストの段組読み順、trim 前処理の座標逆変換、ベンチ推奨の出荷構成ラベル
+- 最新の DSH レビューの 6 件のブロッカーも修正：右列内の語間で切れる OCR ガター分割、実スキャン overflow の過小報告、コード行の散文誤判定、coverage sweep によるリトライ上限のバイパス、連鎖数式の末尾保護漏れ、レポートと生データの不一致
 
 ### OCR モデル
 
@@ -36,7 +37,7 @@ Node 24 / ONNX Runtime Web 1.31.1 WASM、生成 CC0 フィクスチャ8件、各
 
 再現: `pnpm bench:ocr`。詳細: `bench/results/ocr-benchmark.md`。
 
-実スキャン `bench/pdf/scan.pdf` p1 は、コミット済みの正解テキスト（`bench/pdf/scan-p1.gt.txt`）に対して `pnpm bench:pdf:scan:ocr` で測定します。旧ベンチの参照は印刷用 paper.pdf の行でスキャンレイアウトと不一致でした。修正後の出荷設定（2x / maxSide 1600, Standard）は CER 3.0% / WER 5.5%、cross-column 0、約 45 秒/ページです。詳細: `bench/results/scan-ocr/README.md`。組版品質ベンチは mixed language 0.0%（目標 ≤2%）、reading order 98.3%（目標 ≥98%）を維持しています。
+実スキャン `bench/pdf/scan.pdf` p1 は、コミット済みの正解テキスト（`bench/pdf/scan-p1.gt.txt`）に対して `pnpm bench:pdf:scan:ocr` で測定します。旧ベンチの参照は印刷用 paper.pdf の行でスキャンレイアウトと不一致でした。修正後の出荷設定（2x / maxSide 1600, Standard）は CER 3.0% / WER 5.5%、cross-column 0、約 41 秒/ページです。実スキャンの overflow は未描画のフィット失敗も数え、default-1600 で 6 件です。詳細: `bench/results/scan-ocr/README.md`。組版品質ベンチは mixed language 0.0%（目標 ≤2%）、reading order 98.3%（目標 ≥98%）を維持しています。
 
 ### 権限とプライバシー
 
@@ -48,7 +49,7 @@ Node 24 / ONNX Runtime Web 1.31.1 WASM、生成 CC0 フィクスチャ8件、各
 ### 検証
 
 - `pnpm lint`
-- `pnpm test` — 201 files, 2,588 passed, 1 optional smoke skipped
+- `pnpm test` — 201 files, 2,591 passed, 1 optional smoke skipped
 - `pnpm typecheck`
 - `pnpm format:check`
 - `pnpm exec wxt build`
@@ -67,6 +68,7 @@ This change adds on-device PP-OCRv6 recognition and translation for scanned PDFs
 - Adds an image context-menu action with an OCR source and translation panel
 - Updates all 14 UI locales, privacy documentation, review notes, and third-party notices
 - Fixes six review blockers: Japanese and short English body lines misread as headings, short left-column lines treated as spanning headings, word-level asymmetric-gutter splits, scan ground-truth column order, trim-preprocess coordinate mapping, and mislabeled shipped-default recommendations
+- Also fixes six blockers from the latest DSH review: an OCR gutter split landing inside the right column, under-reported real-scan overflow, a code listing counted as prose, a coverage sweep bypassing the retry cap, an unprotected tail of a chained formula, and report artifacts contradicting the committed data
 
 ### Benchmark and default
 
@@ -80,7 +82,7 @@ The default is latency-first; the high tier uses the same weights with a larger 
 
 The standard pairing was practical on every default-tier case: English scan, Japanese horizontal and vertical text, slides, low-resolution/skew, two columns, mixed Japanese/English, and small text. These generated-fixture results do not establish broad real-world superiority. English and Japanese OCR output also passed through a deterministic local translation stub as a plumbing sanity check, not as translation-quality evidence.
 
-Reproduce with `pnpm bench:ocr`; see `bench/results/ocr-benchmark.md`. The real scan bench keeps the shipped Standard row at CER 3.0% and cross-column 0; see `bench/results/scan-ocr/report.md`. The PDF quality bench keeps mixed-language at 0.0% (target ≤2%) and reading order at 98.3% (target ≥98%); see `bench/results/pdf-quality/final.md`.
+Reproduce with `pnpm bench:ocr`; see `bench/results/ocr-benchmark.md`. The real scan bench keeps the shipped Standard row at CER 3.0% and cross-column 0, with overflow counting unpainted fit failures (6 blocks); see `bench/results/scan-ocr/report.md`. The PDF quality bench keeps mixed-language at 0.0% (target ≤2%) and reading order at 98.3% (target ≥98%); see `bench/results/pdf-quality/final.md`.
 
 ### Permissions and privacy
 
@@ -89,7 +91,7 @@ Release `host_permissions` remains empty, with no new image-origin access. Canva
 ### Validation
 
 - `pnpm lint`
-- `pnpm test` — 201 files, 2,588 passed, 1 optional smoke skipped
+- `pnpm test` — 201 files, 2,591 passed, 1 optional smoke skipped
 - `pnpm typecheck`
 - `pnpm format:check`
 - `pnpm exec wxt build`

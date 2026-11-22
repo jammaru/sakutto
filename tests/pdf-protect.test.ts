@@ -281,6 +281,30 @@ describe('latest review notation blockers', () => {
   });
 });
 
+describe('latest DSH review blockers', () => {
+  it('B5: protects the full tail of a chained dimension expression', () => {
+    const cases = [
+      { source: 'A 3 × 3 × 3 kernel is used.', slot: '3 × 3 × 3' },
+      { source: 'A × B × C appears below.', slot: 'A × B × C' },
+      { source: 'A 4 × 4 × 4 matrix follows.', slot: '4 × 4 × 4' },
+    ];
+    for (const { source, slot } of cases) {
+      const lines = groupLines([piece(source, 49, 100, 430)]);
+      const block = layoutPage(lines).blocks[0];
+      if (!block) throw new Error('expected a block');
+      const protectedText = protectInlineMath(block);
+      expect(
+        protectedText.slots.map((entry) => entry.text),
+        source,
+      ).toContain(slot);
+      expect(protectedText.text, source).not.toMatch(/<i\d+>\s*×/u);
+      expectSourcePreserved(protectedText, source);
+      const tags = protectedText.slots.map((_slot, index) => '<i' + String(index) + '>').join('');
+      expect(restoreInlineMath('訳文 ' + tags + ' です。', protectedText.slots)).not.toBeNull();
+    }
+  });
+});
+
 describe('review 5 notation and typography', () => {
   it('B4: protects the whole dimension expression and keeps the sentence', () => {
     const source =

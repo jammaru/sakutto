@@ -1,6 +1,6 @@
 {
   "label": "final",
-  "generatedAt": "2026-11-22T22:51:14.092Z",
+  "generatedAt": "2026-11-22T23:43:00.198Z",
   "engine": "deterministic local fake",
   "pace": {
     "ttfbMs": 6,
@@ -28,7 +28,7 @@
         "readingOrderAccuracy": 0.9895833333333334,
         "twoColumnPages": 1,
         "firstTranslatedBlockMs": 6,
-        "fullDocumentMs": 234,
+        "fullDocumentMs": 233,
         "meanScale": 0.9846128195131897
       }
     },
@@ -36,17 +36,17 @@
       "pages": 1,
       "summary": {
         "pages": 1,
-        "proseBlocks": 24,
-        "skippedProseBlocks": 1,
-        "untranslatedProseRate": 0.041666666666666664,
+        "proseBlocks": 23,
+        "skippedProseBlocks": 0,
+        "untranslatedProseRate": 0,
         "mixedLanguageRate": 0,
         "garbledTokenRate": 0,
         "overlapRate": 0,
-        "overflowRate": 0.3333333333333333,
+        "overflowRate": 0.34782608695652173,
         "readingOrderAccuracy": 0.9545454545454546,
         "twoColumnPages": 1,
         "firstTranslatedBlockMs": 6,
-        "fullDocumentMs": 65,
+        "fullDocumentMs": 62,
         "meanScale": 0.9897651501593653
       }
     }
@@ -59,7 +59,7 @@
       {
         "variant": "baseline-1x",
         "pairing": "tiny_det+small_rec",
-        "ms": 31746.672190999998,
+        "ms": 26552.207807,
         "modelBytes": 22939968,
         "cer": 0.6801132342533617,
         "wer": 0.9458186101295641,
@@ -70,13 +70,13 @@
         "skipped": 12,
         "crossColumnCovers": 1,
         "overlapPairs": 0,
-        "overflow": 0,
+        "overflow": 20,
         "text": "Sakutto: On-Device Page Translation with a Small Instruction-Tuned Model\nJ. Ammaru\nand de etonon woro oftine once the weghos ar donadt The cot is ty and mmy a montome that a\nin is lot o a made who t a"
       },
       {
         "variant": "dpi200",
         "pairing": "tiny_det+small_rec",
-        "ms": 40161.085522999994,
+        "ms": 31832.798837000002,
         "modelBytes": 22939968,
         "cer": 0.2024062278839349,
         "wer": 0.375736160188457,
@@ -87,13 +87,13 @@
         "skipped": 5,
         "crossColumnCovers": 1,
         "overlapPairs": 0,
-        "overflow": 0,
+        "overflow": 17,
         "text": "Sakutto: On-Device Page Translation with a Small Instruction-Tuned Model\nJ. Ammara\nMachine nandation of web pages Is esally a cllent of a memote servtce. Tis puper descotbes Sakumo, a browser extenson"
       },
       {
         "variant": "shipped-baseline",
         "pairing": "tiny_det+small_rec",
-        "ms": 32556.006042999987,
+        "ms": 29085.709260000003,
         "modelBytes": 22939968,
         "cer": 0.11606510969568294,
         "wer": 0.16784452296819788,
@@ -104,13 +104,13 @@
         "skipped": 7,
         "crossColumnCovers": 9,
         "overlapPairs": 0,
-        "overflow": 0,
+        "overflow": 33,
         "text": "Sakutto: On-Device Page Translation with a Small Instruction-Tuned Model\nJ. Ammaru\nIndependent researcher\nsakutto@example.org\ntuned model into a browser tab costs and what it buys. The extension runs "
       },
       {
         "variant": "default-1600",
         "pairing": "tiny_det+small_rec",
-        "ms": 45401.231224,
+        "ms": 40624.217982,
         "modelBytes": 22939968,
         "cer": 0.030330603579011222,
         "wer": 0.05535924617196702,
@@ -121,13 +121,13 @@
         "skipped": 7,
         "crossColumnCovers": 0,
         "overlapPairs": 0,
-        "overflow": 0,
+        "overflow": 6,
         "text": "Sakutto: On-Device Page Translation with a Small Instruction-Tuned Model\nJ. Ammaru\nIndependent researcher\nsakutto@example.org\nMachine translation of web pages is usually a client of a remote service. "
       },
       {
         "variant": "dpi300",
         "pairing": "tiny_det+small_rec",
-        "ms": 50409.830577999994,
+        "ms": 42175.327258000005,
         "modelBytes": 22939968,
         "cer": 0.030330603579011222,
         "wer": 0.054770318021201414,
@@ -138,30 +138,30 @@
         "skipped": 3,
         "crossColumnCovers": 0,
         "overlapPairs": 0,
-        "overflow": 0,
+        "overflow": 3,
         "text": "Sakutto: On-Device Page Translation with a Small Instruction-Tuned Model\nJ. Ammaru\nIndependent researcher\nsakutto@example.org\nMachine translation of web pages is usually a client of a remote service. "
       },
       {
         "variant": "sauvola",
         "pairing": "tiny_det+small_rec",
-        "ms": 27276.832754000003,
+        "ms": 23603.631639999978,
         "modelBytes": 22939968,
         "cer": 0.8260034374684057,
         "wer": 0.9717314487632509,
         "order": 0.012345679012345678,
         "covered": 0.030035335689045935,
         "lines": 94,
-        "blocks": 33,
-        "skipped": 22,
+        "blocks": 34,
+        "skipped": 21,
         "crossColumnCovers": 7,
         "overlapPairs": 0,
-        "overflow": 0,
+        "overflow": 15,
         "text": "Sakuttw: Op-Device Page Translation with a Somall Instrution-Tuned Model\n1. Ammnaru\nMr t s\nt h Mh\n2\n1 iny wers\na w\n2\nR 1\nA自寸\nPl sh raee skman e Wo Lamkh raie -e lme\nM phe 西 1 main p alieca ae e kumkw "
       },
       {
         "variant": "dpi200+sauvola",
         "pairing": "tiny_det+small_rec",
-        "ms": 38405.610323,
+        "ms": 31481.142026999994,
         "modelBytes": 22939968,
         "cer": 0.6935598018400566,
         "wer": 0.9405182567726738,
@@ -172,13 +172,13 @@
         "skipped": 14,
         "crossColumnCovers": 3,
         "overlapPairs": 0,
-        "overflow": 0,
+        "overflow": 16,
         "text": "Sakutto: On-Device Page Translation with a Small Instruction-Tuned Model\n1. Amnurs\ndme in bront nt a rearet who is alnendy looking a de srm.\n2.1 Jume\nS\nanlasti 60 S\n2.2 Page wode?\n2 bystno Desigs\n3. F"
       },
       {
         "variant": "dpi200+gray",
         "pairing": "tiny_det+small_rec",
-        "ms": 39847.09912700002,
+        "ms": 31388.08096600001,
         "modelBytes": 22939968,
         "cer": 0.22282883429380246,
         "wer": 0.40577149587750294,
@@ -189,13 +189,13 @@
         "skipped": 5,
         "crossColumnCovers": 7,
         "overlapPairs": 0,
-        "overflow": 0,
+        "overflow": 27,
         "text": "Sakutto: On-Device Page Translation with a Small Instruction-Tuned Model\nJ. Ammara\nIndependent researcher\nMachine sanslaton of web pages Is essally a cient of a remote servtce. Tis puper desothes Saku"
       },
       {
         "variant": "gray+contrast",
         "pairing": "tiny_det+small_rec",
-        "ms": 41677.81602500001,
+        "ms": 31459.193165000004,
         "modelBytes": 22939968,
         "cer": 0.21211202102921847,
         "wer": 0.36866902237926974,
@@ -206,13 +206,13 @@
         "skipped": 9,
         "crossColumnCovers": 9,
         "overlapPairs": 0,
-        "overflow": 0,
+        "overflow": 24,
         "text": "Sakutto: On-Device Page Translation with a Small Instruction-Tuned Model\nJ. Ammaru\nIndependent researcher\nMachine tanslation of web pages Is esually a client of a remote service. This puper descotbes "
       },
       {
         "variant": "gray+contrast-1600",
         "pairing": "tiny_det+small_rec",
-        "ms": 50812.211970000004,
+        "ms": 38117.55427600001,
         "modelBytes": 22939968,
         "cer": 0.030128399555151147,
         "wer": 0.05418138987043581,
@@ -223,13 +223,13 @@
         "skipped": 4,
         "crossColumnCovers": 0,
         "overlapPairs": 0,
-        "overflow": 0,
+        "overflow": 6,
         "text": "Sakutto: On-Device Page Translation with a Small Instruction-Tuned Model\nJ. Ammaru\nIndependent researcher\nsakutto@example.org\nMachine translation of web pages is usually a client of a remote service. "
       },
       {
         "variant": "contrast",
         "pairing": "tiny_det+small_rec",
-        "ms": 46290.856034,
+        "ms": 31981.711712999968,
         "modelBytes": 22939968,
         "cer": 0.2083712465878071,
         "wer": 0.35983510011778563,
@@ -240,13 +240,13 @@
         "skipped": 9,
         "crossColumnCovers": 9,
         "overlapPairs": 0,
-        "overflow": 0,
+        "overflow": 25,
         "text": "Sakutto: On-Device Page Translation with a Small Instruction-Tuned Model\nJ. Ammaru\nIndependent researcher\nMachine tanslation of web pages Is esually a client of a remote service. This puper descothes "
       },
       {
         "variant": "otsu",
         "pairing": "tiny_det+small_rec",
-        "ms": 43118.53320899996,
+        "ms": 30465.62619800004,
         "modelBytes": 22939968,
         "cer": 0.6995248205439288,
         "wer": 0.9411071849234394,
@@ -257,30 +257,30 @@
         "skipped": 17,
         "crossColumnCovers": 6,
         "overlapPairs": 0,
-        "overflow": 0,
+        "overflow": 22,
         "text": "Sakutto: Oa-Device Page Translation with a Saall Instruction-Tuned Model\nJ. Anmuaru\nS Hィ\n2.2 Prage mode?\n4 fr\n3. IFalturt Mode\nblock gets a prirty fren ts distance io the riewport, ln kind, and is pos"
       },
       {
         "variant": "denoise",
         "pairing": "tiny_det+small_rec",
-        "ms": 41324.18912399997,
+        "ms": 28951.73380300001,
         "modelBytes": 22939968,
-        "cer": 0.727024567788899,
+        "cer": 0.726822363765039,
         "wer": 0.958186101295642,
-        "order": 0.037037037037037035,
+        "order": 0.0360082304526749,
         "covered": 0.05771495877502945,
-        "lines": 100,
-        "blocks": 27,
+        "lines": 101,
+        "blocks": 26,
         "skipped": 22,
-        "crossColumnCovers": 1,
+        "crossColumnCovers": 0,
         "overlapPairs": 0,
-        "overflow": 0,
-        "text": "Sakutte: On-Device Page Translation with a Small Instruction-Tuned Model\n1. Amemara\nt tu t sa\ndun s\ns\nMOvlhtm D 1\n4\ndes a elian\nO\ndn\nABSTD ACT\nMa meite dhe smian opeg mel oe de cmule cmn male anl pons"
+        "overflow": 7,
+        "text": "Sakutte: On-Device Page Translation with a Small Instruction-Tuned Model\n1. Amemara\nt tu t sa\ndun s\n4 s\nMOvlhtm D 1\n4\ndes a elian\nO\ndn\nABSTD ACT\nMa meite dhe smian opeg mel oe de cmule cmn male anl po"
       },
       {
         "variant": "trim",
         "pairing": "tiny_det+small_rec",
-        "ms": 39890.23522699997,
+        "ms": 30422.634230999975,
         "modelBytes": 22939968,
         "cer": 0.19937316752603376,
         "wer": 0.36808009422850413,
@@ -291,13 +291,13 @@
         "skipped": 5,
         "crossColumnCovers": 1,
         "overlapPairs": 0,
-        "overflow": 0,
+        "overflow": 17,
         "text": "Sakutto: On-Device Page Translation with a Small Instruction-Tuned Model\nJ. Ammaru\nIndependen researcher\nMachine nandation of web pages Is esally a cllent of a memote servtce. Tis puper descotbes Saku"
       },
       {
         "variant": "box-0.35",
         "pairing": "tiny_det+small_rec",
-        "ms": 39563.69736599992,
+        "ms": 33806.48824799998,
         "modelBytes": 22939968,
         "cer": 0.2024062278839349,
         "wer": 0.375736160188457,
@@ -308,13 +308,13 @@
         "skipped": 5,
         "crossColumnCovers": 1,
         "overlapPairs": 0,
-        "overflow": 0,
+        "overflow": 17,
         "text": "Sakutto: On-Device Page Translation with a Small Instruction-Tuned Model\nJ. Ammara\nMachine nandation of web pages Is esally a cllent of a memote servtce. Tis puper descotbes Sakumo, a browser extenson"
       },
       {
         "variant": "box-0.55",
         "pairing": "tiny_det+small_rec",
-        "ms": 38509.60869999998,
+        "ms": 35262.02747999999,
         "modelBytes": 22939968,
         "cer": 0.20220402386007483,
         "wer": 0.3751472320376914,
@@ -325,13 +325,13 @@
         "skipped": 6,
         "crossColumnCovers": 1,
         "overlapPairs": 0,
-        "overflow": 0,
+        "overflow": 16,
         "text": "Sakutto: On-Device Page Translation with a Small Instruction-Tuned Model\nJ. Ammara\nMachine nandation of web pages Is esally a cllent of a memote servtce. Tis puper descotbes Sakumo, a browser extenson"
       },
       {
         "variant": "unclip-1.8",
         "pairing": "tiny_det+small_rec",
-        "ms": 32084.046970000025,
+        "ms": 28783.120083000045,
         "modelBytes": 22939968,
         "cer": 0.36073197856637346,
         "wer": 0.5783274440518257,
@@ -342,24 +342,24 @@
         "skipped": 7,
         "crossColumnCovers": 2,
         "overlapPairs": 0,
-        "overflow": 0,
+        "overflow": 29,
         "text": "Sakutto: On-Device Page Translation with a Small Instruction-Tuned Model\nJ. Ammaru\nreader sarlls. On a fourcoe laptop with a docrete GPU the model raches 34.8 toks per second and finshes a 1,900-wood "
       }
     ]
   },
   "summary": {
     "pages": 5,
-    "proseBlocks": 80,
-    "skippedProseBlocks": 1,
-    "untranslatedProseRate": 0.0125,
+    "proseBlocks": 79,
+    "skippedProseBlocks": 0,
+    "untranslatedProseRate": 0,
     "mixedLanguageRate": 0,
-    "garbledTokenRate": 0.0003650967506389193,
+    "garbledTokenRate": 0.0003661662394727206,
     "overlapRate": 0,
-    "overflowRate": 0.09876543209876543,
+    "overflowRate": 0.1,
     "readingOrderAccuracy": 0.9825757575757577,
     "twoColumnPages": 2,
-    "firstTranslatedBlockMs": 342,
-    "fullDocumentMs": 1029,
+    "firstTranslatedBlockMs": 332,
+    "fullDocumentMs": 998,
     "meanScale": 0.9856862217311428
   },
   "pages": [
@@ -877,8 +877,8 @@
       "skippedProse": 0,
       "readingOrder": 0.9583333333333334,
       "twoColumn": true,
-      "firstBlockMs": 12,
-      "pageMs": 79
+      "firstBlockMs": 14,
+      "pageMs": 82
     },
     {
       "fixture": "arxiv",
@@ -1075,7 +1075,7 @@
       "readingOrder": 1,
       "twoColumn": false,
       "firstBlockMs": 6,
-      "pageMs": 39
+      "pageMs": 40
     },
     {
       "fixture": "arxiv",
@@ -1272,7 +1272,7 @@
       "readingOrder": 1,
       "twoColumn": false,
       "firstBlockMs": 7,
-      "pageMs": 26
+      "pageMs": 28
     },
     {
       "fixture": "arxiv",
@@ -1569,7 +1569,7 @@
       "readingOrder": 1,
       "twoColumn": false,
       "firstBlockMs": 8,
-      "pageMs": 90
+      "pageMs": 83
     },
     {
       "fixture": "scan",
@@ -1797,8 +1797,8 @@
           "scale": 0.9450000000000001
         },
         {
-          "source": "The cost is latency and memory: a transformer that a server would run on an accelerator has to fit in a tab, compete with the page for the GPU, and produce tokens one at a time in front of a reader who is already looking at the text. 1 This paper reports a working system rather than a new 2 model. Section 2 describes the runtime, Section 3 the schedul‐ 3 ing rules that decide what to translate first, and Section 4 the measurements. Section 5 discusses the failure modes we could not design away, and Section 6 lists the work that remains.",
-          "translation": "その語語である語語語そして語語:一つの語語語語その一つの語語語語語の上で一つの語語語語語へ語において一つの語,語語語ともにその語語のためにその語,そして語語語語語語語一つの語語において語語の一つの語語語である語語語語語語語その語語.₁この論文語語語一つの語語語システム語語語語一つの語²モデル.語語語2語語語その語語語,語語語3その語語語‐³語語語その語語語語へ語語語語語,そして語語語4その語語語語.語語語5語語語その語語語語語我々は語語語語語語語,そして語語語6語語その語語その語語語.",
+          "source": "The cost is latency and memory: a transformer that a server would run on an accelerator has to fit in a tab, compete with the page for the GPU, and produce tokens one at a time in front of a reader who is already looking at the text. 1 This paper reports a working system rather than a new model. Section 2 describes the runtime, Section 3 the scheduling rules that decide what to translate first, and Section 4 the measurements. Section 5 discusses the failure modes we could not design away, and Section 6 lists the work that remains.",
+          "translation": "その語語である語語語そして語語:一つの語語語語その一つの語語語語語の上で一つの語語語語語へ語において一つの語,語語語ともにその語語のためにその語,そして語語語語語語語一つの語語において語語の一つの語語語である語語語語語語語その語語.₁この論文語語語一つの語語語システム語語語語一つの語モデル.語語語2語語語その語語語,語語語3その語語語語語語その語語語語へ語語語語語,そして語語語4その語語語語.語語語5語語語その語語語語語我々は語語語語語語語,そして語語語6語語その語語その語語語.",
           "role": "prose",
           "box": {
             "x": 44.999998125,
@@ -2035,38 +2035,18 @@
           "mixedLanguage": false,
           "garbled": [],
           "scale": 1
-        },
-        {
-          "source": "for block in page:",
-          "translation": "",
-          "role": "code",
-          "box": {
-            "x": 329.51055611251155,
-            "y": 503.4944520947401,
-            "width": 86.32934884185016,
-            "height": 7.994813521206254
-          },
-          "painted": false,
-          "overflow": false,
-          "delivered": false,
-          "placeholders": 0,
-          "untranslated": true,
-          "prose": true,
-          "mixedLanguage": false,
-          "garbled": [],
-          "scale": 1
         }
       ],
       "overlapPairs": 0,
       "overflow": 8,
       "shrunk": 0,
-      "untranslatedProse": 1,
-      "proseBlocks": 24,
-      "skippedProse": 1,
+      "untranslatedProse": 0,
+      "proseBlocks": 23,
+      "skippedProse": 0,
       "readingOrder": 0.9545454545454546,
       "twoColumn": true,
       "firstBlockMs": 6,
-      "pageMs": 65
+      "pageMs": 62
     }
   ]
 }
