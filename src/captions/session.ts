@@ -23,6 +23,7 @@ import {
   type CaptionCue,
 } from './cues';
 import { parseVodJson3Timeline, type VodTimeline } from './vod-json3';
+import { VodPrefetchController } from './vod-prefetch';
 import {
   CAPTION_LIVE_PRIORITY,
   CAPTION_PLAYHEAD_PRIORITY,
@@ -198,6 +199,7 @@ export class VideoCaptionSession {
   private readonly readPlayerResponse: () => Promise<unknown>;
   private readonly now: () => number;
   private readonly timedtextGuard = new TimedtextFetchGuard();
+  private vodPrefetch: VodPrefetchController | null = null;
   private prefs: CaptionSessionPreferences;
   private running = false;
   private video: HTMLVideoElement | null = null;
@@ -425,6 +427,8 @@ export class VideoCaptionSession {
     this.restoreTracks();
     this.hideNativeCaptions(false);
     this.resetLiveCaptions();
+    this.vodPrefetch?.dispose();
+    this.vodPrefetch = null;
     this.translator.clear();
     this.clearHold();
     this.unbindVideo(this.video);
@@ -467,6 +471,7 @@ export class VideoCaptionSession {
     this.clearHold();
     this.activeCueId = '';
     const timeMs = this.playheadMs();
+    this.vodPrefetch?.seek(timeMs, this.video?.playbackRate ?? 1);
     // A jump before the held line (loop, ad, rewind) must not keep a future
     // translation. Do not showNative here: a seek must not flash native while
     // the new playhead cue is still translating.
@@ -489,6 +494,10 @@ export class VideoCaptionSession {
   };
 
   private readonly onRate = (): void => {
+    if (this.vodPrefetch) {
+      this.vodPrefetch.setPlaybackRate(this.video?.playbackRate ?? 1, this.playheadMs());
+      return;
+    }
     this.prefetchFromPlayhead();
   };
 
@@ -570,6 +579,8 @@ export class VideoCaptionSession {
     this.liveMode = false;
     this.timedtextGuard.reset();
     this.resetLiveCaptions();
+    this.vodPrefetch?.dispose();
+    this.vodPrefetch = null;
     this.translator.clear();
     this.clearHold();
     this.activeCueId = '';
@@ -840,7 +851,58 @@ export class VideoCaptionSession {
   }
 
   private finishLoadedTrack(loaded: LoadedTrack): void {
+    const resetVodPrefetch =
+      loaded.source === 'vod-json3' &&
+      (this.loaded?.key !== loaded.key || this.loaded.source !== 'vod-json3');
     this.loaded = loaded;
+    if (loaded.source === 'vod-json3' && resetVodPrefetch) {
+      this.vodPrefetch?.dispose();
+      const sourceCues = loaded.cues.map((cue) => ({ ...cue, text: this.originalForCue(cue) }));
+      this.vodPrefetch = new VodPrefetchController({
+        cues: sourceCues,
+        adapter: {
+          getCached: (text, options) => {
+            const cached = this.translator.getCached(text, options);
+            if (cached !== undefined) this.emitVodRequest('cache-hit', '', text, 'cache');
+            return cached;
+          },
+          translateCue: (cue, options, priority) => {
+            this.emitVodRequest('start', cue.id, cue.text, 'translate', priority);
+            return this.translator.translateCue(cue, options, priority).then((translated) => {
+              this.emitVodRequest(
+                'finish',
+                cue.id,
+                cue.text,
+                translated === null ? 'error' : 'complete',
+                priority,
+              );
+              return translated;
+            });
+          },
+          cancelText: (text, options) => {
+            this.emitVodRequest('abort', '', text, 'cancel');
+            this.translator.cancelText(text, options);
+          },
+        },
+        options: this.translateOptions(loaded.language),
+        timeMs: this.playheadMs(),
+        playbackRate: this.video?.playbackRate ?? 1,
+        onDebug: (event) => {
+          captionDebug('vod-prefetch', { ...event });
+          this.doc.dispatchEvent(
+            new CustomEvent('sakutto:vod-scheduler', {
+              detail: { ...event, mode: 'vod-json3', at: this.now() },
+            }),
+          );
+          if (event.type === 'complete' && this.running && this.loaded?.key === loaded.key) {
+            void this.paint(false);
+          }
+        },
+      });
+    } else if (loaded.source !== 'vod-json3') {
+      this.vodPrefetch?.dispose();
+      this.vodPrefetch = null;
+    }
     // Cues finally loaded: restart the empty-track poll budget in case the source empties again.
     if ((loaded.cues.length ?? 0) > 0) this.youtubeEmptyTrackAttempts = 0;
     this.passthroughNative = this.sourceMatchesTarget();
@@ -1015,17 +1077,59 @@ export class VideoCaptionSession {
     if (token === this.sourceToken && !this.holdActiveAt(timeMs)) this.showNative('no-cue');
   }
 
+  private originalForCue(cue: CaptionCue): string {
+    const stripped = stripTargetLanguageFromCaption(cue.text, this.prefs.targetLanguage);
+    return cleanCaptionSource(
+      stripped.length > 0 ? stripped : cue.text.trim(),
+      this.loaded?.asr === true,
+    );
+  }
+
+  private emitVodRequest(
+    action: 'start' | 'abort' | 'finish' | 'cache-hit',
+    cueId: string,
+    sourceText: string,
+    reason: string,
+    priority = 0,
+  ): void {
+    this.doc.dispatchEvent(
+      new CustomEvent('sakutto:caption-request', {
+        detail: {
+          action,
+          cueId,
+          sourceText,
+          generation: this.vodPrefetch?.getState().generation ?? 0,
+          priority,
+          mode: 'vod-json3',
+          reason,
+          at: this.now(),
+        },
+      }),
+    );
+  }
+
+  /** One options/context identity for VOD warming, cache lookup, and paint. */
+  private optionsForVodCue(cue: CaptionCue): CaptionTranslateOptions {
+    const options = this.translateOptions(cue.language ?? this.loaded?.language);
+    const cues = this.loaded?.cues ?? [];
+    const index = cues.findIndex((candidate) => candidate.id === cue.id);
+    const scheduled = this.vodPrefetch?.optionsForCue(index);
+    if (scheduled) return scheduled;
+    const previous = index > 0 ? cues[index - 1] : undefined;
+    const context = previous ? this.originalForCue(previous) : '';
+    return context ? { ...options, context } : options;
+  }
+
   private async paintCue(cue: CaptionCue, force: boolean): Promise<void> {
     if (this.passthroughNative) return;
     const token = this.sourceToken;
     const liveRevision = this.liveTailRevision;
     const language = cue.language ?? this.loaded?.language;
-    const options = this.translateOptions(language);
-    const stripped = stripTargetLanguageFromCaption(cue.text, this.prefs.targetLanguage);
-    const original = cleanCaptionSource(
-      stripped.length > 0 ? stripped : cue.text.trim(),
-      this.loaded?.asr === true,
-    );
+    const options =
+      this.loaded?.source === 'vod-json3'
+        ? this.optionsForVodCue(cue)
+        : this.translateOptions(language);
+    const original = this.originalForCue(cue);
     if (original.length === 0) {
       if (!this.holdActiveAt(this.playheadMs())) this.showNative('empty-source');
       return;
@@ -1038,7 +1142,7 @@ export class VideoCaptionSession {
     const cueChanged = this.activeCueId !== cue.id;
     if (cueChanged) {
       this.activeCueId = cue.id;
-      this.retainAroundPlayhead(original, options);
+      if (this.loaded?.source !== 'vod-json3') this.retainAroundPlayhead(original, options);
     }
 
     const cached = this.translator.getCached(original, options);
@@ -1625,6 +1729,10 @@ export class VideoCaptionSession {
    * the prefetch band, kept behind visible page prose and capped by the translator.
    */
   private scheduleAroundPlayhead(current: CaptionCue | null): void {
+    if (this.vodPrefetch) {
+      this.vodPrefetch.reconcile(this.playheadMs(), this.video?.playbackRate ?? 1);
+      return;
+    }
     const video = this.video;
     const cues = this.loaded?.cues ?? [];
     if (!video || cues.length === 0) return;
