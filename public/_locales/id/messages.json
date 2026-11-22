@@ -1141,6 +1141,9 @@
   "pdfCompare": {
     "message": "Bandingkan"
   },
+  "pdfBilingual": {
+    "message": "Dwibahasa"
+  },
   "pdfOriginalPane": {
     "message": "Asli"
   },

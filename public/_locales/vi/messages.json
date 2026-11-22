@@ -1141,6 +1141,9 @@
   "pdfCompare": {
     "message": "So sánh"
   },
+  "pdfBilingual": {
+    "message": "Song ngữ"
+  },
   "pdfOriginalPane": {
     "message": "Bản gốc"
   },

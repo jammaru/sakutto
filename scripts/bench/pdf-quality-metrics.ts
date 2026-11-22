@@ -103,11 +103,11 @@ export function garbledTokens(text: string): string[] {
   // A ligature or soft hyphen that survived extraction is a source-side defect.
   for (const match of text.match(/[\ufb00-\ufb06\u00ad]/gu) ?? []) push(match);
   // "l,rge", "e'sembles": punctuation or a quote inside a word.
-  for (const match of normalized.match(/\p{L}[,;:\u2019\u00b7]\p{L}{1,}/gu) ?? []) push(match);
+  for (const match of normalized.match(/[A-Za-z][,;:\u2019\u00b7][A-Za-z]{1,}/gu) ?? []) push(match);
   // A line-break hyphen that was not joined back to its word: "English- to-German".
   for (const match of normalized.match(/\p{L}-\s+\p{Ll}/gu) ?? []) push(match);
-  // Sub/superscript characters stranded beside ordinary letters: "N=6ⁱde", "R d model ×d k".
-  for (const match of normalized.match(/\p{L}[\u2070-\u209f\u1d43-\u1d49]|\p{L}\s+[∈×÷≈]\s+\p{L}/gu) ?? []) push(match);
+  // A base letter separated from its relation by spaces: "R d model × d k".
+  for (const match of normalized.match(/\p{L}\s+[∈×÷≈]\s+\p{L}/gu) ?? []) push(match);
   // Doubled punctuation from two adjacent runs that were joined without repair.
   for (const match of normalized.match(/[,.:;]{2,}/gu) ?? []) push(match);
   // A character the engine could not decode, or a protection tag that was not restored.

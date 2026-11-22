@@ -1141,6 +1141,9 @@
   "pdfCompare": {
     "message": "Vergleichen"
   },
+  "pdfBilingual": {
+    "message": "Zweisprachig"
+  },
   "pdfOriginalPane": {
     "message": "Original"
   },

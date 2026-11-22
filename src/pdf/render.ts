@@ -147,7 +147,8 @@ export const READER_STYLE = `
   height: 100%;
 }
 
-[data-compare="true"] .sakutto-page {
+[data-compare="true"] .sakutto-page,
+[data-bilingual="true"] .sakutto-page {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 12px;
@@ -156,7 +157,9 @@ export const READER_STYLE = `
 }
 
 [data-compare="true"] .sakutto-page__pane--original,
-[data-compare="true"] .sakutto-page__pane--translated {
+[data-compare="true"] .sakutto-page__pane--translated,
+[data-bilingual="true"] .sakutto-page__pane--original,
+[data-bilingual="true"] .sakutto-page__pane--translated {
   position: relative;
   inset: auto;
   display: flex;
@@ -165,11 +168,13 @@ export const READER_STYLE = `
   box-shadow: 0 1px 2px rgb(15 23 32 / 12%), 0 8px 24px rgb(15 23 32 / 10%);
 }
 
-[data-compare="true"] .sakutto-page__caption {
+[data-compare="true"] .sakutto-page__caption,
+[data-bilingual="true"] .sakutto-page__caption {
   display: block;
 }
 
-[data-compare="true"] .sakutto-page__stage {
+[data-compare="true"] .sakutto-page__stage,
+[data-bilingual="true"] .sakutto-page__stage {
   height: auto;
   flex: none;
 }
@@ -324,6 +329,70 @@ export const READER_STYLE = `
   display: grid;
 }
 
+
+/*
+ * Reflowed bilingual reading: the left pane keeps the page as drawn, the right pane reads as
+ * ordinary text with the source shown above each translated block. The two panes share the
+ * page row and therefore the same scroll, so no scroll synchronisation is needed.
+ */
+.sakutto-bilingual {
+  display: none;
+}
+
+[data-bilingual="true"] .sakutto-page {
+  aspect-ratio: auto !important;
+}
+
+[data-bilingual="true"] .sakutto-page__pane--original .sakutto-page__canvas {
+  height: auto;
+}
+
+[data-bilingual="true"] .sakutto-page__pane--translated .sakutto-page__canvas,
+[data-bilingual="true"] .sakutto-page__pane--translated .sakutto-page__layer,
+[data-bilingual="true"] .sakutto-page__pane--translated .sakutto-page__text,
+[data-bilingual="true"] .sakutto-page__pane--translated .sakutto-page__missing,
+[data-bilingual="true"] .sakutto-page__pane--translated .sakutto-page__render-failed {
+  display: none;
+}
+
+[data-bilingual="true"] .sakutto-bilingual {
+  display: block;
+  padding: 16px 18px;
+  font: 15px/1.7 "Hiragino Sans", "Noto Sans JP", "Segoe UI", system-ui, sans-serif;
+}
+
+.sakutto-bilingual__row {
+  margin: 0 0 18px;
+  padding: 0 0 14px;
+  border-bottom: 1px solid rgb(148 163 184 / 30%);
+}
+
+.sakutto-bilingual__row:last-child {
+  border-bottom: 0;
+}
+
+.sakutto-bilingual__source {
+  margin: 0 0 6px;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.sakutto-bilingual__translation {
+  margin: 0;
+  color: #1f2937;
+  overflow-wrap: anywhere;
+}
+
+.sakutto-bilingual__row[data-state="kept"] .sakutto-bilingual__translation {
+  color: #94a3b8;
+  font-style: italic;
+}
+
+.sakutto-bilingual__row[data-role="heading"] .sakutto-bilingual__translation {
+  font-weight: 700;
+}
+
 /*
  * Marker for a translation that did not fit in place. It sits on the source box so a reader
  * can open the full text without the page painting a cut sentence over the original.
@@ -331,19 +400,21 @@ export const READER_STYLE = `
 .sakutto-overflow {
   position: absolute;
   z-index: 5;
-  padding: 0;
-  border: 2px solid #ffffff;
-  border-radius: 999px;
-  background: #1d4ed8;
-  box-shadow: 0 1px 2px rgb(15 23 32 / 35%);
+  padding: 0 3px;
+  border: 1px solid rgb(100 116 139 / 55%);
+  border-radius: 6px;
+  background: rgb(255 255 255 / 88%);
+  color: #64748b;
+  font: 600 10px/1 system-ui, sans-serif;
   cursor: pointer;
 }
 .sakutto-overflow:hover,
 .sakutto-overflow[aria-expanded="true"] {
-  background: #1e40af;
+  border-color: #475569;
+  color: #334155;
 }
 .sakutto-overflow:focus-visible {
-  outline: 2px solid #1d4ed8;
+  outline: 2px solid #64748b;
   outline-offset: 2px;
 }
 `;

@@ -47,6 +47,7 @@
   let downloadBusy = $state(false);
   let downloadFailed = $state(false);
   let compare = $state(false);
+  let bilingual = $state(false);
   let retryTimer: ReturnType<typeof setTimeout> | null = null;
   /** The toolbar's own height, so the progress hairline sits directly under it. */
   let toolbarHeight = $state(41);
@@ -250,6 +251,7 @@
         overflowOpen: t('pdfOverflowOpen'),
         compareOriginal: t('pdfOriginalPane'),
         compareTranslated: t('pdfTranslatedPane'),
+        pdfBilingual: t('pdfBilingual'),
         ocrReading: (page, of) => t('pdfOcrReading', [String(page), String(of)]),
         ocrFailed: t('pdfOcrFailed'),
       },
@@ -271,6 +273,7 @@
       pageLimit,
     });
     if (compare) reader.setCompare(true);
+    if (bilingual) reader.setBilingual(true);
     reader.start();
     // The bench and the end-to-end tests read the reader through this hook, the way the page
     // session exposes `sakutto-perf`: it is the only way to see fitted sizes and source boxes
@@ -306,7 +309,14 @@
 
   function toggleCompare() {
     compare = !compare;
+    if (compare) bilingual = false;
     reader?.setCompare(compare);
+  }
+
+  function toggleBilingual() {
+    bilingual = !bilingual;
+    if (bilingual) compare = false;
+    reader?.setBilingual(bilingual);
   }
 
   /**
@@ -441,6 +451,15 @@
         >
           {t('pdfCompare')}
         </button>
+        <button
+          class="button secondary"
+          type="button"
+          aria-pressed={bilingual ? 'true' : 'false'}
+          onclick={toggleBilingual}
+        >
+          {t('pdfBilingual')}
+        </button>
+
       {/if}
       {#if selectionReady}
         <button

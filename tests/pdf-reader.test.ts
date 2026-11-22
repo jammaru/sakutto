@@ -21,6 +21,7 @@ const labels: ReaderLabels = {
   overflowOpen: 'Open',
   compareOriginal: 'Original',
   compareTranslated: 'Translated',
+  pdfBilingual: 'Bilingual',
   ocrReading: (page, of) => `OCR ${String(page)}/${String(of)}`,
   ocrFailed: 'OCR failed',
 };
@@ -936,6 +937,41 @@ describe('PdfReader viewport observer', () => {
     reader.setCompare(false);
     expect(original.width).toBe(0);
 
+    reader.destroy();
+  });
+
+  it('toggles a reflowed bilingual layout without breaking compare', () => {
+    vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver);
+    vi.stubGlobal('ResizeObserver', FakeResizeObserver);
+    stubCanvas();
+    const root = document.createElement('div');
+    Object.defineProperty(root, 'clientWidth', { configurable: true, get: () => 520 });
+    document.body.append(root);
+    const reader = new PdfReader(root, geometries(1), {
+      document: fakeDocument({ count: 0 }, 1),
+      engine: silentEngine,
+      labels,
+      targetLanguage: 'ja',
+      form: 'plain',
+      onProgress: () => undefined,
+    });
+    const host = pageHost(root, 0);
+    expect(host.querySelector('.sakutto-bilingual')).toBeInstanceOf(HTMLElement);
+    expect(root.dataset.bilingual).toBe('false');
+
+    reader.setBilingual(true);
+    expect(reader.isBilingual()).toBe(true);
+    expect(root.dataset.bilingual).toBe('true');
+    expect(host.querySelectorAll('.sakutto-page__pane')).toHaveLength(2);
+    expect([...host.querySelectorAll('.sakutto-page__caption')].map((node) => node.textContent)).toEqual(['Original', 'Translated']);
+
+    reader.setCompare(true);
+    expect(reader.isBilingual()).toBe(false);
+    expect(reader.isCompare()).toBe(true);
+    expect(root.dataset.bilingual).toBe('false');
+
+    reader.setBilingual(true);
+    expect(reader.isCompare()).toBe(false);
     reader.destroy();
   });
 });

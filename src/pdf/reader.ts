@@ -49,6 +49,8 @@ export interface ReaderLabels {
   compareOriginal: string;
   /** Caption on the translated pane in side-by-side compare. */
   compareTranslated: string;
+  /** Toolbar label for the reflowed two-language reading mode. */
+  pdfBilingual: string;
   /** OCR status on a page whose text layer is absent or negligible. */
   ocrReading: (page: number, of: number) => string;
   ocrFailed: string;
@@ -180,6 +182,7 @@ export class PdfReader {
   private scale = 1;
   private focus = 0;
   private compare = false;
+  private bilingual = false;
   private readonly emptyPages = new Set<number>();
   /** Blocks left in the page's own typesetting: equations and the text inside figures. */
   private readonly skippedBlocks = new Map<number, number>();
@@ -192,6 +195,7 @@ export class PdfReader {
   constructor(root: HTMLElement, geometries: readonly PageGeometry[], options: ReaderOptions) {
     this.root = root;
     this.root.dataset.compare = 'false';
+    this.root.dataset.bilingual = 'false';
     this.document = options.document;
     this.labels = options.labels;
     this.onProgress = options.onProgress;
@@ -265,6 +269,14 @@ export class PdfReader {
    */
   setCompare(on: boolean): void {
     if (this.compare === on) return;
+    if (on && this.bilingual) {
+      this.bilingual = false;
+      this.root.dataset.bilingual = 'false';
+      for (const element of this.pageElements.values()) {
+        element.bilingual.replaceChildren();
+        element.bilingualRows.clear();
+      }
+    }
     this.compare = on;
     this.root.dataset.compare = on ? 'true' : 'false';
     if (on) {
@@ -277,6 +289,68 @@ export class PdfReader {
     this.applyScale();
   }
 
+
+  /** True when the reader shows a reflowed translation beside the original page. */
+  isBilingual(): boolean {
+    return this.bilingual;
+  }
+
+  /**
+   * Shows the original on the left and the translation reflowed on the right.
+   *
+   * Unlike overlay mode, the translation is not fitted into the source boxes: it flows as
+   * paragraphs with the original above each one. Both panes belong to the same page row, so
+   * the window scrolls them together and the two languages stay aligned without a second
+   * scroll container to synchronise.
+   */
+  setBilingual(on: boolean): void {
+    if (this.bilingual === on) return;
+    if (on && this.compare) this.setCompare(false);
+    this.bilingual = on;
+    this.root.dataset.bilingual = on ? 'true' : 'false';
+    for (const element of this.pageElements.values()) {
+      copyOriginalCanvas(element, on);
+      if (!on) {
+        element.bilingual.replaceChildren();
+        element.bilingualRows.clear();
+      }
+    }
+    this.applyScale();
+  }
+
+  private paintBilingual(element: PageElement, states: readonly BlockState[]): void {
+    const live = new Set<BlockState>();
+    for (const state of states) {
+      const translation = state.translation.trim();
+      const source = state.block.text.trim();
+      if (translation.length === 0 && source.length === 0) continue;
+      live.add(state);
+      let row = element.bilingualRows.get(state);
+      if (!row) {
+        row = document.createElement('section');
+        row.className = 'sakutto-bilingual__row';
+        row.setAttribute('translate', 'no');
+        const original = document.createElement('p');
+        original.className = 'sakutto-bilingual__source';
+        const translated = document.createElement('p');
+        translated.className = 'sakutto-bilingual__translation';
+        row.append(original, translated);
+        element.bilingual.append(row);
+        element.bilingualRows.set(state, row);
+      }
+      const sourceNode = row.firstElementChild;
+      const translatedNode = row.lastElementChild;
+      if (sourceNode) sourceNode.textContent = source;
+      if (translatedNode) translatedNode.textContent = translation;
+      row.dataset.state = translation.length > 0 ? 'translated' : 'kept';
+      row.dataset.role = state.block.role;
+    }
+    for (const [state, row] of element.bilingualRows) {
+      if (live.has(state)) continue;
+      row.remove();
+      element.bilingualRows.delete(state);
+    }
+  }
   /**
    * Translates whatever the reader has selected, and shows the result beside it.
    *
@@ -514,7 +588,10 @@ export class PdfReader {
       note.className = 'sakutto-select sakutto-note';
       note.hidden = true;
 
-      translatedStage.append(canvas, layer, text, missing, broken, popover, note);
+      const bilingual = document.createElement('div');
+      bilingual.className = 'sakutto-bilingual';
+
+      translatedStage.append(canvas, layer, text, bilingual, missing, broken, popover, note);
       translatedPane.append(translatedCaption, translatedStage);
       host.append(originalPane, translatedPane);
       this.root.append(host);
@@ -528,6 +605,8 @@ export class PdfReader {
         canvas,
         text,
         layer,
+        bilingual,
+        bilingualRows: new Map<BlockState, HTMLElement>(),
         missing,
         popover,
         note,
@@ -541,8 +620,9 @@ export class PdfReader {
 
   /** Scale that makes the widest page fill the reader, capped so a wide window does not blur. */
   private fitScale(): number {
-    const gap = this.compare ? 12 : 0;
-    const columns = this.compare ? 2 : 1;
+    const twoColumns = this.compare || this.bilingual;
+    const gap = twoColumns ? 12 : 0;
+    const columns = twoColumns ? 2 : 1;
     const width = (this.root.clientWidth - 36 - gap) / columns;
     const widest = Math.max(...this.geometries.map((geometry) => geometry.width), 1);
     // 1.6× is about 115 dpi on an A4 page: legible at a normal reading distance without
@@ -898,6 +978,7 @@ export class PdfReader {
         node.remove();
         element.markers.delete(key);
       }
+      if (this.bilingual) this.paintBilingual(element, states);
     }
     this.runCoverageSweep();
     this.report();
@@ -1001,6 +1082,7 @@ export class PdfReader {
       button.type = 'button';
       button.className = 'sakutto-overflow';
       button.setAttribute('aria-label', this.labels.overflowOpen);
+      button.textContent = '↗';
       button.addEventListener('click', (event) => {
         event.preventDefault();
         event.stopPropagation();
@@ -1013,7 +1095,9 @@ export class PdfReader {
 
     const scale = this.scale;
     const box = state.block.box;
-    const size = Math.max(12, Math.min(16, Math.max(box.height * scale * 0.4, 12)));
+    // A small neutral chip, not a bright dot: overflow is common on a dense scan and a row of
+    // blue circles used to read as annotations the extension had added to the paper.
+    const size = 14;
     node.style.left = `${((box.x + box.width) * scale - size / 2).toFixed(2)}px`;
     node.style.top = `${(box.y * scale - size / 2).toFixed(2)}px`;
     node.style.width = `${size.toFixed(2)}px`;
@@ -1190,6 +1274,9 @@ interface PageElement {
   /** Transparent glyphs a reader can select; the visible text is a canvas or a cover. */
   text: HTMLElement;
   layer: HTMLElement;
+  /** Reflowed source/translation pairs, used only in bilingual mode. */
+  bilingual: HTMLElement;
+  bilingualRows: Map<BlockState, HTMLElement>;
   missing: HTMLElement;
   /** The box a selection's translation is shown in. */
   popover: HTMLElement;

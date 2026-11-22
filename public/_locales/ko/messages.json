@@ -1141,6 +1141,9 @@
   "pdfCompare": {
     "message": "나란히 비교"
   },
+  "pdfBilingual": {
+    "message": "이중 언어 표시"
+  },
   "pdfOriginalPane": {
     "message": "원문"
   },

@@ -4,7 +4,7 @@ import type { ImageDataLike, OcrQuad, OcrRegion, OcrResult, ReadingLine } from '
 import { isImageOnlyPage, type ExtractedPage } from './extract';
 import type { FigureAreas } from './figures';
 import { median, type Box } from './geometry';
-import { layoutPage, type LayoutBlock, type PageLayout } from './layout';
+import { layoutPage, looksLikeCodeLine, type AnyBlockRole, type LayoutBlock, type PageLayout } from './layout';
 import { bodyFontSize, lineFrom, type TextLine, type TextPiece } from './lines';
 import { hasSourceProse } from './prose-detect';
 
@@ -230,29 +230,159 @@ export function ocrResultToTextLines(
 }
 
 /**
- * Makes one translation block per OCR reading line.
- *
- * This deliberately does not call layoutPage: its rotated-text rule is for PDF margin stamps,
- * whereas an OCR vertical column is body text. Keeping orientation=90 gives joinPieces the
- * correct no-space Japanese behaviour while these explicit blocks retain writing=90.
+ * Extra shape the reader needs to keep OCR columns and figure areas apart.
  */
-export function ocrLinesToLayoutBlocks(lines: readonly OcrTextLine[]): OcrLayoutBlock[] {
-  return lines.map((line, column) => {
-    const vertical = line.pieces.length > 0 && line.pieces.every((piece) => piece.displayed === 90);
+export interface OcrPageStructure extends OcrPageLayout {
+  /** Reading columns detected from line geometry, left to right. */
+  columns: readonly { index: number; minX: number; maxX: number }[];
+}
+
+interface OcrBlockGroup {
+  lines: OcrTextLine[];
+  role: AnyBlockRole;
+  column: number;
+}
+
+function verticalLine(line: OcrTextLine): boolean {
+  return line.pieces.length > 0 && line.pieces.every((piece) => piece.displayed === 90);
+}
+
+/** Geometric column of a line. Full-width lines get a group of their own. */
+function lineColumn(line: OcrTextLine, pageWidth: number): number {
+  if (pageWidth <= 0) return 0;
+  const mid = line.box.x + line.box.width / 2;
+  if (line.box.width > pageWidth * 0.6) return -1;
+  return mid < pageWidth / 2 ? 0 : 1;
+}
+
+const CAPTION_LINE = /^(?:Fig(?:ure)?|Tab(?:le)?|Alg(?:orithm)?)\.?\s*\d/iu;
+const SECTION_LINE = /^\d+(?:\.\d+)*\.?\s+\p{Lu}/u;
+
+function groupText(lines: readonly OcrTextLine[]): string {
+  const vertical = lines.length > 0 && lines.every(verticalLine);
+  return lines
+    .map((line) => line.text.trim())
+    .filter(Boolean)
+    .join(vertical ? '' : ' ')
+    .replace(/\s+/gu, ' ')
+    .trim();
+}
+
+function groupRole(group: readonly OcrTextLine[], bodySize: number): AnyBlockRole {
+  const text = groupText(group);
+  if (CAPTION_LINE.test(text)) return 'caption';
+  if (group.some((line) => looksLikeCodeLine(line.text))) return 'code';
+  if (/^[^\p{L}]*\d+[^\p{L}]*$/u.test(text)) return 'label';
+  const first = group[0];
+  if (
+    group.length === 1 &&
+    text.length <= 80 &&
+    (SECTION_LINE.test(text) || (bodySize > 0 && (first?.height ?? 0) >= bodySize * 1.15))
+  ) {
+    return 'heading';
+  }
+  return hasSourceProse(text) ? 'prose' : 'label';
+}
+
+function groupBlocks(
+  lines: readonly OcrTextLine[],
+  pageWidth: number,
+  bodySize: number,
+): OcrBlockGroup[] {
+  const groups: OcrBlockGroup[] = [];
+  for (const line of lines) {
+    const last = groups.at(-1);
+    const previous = last?.lines.at(-1);
+    const vertical = verticalLine(line);
+    const gap =
+      previous && !vertical && !verticalLine(previous)
+        ? line.box.y - (previous.box.y + previous.box.height)
+        : Number.POSITIVE_INFINITY;
+    const sizeStep =
+      previous && Math.abs(line.height - previous.height) > Math.max(2, previous.height * 0.18);
+    const startsNew =
+      !last ||
+      last.role === 'caption' ||
+      last.role === 'heading' ||
+      previous === undefined ||
+      vertical !== verticalLine(previous) ||
+      lineColumn(line, pageWidth) !== last.column ||
+      sizeStep ||
+      gap > Math.max(4, previous.height * 1.7) ||
+      /[.!?。]$/u.test(previous.text.trimEnd()) ||
+      CAPTION_LINE.test(line.text) ||
+      SECTION_LINE.test(line.text) ||
+      looksLikeCodeLine(line.text) ||
+      looksLikeCodeLine(previous.text);
+    if (startsNew) {
+      groups.push({
+        lines: [line],
+        role: groupRole([line], bodySize),
+        column: lineColumn(line, pageWidth),
+      });
+      continue;
+    }
+    last.lines.push(line);
+    last.role = groupRole(last.lines, bodySize);
+  }
+  return groups;
+}
+
+/**
+ * Groups OCR reading lines into paragraphs, in the order the detector already established.
+ *
+ * One block per line made every translation fight for a box one line tall: long Japanese text
+ * shrank below legibility or opened a marker, and neighbouring covers collided. Grouping by
+ * column, vertical gap and sentence boundary keeps a paragraph together and gives its cover a
+ * whole paragraph of source area to paint over.
+ */
+export function ocrLinesToLayoutBlocks(
+  lines: readonly OcrTextLine[],
+  options: { pageWidth?: number; pageHeight?: number } = {},
+): OcrLayoutBlock[] {
+  const bodySize = bodyFontSize(lines);
+  return groupBlocks(lines, options.pageWidth ?? 0, bodySize).map((group, index) => {
+    const first = group.lines[0];
+    if (!first) throw new Error('an OCR block has no lines');
+    const vertical = group.lines.every(verticalLine);
+    let left = Infinity;
+    let top = Infinity;
+    let right = -Infinity;
+    let bottom = -Infinity;
+    for (const line of group.lines) {
+      left = Math.min(left, line.box.x);
+      top = Math.min(top, line.box.y);
+      right = Math.max(right, line.box.x + line.box.width);
+      bottom = Math.max(bottom, line.box.y + line.box.height);
+    }
+    const box: Box = {
+      x: left,
+      y: top,
+      width: Math.max(1, right - left),
+      height: Math.max(1, bottom - top),
+    };
+    const baselines = group.lines.map((line) => line.baseline).sort((a, b) => a - b);
+    const leading = baselines.length > 1 ? (baselines[1] ?? 0) - (baselines[0] ?? 0) : 0;
+    const fontSize = median(group.lines.map((line) => line.height));
     return {
-      id: `${line.id}:block`,
-      box: { ...line.box },
-      room: { ...line.box },
-      lines: [line],
-      text: line.text,
-      role: hasSourceProse(line.text) ? 'prose' : 'label',
-      fontSize: line.height,
-      lineHeight: 1.35,
+      id: first.id + ':block' + (index === 0 ? '' : '-' + String(index)),
+      box,
+      room: { ...box },
+      lines: group.lines,
+      text: groupText(group.lines),
+      role: group.role,
+      fontSize,
+      lineHeight:
+        leading > 0 ? Math.min(2.2, Math.max(1.05, leading / Math.max(1, fontSize))) : 1.35,
       align: 'left',
-      bold: line.pieces.length > 0 && line.pieces.every((piece) => piece.bold),
-      italic: line.pieces.length > 0 && line.pieces.every((piece) => piece.italic),
-      column,
-      advance: vertical ? line.box.height : line.box.width,
+      bold: group.lines.every(
+        (line) => line.pieces.length > 0 && line.pieces.every((piece) => piece.bold),
+      ),
+      italic: group.lines.every(
+        (line) => line.pieces.length > 0 && line.pieces.every((piece) => piece.italic),
+      ),
+      column: Math.max(0, group.column),
+      advance: vertical ? box.height : box.width,
       writing: vertical ? 90 : 0,
     };
   });
@@ -262,23 +392,51 @@ export function ocrResultToLayoutBlocks(
   result: OcrResult,
   options: OcrConversionOptions,
 ): OcrLayoutBlock[] {
-  return ocrLinesToLayoutBlocks(ocrResultToTextLines(result, options));
+  return ocrLinesToLayoutBlocks(ocrResultToTextLines(result, options), options);
 }
 
 function layoutFromLines(
   lines: readonly OcrTextLine[],
   options: OcrConversionOptions,
-): OcrPageLayout {
+): OcrPageStructure {
+  const blocks = ocrLinesToLayoutBlocks(lines, options);
+  const bodySize = bodyFontSize(lines);
+  // Code, numeric labels and small text attached to a figure caption are not prose. Keeping
+  // them in the skipped list leaves the scan's own drawing visible at those spots.
+  const skipped = blocks.filter(
+    (block) => block.role === 'code' || block.role === 'label' || block.role === 'furniture',
+  );
+  const captions = blocks.filter((block) => block.role === 'caption');
+  const figureLabels = blocks.filter(
+    (block) =>
+      !skipped.includes(block) &&
+      bodySize > 0 &&
+      block.fontSize < bodySize * 0.75 &&
+      captions.some((caption) => Math.abs(block.box.y - caption.box.y) < 160),
+  );
+  const withheld = [...skipped, ...figureLabels];
+  const kept = blocks.filter((block) => !withheld.includes(block));
+  const columns = [...new Set(kept.map((block) => block.column))].sort((a, b) => a - b);
   return {
-    blocks: ocrLinesToLayoutBlocks(lines),
-    bodySize: bodyFontSize(lines),
+    blocks: kept,
+    bodySize,
     lineHeight: lines.length > 0 ? median(lines.map((line) => line.height)) : 0,
-    skipped: [],
+    skipped: withheld,
     pageHeight: options.pageHeight,
     pageWidth: options.pageWidth,
     pageIndex: options.pageIndex,
-    // A scanned page's bitmap is the background being translated, not a layout obstacle.
-    obstacles: [],
+    // Caption-adjacent small type sits inside the figure; give it to the fitter as a wall so a
+    // neighbouring paragraph cannot wrap across the drawing.
+    obstacles: figureLabels.map((block) => ({ ...block.box })),
+    columns: columns.map((index) => ({
+      index,
+      minX: Math.min(...kept.filter((block) => block.column === index).map((block) => block.box.x)),
+      maxX: Math.max(
+        ...kept
+          .filter((block) => block.column === index)
+          .map((block) => block.box.x + block.box.width),
+      ),
+    })),
   };
 }
 

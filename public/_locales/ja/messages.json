@@ -1145,6 +1145,9 @@
   "pdfCompare": {
     "message": "並べて比較"
   },
+  "pdfBilingual": {
+    "message": "二言語表示"
+  },
   "pdfOriginalPane": {
     "message": "原本"
   },

@@ -1141,6 +1141,9 @@
   "pdfCompare": {
     "message": "并排比较"
   },
+  "pdfBilingual": {
+    "message": "双语显示"
+  },
   "pdfOriginalPane": {
     "message": "原文"
   },
