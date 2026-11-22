@@ -1134,6 +1134,16 @@ export class PdfReader {
       node = button;
     }
 
+    // A block can change from overflow to failed (or back) on a later translation pass.
+    // Keep the existing marker's glyph, state and accessible label in sync with that state.
+    const failed = state.state === 'failed';
+    const dataState = failed ? 'failed' : 'overflow';
+    if (node.dataset.state !== dataState) {
+      node.dataset.state = dataState;
+      node.textContent = failed ? '!' : '↗';
+      node.setAttribute('aria-label', failed ? this.labels.failed : this.labels.overflowOpen);
+    }
+
     const scale = this.scale;
     const box = state.block.box;
     // A small neutral chip, not a bright dot: overflow is common on a dense scan and a row of

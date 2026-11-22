@@ -61,9 +61,27 @@ const DIMENSION_CHAIN = new RegExp(
 const PROSE_LEAD =
   /^(?:(?:Let|For|If|When|Where|Then|While|With|Each|Given|The|This|That|These|Those|We|It|And|But|Are|Was|Were|Has|Have|Can|May|Use|Using|From|Into|Over|Under|After|Before|By|In|On|At|To|Of|As)\s+|(?:A|a)\s+(?=\p{N}))/u;
 
+/**
+ * Prose words that look like dimension names to DIMENSION_CHAIN.
+ *
+ * "Q ∈ R in this paper" is notation followed by a preposition, not part of the formula.
+ * A real dimension chain continues with a multiplication ("Q ∈ R d model × d k"), which is
+ * the only case where these short words belong inside the protected slot.
+ */
+const TRAILING_PROSE_DIMENSION = /(?:\s+(?:model|hd|out|in|dim|size))+$/iu;
+
+function trimProseDimensionSuffix(match: string): string {
+  if (/[×÷]/u.test(match)) return match;
+  return match.replace(TRAILING_PROSE_DIMENSION, '');
+}
+
 function protectSpan(match: string, slots: ProtectedSlot[]): string {
   {
-    let value = match.trim();
+    const raw = match.trim();
+    const trimmed = trimProseDimensionSuffix(raw);
+    // The trimmed preposition stays in the prompt outside the placeholder.
+    const tail = raw.slice(trimmed.length);
+    let value = trimmed;
     let lead = '';
     for (;;) {
       const prose = PROSE_LEAD.exec(value);
@@ -71,10 +89,10 @@ function protectSpan(match: string, slots: ProtectedSlot[]): string {
       lead += prose[0];
       value = value.slice(prose[0].length);
     }
-    if (value.length < 4) return match;
+    if (value.length < 4) return raw;
     const index = slots.length;
     slots.push({ text: value, script: 'none' });
-    return lead + PLACEHOLDER(index);
+    return lead + PLACEHOLDER(index) + tail;
   }
 }
 

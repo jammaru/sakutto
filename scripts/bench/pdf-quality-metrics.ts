@@ -183,7 +183,7 @@ export function isProseLike(text: string): boolean {
       /\b(?:the|and|of|is|are|we|this|that|these|those|which|with|for|from|by|as|in|on|to|it|its|be|was|were|has|have|can|then|when|where|section|figure|table|describes|shows|proposes|reports|uses|used)\b/giu,
     ) ?? [];
   if (functionWords.length < 2) return false;
-  return functionWords.length >= 2 || (functionWords.length >= 1 && codeMarkers === 0);
+  return true;
 }
 
 /** Role-based fallback keeps previously recorded reports comparable. */

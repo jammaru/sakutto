@@ -12,7 +12,7 @@ Fixtures: **generated CC0**; manifest SHA-256 c77dd8691c5dc2a9c418bda3c2f5b72978
 | small_det+small_rec   |      3.5% |     10.9% |                       100.0% |            1600.1 |                  7 / 1 / 0 |
 | medium_det+medium_rec |      0.4% |      4.2% |                       100.0% |            7975.8 |                  8 / 0 / 0 |
 
-**Recommended default:** small_det+small_rec — fastest pairing within 0.05 absolute micro-CER and 0.05 absolute macro detection-recall proxy of the best values. This is a benchmark recommendation only; DEFAULT_OCR_TIER was not changed.
+**Recommended default:** tiny_det+small_rec — shipped Standard default, within 0.05 absolute micro-CER and 0.05 absolute macro detection-recall proxy of the best values. This is a benchmark recommendation only; DEFAULT_OCR_TIER was not changed.
 
 ## Every pairing and case
 

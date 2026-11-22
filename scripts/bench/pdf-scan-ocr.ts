@@ -90,24 +90,21 @@ function alignToReference(reference: readonly string[], hypothesis: readonly str
   const pool = reference.map((text, index) => ({ index, words: words(text), used: false }));
   const scored = hypothesis.map((text, index) => {
     const source = words(text);
-    let best: (typeof pool)[number] | null = null;
-    let bestScore = 0;
-    for (const candidate of pool) {
-      if (candidate.used) continue;
+    const ranked = pool.map((candidate) => {
       let shared = 0;
       for (const word of source) if (candidate.words.has(word)) shared += 1;
-      const score = shared / Math.max(1, source.size, candidate.words.size);
-      if (score > bestScore) {
-        best = candidate;
-        bestScore = score;
-      }
-    }
-    return { index, text, best, bestScore, rank: reference.length + index };
+      return { candidate, score: shared / Math.max(1, source.size, candidate.words.size) };
+    });
+    return { index, text, ranked, rank: reference.length + index };
   });
-  for (const item of [...scored].sort((left, right) => right.bestScore - left.bestScore)) {
-    if (item.best && item.bestScore >= 0.3 && !item.best.used) {
-      item.best.used = true;
-      item.rank = item.best.index;
+  // Greedy one-to-one assignment: if the best reference line is already taken, fall through
+  // to the next-best unused line instead of leaving this hypothesis unmatched.
+  const pairs = scored.flatMap((item) => item.ranked.map((ranked) => ({ item, ...ranked })));
+  for (const pair of pairs.sort((left, right) => right.score - left.score)) {
+    if (pair.item.rank !== reference.length + pair.item.index) continue;
+    if (pair.score >= 0.3 && !pair.candidate.used) {
+      pair.candidate.used = true;
+      pair.item.rank = pair.candidate.index;
     }
   }
   return [...scored].sort((left, right) => left.rank - right.rank).map((item) => item.text);

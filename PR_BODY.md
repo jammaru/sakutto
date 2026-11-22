@@ -11,6 +11,7 @@ PP-OCRv6 と ONNX Runtime Web を使い、スキャンPDFと画像の文字認�
 - テキスト層のないPDFページと、ネイティブ文字で覆われていないラスタ部分を遅延 OCR し、段組・縦書き・読み順・組版を保持
 - 画像の右クリックメニューから OCR→翻訳パネルを表示
 - 英語・日本語など14の UI ロケール、プライバシー、CWS レビュー資料を更新
+- 最新レビューの 6 件のブロッカーを修正：非対称ガターの 2 段分割、10pt ガターのカバー計測、左寄せ `References` の読み順、中央 1 段组の行順、予約語で始まる散文の誤スキップ、数式後の前置詞の誤保護
 
 ### OCR モデル
 
@@ -35,7 +36,7 @@ Node 24 / ONNX Runtime Web 1.31.1 WASM、生成 CC0 フィクスチャ8件、各
 
 再現: `pnpm bench:ocr`。詳細: `bench/results/ocr-benchmark.md`。
 
-実スキャン `bench/pdf/scan.pdf` p1 は、コミット済みの正解テキスト（`bench/pdf/scan-p1.gt.txt`）に対して `pnpm bench:pdf:scan:ocr` で測定します。旧ベンチの参照は印刷用 paper.pdf の行でスキャンレイアウトと不一致でした。修正後の出荷設定（2x / maxSide 1600, Standard）は CER 3.0% / WER 5.5%、cross-column 0、約 34 秒/ページです。詳細: `bench/results/scan-ocr/README.md`。
+実スキャン `bench/pdf/scan.pdf` p1 は、コミット済みの正解テキスト（`bench/pdf/scan-p1.gt.txt`）に対して `pnpm bench:pdf:scan:ocr` で測定します。旧ベンチの参照は印刷用 paper.pdf の行でスキャンレイアウトと不一致でした。修正後の出荷設定（2x / maxSide 1600, Standard）は CER 3.0% / WER 5.5%、cross-column 0、約 39 秒/ページです。詳細: `bench/results/scan-ocr/README.md`。組版品質ベンチは mixed language 0.0%（目標 ≤2%）、reading order 98.3%（目標 ≥98%）を維持しています。
 
 ### 権限とプライバシー
 
@@ -47,7 +48,7 @@ Node 24 / ONNX Runtime Web 1.31.1 WASM、生成 CC0 フィクスチャ8件、各
 ### 検証
 
 - `pnpm lint`
-- `pnpm test` — 196 files, 2,435 passed, 1 optional smoke skipped
+- `pnpm test` — 201 files, 2,584 passed, 1 optional smoke skipped
 - `pnpm typecheck`
 - `pnpm format:check`
 - `pnpm exec wxt build`
@@ -65,6 +66,7 @@ This change adds on-device PP-OCRv6 recognition and translation for scanned PDFs
 - Runs lazy OCR on image-only PDF pages and on pages whose raster content is not covered by a usable text layer, preserving columns, vertical Japanese, reading order, and fitted layout
 - Adds an image context-menu action with an OCR source and translation panel
 - Updates all 14 UI locales, privacy documentation, review notes, and third-party notices
+- Fixes six follow-up review blockers: asymmetric two-column gutters, 10pt gutter cross-column detection, left-aligned `References` ordering, centred single-column reading order, keyword-initial prose mistaken for code, and prepositions swallowed by notation protection
 
 ### Benchmark and default
 
@@ -78,7 +80,7 @@ The default is latency-first; the high tier uses the same weights with a larger 
 
 The standard pairing was practical on every default-tier case: English scan, Japanese horizontal and vertical text, slides, low-resolution/skew, two columns, mixed Japanese/English, and small text. These generated-fixture results do not establish broad real-world superiority. English and Japanese OCR output also passed through a deterministic local translation stub as a plumbing sanity check, not as translation-quality evidence.
 
-Reproduce with `pnpm bench:ocr`; see `bench/results/ocr-benchmark.md`.
+Reproduce with `pnpm bench:ocr`; see `bench/results/ocr-benchmark.md`. The PDF quality bench keeps mixed-language at 0.0% (target ≤2%) and reading order at 98.3% (target ≥98%); see `bench/results/pdf-quality/final.md`.
 
 ### Permissions and privacy
 
@@ -87,7 +89,7 @@ Release `host_permissions` remains empty, with no new image-origin access. Canva
 ### Validation
 
 - `pnpm lint`
-- `pnpm test` — 196 files, 2,435 passed, 1 optional smoke skipped
+- `pnpm test` — 201 files, 2,584 passed, 1 optional smoke skipped
 - `pnpm typecheck`
 - `pnpm format:check`
 - `pnpm exec wxt build`

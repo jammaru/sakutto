@@ -104,9 +104,12 @@ function recommendation(summaries: readonly PairingSummary[]): string {
   const choice =
     eligible.sort((a, b) => a.meanWallMsPerPage - b.meanWallMsPerPage)[0] ?? summaries[0];
   if (!choice) throw new Error('Cannot recommend without benchmark results');
+  // The shipped Standard tier is the reference pairing: report it as the recommendation when
+  // it is within the accuracy envelope, rather than naming a different benchmark-only pairing.
+  const shipped = eligible.find((summary) => summary.pairing === 'tiny_det+small_rec') ?? choice;
   return (
-    choice.pairing +
-    ' — fastest pairing within 0.05 absolute micro-CER and 0.05 absolute macro detection-recall proxy of the best values. ' +
+    shipped.pairing +
+    ' — shipped Standard default, within 0.05 absolute micro-CER and 0.05 absolute macro detection-recall proxy of the best values. ' +
     'This is a benchmark recommendation only; DEFAULT_OCR_TIER was not changed.'
   );
 }

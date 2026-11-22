@@ -30,15 +30,15 @@ captured from and orders title, abstract, left body column, right body column an
 
 | approach           | pairing            |   CER |   WER | cross-column | ms/page | model bytes | coverage |
 | ------------------ | ------------------ | ----: | ----: | -----------: | ------: | ----------: | -------: |
-| baseline-1x        | tiny_det+small_rec | 68.5% | 94.3% |            2 |  23.7 s |    21.9 MiB |    0.109 |
-| shipped-baseline   | tiny_det+small_rec | 11.6% | 16.8% |            1 |  26.7 s |    21.9 MiB |    0.885 |
-| default-1600       | tiny_det+small_rec |  3.0% |  5.5% |            0 |  33.9 s |    21.9 MiB |    0.963 |
-| gray+contrast-1600 | tiny_det+small_rec |  3.0% |  5.4% |            0 |  33.6 s |    21.9 MiB |    0.964 |
-| dpi300             | tiny_det+small_rec |  3.0% |  5.5% |            0 |  35.1 s |    21.9 MiB |    0.964 |
-| sauvola            | tiny_det+small_rec | 82.5% | 97.2% |            5 |  20.7 s |    21.9 MiB |    0.030 |
+| baseline-1x        | tiny_det+small_rec | 68.3% | 94.4% |            1 |  24.5 s |    21.9 MiB |    0.108 |
+| shipped-baseline   | tiny_det+small_rec | 11.6% | 16.8% |            1 |  29.3 s |    21.9 MiB |    0.885 |
+| default-1600       | tiny_det+small_rec |  3.0% |  5.5% |            0 |  38.6 s |    21.9 MiB |    0.963 |
+| gray+contrast-1600 | tiny_det+small_rec |  3.0% |  5.4% |            0 |  36.3 s |    21.9 MiB |    0.964 |
+| dpi300             | tiny_det+small_rec |  3.0% |  5.5% |            0 |  38.7 s |    21.9 MiB |    0.964 |
+| sauvola            | tiny_det+small_rec | 82.6% | 97.1% |            4 |  23.7 s |    21.9 MiB |    0.030 |
 
 The full 17-variant matrix is in `report.md` / `report.json` / `iteration6.json`. Default 2x / maxSide 1600
-reaches **3.0% CER, 0 cross-column covers**; 1920 px detection gives no further gain and costs ~1.2 s.
+reaches **3.0% CER, 0 cross-column covers**; 1920 px detection gives no further gain and costs ~0.1 s.
 Binarization (Sauvola/Otsu) destroys the small serif glyphs of this scan. Keeping the engine's own
 reading-line grouping (instead of re-grouping after quad mapping) and splitting merged column rows
 on a real gutter were the two layout fixes that removed cross-column covers.
@@ -47,7 +47,7 @@ on a real gutter were the two layout fixes that removed cross-column covers.
 
 | approach               | pairing               |  CER | cross-column | ms/page | model bytes |
 | ---------------------- | --------------------- | ---: | -----------: | ------: | ----------: |
-| default-1600 (shipped) | tiny_det+small_rec    | 3.0% |            0 |  33.9 s |    21.9 MiB |
+| default-1600 (shipped) | tiny_det+small_rec    | 3.0% |            0 |  38.6 s |    21.9 MiB |
 | default-1600 (high)    | medium_det+medium_rec | 3.6% |            0 | 162.4 s |   132.2 MiB |
 
 High tier is slightly better on this page (3.4-3.6% CER) but ~5x slower and 6x larger; the shipped

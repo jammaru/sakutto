@@ -16,8 +16,8 @@ export const OVERLAP_AREA = 1;
 /** White space kept at a box's right edge so two columns never touch, in points. */
 const GUTTER_CLEARANCE = 4;
 
-/** Same physical threshold as the OCR line splitter: a 15pt gap is a real column gutter. */
-const MIN_COLUMN_GUTTER = 15;
+/** Same physical threshold as the OCR line splitter: a 6pt gap is a real column gutter. */
+const MIN_COLUMN_GUTTER = 6;
 /**
  * Extra cover below the source box, as a fraction of em, to hide Latin descenders.
  *

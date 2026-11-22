@@ -223,6 +223,18 @@ function sharesBaseline(left: readonly OcrTextPiece[], right: readonly OcrTextPi
 
 /** White gap that separates two printed columns. Dense scans map a 12px gutter to ~6pt. */
 const MIN_COLUMN_GUTTER = 6;
+/** A same-baseline row split by this much white is two body columns, not one wide line. */
+const WIDE_COLUMN_GUTTER = 10;
+
+/**
+ * A two-column page need not be centred on the page midpoint: a left measure can end past it.
+ * Compare the gutter's own centre with the midpoint, allowing a 10% layout asymmetry, instead
+ * of requiring each fragment to straddle the exact midpoint.
+ */
+function gutterCentred(leftEnd: number, rightStart: number, pageWidth: number): boolean {
+  if (!Number.isFinite(leftEnd) || !Number.isFinite(rightStart) || pageWidth <= 0) return false;
+  return Math.abs((leftEnd + rightStart) / 2 - pageWidth / 2) <= pageWidth * 0.1;
+}
 
 /**
  * Splits a wide reading line that combined two body rows at slightly different baselines.
@@ -270,9 +282,19 @@ function splitMergedBodyLine(
   // of the page midpoint. Without the gutter test, adjacent word boxes on a sloped line
   // looked like a left and a right column and got split into two translation blocks.
   const gutter = Math.max(first.left, second.left) - Math.min(first.right, second.right);
-  const middle = pageWidth / 2;
   if (gutter < MIN_COLUMN_GUTTER) return null;
-  if (!(first.right <= middle + 4 && second.left >= middle - 4)) return null;
+  const middle = pageWidth / 2;
+  const straddlesMiddle = first.right <= middle + 4 && second.left >= middle - 4;
+  if (
+    !straddlesMiddle &&
+    !gutterCentred(
+      Math.min(first.right, second.right),
+      Math.max(first.left, second.left),
+      pageWidth,
+    )
+  ) {
+    return null;
+  }
   if (Math.abs(firstCentre - secondCentre) < pageWidth * 0.2) return null;
   if (
     first.right - first.left < pageWidth * 0.18 ||
@@ -352,19 +374,29 @@ export function ocrResultToTextLines(
       .join(' ')
       .trim();
     const headingWholeLine = wholeText.length <= 120 && !/[.!?。]$/u.test(wholeText);
+    // A full-width title starts with a capital and has no sentence-ending punctuation. Its
+    // word gap at the gutter is ordinary spacing, not two columns, even when it is wide.
+    const titleWholeLine =
+      headingWholeLine &&
+      wholeText.length <= 100 &&
+      wholeText.split(/\s+/u).length <= 12 &&
+      !/[.,;:!?。]/u.test(wholeText) &&
+      /^\p{Lu}/u.test(wholeText);
+    const gutterNearMiddle = gutterCentred(leftEnd, rightStart, resolved.pageWidth);
+    const straddlesMiddle = leftEnd <= middle + 4 && rightStart >= middle - 4;
+    const gutterEvidence = gutterNearMiddle || straddlesMiddle;
     const wideTwoColumnLine =
       lineWidth >= resolved.pageWidth * 0.82 &&
       leftWidth > resolved.pageWidth * 0.18 &&
       rightWidth > resolved.pageWidth * 0.18 &&
-      leftEnd <= middle + 4 &&
-      rightStart >= middle - 4 &&
-      gutterGap >= 15;
+      gutterEvidence &&
+      gutterGap >= WIDE_COLUMN_GUTTER &&
+      !titleWholeLine;
     // A short left heading beside a normal body line is a two-column row too: the 18% width
     // floor for `wideTwoColumnLine` cannot see it, but the gutter and shared baseline can.
     const shortHeadingBesideBody =
       !pieceVertical &&
-      leftEnd <= middle + 4 &&
-      rightStart >= middle - 4 &&
+      gutterEvidence &&
       leftWidth >= 40 &&
       rightWidth > resolved.pageWidth * 0.18 &&
       isShortHeadingPieces(leftPieces) &&
@@ -382,8 +414,7 @@ export function ocrResultToTextLines(
       resolved.pageWidth > 0 &&
       !pieceVertical &&
       gutterGap >= MIN_COLUMN_GUTTER &&
-      leftEnd <= middle + 4 &&
-      rightStart >= middle - 4 &&
+      gutterEvidence &&
       (lineWidth < resolved.pageWidth * 0.82 ||
         wideTwoColumnLine ||
         shortHeadingBesideBody ||
@@ -409,7 +440,7 @@ export function ocrResultToTextLines(
     }
     pushLine(pieces, lineId);
   }
-  return twoColumnOrder(output, resolved.pageWidth);
+  return twoColumnOrder(output, resolved.pageWidth, columnContext(output, resolved.pageWidth));
 }
 
 interface OcrBlockGroup {
@@ -425,22 +456,80 @@ function verticalLine(line: OcrTextLine): boolean {
 /** Column of a line that spans the page: a title, abstract or byline, not a body column. */
 const SPANNING_COLUMN = -1;
 
+interface ColumnContext {
+  /** The page has body lines in both columns on at least one shared horizontal band. */
+  readonly twoColumn: boolean;
+  /** Lines printed in the opposite column on the same baseline band. */
+  readonly oppositeBand: ReadonlySet<OcrTextLine>;
+}
+
+/**
+ * Page-wide evidence for column assignment. A single centred column has no opposite column,
+ * so its lines must keep visual order even when some midpoints fall just below mid-page.
+ * A short heading with no opposite-column partner on its own baseline is a section heading
+ * spanning the layout (e.g. a left-aligned "References"), not a left-column paragraph.
+ */
+function columnContext(lines: readonly OcrTextLine[], pageWidth: number): ColumnContext {
+  const single = { twoColumn: false, oppositeBand: new Set<OcrTextLine>() };
+  if (pageWidth <= 0 || lines.length < 2 || lines.some(verticalLine)) return single;
+  const centre = (line: OcrTextLine): number => line.box.x + line.box.width / 2;
+  const bodies = lines.filter((line) => !verticalLine(line) && line.box.width <= pageWidth * 0.6);
+  const left = bodies.filter((line) => centre(line) < pageWidth * 0.45);
+  const right = bodies.filter((line) => centre(line) > pageWidth * 0.55);
+  const twoColumn = left.some((a) =>
+    right.some((b) => {
+      const overlap =
+        Math.min(a.box.y + a.box.height, b.box.y + b.box.height) - Math.max(a.box.y, b.box.y);
+      return overlap > Math.min(a.box.height, b.box.height) * 0.5;
+    }),
+  );
+  if (!twoColumn) return single;
+  const oppositeBand = new Set<OcrTextLine>();
+  for (const line of lines) {
+    if (verticalLine(line)) continue;
+    const side = centre(line) < pageWidth / 2 ? 0 : 1;
+    if (
+      lines.some(
+        (other) =>
+          other !== line &&
+          !verticalLine(other) &&
+          (centre(other) < pageWidth / 2 ? 0 : 1) !== side &&
+          Math.abs(other.box.y - line.box.y) <= Math.max(1, line.box.height * 0.3),
+      )
+    ) {
+      oppositeBand.add(line);
+    }
+  }
+  return { twoColumn: true, oppositeBand };
+}
+
 /** Geometric column of a line. Full-width lines get a group of their own. */
-function lineColumn(line: OcrTextLine, pageWidth: number): number {
+function lineColumn(
+  line: OcrTextLine,
+  pageWidth: number,
+  context: ColumnContext = columnContext([line], pageWidth),
+): number {
   if (pageWidth <= 0) return 0;
   const mid = line.box.x + line.box.width / 2;
   if (line.box.width > pageWidth * 0.6) return SPANNING_COLUMN;
-  // A short centred title ("BERT", "References") is semantically full-width even though its
-  // ink occupies only a few points. Classifying it as the right column both emitted it after
-  // the left column and widened that column's room across the gutter. Centring and a
-  // heading-like, non-sentence text are the evidence here; an ordinary body line whose end
-  // happens to land near the middle must stay in its own column.
-  if (
-    !verticalLine(line) &&
-    Math.abs(mid - pageWidth / 2) <= pageWidth * 0.06 &&
-    isShortHeadingPieces(line.pieces)
-  ) {
-    return SPANNING_COLUMN;
+  // Without two body columns there is nothing to interleave: a centred single-column scan
+  // keeps its top-to-bottom source order and one paragraph group.
+  if (!context.twoColumn) return 0;
+  const headingText = line.text.trim();
+  const heading =
+    !verticalLine(line) && !CAPTION_LINE.test(headingText) && isShortHeadingPieces(line.pieces);
+  if (heading) {
+    const nearCentre = Math.abs(mid - pageWidth / 2) <= pageWidth * 0.06;
+    // A left-aligned `column-span: all` heading (e.g. "References") has no partner on its own
+    // baseline. A numbered section heading such as "2.1 Runtime" is part of its column even
+    // when the neighbouring column's row starts lower down.
+    const leftAlignedSpanning =
+      line.box.x <= pageWidth * 0.15 &&
+      !context.oppositeBand.has(line) &&
+      !SECTION_LINE.test(headingText) &&
+      !/[\d]/u.test(headingText) &&
+      headingText.split(/\s+/u).filter(Boolean).length <= 4;
+    if (nearCentre || leftAlignedSpanning) return SPANNING_COLUMN;
   }
   return mid < pageWidth / 2 ? 0 : 1;
 }
@@ -453,22 +542,28 @@ function lineColumn(line: OcrTextLine, pageWidth: number): number {
  * above the columns it introduces and a full-width footer below them. Vertical Japanese keeps
  * the engine's authoritative right-to-left order instead.
  */
-function twoColumnOrder(lines: readonly OcrTextLine[], pageWidth: number): OcrTextLine[] {
-  if (pageWidth <= 0 || lines.length < 2 || lines.some(verticalLine)) return [...lines];
+function twoColumnOrder(
+  lines: readonly OcrTextLine[],
+  pageWidth: number,
+  context: ColumnContext = columnContext(lines, pageWidth),
+): OcrTextLine[] {
+  if (pageWidth <= 0 || lines.length < 2 || lines.some(verticalLine) || !context.twoColumn) {
+    return [...lines];
+  }
   const ordered: OcrTextLine[] = [];
   let run: OcrTextLine[] = [];
   const flush = (): void => {
     if (run.length === 0) return;
     ordered.push(
       ...run
-        .map((line, index) => ({ line, index, column: lineColumn(line, pageWidth) }))
+        .map((line, index) => ({ line, index, column: lineColumn(line, pageWidth, context) }))
         .sort((a, b) => a.column - b.column || a.line.box.y - b.line.box.y || a.index - b.index)
         .map((entry) => entry.line),
     );
     run = [];
   };
   for (const line of lines) {
-    if (lineColumn(line, pageWidth) === SPANNING_COLUMN) {
+    if (lineColumn(line, pageWidth, context) === SPANNING_COLUMN) {
       flush();
       ordered.push(line);
     } else {
@@ -496,7 +591,13 @@ function looksLikeBareCodeLine(text: string): boolean {
   const statement = trimmed.replace(/^\d+\s+/u, '');
   if (!/^(?:for|foreach|if|while|emit|return|continue|def)\b/iu.test(statement)) return false;
   if (/^(?:for example|for instance|if so|if any)\b/iu.test(statement)) return false;
-  return /[;{}\]()=+*\x2f%<>_:]/u.test(statement);
+  // Parentheses on their own are ordinary prose ("For each layer (see Figure 2), we ...").
+  // Statements keep their assignment, block, continuation and colon punctuation; a bare
+  // function call is code only when nothing follows its closing parenthesis.
+  if (/[;{}[\]=+*\x2f%<>_:]/u.test(statement)) return true;
+  return /^(?:for|foreach|if|while|emit|return|continue|def)\s*[\p{L}_][\p{L}\p{N}_]*\([^()]*\)\s*;?$/iu.test(
+    statement,
+  );
 }
 
 function groupText(lines: readonly OcrTextLine[]): string {
@@ -564,7 +665,8 @@ function groupBlocks(
   bodySize: number,
 ): OcrBlockGroup[] {
   const groups: OcrBlockGroup[] = [];
-  for (const line of twoColumnOrder(lines, pageWidth)) {
+  const context = columnContext(lines, pageWidth);
+  for (const line of twoColumnOrder(lines, pageWidth, context)) {
     const last = groups.at(-1);
     const previous = last?.lines.at(-1);
     const vertical = verticalLine(line);
@@ -580,7 +682,7 @@ function groupBlocks(
       last.role === 'heading' ||
       previous === undefined ||
       vertical !== verticalLine(previous) ||
-      lineColumn(line, pageWidth) !== last.column ||
+      lineColumn(line, pageWidth, context) !== last.column ||
       sizeStep ||
       gap > Math.max(4, previous.height * 1.7) ||
       /[.!?。]$/u.test(previous.text.trimEnd()) ||
@@ -594,7 +696,7 @@ function groupBlocks(
       groups.push({
         lines: [line],
         role: groupRole([line], bodySize),
-        column: lineColumn(line, pageWidth),
+        column: lineColumn(line, pageWidth, context),
       });
       continue;
     }

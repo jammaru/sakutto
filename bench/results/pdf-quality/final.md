@@ -1,6 +1,6 @@
 | label | pages | skipped prose | untranslated prose | mixed language | garbled tokens | overlap/box | overflow/box | reading order | first block ms | full ms |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| final | 5 | 0 | 1.2% | 0.0% | 0.04% | 0.000 | 0.000 | 98.3% | 248 | 779 |
+| final | 5 | 0 | 1.2% | 0.0% | 0.04% | 0.000 | 0.000 | 98.3% | 334 | 1073 |
 
 "skipped prose" counts code/label blocks the layout skipped that still contain a natural-language sentence; they are part of the prose denominator and the untranslated rate. Proper names and page furniture are deliberately kept in the source and are reported separately, not counted as translation failures.
 
@@ -17,20 +17,20 @@ The scan fixture above is SIMULATED OCR: scan.pdf supplies the page size and bac
 
 | variant            |   CER |   WER | lines | blocks | skipped | cross-column | overlaps | overflow |
 | ------------------ | ----: | ----: | ----: | -----: | ------: | -----------: | -------: | -------: |
-| baseline-1x        | 0.685 | 0.943 |    97 |     54 |       8 |            2 |        0 |        0 |
-| dpi200             | 0.210 | 0.380 |   111 |     62 |       4 |            1 |        0 |        0 |
+| baseline-1x        | 0.683 | 0.944 |    99 |     55 |       7 |            1 |        0 |        0 |
+| dpi200             | 0.202 | 0.376 |   111 |     62 |       4 |            1 |        0 |        0 |
 | shipped-baseline   | 0.116 | 0.168 |   105 |     62 |       7 |            1 |        0 |        0 |
 | default-1600       | 0.030 | 0.055 |   117 |     53 |       7 |            0 |        0 |        0 |
 | dpi300             | 0.030 | 0.055 |   116 |     54 |       3 |            0 |        0 |        0 |
-| sauvola            | 0.825 | 0.972 |    94 |     44 |      23 |            5 |        0 |        0 |
-| dpi200+sauvola     | 0.702 | 0.948 |    98 |     56 |      14 |            3 |        0 |        0 |
-| dpi200+gray        | 0.217 | 0.404 |   110 |     57 |       5 |            1 |        0 |        0 |
-| gray+contrast      | 0.212 | 0.368 |   111 |     58 |       8 |            1 |        0 |        0 |
+| sauvola            | 0.826 | 0.971 |    94 |     45 |      21 |            4 |        0 |        0 |
+| dpi200+sauvola     | 0.702 | 0.944 |   100 |     54 |      14 |            5 |        0 |        0 |
+| dpi200+gray        | 0.223 | 0.406 |   110 |     57 |       5 |            1 |        0 |        0 |
+| gray+contrast      | 0.212 | 0.369 |   111 |     58 |       8 |            1 |        0 |        0 |
 | gray+contrast-1600 | 0.030 | 0.054 |   117 |     61 |       4 |            0 |        0 |        0 |
-| contrast           | 0.209 | 0.359 |   111 |     58 |       8 |            1 |        0 |        0 |
-| otsu               | 0.710 | 0.948 |    98 |     54 |      18 |            3 |        0 |        0 |
-| denoise            | 0.726 | 0.958 |    97 |     42 |      22 |            4 |        0 |        0 |
-| trim               | 0.200 | 0.368 |   110 |     65 |       4 |            1 |        0 |        0 |
-| box-0.35           | 0.210 | 0.380 |   111 |     62 |       4 |            1 |        0 |        0 |
-| box-0.55           | 0.210 | 0.380 |   111 |     61 |       5 |            1 |        0 |        0 |
-| unclip-1.8         | 0.360 | 0.578 |   102 |     61 |       5 |            2 |        0 |        0 |
+| contrast           | 0.208 | 0.360 |   111 |     58 |       8 |            1 |        0 |        0 |
+| otsu               | 0.703 | 0.942 |   100 |     51 |      18 |            4 |        0 |        0 |
+| denoise            | 0.726 | 0.958 |    98 |     41 |      24 |            3 |        0 |        0 |
+| trim               | 0.199 | 0.368 |   110 |     65 |       4 |            1 |        0 |        0 |
+| box-0.35           | 0.202 | 0.376 |   111 |     62 |       4 |            1 |        0 |        0 |
+| box-0.55           | 0.202 | 0.375 |   111 |     61 |       5 |            1 |        0 |        0 |
+| unclip-1.8         | 0.361 | 0.578 |   102 |     61 |       5 |            2 |        0 |        0 |

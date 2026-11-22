@@ -898,3 +898,120 @@ describe('review 5 blockers', () => {
     for (const block of layout.blocks.slice(1)) expect(block.room.width).toBeLessThan(300);
   });
 });
+
+describe('latest review blockers', () => {
+  it('B1: splits a two-column row whose gutter sits past the page midpoint', () => {
+    const leftText = 'Left column body text that ends just past the page midpoint.';
+    const rightText = 'Right column body text starts after a real gutter.';
+    const left = region(leftText, quad(30, 100, 280, 20));
+    const right = region(rightText, quad(340, 100, 230, 20));
+    const result = ocrResult([left, right], [readingLine('horizontal', [left, right])]);
+    const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+
+    expect(ocrResultToTextLines(result, options).map((line) => line.text)).toEqual([
+      leftText,
+      rightText,
+    ]);
+    const layout = ocrResultToPageLayout(result, options);
+    expect(layout.blocks.map((block) => block.column)).toEqual([0, 1]);
+  });
+
+  it('B2: splits a same-baseline row separated by only 10pt', () => {
+    const leftText = 'left column words here';
+    const rightText = 'right column words here';
+    const left = region(leftText, quad(45, 100, 240, 20));
+    const right = region(rightText, quad(295, 100, 240, 20));
+    const result = ocrResult([left, right], [readingLine('horizontal', [left, right])]);
+    const options = { pageIndex: 0, pageWidth: 595, pageHeight: 842 };
+
+    expect(ocrResultToTextLines(result, options).map((line) => line.text)).toEqual([
+      leftText,
+      rightText,
+    ]);
+    expect(ocrResultToPageLayout(result, options).blocks.map((block) => block.column)).toEqual([
+      0, 1,
+    ]);
+  });
+
+  it('B3: reads a left-aligned References heading after both body columns', () => {
+    const lines = [
+      region('Left body one', quad(45, 100, 250, 20)),
+      region('Left body two', quad(45, 120, 250, 20)),
+      region('Right body one', quad(320, 100, 250, 20)),
+      region('Right body two', quad(320, 120, 250, 20)),
+      region('References', quad(45, 200, 70, 20)),
+      region('Ref left', quad(45, 220, 250, 20)),
+      region('Ref right', quad(320, 220, 250, 20)),
+    ];
+    const result = ocrResult(
+      lines,
+      lines.map((item) => readingLine('horizontal', [item])),
+    );
+    expect(
+      ocrResultToTextLines(result, { pageIndex: 0, pageWidth: 600, pageHeight: 800 }).map(
+        (line) => line.text,
+      ),
+    ).toEqual([
+      'Left body one',
+      'Left body two',
+      'Right body one',
+      'Right body two',
+      'References',
+      'Ref left',
+      'Ref right',
+    ]);
+  });
+
+  it('B4: keeps a centred single column in top-to-bottom source order', () => {
+    const lines = [
+      region('Top full source line of the single column', quad(150, 100, 300, 20)),
+      region('Short source line', quad(150, 125, 240, 20)),
+      region('Bottom full source line of the single column', quad(150, 150, 300, 20)),
+    ];
+    const result = ocrResult(
+      lines,
+      lines.map((item) => readingLine('horizontal', [item])),
+    );
+    const layout = ocrResultToPageLayout(result, {
+      pageIndex: 0,
+      pageWidth: 600,
+      pageHeight: 800,
+    });
+    expect(layout.blocks).toHaveLength(1);
+    expect(layout.blocks[0]?.lines.map((line) => line.text)).toEqual([
+      'Top full source line of the single column',
+      'Short source line',
+      'Bottom full source line of the single column',
+    ]);
+  });
+
+  it('B5: keeps prose that starts with a keyword and contains parentheses', () => {
+    const cases = [
+      [
+        'For each layer (see Figure 2), we apply normalization',
+        'and the next line continues the same paragraph',
+      ],
+      ['Return to the previous section (Section 2) for details'],
+      ['If the input (Figure 1) is unchanged we continue'],
+      ['While training (see Table 3) the logs are written'],
+    ];
+    for (const texts of cases) {
+      const items = texts.map((text, index) => region(text, quad(45, 100 + index * 25, 400, 20)));
+      const result = ocrResult(
+        items,
+        items.map((item) => readingLine('horizontal', [item])),
+      );
+      const layout = ocrResultToPageLayout(result, {
+        pageIndex: 0,
+        pageWidth: 595,
+        pageHeight: 842,
+      });
+      expect(
+        layout.blocks.map((block) => block.text),
+        texts.join(' / '),
+      ).toEqual([texts.join(' ')]);
+      expect(layout.blocks[0]?.role, texts.join(' / ')).toBe('prose');
+      expect(layout.skipped, texts.join(' / ')).toEqual([]);
+    }
+  });
+});

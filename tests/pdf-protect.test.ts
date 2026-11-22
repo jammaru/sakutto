@@ -252,6 +252,35 @@ describe('protectInlineMath', () => {
   });
 });
 
+describe('latest review notation blockers', () => {
+  it('B6: leaves prepositions after a formula in the prompt', () => {
+    const cases = [
+      {
+        source: 'The projection is Q ∈ R in this paper.',
+        slot: 'Q ∈ R',
+        prompt: 'The projection is <i0> in this paper.',
+      },
+      {
+        source: 'The vector x ∈ R out of the encoder is reused.',
+        slot: 'x ∈ R',
+        prompt: 'The vector <i0> out of the encoder is reused.',
+      },
+    ];
+    for (const { source, slot, prompt } of cases) {
+      const lines = groupLines([piece(source, 49, 100, 430)]);
+      const block = layoutPage(lines).blocks[0];
+      if (!block) throw new Error('expected a block');
+      const protectedText = protectInlineMath(block);
+      expect(
+        protectedText.slots.map((entry) => entry.text),
+        source,
+      ).toContain(slot);
+      expect(protectedText.text, source).toBe(prompt);
+      expectSourcePreserved(protectedText, source);
+    }
+  });
+});
+
 describe('review 5 notation and typography', () => {
   it('B4: protects the whole dimension expression and keeps the sentence', () => {
     const source =
