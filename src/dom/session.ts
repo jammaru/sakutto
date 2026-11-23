@@ -2048,7 +2048,7 @@ export class PageSession {
         // into its reserved box instead of waiting for a sentence terminator: that
         // wait is what made the first visible word slower than stream mode. We are
         // already in a paint frame here, so no extra frame stands before first paint.
-        this.paintVisibleTokens(item, model, text, bilingual);
+        this.paintVisibleTokens(item, model, bilingual);
         return;
       }
       if (partial) {
@@ -2131,17 +2131,21 @@ export class PageSession {
    * the request started, so the text under the block stays where it was. This is called
    * from a paint frame, which is the same frame stream mode uses for its first write.
    */
-  private paintVisibleTokens(
-    item: Live,
-    model: SegmentModel,
-    text: string,
-    bilingual: boolean,
-  ): void {
+  private paintVisibleTokens(item: Live, model: SegmentModel, bilingual: boolean): void {
+    // Unlike partialText(), which drops empty pieces, this reads pieces in order and
+    // stops at the first one that has not started: a later piece may never appear
+    // before the one before it. Unfinished text is kept, so the first visible tokens
+    // still arrive as early as stream mode's.
+    const text = visiblePartialText(item, this.prefs.targetLanguage);
     if (text.trim().length === 0) return;
+    // The high-water mark is shared with the below-fold sentence path. A restart's
+    // shorter prefix must not replace what the reader has already seen.
+    if (item.sentenceShown !== undefined && text.length <= item.sentenceShown.length) return;
     if (!item.streamed) {
       this.claim(item, model);
       this.revealer.reserve(model.block);
     }
+    item.sentenceShown = text;
     this.write(item, model, text, true, bilingual);
   }
 
@@ -3389,6 +3393,21 @@ function decodesSlowly(item: Live, ratio: number, pace: number | null, alone: bo
 function partialText(item: Live, target: string): string {
   const parts = item.partText.filter((part) => part.trim().length > 0);
   if (parts.length === 0) return '';
+  return joinTranslatedSentences(parts, target);
+}
+
+/**
+ * The decoded text of a visible block, in piece order. A piece that has not started yet
+ * stops the read, so a later piece is never shown before the one before it — filtering
+ * empty pieces away, as partialText() does for the other paths, would show it alone.
+ */
+function visiblePartialText(item: Live, target: string): string {
+  const parts: string[] = [];
+  for (const part of item.partText) {
+    const stripped = stripPlaceholderTokens(part).trim();
+    if (stripped.length === 0) break;
+    parts.push(stripped);
+  }
   return joinTranslatedSentences(parts, target);
 }
 

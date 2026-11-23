@@ -71,40 +71,40 @@
     "cls": 0.0321,
     "layoutShifts": 6,
     "requestMs": 12,
-    "ttfbMs": 19,
-    "paintMs": 2
+    "ttfbMs": 20,
+    "paintMs": 10
   },
   {
     "variant": "sentence",
     "page": "first-paragraph-then-long-tail",
     "firstVisibleMs": 125,
-    "fullPageMs": 1425,
+    "fullPageMs": 1400,
     "cls": 0.0318,
     "layoutShifts": 4,
     "requestMs": 10,
     "ttfbMs": 21,
-    "paintMs": 13
+    "paintMs": 18
   },
   {
     "variant": "sentence",
     "page": "many-cards",
-    "firstVisibleMs": 100,
+    "firstVisibleMs": 125,
     "fullPageMs": 1325,
     "cls": 0.0336,
     "layoutShifts": 7,
     "requestMs": 9,
-    "ttfbMs": 20,
-    "paintMs": 8
+    "ttfbMs": 14,
+    "paintMs": 12
   },
   {
     "variant": "sentence",
     "page": "mixed-ui",
-    "firstVisibleMs": 125,
-    "fullPageMs": 1050,
+    "firstVisibleMs": 126,
+    "fullPageMs": 1075,
     "cls": 0.0318,
     "layoutShifts": 6,
     "requestMs": 8,
-    "ttfbMs": 20,
-    "paintMs": 28
+    "ttfbMs": 19,
+    "paintMs": 26
   }
 ]

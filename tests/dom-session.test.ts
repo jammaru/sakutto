@@ -615,6 +615,69 @@ describe('page session', () => {
     expect(document.querySelector('p')?.textContent).toBe('Hello. Two.');
   });
 
+  it('does not show a later piece before an earlier one in a visible block', async () => {
+    document.documentElement.lang = 'en';
+    const source =
+      'The harbour office logs every crossing and publishes the delays each month. '.repeat(10);
+    document.body.innerHTML = `<p>${source}</p>`;
+    const block = document.querySelector('p');
+    if (!block) throw new Error('missing paragraph');
+    block.getBoundingClientRect = () => new DOMRect(0, 0, 300, 40);
+    let afterLaterPiece: string | null = null;
+    let afterUnterminatedPiece: string | null = null;
+    const session = start(
+      document,
+      engineOf(async function* (segments) {
+        const [first, second] = segments;
+        if (!first || !second || segments.length !== 2) throw new Error('expected two pieces');
+        // The later piece has whole sentences while the first has no text yet. The
+        // visible fast path may not write it on its own (B1).
+        yield { id: second.id, textDelta: '出発。到着。', engine: 'plamo' as const };
+        afterLaterPiece = document.querySelector('p')?.textContent ?? null;
+        yield { id: first.id, textDelta: '港の事務所は', engine: 'plamo' as const };
+        afterUnterminatedPiece = document.querySelector('p')?.textContent ?? null;
+        yield { id: first.id, final: '港の事務所は出発。', engine: 'plamo' as const };
+        yield { id: second.id, final: '到着。', engine: 'plamo' as const };
+      }),
+      { reveal: 'sentence' },
+    );
+
+    await session.translate();
+    await session.whenIdle();
+    expect(afterLaterPiece).toBe(source);
+    expect(afterUnterminatedPiece).toBe('港の事務所は出発。到着。');
+    expect(document.querySelector('p')?.textContent).toBe('港の事務所は出発。到着。');
+  });
+
+  it('does not let a restart replace text already shown in a visible block', async () => {
+    document.documentElement.lang = 'en';
+    const source = 'First source. Second source.';
+    document.body.innerHTML = `<p>${source}</p>`;
+    const block = document.querySelector('p');
+    if (!block) throw new Error('missing paragraph');
+    block.getBoundingClientRect = () => new DOMRect(0, 0, 300, 40);
+    const shown: string[] = [];
+    const session = start(
+      document,
+      engineOf(async function* (segments) {
+        for (const segment of segments) {
+          yield { id: segment.id, textDelta: 'One. Two.', engine: 'plamo' as const };
+          shown.push(document.querySelector('p')?.textContent ?? '');
+          yield { id: segment.id, textDelta: 'On', restart: true, engine: 'plamo' as const };
+          shown.push(document.querySelector('p')?.textContent ?? '');
+          yield { id: segment.id, final: 'One. Three.', engine: 'plamo' as const };
+        }
+      }),
+      { reveal: 'sentence' },
+    );
+
+    await session.translate();
+    await session.whenIdle();
+    // A restart's shorter prefix must not replace the sentences the reader already saw.
+    expect(shown).toEqual(['One. Two.', 'One. Two.']);
+    expect(document.querySelector('p')?.textContent).toBe('One. Three.');
+  });
+
   it('keeps sentence discipline for a block below the fold', async () => {
     document.documentElement.lang = 'en';
     const source = 'First source sentence. Second source sentence.';
