@@ -11,7 +11,12 @@ import {
   type ThroughputSample,
 } from './throughput';
 import { DEFAULT_BATCHING } from '@/engine/text/plan';
-import { chunkForTranslation, joinTranslatedSentences } from '@/engine/text/sentences';
+import {
+  chunkForTranslation,
+  hasSentenceTerminator,
+  joinTranslatedSentences,
+  sentenceSpans,
+} from '@/engine/text/sentences';
 import { PriorityQueue } from '@/engine/queue/priority-queue';
 import {
   isAbortError,
@@ -37,6 +42,7 @@ import {
   type PlainTextLineBreakMode,
   type Settings,
   type TranslationPace,
+  type TranslationReveal,
 } from '@/shared/settings';
 import {
   applyPlainTextLineBreaks,
@@ -65,6 +71,7 @@ import { assessTranslation, stripPlaceholderTokens } from './placeholders';
 import {
   bandForRect,
   contentKind,
+  isBodyProse,
   lookaheadScreens,
   translationConcurrencyFor,
   translationPriority,
@@ -87,6 +94,7 @@ import {
   visibleOriginal,
   type SegmentModel,
 } from './segment';
+import { REVEAL_STREAM_AFTER_MS, Revealer, type RevealKind } from './reveal';
 import type { SiteAuto, SiteRule } from './sites';
 import { shouldPreserveNewlines } from './x-post';
 
@@ -101,6 +109,21 @@ const MAX_BATCH_PLACEHOLDERS = 16;
 const PACK_PRIORITY_SLACK = 24;
 const SLICE_SIZE = 24;
 const MAX_PAGE_FAILURES = 2;
+/**
+ * How many viewport blocks stream their tokens before their first sentence ends. Only
+ * the first ones need the fast path: they are what a reader meets on arrival, and the
+ * first painted word is all the page bench times. Holding the rest to whole sentences
+ * keeps the height reservation from shifting a screenful of short labels as tokens
+ * grow, which is what drove layout shift above the smooth-mode range.
+ */
+const FAST_VISIBLE_BLOCKS = 2;
+/**
+ * How long a fast-path block may keep decoded text back before writing it anyway, and how
+ * many characters may pile up before a write. A clause boundary writes sooner than either.
+ * The first tokens of a block are never held: first-visible text must not wait for this.
+ */
+const FAST_FLUSH_MS = 40;
+const FAST_FLUSH_CHARS = 96;
 /** Keyboard selections settle before inference, so a partial highlight does not occupy the model. */
 const SELECTION_SETTLE_MS = 48;
 /** A selectionchange that follows pointerup is the same gesture and should not wait out the keyboard delay. */
@@ -149,6 +172,8 @@ export interface SessionPreferences {
   popupWidth?: number;
   /** How source line breaks are reflected in a selection translation. Missing means `none`. */
   plainTextLineBreaks?: PlainTextLineBreakMode;
+  /** How a finished page block appears in replace mode. Missing means `stream`. */
+  reveal?: TranslationReveal;
   auto: SiteAuto;
   host: string;
   context: boolean;
@@ -195,6 +220,8 @@ interface Live {
   /** The block is too large or too structured to share a completion with another block. */
   solo: boolean;
   kind: ContentKind;
+  /** Body copy (or a heading) when the block was first seen, before any paint. */
+  bodyProse: boolean;
   lang: string | null;
   index: number;
   band: VisibilityBand;
@@ -208,6 +235,40 @@ interface Live {
   partError: boolean[];
   rect: DOMRect | null;
   batchToken: number;
+  /** When the running request sent this block's first text, or null before that. */
+  firstPieceAt: number | null;
+  /** Unfinished text of this block has been written to the page. */
+  streamed: boolean;
+  /**
+   * Highest text of each piece already written to the page in sentence reveal mode.
+   * Indexed by piece, so a restart of one piece cannot erase sentences from another.
+   */
+  sentenceShownParts?: string[];
+  /**
+   * Paint generation that wrote this block's first decoded chunk. A display switch
+   * invalidates that generation, so a later queued paint cannot write another partial
+   * first chunk after resetLive() cleared the shown mark.
+   */
+  firstChunkGeneration?: number;
+  /** When the fast path last flushed partial text of this block. */
+  fastFlushAt?: number;
+  /** Length of the partial text at that flush, for the character budget. */
+  fastFlushLength?: number;
+  /** Timer that re-paints a held fast-path write when its time budget expires. */
+  fastFlushTimer?: ReturnType<typeof setTimeout> | undefined;
+  /** Per-block milestones for the bench's request-order trace (absolute `performance.now`). */
+  traceRequestedAt?: number;
+  traceTokenAt?: number;
+  traceWriteAt?: number;
+  /** When the text of this block last grew. */
+  lastPieceAt: number;
+  /** How many characters of source each piece of the running request has. */
+  partSource: number[];
+  /**
+   * Whether each piece is translated by itself. A short one can share a request with other
+   * lines, and such a request says it is finished only when all of its lines are.
+   */
+  partAlone: boolean[];
   /** Selection only: normalized source, its model input, and the break map. */
   plainSource?: string;
   plainBreakMap?: PlainTextBreakMap;
@@ -227,6 +288,26 @@ interface InflightBatch {
 export interface PageSelectionSnapshot {
   text: string;
   rect: DOMRect;
+}
+
+/**
+ * One line of the `sakutto-perf` per-block timeline. `benchId` is only present on
+ * fixtures that carry `data-bench-id`; it lets the page bench line up the engine's
+ * request order with the block the recorder watched. Times are relative to `startedAt`.
+ */
+export interface BlockPerfEntry {
+  id: string;
+  benchId: string | null;
+  tag: string;
+  index: number;
+  kind: ContentKind;
+  band: VisibilityBand;
+  heading: boolean;
+  fast: boolean;
+  priority: number;
+  requestMs: number | null;
+  tokenMs: number | null;
+  writeMs: number | null;
 }
 
 type PageSelection = PageSelectionSnapshot & { range: Range | null };
@@ -269,7 +350,7 @@ export interface PageSessionOptions {
   engine: PageEngine;
   labels: OverlayLabels;
   preferences: SessionPreferences;
-  scheduleFrame?: (callback: () => void) => void;
+  scheduleFrame?: (callback: (time?: number) => void) => void;
   debounceMs?: number;
   onSitePatch?: (patch: {
     display?: 'replace' | 'bilingual';
@@ -313,6 +394,7 @@ export function preferencesFor(
     popupSize: settings.translationPopupSize,
     popupWidth: settings.translationPopupWidth,
     plainTextLineBreaks: settings.plainTextLineBreaks,
+    reveal: settings.translationReveal,
     auto: rule.auto,
     host,
     context: false,
@@ -327,7 +409,7 @@ export function preferencesFor(
 export class PageSession {
   private readonly engine: PageEngine;
   private readonly overlay: PageOverlay;
-  private readonly scheduleFrame: (callback: () => void) => void;
+  private readonly scheduleFrame: (callback: (time?: number) => void) => void;
   private readonly debounceMs: number;
   private readonly onSitePatch: PageSessionOptions['onSitePatch'];
   private readonly onGrantSite: PageSessionOptions['onGrantSite'];
@@ -349,6 +431,12 @@ export class PageSession {
   private readonly live = new Map<string, Live>();
   private readonly liveByBlock = new Map<Element, Live>();
   private readonly idleWaiters: Array<() => void> = [];
+  /** Clear/forget report the reveal as settled before their replacement work is queued. */
+  private revealChanging = 0;
+  private revealSettled = false;
+  // An idle observation made while a reveal change is in progress is re-evaluated
+  // when the change finishes: the new work is not registered yet in that window.
+  private idleDeferred = false;
   private prefs: SessionPreferences;
   private labels: OverlayLabels;
   private detectedLanguage: string | null = null;
@@ -397,9 +485,29 @@ export class PageSession {
   private direction: 'down' | 'up' = 'down';
   private lastScroll = 0;
   private dirty = new Set<Live>();
+  private readonly revealer: Revealer;
+  /** The finished text each block shows, so that writing it again is not shown as a change. */
+  private readonly shown = new WeakMap<Element, string>();
+  /** How long translations on this page have been for their source; null before the first. */
+  private outputRatio: number | null = null;
+  /** Characters of translation one request gets in a millisecond; null before the first. */
+  private pace: number | null = null;
+  /** Lines that were finished before their request ended, with the request they were in. */
+  private readonly endedEarly = new WeakMap<Live, number>();
+  /** The block the latest piece of text was for, and when it came. */
+  private pieceFor: Live | null = null;
+  private pieceAt = 0;
+  /** When text last came for another block than the one the latest piece was for. */
+  private otherPieceAt = 0;
   private frameQueued = false;
   private paintGeneration = 0;
   private startedAt = 0;
+  /** When the first engine request of this run was sent. */
+  private firstRequestAt: number | null = null;
+  /** When the first decoded token of this run arrived from the engine. */
+  private firstTokenAt: number | null = null;
+  /** When translated text was first written into a page block in this run. */
+  private firstDomWriteAt: number | null = null;
   private firstTextAt: number | null = null;
   private samples: { id: string; ms: number }[] = [];
   private perf: HTMLElement | null = null;
@@ -447,10 +555,25 @@ export class PageSession {
       options.scheduleFrame ??
       ((callback) => {
         const view = this.doc.defaultView;
-        if (view) view.requestAnimationFrame(() => callback());
+        if (view) view.requestAnimationFrame((time) => callback(time));
         else callback();
       });
     this.overlay = new PageOverlay(doc, options.labels);
+    this.revealer = new Revealer(doc, {
+      now: () => performance.now(),
+      frame: (callback) => this.scheduleFrame(callback),
+      later: (ms, callback) => {
+        (this.doc.defaultView ?? globalThis).setTimeout(callback, ms);
+      },
+      settled: () => {
+        if (this.active) this.publishState();
+        if (this.revealChanging > 0) {
+          this.revealSettled = true;
+          return;
+        }
+        this.resolveIdle();
+      },
+    });
     this.overlay.setPopupTextScale(this.prefs.popupSize ?? TRANSLATION_POPUP_SIZE_DEFAULT);
     this.overlay.setPopupWidth(this.prefs.popupWidth ?? TRANSLATION_POPUP_WIDTH_AUTO);
     this.overlay.setOnPopupWidth((width) => {
@@ -622,6 +745,7 @@ export class PageSession {
       this.bindVisibility();
     }
     if (next.display !== previous.display) this.repaintAll();
+    else if (next.reveal !== previous.reveal) this.revealer.flush();
     if (
       (next.popupSize ?? TRANSLATION_POPUP_SIZE_DEFAULT) !==
       (previous.popupSize ?? TRANSLATION_POPUP_SIZE_DEFAULT)
@@ -668,7 +792,9 @@ export class PageSession {
       active: this.active,
       display: this.prefs.display,
       engine,
-      pending: tracked.filter((item) => item.state === 'queued' || item.state === 'running').length,
+      pending:
+        tracked.filter((item) => item.state === 'queued' || item.state === 'running').length +
+        this.revealer.finished,
       done: roundProgress(coveredBlocks(tracked)),
       total: tracked.length,
       host: this.prefs.host,
@@ -729,6 +855,7 @@ export class PageSession {
   async translate(): Promise<void> {
     if (this.active) return;
     this.active = true;
+    if (this.prefs.reveal === 'smooth') this.revealer.prime();
     this.serverFault = false;
     this.folderPermissionFault = false;
     this.modelMissingFault = false;
@@ -736,12 +863,20 @@ export class PageSession {
     this.sweepLegacyNotes();
     this.startedAt = performance.now();
     this.firstTextAt = null;
+    this.firstRequestAt = null;
+    this.firstTokenAt = null;
+    this.firstDomWriteAt = null;
     this.samples = [];
     this.throughputSamples = [{ atMs: this.startedAt, tokens: 0, segments: 0 }];
     this.heldRates = { tokensPerSecond: null, segmentsPerSecond: null };
     this.heldTokensAt = 0;
     this.heldSegmentsAt = 0;
     this.work = { batches: 0, pieces: 0, engineMs: 0 };
+    // Create the hook now rather than at the first completion: the first request, token and
+    // DOM write all happen long before a block finishes on a slow engine, and the bench
+    // reads this element to break the first-visible time down.
+    this.ensurePerf();
+    this.writePerf();
     this.pageController = new AbortController();
     this.eagerOnce = true;
     this.lastRateAt = 0;
@@ -765,6 +900,7 @@ export class PageSession {
       this.doc.documentElement.lang = source;
       this.doc.documentElement.removeAttribute('data-sakutto-source-lang');
     }
+    this.revealer.clear();
     this.invalidatePaints();
     this.throughputSamples = [];
     this.heldRates = { tokensPerSecond: null, segmentsPerSecond: null };
@@ -1198,6 +1334,7 @@ export class PageSession {
       heading: /^H[1-6]$/u.test(block.tagName),
       solo: model.source.includes('\n'),
       kind: contentKind(block),
+      bodyProse: isBodyProse(block),
       lang: languageOf(block, this.detectedLanguage, model.source),
       index,
       band: bandForRect(block.getBoundingClientRect(), viewportHeight(block)),
@@ -1211,6 +1348,11 @@ export class PageSession {
       partError: [],
       rect: null,
       batchToken: 0,
+      firstPieceAt: null,
+      streamed: false,
+      lastPieceAt: 0,
+      partSource: [],
+      partAlone: [],
     };
 
     this.live.set(item.id, item);
@@ -1240,6 +1382,7 @@ export class PageSession {
       heading: false,
       solo: true,
       kind: 'prose',
+      bodyProse: false,
       lang: this.detectedLanguage,
       index: 0,
       band: 'visible',
@@ -1253,6 +1396,11 @@ export class PageSession {
       partError: [],
       rect,
       batchToken: 0,
+      firstPieceAt: null,
+      streamed: false,
+      lastPieceAt: 0,
+      partSource: [],
+      partAlone: [],
     };
   }
 
@@ -1330,7 +1478,18 @@ export class PageSession {
 
   private priorityOf(item: Live): number {
     if (item.role === 'selection') return translationPriority('selection', 0, 'prose');
-    return translationPriority(item.band, item.index, item.kind);
+    // Sentence mode keeps the lead of the main column ahead of label-like prose. A tag
+    // cloud, a row of tabs or a byline is `prose` to the segment builder, but on a GPU
+    // tier it can fill the first wave of slots and leave the paragraph the reader came
+    // to read waiting for the next one. Those labels take chrome's later queue position.
+    const kind =
+      this.prefs.reveal === 'sentence' &&
+      item.role === 'page' &&
+      item.kind === 'prose' &&
+      !item.bodyProse
+        ? 'chrome'
+        : item.kind;
+    return translationPriority(item.band, item.index, kind);
   }
 
   private hasVisibleProse(): boolean {
@@ -1491,8 +1650,30 @@ export class PageSession {
     for (const item of batch) {
       if (item.role === 'page' && item.model) {
         item.model.block.setAttribute('data-sakutto-pending', '1');
+        // Claim the block when the request starts, not when its first text is painted.
+        // Smooth mode holds every token until the final, and sentence mode holds
+        // unterminated text on slow and below-fold blocks: without this mark a page
+        // edit in that window is invisible to onMutations and the stale final lands.
+        this.claim(item, item.model);
+        // The source is still on the page here, so measure the blocks that will write
+        // a decoded chunk at once and hold their height before the first token arrives.
+        // Nothing under them may move while the words come in. Blocks that keep their
+        // source until a whole sentence reserve just before that write instead: a page
+        // of labels and sidebar chrome should not hold a queue of layout reads in front
+        // of the first request.
+        if (this.prefs.reveal === 'sentence' && this.firstChunkImmediate(item)) {
+          this.revealer.reserve(item.model.block);
+        }
       }
+      item.firstPieceAt = null;
+      delete item.firstChunkGeneration;
+      delete item.fastFlushAt;
+      delete item.fastFlushLength;
       const pieces = expandSource(item);
+      item.partSource = pieces.map((piece) => piece.text.length);
+      item.partAlone = pieces.map(
+        (piece) => piece.text.includes('\n') || estimateTokens(piece.text) > PACK_SEGMENT_TOKENS,
+      );
       const preserve = item.failures > 0 && item.partText.length === pieces.length;
       item.partFinal = pieces.map((_, index) =>
         preserve ? item.partFinal[index] === true : false,
@@ -1506,8 +1687,16 @@ export class PageSession {
         item.partText = pieces.map((_, index) =>
           item.partFinal[index] === true ? (item.partText[index] ?? '') : '',
         );
+        // The matching high-water marks must go too: a retry's first clause is not an
+        // extension of the failed attempt's fragment and would otherwise be rejected
+        // until the final settle, leaving the stale fragment on the page.
+        this.keepFinalShownParts(item);
       } else {
         item.partText = pieces.map(() => '');
+        // Every piece is requested again here, including after an engine abort that does
+        // not burn a page retry. No mark from the interrupted attempt may block the
+        // replacement's partials, so clear the high-water marks and any queued fast flush.
+        this.keepFinalShownParts(item);
       }
       for (const piece of pieces) {
         const index = partIndex(piece.id);
@@ -1527,6 +1716,11 @@ export class PageSession {
     this.work.batches += 1;
     this.work.pieces += requests.length;
     const engineStarted = performance.now();
+    for (const item of owners.values()) item.traceRequestedAt ??= engineStarted;
+    if (this.firstRequestAt === null) {
+      this.firstRequestAt = engineStarted;
+      this.writePerf();
+    }
     let abortedByEngine = false;
 
     try {
@@ -1539,24 +1733,68 @@ export class PageSession {
         const item = owners.get(chunk.id);
         if (!item || item.batchToken !== token) continue;
         const index = partIndex(chunk.id);
-        if (item.state !== 'running') continue;
+        if (item.state !== 'running') {
+          // A line that was finished when the next line of its request began. The request
+          // answers for it now; that answer counts where it says something else.
+          if (chunk.final !== undefined && this.endedEarly.get(item) === token) {
+            this.correctLine(item, chunk.final, chunk.error === true, token, signal);
+          }
+          continue;
+        }
         if (chunk.engine) item.engine = chunk.engine;
         if (chunk.textDelta !== undefined) {
+          const firstChunk = item.firstPieceAt === null;
           const before = chunk.restart === true ? '' : (item.partText[index] ?? '');
           item.partText[index] = before + chunk.textDelta;
-          this.queuePaint(item);
+          if (item.firstPieceAt === null && chunk.textDelta.length > 0) {
+            this.endLineBefore(batch, item, token);
+          }
+          item.firstPieceAt ??= performance.now();
+          if (chunk.textDelta.length > 0) {
+            item.traceTokenAt ??= performance.now();
+            if (this.firstTokenAt === null) {
+              this.firstTokenAt = performance.now();
+              this.writePerf();
+            }
+            item.lastPieceAt = performance.now();
+            if (this.pieceFor !== item) {
+              this.otherPieceAt = this.pieceAt;
+              this.pieceFor = item;
+            }
+            this.pieceAt = item.lastPieceAt;
+          }
+          // Text that is kept back needs no frame.
+          if (this.holdsBack(item)) this.noteLiveRate();
+          else if (
+            this.prefs.reveal === 'sentence' &&
+            (this.fastVisible(item) || (firstChunk && this.firstChunkImmediate(item)))
+          ) {
+            // The first visible word must not wait for a paint frame: on a busy page the
+            // frame can be far behind the 40 ms decode budget. Write in this turn, both
+            // for a fast block and for the first chunk of any other block on the screen.
+            // A heading or a third paragraph used to hold that chunk until its sentence
+            // ended, which made the page's first paint late and bimodal. paintVisibleTokens
+            // still holds later partials to a clause or budget, and arms the flush timer
+            // from the write it just made, so the timer fires at the deadline. Other
+            // visible blocks go back to sentence discipline after their first chunk.
+            this.paint(item, true);
+            this.noteTiming();
+            this.noteLiveRate();
+          } else this.queuePaint(item);
         }
         if (chunk.final !== undefined) {
           item.partText[index] = chunk.final;
           item.partFinal[index] = true;
           if (chunk.error === true) item.partError[index] = true;
           if (item.partFinal.every(Boolean)) {
+            this.notePace(item);
             if (item.partError.length > 0 && item.partError.every(Boolean)) {
               this.markUntranslated(item, signal);
             } else {
               this.complete(item);
             }
-          } else this.queuePaint(item);
+          } else if (this.holdsBack(item)) this.noteLiveRate();
+          else this.queuePaint(item);
         }
       }
     } catch (error) {
@@ -1637,6 +1875,21 @@ export class PageSession {
   }
 
   /**
+   * A retry answers every unfinished piece afresh. Keep only the high-water marks of
+   * pieces that finished: an old mark would reject the replacement's partials and hold
+   * the previous attempt's fragment on the page until the final settle. A fast-path
+   * flush queued for that fragment belongs to the discarded attempt as well.
+   */
+  private keepFinalShownParts(item: Live): void {
+    this.cancelFastFlush(item);
+    const shown = item.sentenceShownParts;
+    if (!shown) return;
+    const kept = shown.map((text, index) => (item.partFinal[index] === true ? text : ''));
+    if (kept.some((text) => text.length > 0)) item.sentenceShownParts = kept;
+    else delete item.sentenceShownParts;
+  }
+
+  /**
    * Drop half-decoded fragments as soon as the host reports a model change. Finished
    * pieces stay; they were cached under the previous model id. Unfinished paint is
    * restored immediately so the page does not keep showing "こん" until the retry.
@@ -1646,6 +1899,11 @@ export class PageSession {
     item.partText = pieces.map((_, index) =>
       item.partFinal[index] === true ? (item.partText[index] ?? '') : '',
     );
+    // A shown clause/token fragment is not a finished sentence. Leaving its high-water
+    // mark would make the repaint re-write it and reject every retry partial whose text
+    // does not extend that fragment, freezing the block until the final settle.
+    delete item.sentenceShownParts;
+    this.cancelFastFlush(item);
     this.dirty.delete(item);
     if (item.partFinal.some(Boolean) && item.partText.some((part) => part.trim().length > 0)) {
       this.paint(item, true);
@@ -1670,8 +1928,15 @@ export class PageSession {
       // The page keeps showing source prose here, so it must not read as translated. A
       // block that exhausted its retries is the case the reported page hit: the requests
       // failed and the bar still said the page was done.
-      if (item.model) this.skippedBlocks.set(item.model.block, item.model.block.textContent ?? '');
-      this.resetLive(item);
+      if (item.model) {
+        const block = item.model.block;
+        this.changingReveal(() => {
+          this.resetLive(item);
+          // The optimistic partial text is gone now: record the source the reader sees,
+          // otherwise skippedProse() mistakes the restored block for a page replacement.
+          this.skippedBlocks.set(block, block.textContent ?? '');
+        });
+      }
       item.state = 'done';
       item.translation = '';
       item.partText = [];
@@ -1697,8 +1962,13 @@ export class PageSession {
    */
   private markUntranslated(item: Live, signal: AbortSignal): void {
     if (item.role === 'page' && item.model) {
-      this.skippedBlocks.set(item.model.block, item.model.block.textContent ?? '');
-      this.resetLive(item);
+      const block = item.model.block;
+      this.changingReveal(() => {
+        this.resetLive(item);
+        // Capture the restored source, not the optimistic translation that may have
+        // been painted before the request reported its error.
+        this.skippedBlocks.set(block, block.textContent ?? '');
+      });
     }
     item.state = 'done';
     item.translation = '';
@@ -1750,10 +2020,16 @@ export class PageSession {
     }
     const markup = this.acceptTranslation(item, translated);
     if (markup === 'retry') return;
+    if (item.role === 'page' && item.source.length >= 40) {
+      const ratio = translated.length / item.source.length;
+      this.outputRatio = this.outputRatio === null ? ratio : this.outputRatio * 0.8 + ratio * 0.2;
+    }
     item.translation = markup;
     item.state = 'done';
     if (item.translation.trim().length > 0) this.paint(item, false);
     else item.model?.block.removeAttribute('data-sakutto-pending');
+    // Whatever was or was not painted, the block is no longer filling in.
+    if (item.model) this.revealer.release(item.model.block);
     this.noteTiming(item);
     this.publishState();
   }
@@ -1772,6 +2048,11 @@ export class PageSession {
       item.partError = [];
       item.translation = '';
       item.state = 'idle';
+      // The flattened retry requests every piece afresh. A mark left by the discarded
+      // translation would reject its partials, and a fast-path flush queued for that
+      // fragment must not fire after the retry starts.
+      delete item.sentenceShownParts;
+      this.cancelFastFlush(item);
       item.model.block.setAttribute('data-sakutto-pending', '1');
       this.enqueue(item, true);
       return 'retry';
@@ -1867,7 +2148,37 @@ export class PageSession {
     });
   }
 
-  private paint(item: Live, partial: boolean): void {
+  /**
+   * A write held back by the fast-path budget needs a wake-up of its own: if the decoder
+   * stalls, no later chunk queues a paint and decoded text would stay hidden past the
+   * budget. A timer, rather than only a frame, also runs in a background tab.
+   */
+  private scheduleFastFlush(item: Live): void {
+    if (item.fastFlushTimer !== undefined) return;
+    const generation = this.paintGeneration;
+    const age = performance.now() - (item.fastFlushAt ?? item.firstPieceAt ?? performance.now());
+    item.fastFlushTimer = (this.doc.defaultView ?? globalThis).setTimeout(
+      () => {
+        item.fastFlushTimer = undefined;
+        if (generation !== this.paintGeneration || !this.active) return;
+        if (item.state !== 'running' && item.state !== 'queued') return;
+        this.paint(item, true);
+      },
+      Math.max(0, FAST_FLUSH_MS - age),
+    );
+  }
+
+  private cancelFastFlush(item: Live): void {
+    if (item.fastFlushTimer === undefined) return;
+    clearTimeout(item.fastFlushTimer);
+    item.fastFlushTimer = undefined;
+  }
+
+  /**
+   * `direct` writes a finished translation at once. It is for text the reader has already
+   * seen, such as a repaint after the display mode changed.
+   */
+  private paint(item: Live, partial: boolean, direct = false): void {
     let text = partial ? partialText(item, this.prefs.targetLanguage) : item.translation;
     if (text.trim().length === 0) return;
 
@@ -1894,12 +2205,470 @@ export class PageSession {
     }
 
     const bilingual = this.prefs.display === 'bilingual' && this.keepsOriginalVisible(item);
+    if (!direct && this.prefs.reveal === 'sentence') {
+      const instant = this.firstOnScreen(item);
+      if (partial && this.fastVisible(item)) {
+        // On screen the reader is watching the block. Write decoded text into its
+        // reserved box at clause boundaries (or on the decode budget) instead of waiting
+        // for a sentence terminator: a long first sentence made the first visible word
+        // slower than stream mode. We are already in a paint frame here, so no extra
+        // frame stands before first paint.
+        this.paintVisibleTokens(item, model, bilingual);
+        return;
+      }
+      if (partial) {
+        if (this.paintSentences(item, model, bilingual)) return;
+      } else if (item.streamed) {
+        // Sentence writes create the bilingual line while the reader is already
+        // reading it. Fading the block at the final settle would fade that line
+        // through its ancestor, so release the reservation and write without a
+        // focus animation. Only a line created by this final write is new.
+        const hadLine = bilingual && model.block.querySelector(':scope > sakutto-line') !== null;
+        const added = bilingual
+          ? () => model.block.querySelector(':scope > sakutto-line')
+          : undefined;
+        const fast = this.fastVisible(item);
+        // The first body paragraph has already painted many times into its reservation.
+        // Dropping its motion entirely would make settle() measure and glide the whole
+        // screen; keep the cheap in-place fade. Other first blocks keep the instant settle.
+        const motion =
+          (bilingual && hadLine) || (instant && !fast)
+            ? undefined
+            : {
+                kind: revealKind(item),
+                ...(added ? { added } : {}),
+                // The above-fold path only needs a cheap fade at the end. It has
+                // already painted many times, so no glide/blur is worth the cost.
+                ...(fast ? { cheap: true } : {}),
+              };
+        this.revealer.settle(
+          model.block,
+          () => this.write(item, model, text, false, bilingual),
+          motion,
+        );
+        return;
+      } else if (!instant && this.shown.get(model.block) !== shownAs(text, bilingual)) {
+        this.offerReveal(item, model, text, bilingual);
+        return;
+      }
+    } else if (!direct && this.prefs.reveal === 'smooth') {
+      if (partial) {
+        if (!item.streamed) {
+          // The block keeps its source until its translation is finished, unless that takes
+          // so long that the reader would be left without any sign of progress.
+          if (this.holdsBack(item)) return;
+          if (!bilingual) {
+            this.offerStream(item, model);
+            return;
+          }
+        }
+      } else if (item.streamed) {
+        if (!bilingual) {
+          this.revealer.settle(model.block, () => {
+            this.write(item, model, text, false, false);
+          });
+          return;
+        }
+      } else if (this.shown.get(model.block) !== shownAs(text, bilingual)) {
+        this.offerReveal(item, model, text, bilingual);
+        return;
+      }
+    }
+    this.write(item, model, text, partial, bilingual);
+  }
+
+  /**
+   * Whether a page block is body copy inside the viewport and can show text as it decodes.
+   * A heading is 'prose' to the segment builder, but it is not a paragraph a reader waits
+   * to read: counting it here used to spend the whole two-block budget on a title and a
+   * byline, leaving a long first paragraph in sentence mode. Below the fold sentence mode
+   * still writes one finished sentence at a time, so a scroll never reveals a half-written
+   * sentence.
+   */
+  private fastVisible(item: Live): boolean {
+    if (item.role !== 'page' || item.band !== 'visible' || item.kind !== 'prose' || item.heading) {
+      return false;
+    }
+    if (!item.bodyProse) return false;
+    let ahead = 0;
+    for (const other of this.live.values()) {
+      if (other === item || other.role !== 'page' || other.band !== 'visible') continue;
+      if (other.kind !== 'prose' || other.heading || other.index >= item.index) continue;
+      // A tag, tab or short label is not a paragraph the reader waits for: on a model
+      // card five of them before the lead used to spend the whole two-block budget.
+      if (!other.bodyProse) continue;
+      ahead += 1;
+      if (ahead >= FAST_VISIBLE_BLOCKS) return false;
+    }
+    return true;
+  }
+
+  /**
+   * Whether this block's first decoded chunk goes straight to the page. Body copy and
+   * headings are what a reader meets on arrival; a tab, a tag or a sidebar label keeps
+   * its source until a whole sentence, because writing a half-word there moves the
+   * labels beside it without helping the first painted paragraph.
+   */
+  private firstChunkImmediate(item: Live): boolean {
+    if (item.role !== 'page' || item.band !== 'visible') return false;
+    // A title in a page header sits beside a byline and a date in a flex line. Writing
+    // half of it there moves those labels sideways; that fixture's first paragraph is
+    // already on the fast path, so the heading keeps its source until a sentence ends.
+    if (item.heading && item.model?.block.closest('header')) return false;
+    return item.heading || item.bodyProse;
+  }
+
+  /**
+   * Writes partial text decoded so far into a visible block, without waiting for its first
+   * sentence to end. The height was reserved when the request started, so the text under
+   * the block stays where it was. This is called from a paint frame, the same frame stream
+   * mode uses for its first write.
+   *
+   * The first text of a block is never held back. After that, a write waits for a clause
+   * boundary, a short decode budget or a character budget: a model that emits one token
+   * per frame must not make the reserved box relayout on every token, but a long first
+   * sentence must not keep the reader waiting for its terminator either.
+   */
+  private paintVisibleTokens(item: Live, model: SegmentModel, bilingual: boolean): void {
+    // Unlike partialText(), which drops empty pieces, this reads pieces in order and
+    // stops at the first one that has not started: a later piece may never appear
+    // before the one before it. Unfinished text is kept, so the first visible tokens
+    // still arrive as early as stream mode's.
+    const parts = visiblePartialParts(item);
+    const advanced = extendShownParts(parts, item.sentenceShownParts);
+    if (advanced === null) return;
+    const text = joinSentenceParts(item, advanced.parts, this.prefs.targetLanguage);
+    if (text.trim().length === 0) return;
+    if (item.streamed && !this.fastFlushDue(item, text)) {
+      this.scheduleFastFlush(item);
+      return;
+    }
+    this.cancelFastFlush(item);
+    if (!item.streamed) {
+      this.claim(item, model);
+      this.revealer.reserve(model.block);
+    }
+    // Only advance the high-water mark when the text really goes to the page. A write
+    // held back by the budget is recomputed from the pieces on the next paint frame.
+    item.sentenceShownParts = advanced.shown;
+    item.fastFlushAt = performance.now();
+    item.fastFlushLength = text.length;
+    this.write(item, model, text, true, bilingual);
+  }
+
+  /** Whether a held-back fast-path write is due now. */
+  private fastFlushDue(item: Live, text: string): boolean {
+    if (endsOnClause(text)) return true;
+    const now = performance.now();
+    if (now - (item.fastFlushAt ?? item.firstPieceAt ?? now) >= FAST_FLUSH_MS) return true;
+    return text.length - (item.fastFlushLength ?? 0) >= FAST_FLUSH_CHARS;
+  }
+
+  /**
+   * Whether this is the first readable page block on the screen at the moment. A heading
+   * above the lead paragraph must not give it the full settle motion: on a page with a
+   * headline in the header that glide moved a screenful of markers and pushed CLS up.
+   */
+  private firstOnScreen(item: Live): boolean {
+    if (item.role !== 'page' || item.band !== 'visible') return false;
+    for (const other of this.live.values()) {
+      if (
+        other !== item &&
+        other.role === 'page' &&
+        other.band === 'visible' &&
+        !other.heading &&
+        other.index < item.index
+      ) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
+   * Sentence mode: writes the sentences of `text` that are finished, one frame at a time.
+   * The block keeps its height from the first sentence until the final settle, so nothing
+   * under it moves while the reader watches the translation arrive. Returns true when this
+   * chunk has been dealt with.
+   */
+  private paintSentences(item: Live, model: SegmentModel, bilingual: boolean): boolean {
+    // The first decoded chunk of an on-screen block is the page's first painted word
+    // on pages whose first sentence is long. It goes straight to the reserved box,
+    // whether or not the chunk happens to end on a sentence. Waiting for a terminator,
+    // a clause, a paint frame or a reveal offer made that word late. Later text of
+    // this block goes back to sentence discipline.
+    if (item.sentenceShownParts === undefined && this.firstChunkImmediate(item)) {
+      if (this.writeFirstChunk(item, model, bilingual)) return true;
+    }
+    // Split each piece on its own: a terminator in a later piece may not close an
+    // unfinished sentence in an earlier one, and a piece that has not started yet may
+    // not be skipped. Pieces are translated in order and must appear in that order.
+    const parts = finishedSentenceParts(
+      item.partText.map((part) => stripPlaceholderTokens(part)),
+      item.partFinal,
+      this.prefs.targetLanguage,
+    );
+    // Once a sentence is on the page, an unfinished tail must not be written over it.
+    // Neither may a restart's shorter prefix replace sentences already shown: each
+    // piece keeps the longest prefix the reader has seen until the final settle.
+    const advanced = extendShownParts(parts, item.sentenceShownParts);
+    if (advanced === null) return true;
+    const ready = joinSentenceParts(item, advanced.parts, this.prefs.targetLanguage);
+    if (ready.length === 0) return true;
+    if (item.sentenceShownParts === undefined) {
+      this.claim(item, model);
+      this.revealer.reserve(model.block);
+    }
+    item.sentenceShownParts = advanced.shown;
+    const generation = this.paintGeneration;
+    const write = (): void => {
+      if (generation !== this.paintGeneration || !this.active) return;
+      if (item.model !== model || !model.block.isConnected) return;
+      if (item.state !== 'running' && item.state !== 'queued') return;
+      if (ready.trim().length === 0) return;
+      this.write(item, model, ready, true, bilingual);
+    };
+    // The paragraph the reader is looking at first is written at once. The rest share the
+    // next frame, as the other page writes do.
+    if (this.firstOnScreen(item)) write();
+    else {
+      this.revealer.offer({
+        block: model.block,
+        kind: revealKind(item),
+        keepHeight: true,
+        instant: true,
+        apply: write,
+      });
+    }
+    return true;
+  }
+
+  /**
+   * Writes the decoded prefix of a visible block before its first sentence ends. The
+   * source is measured and its height held first, so a shorter translation cannot move
+   * what is under the block while the reader watches the words arrive. The high-water
+   * marks are the raw prefixes of this write, so the next finished sentence, which
+   * grows out of the same text, replaces them. Returns false when there is no text yet.
+   */
+  private writeFirstChunk(item: Live, model: SegmentModel, bilingual: boolean): boolean {
+    // A paint queued under an earlier display mode can reach here after resetLive()
+    // dropped the shown mark. The first-chunk exception belongs to the generation that
+    // decoded that chunk: once the generation changed, the block keeps its source until
+    // a whole sentence is written, instead of regrowing the stale raw prefix. Keep the
+    // ownership and state checks the other deferred writes use as well.
+    if (
+      !this.active ||
+      item.model !== model ||
+      !this.ownsBlock(item) ||
+      (item.state !== 'running' && item.state !== 'queued')
+    ) {
+      return false;
+    }
+    if (
+      item.firstChunkGeneration !== undefined &&
+      item.firstChunkGeneration !== this.paintGeneration
+    ) {
+      return false;
+    }
+    const parts = visiblePartialParts(item);
+    const advanced = extendShownParts(parts, item.sentenceShownParts);
+    if (advanced === null) return false;
+    const text = joinSentenceParts(item, advanced.parts, this.prefs.targetLanguage);
+    if (text.trim().length === 0) return false;
+    if (item.sentenceShownParts === undefined) {
+      this.claim(item, model);
+      this.revealer.reserve(model.block);
+    }
+    item.sentenceShownParts = advanced.shown;
+    item.firstChunkGeneration = this.paintGeneration;
+    this.write(item, model, text, true, bilingual);
+    return true;
+  }
+
+  /** Whether an unfinished translation of this block stays unseen for now. */
+  private holdsBack(item: Live): boolean {
+    if (this.prefs.reveal !== 'smooth' || item.role !== 'page' || item.streamed) return false;
+    // A line under the source is added when it is finished, however long that takes: the
+    // source stays readable meanwhile, and a line that grows moves the page under it.
+    if (this.prefs.display === 'bilingual' && this.keepsOriginalVisible(item)) return true;
+    return !decodesSlowly(
+      item,
+      this.outputRatio ?? this.usualOutputRatio(item),
+      this.pace,
+      this.decodesAlone(item),
+    );
+  }
+
+  /**
+   * Whether no other block has got text since this one got its first: one request is decoded
+   * at a time, or nothing else is left. Nothing else on the screen changes meanwhile, and
+   * the block's text comes steadily.
+   */
+  private decodesAlone(item: Live): boolean {
+    if (item.firstPieceAt === null) return false;
+    const other = this.pieceFor === item ? this.otherPieceAt : this.pieceAt;
+    return other < item.firstPieceAt;
+  }
+
+  /**
+   * Short lines share a request, and the request answers for all of them when it ends. The
+   * text of a line is whole before that, though: as soon as the next line begins. With the
+   * source kept until a translation is finished, a line would otherwise wait for every line
+   * after it in the request, and the reader would see a screen of labels change all at once
+   * where the text came line by line.
+   */
+  private endLineBefore(batch: readonly Live[], item: Live, token: number): void {
+    if (this.prefs.reveal !== 'smooth' && this.prefs.reveal !== 'sentence') {
+      return;
+    }
+    if (item.partAlone[0] === true) return;
+    const line = batch[batch.indexOf(item) - 1];
+    if (!line || line.role !== 'page' || line.state !== 'running' || line.batchToken !== token) {
+      return;
+    }
+    if (line.partText.length !== 1 || line.partAlone[0] === true || line.partFinal[0] === true) {
+      return;
+    }
+    if ((line.partText[0] ?? '').trim().length === 0) return;
+    line.partFinal[0] = true;
+    this.endedEarly.set(line, token);
+    this.notePace(line);
+    this.complete(line);
+  }
+
+  /** Takes the request's own answer for a line that `endLineBefore` finished. */
+  private correctLine(
+    item: Live,
+    final: string,
+    failed: boolean,
+    token: number,
+    signal: AbortSignal,
+  ): void {
+    if (this.endedEarly.get(item) !== token) return;
+    this.endedEarly.delete(item);
+    if (!this.active || item.state !== 'done' || item.batchToken !== token) return;
+    // The page may have replaced this block while the old request was still open.
+    if (!this.ownsBlock(item)) return;
+    const previous = item.partText[0] ?? '';
+    if (failed) {
+      // An error final carries fallback text, not a translation: honour it instead of
+      // leaving the optimistic early text on the page.
+      item.partText[0] = final;
+      item.partFinal[0] = true;
+      item.partError[0] = true;
+      this.markUntranslated(item, signal);
+      return;
+    }
+    if (final.trim() === previous.trim()) return;
+    item.partText[0] = final;
+    this.complete(item);
+  }
+
+  /** Whether this item still owns the block its request is painting. */
+  private ownsBlock(item: Live): boolean {
+    return !item.model || this.liveByBlock.get(item.model.block) === item;
+  }
+
+  /** How fast text comes, learned from a block that has just finished. */
+  private notePace(item: Live): void {
+    if (item.role !== 'page' || item.partText.length !== 1 || item.firstPieceAt === null) return;
+    const span = item.lastPieceAt - item.firstPieceAt;
+    const length = item.partText[0]?.length ?? 0;
+    if (span < PACE_MIN_SPAN_MS || length === 0) return;
+    const pace = length / span;
+    this.pace = this.pace === null ? pace : this.pace * 0.7 + pace * 0.3;
+  }
+
+  /** Japanese, Chinese and Korean say in about half the letters what English says. */
+  private usualOutputRatio(item: Live): number {
+    const dense = /^(?:ja|zh|ko)\b/iu;
+    const from = dense.test(item.lang ?? '');
+    const to = dense.test(this.prefs.targetLanguage);
+    return from === to ? 1 : to ? 0.5 : 2;
+  }
+
+  private offerReveal(item: Live, model: SegmentModel, text: string, bilingual: boolean): void {
+    const generation = this.paintGeneration;
+    this.claim(item, model);
+    this.revealer.offer({
+      block: model.block,
+      kind: revealKind(item),
+      apply: () => {
+        if (generation !== this.paintGeneration || !this.active) return;
+        if (item.state !== 'done' || item.model !== model || !model.block.isConnected) return;
+        if (!this.ownsBlock(item)) return;
+        this.write(item, model, text, false, bilingual);
+      },
+      ...(bilingual ? { added: () => model.block.querySelector(':scope > sakutto-line') } : {}),
+      ...(this.endsPage(item) ? { last: true } : {}),
+    });
+  }
+
+  /** Whether no other block of the page is waiting for its translation. */
+  private endsPage(item: Live): boolean {
+    for (const other of this.live.values()) {
+      if (other === item || other.role !== 'page') continue;
+      if (other.state === 'queued' || other.state === 'running') return false;
+    }
+    return true;
+  }
+
+  /**
+   * A block that decodes slowly shows what there is so far and fills in from there. It keeps
+   * its height meanwhile, so the page under it stays where it is until the text is finished.
+   */
+  private offerStream(item: Live, model: SegmentModel): void {
+    const generation = this.paintGeneration;
+    this.claim(item, model);
+    this.revealer.offer({
+      block: model.block,
+      kind: revealKind(item),
+      keepHeight: true,
+      apply: () => {
+        if (generation !== this.paintGeneration || !this.active) return;
+        if (item.model !== model || !model.block.isConnected) return;
+        // Finished or given up meanwhile: what is on the page now is newer than these pieces.
+        if (item.state !== 'running' && item.state !== 'queued') return;
+        const text = stripPlaceholderTokens(partialText(item, this.prefs.targetLanguage));
+        if (text.trim().length === 0) return;
+        this.write(item, model, text, true, false);
+      },
+    });
+  }
+
+  /**
+   * Marks a block whose translation waits to be shown as one of ours, as the first streamed
+   * piece used to. A change the page makes to it meanwhile is then noticed.
+   */
+  private claim(item: Live, model: SegmentModel): void {
+    if (model.block.getAttribute('data-sakutto-id') === item.id) return;
+    this.editDom(() => {
+      model.block.setAttribute('data-sakutto-id', item.id);
+    });
+  }
+
+  private write(
+    item: Live,
+    model: SegmentModel,
+    text: string,
+    partial: boolean,
+    bilingual: boolean,
+  ): void {
+    if (item.role === 'page' && this.firstDomWriteAt === null) {
+      this.firstDomWriteAt = performance.now();
+      this.writePerf();
+    }
+    item.traceWriteAt ??= performance.now();
     this.editDom(() => {
       model.block.setAttribute('data-sakutto-id', item.id);
       if (item.engine) model.block.setAttribute('data-sakutto-engine', item.engine);
 
       if (bilingual) {
-        showBilingual(model, text, item.created);
+        // A pre-wrap body is translated one source line per request. Keep each answer
+        // on its own line while the rest are still decoding, including sentence-mode
+        // partial writes that join their pieces with the source's own line breaks.
+        const lineAligned = item.linePieces !== undefined && shouldPreserveNewlines(model.block);
+        showBilingual(model, text, item.created, lineAligned);
         const line = model.block.querySelector(LINE_TAG);
         if (line instanceof HTMLElement) line.lang = this.prefs.targetLanguage;
         if (!partial || !model.placeholder) model.block.removeAttribute('data-sakutto-pending');
@@ -1916,16 +2685,43 @@ export class PageSession {
       }
       this.remember(model, item.created);
     });
-  }
-
-  private repaintAll(): void {
-    for (const item of this.live.values()) {
-      if (!item.translation) continue;
-      this.paint(item, false);
+    if (partial) {
+      item.streamed = true;
+      this.shown.delete(model.block);
+    } else {
+      this.shown.set(model.block, shownAs(text, bilingual));
     }
   }
 
+  private repaintAll(): void {
+    this.changingReveal(() => {
+      // A display switch retires every paint queued under the old mode. Otherwise a
+      // frame already queued by a decode turn runs after resetLive() cleared the shown
+      // mark, and paintSentences() -> writeFirstChunk() regrows the stale raw prefix
+      // as a bilingual line instead of holding the source until a whole sentence ends.
+      this.invalidatePaints();
+      this.revealer.clear();
+      for (const item of this.live.values()) {
+        if (!item.translation) {
+          // A display switch removes the old partial paint and starts the hold over:
+          // a block that streamed in replace mode must not grow a bilingual line.
+          if (item.model) this.resetLive(item);
+          continue;
+        }
+        this.paint(item, false, true);
+      }
+    });
+  }
+
   private retranslate(): void {
+    this.changingReveal(() => this.retranslateNow());
+  }
+
+  private retranslateNow(): void {
+    this.revealer.clear();
+    // What was learned about speed and length belongs to the language it was learned in.
+    this.outputRatio = null;
+    this.pace = null;
     this.invalidatePaints();
     this.abortRunning(false);
     const target = isPlamoOnlyTarget(this.prefs.targetLanguage)
@@ -1953,16 +2749,25 @@ export class PageSession {
   }
 
   private resetLive(item: Live): void {
-    if (!item.model) return;
-    const model = item.model;
-    const block = model.block;
-    this.editDom(() => {
-      restoreSegment(model, item.created);
-      removeTranslationUi(block);
-      for (const node of item.originalChildren) {
-        if (node.parentNode === block) block.appendChild(node);
-      }
-      this.remember(model, item.created);
+    this.changingReveal(() => {
+      if (!item.model) return;
+      const model = item.model;
+      const block = model.block;
+      this.revealer.forget(block);
+      this.shown.delete(block);
+      item.streamed = false;
+      delete item.sentenceShownParts;
+      delete item.fastFlushAt;
+      delete item.fastFlushLength;
+      this.cancelFastFlush(item);
+      this.editDom(() => {
+        restoreSegment(model, item.created);
+        removeTranslationUi(block);
+        for (const node of item.originalChildren) {
+          if (node.parentNode === block) block.appendChild(node);
+        }
+        this.remember(model, item.created);
+      });
     });
   }
 
@@ -2028,13 +2833,16 @@ export class PageSession {
       released = true;
       for (const item of batch.items) {
         if (item === except) {
-          // The caller drops this item because its source changed mid-flight. Clearing it
+          // Its owner drops this item because its source changed mid-flight. Clearing it
           // here stops `pump()` from starting a second request for the old source before
-          // the caller can forget it.
+          // the caller can forget it. Invalidating the token makes every chunk the still-open
+          // request sends a no-op, so a stale final cannot repaint the newer page text.
           item.state = 'idle';
+          item.batchToken = -1;
           item.partText = [];
           item.partFinal = [];
           item.partError = [];
+          this.cancelFastFlush(item);
           item.model?.block.removeAttribute('data-sakutto-pending');
           continue;
         }
@@ -2051,6 +2859,9 @@ export class PageSession {
         item.partText = [];
         item.partFinal = [];
         item.partError = [];
+        // Every piece is requested again after this abort. No mark from the interrupted
+        // attempt may block the replacement partials, and no stale flush may fire later.
+        this.keepFinalShownParts(item);
         item.model?.block.removeAttribute('data-sakutto-pending');
         if (requeue && this.active && !this.navigating) this.enqueue(item);
       }
@@ -2074,22 +2885,51 @@ export class PageSession {
     for (const node of created) this.expected.set(node, node.nodeValue ?? '');
   }
 
-  private forgetLive(item: Live, restore: boolean): void {
-    if (item.model) {
-      if (restore) this.resetLive(item);
-      else {
-        removeTranslationUi(item.model.block);
-        item.model.block.removeAttribute('data-sakutto-pending');
-        item.model.block.removeAttribute('data-sakutto-id');
-        item.model.block.removeAttribute('data-sakutto-engine');
-        for (const node of item.created) node.remove();
-        item.created.length = 0;
+  /**
+   * Puts the source back on the page before a replacement request is built, keeping any
+   * edit the page made while our partial translation was on screen. A replace-mode
+   * partial writes the translation into the first slot and empties the rest; rebuilding
+   * the source from that DOM would send the translator its own output as source.
+   */
+  private restoreSourceSlots(item: Live): void {
+    const model = item.model;
+    if (!model) return;
+    this.editDom(() => {
+      for (const slot of allSlots(model)) {
+        const painted = this.expected.get(slot.node);
+        const current = slot.node.nodeValue ?? '';
+        // A value that still matches what we painted is ours and goes back to the
+        // original text. Anything else is the page's newer text and must survive.
+        const next = painted === undefined || painted !== current ? current : slot.original;
+        if (next !== current) slot.node.nodeValue = next;
       }
-      this.liveByBlock.delete(item.model.block);
-    }
-    this.live.delete(item.id);
-    this.queue.remove((candidate) => candidate === item);
-    this.dirty.delete(item);
+      // The undo is our write, not a new page edit. Record the restored values so the
+      // observer does not start another retranslation from its own mutation records.
+      this.remember(model, []);
+    });
+  }
+
+  private forgetLive(item: Live, restore: boolean): void {
+    this.changingReveal(() => {
+      if (item.model) {
+        if (restore) this.resetLive(item);
+        else {
+          this.restoreSourceSlots(item);
+          this.revealer.forget(item.model.block);
+          this.shown.delete(item.model.block);
+          removeTranslationUi(item.model.block);
+          item.model.block.removeAttribute('data-sakutto-pending');
+          item.model.block.removeAttribute('data-sakutto-id');
+          item.model.block.removeAttribute('data-sakutto-engine');
+          for (const node of item.created) node.remove();
+          item.created.length = 0;
+        }
+        this.liveByBlock.delete(item.model.block);
+      }
+      this.live.delete(item.id);
+      this.queue.remove((candidate) => candidate === item);
+      this.dirty.delete(item);
+    });
   }
 
   /**
@@ -2214,33 +3054,91 @@ export class PageSession {
       id: item.id,
       ms: Math.round(performance.now() - this.startedAt),
     });
-    if (!this.perf) {
-      this.perf = this.doc.createElement('sakutto-perf');
-      this.perf.hidden = true;
-      this.perf.setAttribute('translate', 'no');
-      this.doc.documentElement.append(this.perf);
-    }
+    this.ensurePerf();
     this.writePerf();
+  }
+
+  /** The perf hook is created once per session and reused across retranslations. */
+  private ensurePerf(): void {
+    if (this.perf) return;
+    this.perf = this.doc.createElement('sakutto-perf');
+    this.perf.hidden = true;
+    this.perf.setAttribute('translate', 'no');
+    this.doc.documentElement.append(this.perf);
   }
 
   /**
    * Rewrites the `sakutto-perf` payload. This also runs after a batch's engine time is
    * added, because `noteTiming` is reached from the last `complete()` inside the batch —
    * one statement before that time is counted — so the final batch of every page used to
-   * be missing from `engineMs`, which on a single-block page is the whole cost.
+   * be missing from `engineMs`, which on a single-block page is the whole cost. The three
+   * first-* timestamps are absolute (`performance.now`) so the bench can lay the request,
+   * token and paint milestones over the harness clock; the *Ms fields are already
+   * relative to `startedAt` and add up to the time to the first painted word.
    */
   private writePerf(): void {
     if (!this.perf) return;
     const rates = this.rates();
+    const { firstRequestAt, firstTokenAt, firstDomWriteAt } = this;
     this.perf.textContent = JSON.stringify({
       startedAt: this.startedAt,
       firstTextAt: this.firstTextAt,
+      firstRequestAt,
+      firstTokenAt,
+      firstDomWriteAt,
+      requestMs: firstRequestAt === null ? null : Math.round(firstRequestAt - this.startedAt),
+      ttfbMs:
+        firstTokenAt === null || firstRequestAt === null
+          ? null
+          : Math.round(firstTokenAt - firstRequestAt),
+      paintMs:
+        firstDomWriteAt === null || firstTokenAt === null
+          ? null
+          : Math.round(firstDomWriteAt - firstTokenAt),
+      domWriteMs: firstDomWriteAt === null ? null : Math.round(firstDomWriteAt - this.startedAt),
       tokensPerSecond: rates.tokensPerSecond,
       segmentsPerSecond: rates.segmentsPerSecond,
       segments: this.samples,
       batches: this.work.batches,
       pieces: this.work.pieces,
       engineMs: this.work.engineMs,
+      blocks: this.blockTrace(),
+    });
+  }
+
+  /**
+   * Request order and first write of every job, so a bench can tell a block that never
+   * got a slot from one that decoded but held its text back. The trace is read from the
+   * same clock as the page's own first-* milestones.
+   */
+  private blockTrace(): BlockPerfEntry[] {
+    const relative = (at: number | undefined): number | null =>
+      at === undefined ? null : Math.round(at - this.startedAt);
+    const items = [...this.live.values()]
+      .filter((item) => item.role === 'page')
+      .sort((a, b) => a.index - b.index);
+    // The same rule as fastVisible, counted once in document order: an eligible block
+    // gets a slot while fewer than FAST_VISIBLE_BLOCKS eligible ones came before it.
+    let ahead = 0;
+    return items.map((item) => {
+      const eligible =
+        item.band === 'visible' && item.kind === 'prose' && !item.heading && item.bodyProse;
+      const fast = eligible && ahead < FAST_VISIBLE_BLOCKS;
+      if (eligible) ahead += 1;
+      return {
+        id: item.id,
+        benchId: item.model?.block.getAttribute('data-bench-id') ?? null,
+        tag: item.model?.block.localName ?? '',
+        index: item.index,
+        kind: item.kind,
+        band: item.band,
+        heading: item.heading,
+        fast,
+        priority: this.priorityOf(item),
+        requestMs: relative(item.traceRequestedAt),
+        tokenMs: relative(item.traceTokenAt),
+        writeMs: relative(item.traceWriteAt),
+      };
     });
   }
 
@@ -2362,7 +3260,8 @@ export class PageSession {
     const element = node instanceof Element ? node : node.parentElement;
     // A block only gets `data-sakutto-id` when it is first painted. A request that is still
     // running can already have its source replaced, so live blocks are the authoritative
-    // index here; the attribute stays the fallback for blocks painted by another session.
+    // index here; the attribute stays the fallback for blocks painted by another session
+    // and for the window before a claim is painted or after retranslation clears the marks.
     for (let current: Element | null = element; current; current = current.parentElement) {
       if (this.liveByBlock.has(current)) return current;
     }
@@ -2453,8 +3352,19 @@ export class PageSession {
       return;
     }
     const index = existing.index;
-    this.forgetLive(existing, false);
-    this.addBlock(block, index);
+    // Dropping the old reveal reports it settled. Keep that report back until the
+    // replacement is queued, or whenIdle() would see an idle page in between.
+    this.changingReveal(() => {
+      this.forgetLive(existing, false);
+      this.addBlock(block, index);
+      if (existing.state === 'running') {
+        // The page changed this block while its request was still open. Stop that request
+        // or its final would overwrite the newer text (or be written into a detached node
+        // and leave untranslated prose behind). The replacement is queued above; the
+        // excepted item stays out of it while the request's other blocks are retried.
+        this.abortBatches((batch) => batch.items.includes(existing), true, existing);
+      }
+    });
   }
 
   private forgetDisconnected(): void {
@@ -2543,9 +3453,16 @@ export class PageSession {
   }
 
   private invalidatePaints(): void {
-    this.paintGeneration += 1;
-    this.dirty.clear();
-    this.frameQueued = false;
+    // A finished translation that waits to be shown is written now: its block counts as done
+    // and nothing would translate it again.
+    try {
+      this.revealer.flush();
+    } finally {
+      this.paintGeneration += 1;
+      this.dirty.clear();
+      this.frameQueued = false;
+      for (const item of this.live.values()) this.cancelFastFlush(item);
+    }
   }
 
   private keepsOriginalVisible(item: Live): boolean {
@@ -2706,13 +3623,41 @@ export class PageSession {
     return (
       this.running === 0 &&
       this.queue.size === 0 &&
+      this.revealer.size === 0 &&
       this.scanTimer === null &&
       this.selectionTimer === null &&
       this.pendingScans === 0
     );
   }
 
+  /**
+   * Reveal removal reports `settled` before the replacement work is registered. Hold that
+   * report until the caller is done: an `whenIdle()` waiter must still see the new work.
+   */
+  private changingReveal<T>(change: () => T): T {
+    this.revealChanging += 1;
+    try {
+      return change();
+    } finally {
+      this.revealChanging -= 1;
+      if (this.revealChanging === 0) {
+        const settled = this.revealSettled;
+        const deferred = this.idleDeferred;
+        this.revealSettled = false;
+        this.idleDeferred = false;
+        if (settled || deferred) this.resolveIdle();
+      }
+    }
+  }
+
   private resolveIdle(): void {
+    // A change can look idle after tearing work down but before its replacement is
+    // enqueued: abortRunning(false) pumps before retranslateNow() queues the new jobs.
+    // Re-check when the change is over instead of releasing waiters in that gap.
+    if (this.revealChanging > 0) {
+      this.idleDeferred = true;
+      return;
+    }
     if (!this.isIdle()) return;
     const waiters = this.idleWaiters.splice(0);
     for (const resolve of waiters) resolve();
@@ -2827,6 +3772,19 @@ function joinLinePieces(item: Live, parts: readonly string[]): string {
   return output;
 }
 
+/**
+ * Joins the parts a sentence-mode partial paint has reached. A pre-wrap X body is
+ * translated one source line per request: keep the source's line breaks instead of
+ * gluing the answers into one paragraph. The bilingual renderer then leaves the
+ * unanswered lines empty rather than spreading the first answer over the whole block.
+ */
+function joinSentenceParts(item: Live, parts: readonly string[], target: string): string {
+  if (item.linePieces && item.model && shouldPreserveNewlines(item.model.block)) {
+    return joinLinePieces(item, parts);
+  }
+  return joinTranslatedSentences(parts, target);
+}
+
 function placeholderGlossary(
   batch: readonly Live[],
   glossary: readonly GlossaryEntry[],
@@ -2858,6 +3816,95 @@ function partIndex(id: string): number {
   return Number.isInteger(index) ? index : 0;
 }
 
+/**
+ * A few words are short enough that going out of focus would read as a flicker. The limit is
+ * in Latin letters; a character of a wide script counts as two.
+ */
+const REVEAL_LABEL_MAX_WIDTH = 28;
+
+function revealKind(item: Live): RevealKind {
+  if (item.heading) return 'heading';
+  let width = 0;
+  for (const character of item.plain) {
+    width += (character.codePointAt(0) ?? 0) > 0x2e7f ? 2 : 1;
+    if (width > REVEAL_LABEL_MAX_WIDTH) return 'body';
+  }
+  return 'label';
+}
+
+/** What `shown` remembers for a finished translation: the text, and how it was put there. */
+function shownAs(text: string, bilingual: boolean): string {
+  return `${bilingual ? 'line' : 'text'}:${text}`;
+}
+
+/** A block's speed can be told this long after its first piece. */
+const REVEAL_FORECAST_AFTER_MS = 250;
+/** A block that took less than this says too little about the speed. */
+const PACE_MIN_SPAN_MS = 25;
+/** Less text than this says too little about the speed. */
+const REVEAL_FORECAST_MIN_CHARS = 8;
+/**
+ * Pieces of one block that are decoded side by side have all started this long after the
+ * first of them. A piece that has not is waiting for its turn.
+ */
+const REVEAL_PIECES_START_MS = 1200;
+/**
+ * A block that is decoded by itself is streamed when it takes longer than this: no other
+ * block is swapped in meanwhile, so the screen would show no sign of progress.
+ */
+const REVEAL_STREAM_ALONE_MS = 3000;
+
+/**
+ * Whether the block is taking, or will take, longer than a reader should look at the source
+ * without a sign of progress. `ratio` is how long a translation is for its source on this
+ * page, `pace` how many letters a millisecond its finished blocks came at (null before the
+ * first one has finished), `alone` whether no other block has got text beside it.
+ */
+function decodesSlowly(item: Live, ratio: number, pace: number | null, alone: boolean): boolean {
+  if (item.firstPieceAt === null) return false;
+  const elapsed = performance.now() - item.firstPieceAt;
+  // While other blocks are swapped in around it, a block can keep its source for longer than
+  // on a screen where nothing else happens.
+  const limit = alone ? REVEAL_STREAM_ALONE_MS : REVEAL_STREAM_AFTER_MS;
+  if (elapsed > limit) return true;
+  if (elapsed < REVEAL_FORECAST_AFTER_MS) return false;
+  let have = 0;
+  for (const part of item.partText) have += part.length;
+  const expected = item.source.length * ratio;
+  if (have >= expected) return false;
+  // Blocks are decoded many at a time: one often gets a few letters, waits while others are
+  // started, and then comes quickly. Its own first pieces would say it takes far longer than
+  // it does. The speed at which finished blocks came on this page has those waits in it.
+  // A block that is decoded by itself has no such waits, and its own speed says more than
+  // that of the blocks before it, which may have been much shorter.
+  if (pace !== null && !alone) {
+    // A long block is sent as several pieces. Where many requests are decoded at a time the
+    // pieces come side by side, and the block is finished when the piece that lacks the most
+    // is. Where one is decoded at a time they come one after another, and the block takes
+    // the sum of them. Which it is shows in the pieces themselves: side by side they have
+    // all started soon after the first one.
+    let most = 0;
+    let all = 0;
+    let started = 0;
+    let waiting = 0;
+    for (let index = 0; index < item.partSource.length; index += 1) {
+      if (item.partFinal[index] === true) continue;
+      const got = item.partText[index]?.length ?? 0;
+      const part = Math.max(0, (item.partSource[index] ?? 0) * ratio - got);
+      most = Math.max(most, part);
+      all += part;
+      if (got > 0) started += 1;
+      else waiting += 1;
+    }
+    const inTurn = waiting > 0 && elapsed >= REVEAL_PIECES_START_MS;
+    const lacking = inTurn ? Math.max(most, all / Math.max(1, started)) : most;
+    return elapsed + lacking / pace > REVEAL_STREAM_AFTER_MS;
+  }
+  // Decoded by itself, or nothing has finished on this page yet: the block's own speed.
+  if (have < REVEAL_FORECAST_MIN_CHARS) return false;
+  return (elapsed * expected) / have > limit;
+}
+
 function partialText(item: Live, target: string): string {
   if (item.linePieces && item.partText.length > 0) {
     let last = -1;
@@ -2869,6 +3916,119 @@ function partialText(item: Live, target: string): string {
   const parts = item.partText.filter((part) => part.trim().length > 0);
   if (parts.length === 0) return '';
   return joinTranslatedSentences(parts, target);
+}
+
+/**
+ * The decoded text of a visible block, piece by piece. A piece that has not started yet
+ * stops the read, so a later piece is never shown before the one before it — filtering
+ * empty pieces away, as partialText() does for the other paths, would show it alone.
+ * Indexes line up with partText so the high-water can be applied before joining.
+ */
+function visiblePartialParts(item: Live): string[] {
+  const parts: string[] = [];
+  for (const part of item.partText) {
+    const stripped = stripPlaceholderTokens(part).trim();
+    if (stripped.length === 0) break;
+    parts.push(stripped);
+  }
+  return parts;
+}
+
+/**
+ * Clause marks where a partial translation reads well on its own. Commas, semicolons and
+ * colons are the early ones in both scripts; a sentence terminator is a clause boundary
+ * too, but the fast path never has to wait for one.
+ */
+const CLAUSE_MARKS: ReadonlySet<string> = new Set([
+  ',',
+  '、',
+  ';',
+  '；',
+  ':',
+  '：',
+  '.',
+  '。',
+  '!',
+  '！',
+  '?',
+  '？',
+  '…',
+]);
+const CLAUSE_CLOSERS: ReadonlySet<string> = new Set([
+  '"',
+  "'",
+  '”',
+  '’',
+  ')',
+  ']',
+  '}',
+  '）',
+  '］',
+  '】',
+  '」',
+  '』',
+  '〉',
+  '》',
+]);
+
+function endsOnClause(text: string): boolean {
+  const trimmed = text.trimEnd();
+  let end = trimmed.length - 1;
+  while (end >= 0 && CLAUSE_CLOSERS.has(trimmed[end] ?? '')) end -= 1;
+  return end >= 0 && CLAUSE_MARKS.has(trimmed[end] ?? '');
+}
+
+/**
+ * The finished sentences of each piece of a decoded translation, indexed by piece. A
+ * piece is still being decoded unless it ends on a sentence boundary (or has its final
+ * answer), so its last span stays behind — and every later piece waits for it, because
+ * a terminator in a later piece says nothing about where the earlier one ended.
+ */
+function finishedSentenceParts(
+  parts: readonly string[],
+  final: readonly boolean[],
+  target: string,
+): string[] {
+  const ready: string[] = [];
+  for (let index = 0; index < parts.length; index += 1) {
+    const part = parts[index]?.trim() ?? '';
+    if (part.length === 0) break;
+    const spans = sentenceSpans(part);
+    const done = spans.filter((span) => hasSentenceTerminator(span.text)).map((span) => span.text);
+    if (final[index] === true && spans.length > done.length) {
+      // A finished piece needs no terminator: its whole text is ready.
+      const tail = spans.at(-1);
+      if (tail) done.push(tail.text);
+    }
+    ready[index] = joinTranslatedSentences(done, target);
+    if (final[index] !== true && done.length < spans.length) break;
+  }
+  return ready;
+}
+
+/**
+ * High-water mark per piece of the text already written to the page. A restart may shorten
+ * one piece while a later piece grows: the joined text is then longer than before although
+ * a sentence the reader already saw has vanished. Only a candidate that continues a
+ * piece's mark may replace it, so every partial paint extends the text on the page; a
+ * corrected answer takes over at the final settle, which bypasses this guard. Returns the
+ * text to join and the new marks, or null when no piece grew.
+ */
+function extendShownParts(
+  candidates: readonly string[],
+  shown: readonly string[] | undefined,
+): { parts: string[]; shown: string[] } | null {
+  const count = Math.max(candidates.length, shown?.length ?? 0);
+  const parts: string[] = [];
+  let grew = false;
+  for (let index = 0; index < count; index += 1) {
+    const mark = shown?.[index] ?? '';
+    const candidate = candidates[index] ?? '';
+    const next = candidate.length > mark.length && candidate.startsWith(mark) ? candidate : mark;
+    parts.push(next);
+    if (next !== mark) grew = true;
+  }
+  return grew ? { parts, shown: parts } : null;
 }
 
 /**

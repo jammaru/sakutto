@@ -24,6 +24,30 @@ export interface BenchRecord {
   machine: BenchMachine;
   metrics: BenchMetrics;
   notes?: string;
+  /** Raw per-block trace for a tooling run; never written to the JSONL history. */
+  trace?: {
+    perf: {
+      id: string;
+      benchId: string | null;
+      tag: string;
+      index: number;
+      kind: 'prose' | 'chrome';
+      band: 'visible' | 'near' | 'far';
+      heading: boolean;
+      fast: boolean;
+      priority: number;
+      requestMs: number | null;
+      tokenMs: number | null;
+      writeMs: number | null;
+    }[];
+    dom: {
+      id: string;
+      kind: string;
+      visible: boolean;
+      firstChangeMs: number | null;
+      doneMs: number | null;
+    }[];
+  };
 }
 
 export interface BenchEngine {
@@ -92,6 +116,16 @@ export interface BenchMetrics {
     batches: number | null;
     pieces: number | null;
     engineMs: number | null;
+    /**
+     * Where the time to the first painted word went, from the page's own clock:
+     * `requestMs` (start to first engine request), `ttfbMs` (request to first token),
+     * `paintMs` (first token to first DOM write) and their sum `domWriteMs`.
+     * Present only in history written by builds that expose these `sakutto-perf` fields.
+     */
+    requestMs?: number | null;
+    ttfbMs?: number | null;
+    paintMs?: number | null;
+    domWriteMs?: number | null;
   };
   blocks: {
     total: number;
@@ -102,6 +136,10 @@ export interface BenchMetrics {
     visibleProse: number;
     finished: number;
   };
+  /** Cumulative layout shift during the run, when the browser supported observing it. */
+  cls?: number | null;
+  /** Number of layout-shift entries behind `cls`. */
+  layoutShifts?: number | null;
   /** Marked blocks the extension never finished. Present only when the run was partial. */
   unfinished?: string[];
   lateBlocks: number;
@@ -200,6 +238,10 @@ export function isBenchRecord(value: unknown): value is BenchRecord {
   if (!isRecord(work)) return false;
   for (const key of ['batches', 'pieces', 'engineMs'] as const) {
     if (!isNullableNumber(work[key])) return false;
+  }
+  // Optional: history from older builds has no latency breakdown.
+  for (const key of ['requestMs', 'ttfbMs', 'paintMs', 'domWriteMs'] as const) {
+    if (key in work && !isNullableNumber(work[key])) return false;
   }
   if (typeof metrics.lateBlocks !== 'number') return false;
   if (typeof metrics.timedOut !== 'boolean') return false;

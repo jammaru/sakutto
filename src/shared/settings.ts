@@ -44,6 +44,20 @@ export function normalizePlainTextLineBreaks(value: unknown): PlainTextLineBreak
   return value === 'keep' || value === 'blank' || value === 'wider' ? value : 'none';
 }
 
+/**
+ * How a finished page translation appears. `sentence` (the default) writes each finished
+ * sentence as it is decoded and settles the block once at the end; `smooth` keeps a block's
+ * source until its translation is finished and swaps it once; `stream` writes the text as it
+ * is decoded.
+ */
+export const TRANSLATION_REVEALS = ['sentence', 'smooth', 'stream'] as const;
+export type TranslationReveal = (typeof TRANSLATION_REVEALS)[number];
+
+/** Normalizes a stored value; anything unrecognised gets the default. */
+export function normalizeTranslationReveal(value: unknown): TranslationReveal {
+  return value === 'smooth' || value === 'stream' || value === 'sentence' ? value : 'sentence';
+}
+
 export const VIDEO_CAPTION_SIZE_MIN = 50;
 export const VIDEO_CAPTION_SIZE_MAX = 150;
 export const VIDEO_CAPTION_SIZE_DEFAULT = 80;
@@ -276,6 +290,7 @@ export interface Settings {
    * like `keep` and additionally marks each break in the typed page's source box.
    */
   plainTextLineBreaks: PlainTextLineBreakMode;
+  translationReveal: TranslationReveal;
   consent: LicenseConsent | null;
   highQualityDismissed: boolean;
   /**
@@ -366,6 +381,7 @@ export type SettingsPatch = Partial<
     | 'translationPopupSize'
     | 'translationPopupWidth'
     | 'plainTextLineBreaks'
+    | 'translationReveal'
     | 'consent'
     | 'highQualityDismissed'
     | 'sharedFolderOfferDismissed'
@@ -408,6 +424,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
   translationPopupSize: TRANSLATION_POPUP_SIZE_DEFAULT,
   translationPopupWidth: TRANSLATION_POPUP_WIDTH_AUTO,
   plainTextLineBreaks: 'none',
+  translationReveal: 'sentence',
   consent: null,
   highQualityDismissed: false,
   sharedFolderOfferDismissed: false,
@@ -476,6 +493,7 @@ export function normalizeSettings(value: unknown, uiLanguage: string): Settings 
     translationPopupSize: normalizeTranslationPopupSize(value.translationPopupSize),
     translationPopupWidth: normalizeTranslationPopupWidth(value.translationPopupWidth),
     plainTextLineBreaks: normalizePlainTextLineBreaks(value.plainTextLineBreaks),
+    translationReveal: normalizeTranslationReveal(value.translationReveal),
     consent: normalizeConsent(value.consent),
     highQualityDismissed: value.highQualityDismissed === true,
     sharedFolderOfferDismissed: value.sharedFolderOfferDismissed === true,

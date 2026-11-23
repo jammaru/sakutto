@@ -1527,6 +1527,21 @@
   "translationPopupSizeHelp": {
     "message": "Changes the text size in hover, selection, and compose translation popups. Video captions use their own size setting."
   },
+  "translationRevealLabel": {
+    "message": "How page translations appear"
+  },
+  "translationRevealHelp": {
+    "message": "The sentence option is the default: it shows each sentence as soon as it is translated, keeping the block's height until the end. A paragraph that takes long is shown as it is translated, and in bilingual mode the translated line grows sentence by sentence. The smooth option keeps a paragraph's original text until its translation is finished, then swaps it in one short motion, so the page does not jump while it is translated."
+  },
+  "translationRevealSmooth": {
+    "message": "Swap each paragraph once it is finished"
+  },
+  "translationRevealSentence": {
+    "message": "Show each sentence as soon as it is translated"
+  },
+  "translationRevealStream": {
+    "message": "Show text as it is translated (as before)"
+  },
   "plainTextLineBreaksLabel": {
     "message": "Line breaks in the translation"
   },

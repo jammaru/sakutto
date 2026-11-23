@@ -1523,6 +1523,21 @@
   "translationPopupSizeHelp": {
     "message": "Ändert die Textgröße in Übersetzungs-Pop-ups beim Überfahren, bei Auswahl und beim Verfassen. Untertitel haben eine eigene Größenoption."
   },
+  "translationRevealLabel": {
+    "message": "Darstellung der Seitenübersetzung"
+  },
+  "translationRevealHelp": {
+    "message": "Die Satz-Option ist die Standardeinstellung: Sie zeigt jeden Satz an, sobald er übersetzt ist, und behält die Höhe des Blocks bis zum Ende bei. Ein Absatz, der lange dauert, wird während der Übersetzung angezeigt; im zweisprachigen Modus wächst die Übersetzungszeile Satz für Satz. Die Option zum Absatzersatz lässt den Originaltext stehen, bis die Übersetzung fertig ist, und ersetzt ihn dann in einer kurzen Bewegung, sodass die Seite während der Übersetzung nicht springt."
+  },
+  "translationRevealSmooth": {
+    "message": "Jeden Absatz ersetzen, sobald er fertig ist"
+  },
+  "translationRevealSentence": {
+    "message": "Jeden Satz anzeigen, sobald er übersetzt ist"
+  },
+  "translationRevealStream": {
+    "message": "Text während der Übersetzung anzeigen (wie bisher)"
+  },
   "plainTextLineBreaksLabel": {
     "message": "Zeilenumbrüche in der Übersetzung"
   },

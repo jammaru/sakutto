@@ -1523,6 +1523,21 @@
   "translationPopupSizeHelp": {
     "message": "調整懸停、選取和撰寫翻譯彈窗中的文字大小。影片字幕使用個別的字幕大小設定。"
   },
+  "translationRevealLabel": {
+    "message": "頁面譯文的顯示方式"
+  },
+  "translationRevealHelp": {
+    "message": "按句選項為預設選項：每句翻譯完成後立即顯示，並在結束前保持該段高度不變。耗時較長的段落會邊翻譯邊顯示，雙語顯示時譯文行會隨每句譯文逐漸加長。段落替換選項會保留段落原文，直到譯文完成，再以一個簡短的動畫一次替換，翻譯過程中頁面不會跳動。"
+  },
+  "translationRevealSmooth": {
+    "message": "段落翻譯完成後一次替換"
+  },
+  "translationRevealSentence": {
+    "message": "每句翻譯完成後立即顯示"
+  },
+  "translationRevealStream": {
+    "message": "邊翻譯邊顯示（與以往相同）"
+  },
   "plainTextLineBreaksLabel": {
     "message": "譯文中的換行"
   },

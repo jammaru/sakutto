@@ -36,6 +36,10 @@ test.describe('page bench', () => {
     const result = await runPageBench({
       mode: 'mock',
       samples: 1,
+      // The first-paint assertions below describe sentence mode: a held heading must
+      // not stand between the page's first token and its first painted word.
+      reveal: 'sentence',
+      captureTrace: true,
       writeHistory: false,
       writeSummary: false,
     });
@@ -88,6 +92,30 @@ test.describe('page bench', () => {
     // late-mount fixture would silently measure only the first screen.
     const spa = result.records.find((record) => record.page === 'late-mount-spa');
     expect(spa?.metrics.lateBlocks).toBeGreaterThan(0);
+
+    // The first decoded chunk of an on-screen block paints in the decode turn on all
+    // three first-paint fixtures. A heading that held its chunk until a sentence ended
+    // made the engine's paint stage bimodal even while the first paragraph was on time.
+    for (const page of ['long-article', 'single-long-paragraph', 'late-mount-spa']) {
+      const target = result.records.find((record) => record.page === page);
+      expect(target?.trace, `${page} has no per-block trace`).toBeDefined();
+      const visible = (target?.trace?.perf ?? []).filter(
+        (block) => block.band === 'visible' && block.tokenMs !== null && block.writeMs !== null,
+      );
+      const first = [...visible].sort((a, b) => (a.tokenMs ?? 0) - (b.tokenMs ?? 0))[0];
+      expect(first, `${page} painted nothing visible`).toBeDefined();
+      if (first?.tokenMs === undefined || first.tokenMs === null || first.writeMs === null)
+        continue;
+      expect(
+        first.writeMs - first.tokenMs,
+        `${page} held the first token before its first write`,
+      ).toBeLessThanOrEqual(5);
+      const paint = target?.metrics.engineWork.paintMs;
+      expect(
+        paint === null || paint === undefined ? Infinity : paint,
+        `${page} has a paint tail`,
+      ).toBeLessThanOrEqual(5);
+    }
 
     expect(result.summary).toContain('Mock mode replaces the model');
     expect(result.summary).toContain('## Headline numbers (long-article)');

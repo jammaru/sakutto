@@ -46,6 +46,8 @@
     "bench:build:live": "node scripts/verify-wllama.mjs && node scripts/sync-pdfjs.mjs && node scripts/sync-licenses.mjs && SAKUTTO_E2E_REAL=1 wxt build",
     "bench:serve": "node scripts/bench/static.ts",
     "bench:history": "node scripts/bench/report.ts",
+    "bench:sidebar": "node bench/sidebar-timeline.ts",
+    "bench:timeline": "node bench/reveal-timeline.ts",
     "bench:download": "node --experimental-strip-types --no-warnings --import ./scripts/bench/register-ts.mjs scripts/bench/download-throughput.ts",
     "bench:equality": "node --experimental-strip-types --no-warnings --import ./scripts/bench/register-ts.mjs scripts/bench/translation-equality.ts",
     "bench:sha256": "node --experimental-strip-types --no-warnings --import ./scripts/bench/register-ts.mjs scripts/bench/sha256-throughput.ts",

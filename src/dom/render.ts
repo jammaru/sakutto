@@ -75,13 +75,18 @@ export function paintPlain(model: SegmentModel, translation: string, created: Te
  * Adds the second, translated line under the original. The line holds the translation and
  * nothing else: no badge and no engine caption, whatever translated it.
  */
-export function showBilingual(model: SegmentModel, translation: string, created: Text[]): void {
+export function showBilingual(
+  model: SegmentModel,
+  translation: string,
+  created: Text[],
+  lineAligned = false,
+): void {
   restoreStructure(model, created);
 
   const line = ensureChild(model.block, LINE_TAG);
   line.replaceChildren();
   line.setAttribute('translate', 'no');
-  const chunks = bilingualChunks(model, translation);
+  const chunks = bilingualChunks(model, translation, lineAligned);
   for (let index = 0; index < chunks.length; index += 1) {
     if (index > 0) line.append(model.block.ownerDocument.createElement('br'));
     line.append(model.block.ownerDocument.createTextNode(chunks[index] ?? ''));
@@ -592,12 +597,29 @@ function distributeFlatParagraphs(text: string, sources: readonly string[]): str
 }
 
 /** Mirror the source's real line breaks without rewriting its React-owned text nodes. */
-function bilingualChunks(model: SegmentModel, translation: string): string[] {
+function bilingualChunks(model: SegmentModel, translation: string, lineAligned = false): string[] {
   const sources = model.source.split('\n');
   const groups = sources
     .filter((source) => source.trim().length > 0)
     .map((source) => ({ slots: [], source }));
-  const chunks = lineChunks(separateGluedSentences(visibleTranslation(translation)), groups, true);
+  const text = separateGluedSentences(visibleTranslation(translation));
+  if (lineAligned) {
+    // One answer per source line. A line that has not answered yet stays empty:
+    // distributing the first answer's words over every source line would split it
+    // until the final settle, which is the interval #165 added line pieces for.
+    const answers = text
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+    let lineIndex = 0;
+    return sources.map((source) => {
+      if (source.trim().length === 0) return '';
+      const answer = answers[lineIndex] ?? '';
+      lineIndex += 1;
+      return answer;
+    });
+  }
+  const chunks = lineChunks(text, groups, true);
   let index = 0;
   return sources.map((source) => {
     if (source.trim().length === 0) return '';

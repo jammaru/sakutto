@@ -1523,6 +1523,21 @@
   "translationPopupSizeHelp": {
     "message": "Modifie la taille du texte dans les fenêtres de traduction au survol, à la sélection et lors de la rédaction. Les sous-titres vidéo ont leur propre réglage de taille."
   },
+  "translationRevealLabel": {
+    "message": "Affichage des traductions de la page"
+  },
+  "translationRevealHelp": {
+    "message": "L'option par phrase est celle par défaut : elle affiche chaque phrase dès qu'elle est traduite tout en conservant la hauteur du bloc jusqu'à la fin. Un paragraphe qui prend longtemps s'affiche pendant sa traduction et, en mode bilingue, la ligne traduite s'allonge phrase par phrase. L'option de remplacement conserve le texte d'origine d'un paragraphe jusqu'à ce que sa traduction soit terminée, puis le remplace en un bref mouvement, afin que la page ne saute pas pendant la traduction."
+  },
+  "translationRevealSmooth": {
+    "message": "Remplacer chaque paragraphe une fois terminé"
+  },
+  "translationRevealSentence": {
+    "message": "Afficher chaque phrase dès qu'elle est traduite"
+  },
+  "translationRevealStream": {
+    "message": "Afficher le texte pendant la traduction (comme avant)"
+  },
   "plainTextLineBreaksLabel": {
     "message": "Sauts de ligne dans la traduction"
   },

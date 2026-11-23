@@ -1523,6 +1523,21 @@
   "translationPopupSizeHelp": {
     "message": "Thay đổi cỡ chữ trong cửa sổ dịch khi di chuột, khi bôi đen và khi soạn thảo. Phụ đề video có cài đặt cỡ chữ riêng."
   },
+  "translationRevealLabel": {
+    "message": "Cách hiển thị bản dịch của trang"
+  },
+  "translationRevealHelp": {
+    "message": "Tùy chọn theo câu là mặc định: hiển thị từng câu ngay sau khi được dịch và giữ nguyên chiều cao của khối cho đến khi kết thúc. Đoạn nào mất nhiều thời gian sẽ được hiển thị trong khi dịch và ở chế độ song ngữ, dòng bản dịch dài thêm sau mỗi câu. Tùy chọn thay thế giữ nguyên văn bản gốc của đoạn cho đến khi dịch xong, rồi thay bằng một chuyển động ngắn, nên trang không bị giật trong khi dịch."
+  },
+  "translationRevealSmooth": {
+    "message": "Thay từng đoạn khi dịch xong"
+  },
+  "translationRevealSentence": {
+    "message": "Hiển thị từng câu ngay sau khi được dịch"
+  },
+  "translationRevealStream": {
+    "message": "Hiển thị văn bản trong khi dịch (như trước)"
+  },
   "plainTextLineBreaksLabel": {
     "message": "Xuống dòng trong bản dịch"
   },

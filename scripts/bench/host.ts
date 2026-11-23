@@ -99,7 +99,10 @@ export interface BenchLocalServer {
 
 export function settings(
   tier: BenchTier = 'auto',
-  extras: { localServer?: BenchLocalServer } = {},
+  extras: {
+    localServer?: BenchLocalServer;
+    reveal?: 'smooth' | 'stream' | 'sentence';
+  } = {},
 ): Record<string, unknown> {
   const localServer = extras.localServer;
   return {
@@ -107,6 +110,7 @@ export function settings(
     targetLanguage: 'ja',
     form: 'polite',
     display: 'replace',
+    ...(extras.reveal === undefined ? {} : { translationReveal: extras.reveal }),
     consent: {
       license: 'plamo-community',
       version: '2026-11-05',
