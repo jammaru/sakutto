@@ -946,8 +946,7 @@ export class PdfReader {
           if (fallback.empty) this.emptyPages.add(next);
           const element = this.pageElements.get(next);
           if (element) {
-            element.host.dataset.pageEmpty =
-              fallback.layout.blocks.length === 0 ? 'true' : 'false';
+            element.host.dataset.pageEmpty = fallback.layout.blocks.length === 0 ? 'true' : 'false';
             element.missing.textContent =
               error instanceof OcrUserMessageError ? error.message : this.labels.ocrFailed;
             this.paintTextLayer(element, fallback.lines);

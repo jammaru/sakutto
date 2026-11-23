@@ -59,6 +59,20 @@ describe('latest DSH review blockers', () => {
     expect(layout.blocks.map((block) => block.column)).toEqual([0]);
   });
 
+  it('B2: keeps a two-piece title with Node.js whole on one line', () => {
+    const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+    const items = [
+      region('On-Device Translation with Node.js', quad(45, 60, 250, 20)),
+      region('In Modern Browser Extensions', quad(305, 60, 250, 20)),
+    ];
+    const result = ocrResult(items);
+    const full = 'On-Device Translation with Node.js In Modern Browser Extensions';
+    expect(ocrResultToTextLines(result, options).map((line) => line.text)).toEqual([full]);
+    expect(ocrResultToPageLayout(result, options).blocks.map((block) => block.text)).toEqual([
+      full,
+    ]);
+  });
+
   it('B2: keeps two full-width sentence rows whole on a single-column page', () => {
     const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
     const row1 = [

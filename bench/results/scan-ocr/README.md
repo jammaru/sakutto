@@ -32,7 +32,7 @@ captured from and orders title, abstract, left body column, right body column an
 | ------------------ | ------------------ | ----: | ----: | -----------: | ------: | ----------: | -------: |
 | baseline-1x        | tiny_det+small_rec | 66.7% | 94.8% |            0 |  24.2 s |    21.9 MiB |    0.110 |
 | shipped-baseline   | tiny_det+small_rec | 11.6% | 16.8% |            0 |  29.1 s |    21.9 MiB |    0.885 |
-| default-1600       | tiny_det+small_rec |  3.0% |  5.5% |            0 |  35.6 s |    21.9 MiB |    0.963 |
+| default-1600       | tiny_det+small_rec |  3.0% |  5.5% |            0 |  37.6 s |    21.9 MiB |    0.963 |
 | gray+contrast-1600 | tiny_det+small_rec |  5.4% |  7.5% |            0 |  35.8 s |    21.9 MiB |    0.953 |
 | dpi300             | tiny_det+small_rec |  5.4% |  7.6% |            0 |  37.5 s |    21.9 MiB |    0.953 |
 | sauvola            | tiny_det+small_rec | 82.5% | 97.2% |            2 |  23.1 s |    21.9 MiB |    0.030 |
@@ -48,7 +48,7 @@ on a real gutter were the two layout fixes that removed cross-column covers.
 
 | approach               | pairing               |  CER | cross-column | ms/page | model bytes |
 | ---------------------- | --------------------- | ---: | -----------: | ------: | ----------: |
-| default-1600 (shipped) | tiny_det+small_rec    | 3.0% |            0 |  35.6 s |    21.9 MiB |
+| default-1600 (shipped) | tiny_det+small_rec    | 3.0% |            0 |  37.6 s |    21.9 MiB |
 | default-1600 (high)    | medium_det+medium_rec | 3.6% |            0 | 213.7 s |   132.2 MiB |
 
 High tier can be slightly better on CER for this page but is ~6x slower

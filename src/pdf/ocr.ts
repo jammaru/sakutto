@@ -291,12 +291,16 @@ function onePrintedTitleRow(pieces: readonly OcrTextPiece[], pageWidth: number):
   const cjk = /^[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u.test(text);
   if (!cjk && words.length < 3) return false;
   if (cjk && text.length < 8) return false;
-  // A title may carry a colon or a comma, but not the full stops of a sentence. A stop inside
-  // either piece means the row already contains a complete sentence: it is body prose from two
-  // printed columns, even when the merged row itself ends without punctuation. Decimals and
-  // common abbreviations are not sentence boundaries.
   const prose = text.replace(/\d\.\d/gu, '').replace(/\b(?:Dr|Mr|Ms|Prof|e\.g|i\.e)\./gu, '');
-  if (/[.!?。！？]/u.test(prose)) return false;
+  const withoutDottedTokens = prose.replace(/\b\w+\.\w+/gu, (token) => token.replace(/\./g, ''));
+  if (
+    /[.!?。！？]\s+(?:\p{Lu}|[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}])/u.test(
+      withoutDottedTokens,
+    ) ||
+    (withoutDottedTokens.match(/[.!?。！？]/gu) ?? []).length > 1
+  ) {
+    return false;
+  }
   if (!/^(\p{Lu}|\d|[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}])/u.test(text)) {
     return false;
   }
