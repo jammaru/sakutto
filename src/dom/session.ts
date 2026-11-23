@@ -243,6 +243,8 @@ interface Live {
   fastFlushAt?: number;
   /** Length of the partial text at that flush, for the character budget. */
   fastFlushLength?: number;
+  /** Timer that re-paints a held fast-path write when its time budget expires. */
+  fastFlushTimer?: ReturnType<typeof setTimeout> | undefined;
   /** When the text of this block last grew. */
   lastPieceAt: number;
   /** How many characters of source each piece of the running request has. */
@@ -1794,6 +1796,11 @@ export class PageSession {
     item.partText = pieces.map((_, index) =>
       item.partFinal[index] === true ? (item.partText[index] ?? '') : '',
     );
+    // A shown clause/token fragment is not a finished sentence. Leaving its high-water
+    // mark would make the repaint re-write it and reject every retry partial whose text
+    // does not extend that fragment, freezing the block until the final settle.
+    delete item.sentenceShownParts;
+    this.cancelFastFlush(item);
     this.dirty.delete(item);
     if (item.partFinal.some(Boolean) && item.partText.some((part) => part.trim().length > 0)) {
       this.paint(item, true);
@@ -2027,6 +2034,32 @@ export class PageSession {
   }
 
   /**
+   * A write held back by the fast-path budget needs a wake-up of its own: if the decoder
+   * stalls, no later chunk queues a paint and decoded text would stay hidden past the
+   * budget. A timer, rather than only a frame, also runs in a background tab.
+   */
+  private scheduleFastFlush(item: Live): void {
+    if (item.fastFlushTimer !== undefined) return;
+    const generation = this.paintGeneration;
+    const age = performance.now() - (item.fastFlushAt ?? item.firstPieceAt ?? performance.now());
+    item.fastFlushTimer = (this.doc.defaultView ?? globalThis).setTimeout(
+      () => {
+        item.fastFlushTimer = undefined;
+        if (generation !== this.paintGeneration || !this.active) return;
+        if (item.state !== 'running' && item.state !== 'queued') return;
+        this.paint(item, true);
+      },
+      Math.max(0, FAST_FLUSH_MS - age),
+    );
+  }
+
+  private cancelFastFlush(item: Live): void {
+    if (item.fastFlushTimer === undefined) return;
+    clearTimeout(item.fastFlushTimer);
+    item.fastFlushTimer = undefined;
+  }
+
+  /**
    * `direct` writes a finished translation at once. It is for text the reader has already
    * seen, such as a repaint after the display mode changed.
    */
@@ -2080,8 +2113,11 @@ export class PageSession {
           ? () => model.block.querySelector(':scope > sakutto-line')
           : undefined;
         const fast = this.fastVisible(item);
+        // The first body paragraph has already painted many times into its reservation.
+        // Dropping its motion entirely would make settle() measure and glide the whole
+        // screen; keep the cheap in-place fade. Other first blocks keep the instant settle.
         const motion =
-          instant || (bilingual && hadLine)
+          (bilingual && hadLine) || (instant && !fast)
             ? undefined
             : {
                 kind: revealKind(item),
@@ -2169,7 +2205,11 @@ export class PageSession {
     if (advanced === null) return;
     const text = joinTranslatedSentences(advanced.parts, this.prefs.targetLanguage);
     if (text.trim().length === 0) return;
-    if (item.streamed && !this.fastFlushDue(item, text)) return;
+    if (item.streamed && !this.fastFlushDue(item, text)) {
+      this.scheduleFastFlush(item);
+      return;
+    }
+    this.cancelFastFlush(item);
     if (!item.streamed) {
       this.claim(item, model);
       this.revealer.reserve(model.block);
@@ -2525,6 +2565,7 @@ export class PageSession {
       delete item.sentenceShownParts;
       delete item.fastFlushAt;
       delete item.fastFlushLength;
+      this.cancelFastFlush(item);
       this.editDom(() => {
         restoreSegment(model, item.created);
         removeTranslationUi(block);
@@ -3056,6 +3097,7 @@ export class PageSession {
       this.paintGeneration += 1;
       this.dirty.clear();
       this.frameQueued = false;
+      for (const item of this.live.values()) this.cancelFastFlush(item);
     }
   }
 

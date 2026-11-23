@@ -726,6 +726,7 @@ describe('page session', () => {
     const source = lead.textContent ?? '';
     const reserve = vi.spyOn(Revealer.prototype, 'reserve');
     const offer = vi.spyOn(Revealer.prototype, 'offer');
+    const settle = vi.spyOn(Revealer.prototype, 'settle');
     const first: string[] = [];
     const second: string[] = [];
     const clause: string[] = [];
@@ -762,7 +763,89 @@ describe('page session', () => {
     expect(reserve).toHaveBeenCalledWith(lead);
     expect(offer.mock.calls.some(([call]) => call.block === lead)).toBe(false);
     expect(lead.textContent).toBe('訳:長い最初の文。次の文。');
+    // This lead painted into a reservation, so its final settle stays cheap.
+    const onLead = settle.mock.calls.filter(([target]) => target === lead);
+    expect(onLead.some(([, , motion]) => motion?.cheap === true)).toBe(true);
     expect(document.querySelector('#long')?.textContent).not.toBe(source);
+  });
+
+  it('keeps the cheap final fade for the first body paragraph under a heading', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML =
+      '<h1 id="title">A survey of readers</h1>' +
+      '<p id="lead">A single long paragraph that streams its first tokens into a reserved box.</p>';
+    for (const block of document.querySelectorAll('h1, p')) {
+      block.getBoundingClientRect = () => new DOMRect(0, 0, 300, 40);
+    }
+    const lead = document.querySelector('#lead');
+    if (!lead) throw new Error('missing lead paragraph');
+    const settle = vi.spyOn(Revealer.prototype, 'settle');
+    const session = start(
+      document,
+      engineOf(async function* (segments) {
+        for (const segment of segments) {
+          yield { id: segment.id, textDelta: 'First', engine: 'plamo' as const };
+          yield { id: segment.id, final: 'First sentence. Second.', engine: 'plamo' as const };
+        }
+      }),
+      { reveal: 'sentence' },
+    );
+
+    await session.translate();
+    await session.whenIdle();
+    // A heading above it does not make this the "instant" first block: it painted into
+    // reserved height, so settle must use the cheap fade, not measure/glide the screen.
+    const onLead = settle.mock.calls.filter(([target]) => target === lead);
+    expect(onLead.length).toBeGreaterThan(0);
+    expect(onLead.some(([, , motion]) => motion?.cheap === true)).toBe(true);
+  });
+
+  it('flushes held fast-path text when the decode time budget expires without another chunk', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML =
+      '<p>Hello world, a source long enough to keep this paragraph in the first paint.</p>';
+    const block = document.querySelector('p');
+    if (!block) throw new Error('missing paragraph');
+    block.getBoundingClientRect = () => new DOMRect(0, 0, 300, 40);
+    const clock = vi.spyOn(performance, 'now');
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const held: string[] = [];
+    const session = start(
+      document,
+      engineOf(async function* (segments, options: TranslateOptions) {
+        for (const segment of segments) {
+          clock.mockReturnValue(1000);
+          yield { id: segment.id, textDelta: 'Hel', engine: 'plamo' as const };
+          clock.mockReturnValue(1000);
+          yield { id: segment.id, textDelta: 'lo. Tw', engine: 'plamo' as const };
+          held.push(block?.textContent ?? '');
+          // Decode stalls here: no later chunk queues a paint. Only the clock moves on.
+          clock.mockReturnValue(1000 + 41);
+          await gate;
+          if (options.signal.aborted) return;
+          yield { id: segment.id, final: 'Hello. Two.', engine: 'plamo' as const };
+        }
+      }),
+      { reveal: 'sentence' },
+    );
+
+    await session.translate();
+    for (let attempt = 0; attempt < 50 && held.length === 0; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    expect(held).toEqual(['Hel']);
+    for (let attempt = 0; attempt < 50 && block?.textContent !== 'Hello. Tw'; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    // The 40 ms budget fired on its own timer, with no comma and no following chunk.
+    expect(block?.textContent).toBe('Hello. Tw');
+    release();
+    await session.whenIdle();
+    expect(block?.textContent).toBe('Hello. Two.');
+    clock.mockRestore();
   });
 
   it('keeps the third visible model-card paragraph in sentence discipline', async () => {
@@ -1944,6 +2027,58 @@ describe('page session', () => {
     release();
     await session.whenIdle();
     expect(document.body.textContent).toContain('こんにちは');
+  });
+
+  it('drops a shown clause fragment of a multi-piece fast block when the model changes', async () => {
+    document.documentElement.lang = 'en';
+    const source =
+      'The harbour office logs every crossing and publishes the delays each month. '.repeat(10);
+    document.body.innerHTML = `<p>${source}</p>`;
+    const block = document.querySelector('p');
+    if (!block) throw new Error('missing paragraph');
+    block.getBoundingClientRect = () => new DOMRect(0, 0, 300, 40);
+    let calls = 0;
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const seen: string[] = [];
+    const session = start(
+      document,
+      engineOf(async function* (segments) {
+        calls += 1;
+        if (calls === 1) {
+          const [first, second] = segments;
+          if (!first || !second || segments.length !== 2) throw new Error('expected two pieces');
+          yield { id: first.id, final: 'One. Two.', engine: 'plamo' as const };
+          yield { id: second.id, textDelta: 'Par,', engine: 'plamo' as const };
+          seen.push(block?.textContent ?? '');
+          throw modelChangedError();
+        }
+        // The retry only starts after discardUnfinishedPaint has repainted the block.
+        // The finished piece is cached, so the retry only carries the unfinished one.
+        await gate;
+        const retry = segments[0];
+        if (!retry || segments.length !== 1) throw new Error('expected one piece');
+        seen.push(block?.textContent ?? '');
+        yield { id: retry.id, textDelta: 'New,', engine: 'plamo' as const };
+        seen.push(block?.textContent ?? '');
+        yield { id: retry.id, final: 'New text,', engine: 'plamo' as const };
+      }),
+      { reveal: 'sentence' },
+    );
+
+    await session.translate();
+    await vi.waitFor(() => {
+      expect(calls).toBe(2);
+    });
+    release();
+    await session.whenIdle();
+    expect(seen[0]).toBe('One. Two.Par,');
+    expect(seen[1]).toBe('One. Two.');
+    expect(seen[2]).toBe('One. Two.New,');
+    expect(block?.textContent).not.toContain('Par,');
+    expect(block?.textContent).toContain('New text,');
   });
 
   it('does not arm the selection folder timeout when the grant gate is off', async () => {

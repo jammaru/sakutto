@@ -16,7 +16,7 @@ Mock pace: 12 ms prefill, 0.35 ms per character, 3 deltas. Sentence rows are med
 | long-article                   | sentence |           125 |      1775 | 0.0321 |             6 |
 | first-paragraph-then-long-tail | sentence |           125 |      1400 | 0.0318 |             4 |
 | many-cards                     | sentence |           125 |      1325 | 0.0336 |             7 |
-| mixed-ui                       | sentence |           125 |      1050 | 0.0318 |             6 |
+| mixed-ui                       | sentence |           100 |      1050 | 0.0318 |             6 |
 | single-long-paragraph          | sentence |           175 |      1150 | 0.0316 |             1 |
-| model-card-sidebar             | sentence |           225 |      1075 | 0.0362 |            11 |
-| headline-in-header             | sentence |           150 |      1125 | 0.0322 |             6 |
+| model-card-sidebar             | sentence |           200 |      1050 | 0.0327 |             9 |
+| headline-in-header             | sentence |           150 |      1100 | 0.0322 |             6 |
