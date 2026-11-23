@@ -138,14 +138,12 @@ export function bilingualReadingRanks(
     emitted.add(block);
   };
   const pending = () => blocks.filter((block) => !emitted.has(block));
-  const columnRank = (block: Pick<LayoutBlock, 'column'>) => (block.column < 0 ? 0.5 : block.column);
+  const columnRank = (block: Pick<LayoutBlock, 'column'>) =>
+    block.column < 0 ? 0.5 : block.column;
   const sortBand = (
     left: Pick<LayoutBlock, 'box' | 'column' | 'writing' | 'text'>,
     right: Pick<LayoutBlock, 'box' | 'column' | 'writing' | 'text'>,
-  ) =>
-    columnRank(left) - columnRank(right) ||
-    left.box.y - right.box.y ||
-    left.box.x - right.box.x;
+  ) => columnRank(left) - columnRank(right) || left.box.y - right.box.y || left.box.x - right.box.x;
   for (const span of spanning) {
     for (const block of pending()
       .filter((entry) => entry.box.y < span.box.y - 0.5)
