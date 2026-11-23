@@ -273,6 +273,37 @@ function wordSpaceGutter(pieces: readonly OcrTextPiece[], gutterGap: number): bo
 }
 
 /**
+ * A long title emitted as two line-region boxes is still one printed row. The short centred
+ * heading guard below cannot see it: the title is wider than 0.6 x page width and has more
+ * than twelve words. Its middle whitespace is ordinary spacing, not a printed gutter, so it
+ * must not become page-wide evidence for two body columns either.
+ */
+function onePrintedTitleRow(pieces: readonly OcrTextPiece[], pageWidth: number): boolean {
+  if (pieces.length !== 2 || !pieces.some((piece) => piece.box.width >= pageWidth * 0.12)) {
+    return false;
+  }
+  const text = pieces
+    .map((piece) => piece.text)
+    .join(' ')
+    .trim();
+  if (text.length === 0 || /[.,;:!?。、，；：！？]/u.test(text)) return false;
+  return /^\p{Lu}/u.test(text);
+}
+
+/** A row whose two line-region pieces are one sentence split at an ordinary word space. */
+function singleSentenceRow(pieces: readonly OcrTextPiece[], pageWidth: number): boolean {
+  if (pieces.length !== 2 || !pieces.some((piece) => piece.box.width >= pageWidth * 0.12)) {
+    return false;
+  }
+  const text = pieces
+    .map((piece) => piece.text)
+    .join(' ')
+    .trim();
+  const stops = text.match(/[.!?。]/gu);
+  return stops?.length === 1 && /[.!?。]$/u.test(text);
+}
+
+/**
  * A short row centred on the page is a title, byline or subtitle, not two body columns.
  * Body columns fill most of the measure even on a partially filled row; counting a centred
  * heading as gutter evidence makes later single-column lines split at ordinary word spaces.
@@ -282,6 +313,7 @@ function isCentredHeadingRow(pieces: readonly OcrTextPiece[], pageWidth: number)
     .map((piece) => piece.text)
     .join(' ')
     .trim();
+  if (onePrintedTitleRow(pieces, pageWidth)) return true;
   if (text.length === 0 || text.length > 100 || /[.!?。]$/u.test(text)) return false;
   const words = text.split(/\s+/u).filter(Boolean);
   if (words.length === 0 || words.length > 12) return false;
@@ -538,8 +570,18 @@ export function ocrResultToTextLines(
     // Capitalisation alone cannot tell them apart: a merged body row routinely starts with a
     // proper noun and has no terminal punctuation at a line break. Only a word-gap-sized
     // centre gap suppresses the split, not the title-like casing of the whole row.
+    // A detector that emits one quad per printed line can reduce a full-width sentence or a
+    // long title to just two pieces; the word-level guards above cannot see those, so their
+    // own text structure decides. Page-wide column evidence still wins over that text guess.
+    const singleRowWordGap =
+      !pageTwoColumn &&
+      (onePrintedTitleRow(pieces, resolved.pageWidth) ||
+        singleSentenceRow(pieces, resolved.pageWidth));
     const titleWordGap =
-      (titleWholeLine || wordSpacedLine || wordSpaceGutter(pieces, gutterGap)) &&
+      (titleWholeLine ||
+        wordSpacedLine ||
+        wordSpaceGutter(pieces, gutterGap) ||
+        singleRowWordGap) &&
       gutterGap <= WIDE_COLUMN_GUTTER + 2;
     const wideTwoColumnLine =
       lineWidth >= resolved.pageWidth * 0.82 &&

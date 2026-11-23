@@ -2,7 +2,7 @@
   {
     "variant": "baseline-1x",
     "pairing": "tiny_det+small_rec",
-    "ms": 25674.396904,
+    "ms": 24112.524115999997,
     "warmups": 1,
     "modelBytes": 22939968,
     "cer": 0.6671721767263169,
@@ -20,7 +20,7 @@
   {
     "variant": "dpi200",
     "pairing": "tiny_det+small_rec",
-    "ms": 31086.277283999996,
+    "ms": 39050.636337,
     "warmups": 1,
     "modelBytes": 22939968,
     "cer": 0.20230512587200486,
@@ -38,7 +38,7 @@
   {
     "variant": "shipped-baseline",
     "pairing": "tiny_det+small_rec",
-    "ms": 27139.481491000013,
+    "ms": 33684.531101,
     "warmups": 1,
     "modelBytes": 22939968,
     "cer": 0.11606510969568294,
@@ -56,7 +56,7 @@
   {
     "variant": "default-1600",
     "pairing": "tiny_det+small_rec",
-    "ms": 35492.80357700001,
+    "ms": 34502.945431,
     "warmups": 1,
     "modelBytes": 22939968,
     "cer": 0.030330603579011222,
@@ -74,7 +74,7 @@
   {
     "variant": "dpi300",
     "pairing": "tiny_det+small_rec",
-    "ms": 36532.97774500004,
+    "ms": 37124.37084400002,
     "warmups": 1,
     "modelBytes": 22939968,
     "cer": 0.030330603579011222,
@@ -92,7 +92,7 @@
   {
     "variant": "sauvola",
     "pairing": "tiny_det+small_rec",
-    "ms": 21755.17998299998,
+    "ms": 22168.62195400003,
     "warmups": 1,
     "modelBytes": 22939968,
     "cer": 0.8252957233848953,
@@ -110,7 +110,7 @@
   {
     "variant": "dpi200+sauvola",
     "pairing": "tiny_det+small_rec",
-    "ms": 28688.12651900004,
+    "ms": 28825.57222600002,
     "warmups": 1,
     "modelBytes": 22939968,
     "cer": 0.6859771509453038,
@@ -128,7 +128,7 @@
   {
     "variant": "dpi200+gray",
     "pairing": "tiny_det+small_rec",
-    "ms": 30645.54998499999,
+    "ms": 31302.354541000037,
     "warmups": 1,
     "modelBytes": 22939968,
     "cer": 0.2227277322818724,
@@ -146,7 +146,7 @@
   {
     "variant": "gray+contrast",
     "pairing": "tiny_det+small_rec",
-    "ms": 31115.812442000024,
+    "ms": 31374.890618000063,
     "warmups": 1,
     "modelBytes": 22939968,
     "cer": 0.21170761298149834,
@@ -164,7 +164,7 @@
   {
     "variant": "gray+contrast-1600",
     "pairing": "tiny_det+small_rec",
-    "ms": 37080.32446100004,
+    "ms": 37719.66905100003,
     "warmups": 1,
     "modelBytes": 22939968,
     "cer": 0.030128399555151147,
@@ -182,7 +182,7 @@
   {
     "variant": "contrast",
     "pairing": "tiny_det+small_rec",
-    "ms": 30640.257592000067,
+    "ms": 31638.828908000025,
     "warmups": 1,
     "modelBytes": 22939968,
     "cer": 0.20816904256394703,
@@ -200,7 +200,7 @@
   {
     "variant": "otsu",
     "pairing": "tiny_det+small_rec",
-    "ms": 27889.462942000013,
+    "ms": 28036.119023000007,
     "warmups": 1,
     "modelBytes": 22939968,
     "cer": 0.689111313315135,
@@ -218,7 +218,7 @@
   {
     "variant": "denoise",
     "pairing": "tiny_det+small_rec",
-    "ms": 28210.697664000094,
+    "ms": 28313.88676100003,
     "warmups": 1,
     "modelBytes": 22939968,
     "cer": 0.7235870993832777,
@@ -236,7 +236,7 @@
   {
     "variant": "trim",
     "pairing": "tiny_det+small_rec",
-    "ms": 30499.312040999997,
+    "ms": 31025.438474000082,
     "warmups": 1,
     "modelBytes": 22939968,
     "cer": 0.22030128399555152,
@@ -254,7 +254,7 @@
   {
     "variant": "box-0.35",
     "pairing": "tiny_det+small_rec",
-    "ms": 30540.34600400005,
+    "ms": 30780.383587999968,
     "warmups": 1,
     "modelBytes": 22939968,
     "cer": 0.20230512587200486,
@@ -272,7 +272,7 @@
   {
     "variant": "box-0.55",
     "pairing": "tiny_det+small_rec",
-    "ms": 30454.41887599998,
+    "ms": 30511.274477,
     "warmups": 1,
     "modelBytes": 22939968,
     "cer": 0.20210292184814477,
@@ -290,7 +290,7 @@
   {
     "variant": "unclip-1.8",
     "pairing": "tiny_det+small_rec",
-    "ms": 26120.19704999996,
+    "ms": 26678.437564999796,
     "warmups": 1,
     "modelBytes": 22939968,
     "cer": 0.3609341825902335,

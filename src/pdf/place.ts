@@ -16,8 +16,12 @@ export const OVERLAP_AREA = 1;
 /** White space kept at a box's right edge so two columns never touch, in points. */
 const GUTTER_CLEARANCE = 4;
 
-/** Same physical threshold as the OCR line splitter: a 6pt gap is a real column gutter. */
-const MIN_COLUMN_GUTTER = 6;
+/**
+ * A central gap at most this wide can be ordinary justified word spacing. Using the OCR
+ * splitter's 6pt physical floor here turned a legal single-column line's 7pt word space into
+ * a false cross-column cover; a merged column row leaves a gap at least this wide.
+ */
+const MERGED_COLUMN_GUTTER = 10;
 /**
  * Extra cover below the source box, as a fraction of em, to hide Latin descenders.
  *
@@ -440,7 +444,7 @@ function blockMergesColumns(block: LayoutBlock, pageWidth: number): boolean {
         return widest;
       };
       if (
-        gutterWidth >= MIN_COLUMN_GUTTER &&
+        gutterWidth >= MERGED_COLUMN_GUTTER &&
         gutterWidth > Math.max(widestInnerGap(left), widestInnerGap(right)) + 0.001
       ) {
         return true;

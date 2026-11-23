@@ -89,28 +89,30 @@ export function compareReadingOrder(
   right: Pick<LayoutBlock, 'box' | 'column' | 'writing'>,
 ): number {
   const vertical = verticalWriting(left) && verticalWriting(right);
-  if (left.column >= 0 && right.column >= 0) {
-    if (left.column !== right.column) {
-      return vertical ? right.column - left.column : left.column - right.column;
-    }
-    // Same reported column. Large horizontal separation still means two distinct vertical
-    // columns when the caller had no column evidence and assigned both the same number;
-    // vertical Japanese reads those right to left. Small x differences are just OCR jitter
-    // inside one column, so those lines still run top to bottom.
-    if (vertical) {
+  if (vertical) {
+    if (left.column >= 0 && right.column >= 0) {
+      if (left.column !== right.column) return right.column - left.column;
+      // Same reported column. Large horizontal separation still means two distinct vertical
+      // columns when the caller had no column evidence and assigned both the same number;
+      // vertical Japanese reads those right to left. Small x differences are just OCR jitter
+      // inside one column, so those lines still run top to bottom.
       const measure = Math.max(left.box.width, right.box.width, 1);
       if (Math.abs(right.box.x - left.box.x) > measure * 1.5) {
         return right.box.x - left.box.x;
       }
+    } else if (Math.abs(right.box.x - left.box.x) > 0.5) {
+      return right.box.x - left.box.x;
     }
     return left.box.y - right.box.y || left.box.x - right.box.x;
   }
-  if (vertical && Math.abs(right.box.x - left.box.x) > 0.5) {
-    return right.box.x - left.box.x;
-  }
-  if (!vertical && Math.abs(left.box.y - right.box.y) > 0.5) {
-    return left.box.y - right.box.y;
-  }
+  // Full-width blocks (column < 0) interrupt the left column at their own top edge. Sorting
+  // them after every numbered column is not a total order once a lower left line exists:
+  // left column < right column, right column < spanning block (by y), spanning block < lower
+  // left line (by y). Give a spanning block the left column's rank so it keeps its printed
+  // position between the left-column rows and the comparator stays transitive.
+  const leftColumn = left.column < 0 ? 0 : left.column;
+  const rightColumn = right.column < 0 ? 0 : right.column;
+  if (leftColumn !== rightColumn) return leftColumn - rightColumn;
   return left.box.y - right.box.y || left.box.x - right.box.x;
 }
 
