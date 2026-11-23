@@ -350,4 +350,89 @@ describe('OcrHost', () => {
     expect([...browser.files.keys()]).toContain('models/ocr-standard/model.onnx');
     expect([...folder.files.keys()]).toEqual([]);
   });
+
+  it('unwedges the queue when a runtime load never settles', async () => {
+    const manager = assets();
+    let loadStarted!: () => void;
+    const started = new Promise<void>((resolve) => {
+      loadStarted = resolve;
+    });
+    const runtime: OcrRuntimeLike = {
+      recognize: vi.fn(async () => ({ text: 'ok' })),
+      release: vi.fn(),
+    };
+    let loads = 0;
+    const createRuntime = vi.fn(async () => {
+      loadStarted();
+      loads += 1;
+      // Only the first load stalls; a later request must be able to use the queue again.
+      return loads === 1 ? new Promise<OcrRuntimeLike>(() => undefined) : runtime;
+    });
+    const host = new OcrHost({ createAssetManager: async () => manager, createRuntime });
+
+    const stalled = host.recognize('stalled', 'standard', image);
+    await started;
+    host.cancel('stalled');
+    await expect(stalled).rejects.toMatchObject({ code: 'aborted' });
+
+    await expect(host.recognize('next', 'standard', image)).resolves.toMatchObject({ text: 'ok' });
+    expect(createRuntime).toHaveBeenCalledTimes(2);
+    await expect(host.delete('standard')).resolves.toMatchObject({ state: 'absent' });
+    expect(runtime.release).toHaveBeenCalledOnce();
+  });
+
+  it('applies the host timeout to a stalled runtime load without blocking delete', async () => {
+    const manager = assets();
+    let loadStarted!: () => void;
+    const started = new Promise<void>((resolve) => {
+      loadStarted = resolve;
+    });
+    const host = new OcrHost({
+      createAssetManager: async () => manager,
+      createRuntime: async () => {
+        loadStarted();
+        return new Promise<OcrRuntimeLike>(() => undefined);
+      },
+      timeoutMs: (tier) => (tier === 'high' ? 80 : 20),
+    });
+
+    const recognizing = host.recognize('timed-out', 'standard', image);
+    await started;
+    await expect(recognizing).rejects.toMatchObject({ code: 'aborted' });
+    await expect(host.delete('standard')).resolves.toMatchObject({ state: 'absent' });
+  });
+
+  it('settles a recognition that ignores abort and releases its session only afterwards', async () => {
+    const manager = assets();
+    let recognitionStarted!: () => void;
+    const started = new Promise<void>((resolve) => {
+      recognitionStarted = resolve;
+    });
+    let finishRecognition!: () => void;
+    const recognized = new Promise<void>((resolve) => {
+      finishRecognition = resolve;
+    });
+    const runtime: OcrRuntimeLike = {
+      recognize: async () => {
+        recognitionStarted();
+        await recognized;
+        return { text: 'late' };
+      },
+      release: vi.fn(),
+    };
+    const host = new OcrHost({
+      createAssetManager: async () => manager,
+      createRuntime: async () => runtime,
+    });
+
+    const pending = host.recognize('ignores-abort', 'standard', image);
+    await started;
+    host.cancel('ignores-abort');
+    await expect(pending).rejects.toMatchObject({ code: 'aborted' });
+    await expect(host.delete('standard')).resolves.toMatchObject({ state: 'absent' });
+    expect(runtime.release).not.toHaveBeenCalled();
+
+    finishRecognition();
+    await vi.waitFor(() => expect(runtime.release).toHaveBeenCalledOnce());
+  });
 });

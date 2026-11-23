@@ -1,4 +1,5 @@
 import { abortError, isAbortError } from '@/engine/errors';
+import { ocrRecognitionTimeoutMs } from '@/engine/offscreen/protocol';
 import { AssetManager } from '@/engine/model/asset-manager';
 import type { AssetStatus } from '@/engine/model/asset';
 import { OpfsModelFileStore, type ModelFileStore } from '@/engine/model/file-store';
@@ -21,11 +22,35 @@ export interface OcrHostOptions {
     tier: OcrTier,
     signal: AbortSignal,
   ) => Promise<OcrRuntimeLike>;
+  /** Host-side bound for one recognition, including a stalled runtime load. */
+  timeoutMs?: number | ((tier: OcrTier) => number);
 }
 
 interface OcrRequest {
   tier: OcrTier;
   controller: AbortController;
+}
+
+/**
+ * Lets a cancelled or timed-out caller settle without waiting on a task that may never finish.
+ * The task is still observed, so a late rejection cannot become an unhandled error.
+ */
+function withinSignal<T>(task: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) return Promise.reject(abortError());
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = (): void => reject(abortError());
+    signal.addEventListener('abort', onAbort, { once: true });
+    void task.then(
+      (value) => {
+        signal.removeEventListener('abort', onAbort);
+        resolve(value);
+      },
+      (error: unknown) => {
+        signal.removeEventListener('abort', onAbort);
+        reject(error);
+      },
+    );
+  });
 }
 
 /** Lazy OCR owner. Constructing it does not initialize translation or ONNX Runtime. */
@@ -37,6 +62,10 @@ export class OcrHost {
   private runtime: OcrRuntimeLike | null = null;
   private queue: Promise<void> = Promise.resolve();
   private readonly requests = new Map<string, OcrRequest>();
+  /** Native runs that may still outlive a cancelled caller; their session is released late. */
+  private readonly pendingRecognitions = new Set<Promise<unknown>>();
+  /** Loads whose session must be released by a handler when they eventually settle. */
+  private readonly discardedLoads = new WeakSet<Promise<OcrRuntimeLike>>();
   /** A folder change arrived while requests were still bound to the previous store. */
   private pendingRefresh = false;
   /** Folder adoption moves verified browser bundles; switching back only copies them. */
@@ -69,11 +98,32 @@ export class OcrHost {
     signal?: AbortSignal,
   ): Promise<unknown> {
     const controller = this.track(requestId, tier, signal);
+    const timeoutMs = this.options.timeoutMs;
+    const boundMs =
+      typeof timeoutMs === 'function'
+        ? timeoutMs(tier)
+        : (timeoutMs ?? ocrRecognitionTimeoutMs(tier));
+    let timer: ReturnType<typeof setTimeout> | undefined;
     const operation = this.queue.then(async () => {
       if (controller.signal.aborted) throw abortError();
-      const runtime = await this.loadRuntime(tier, controller.signal);
-      if (controller.signal.aborted) throw abortError();
-      return runtime.recognize(image, controller.signal);
+      timer = setTimeout(() => {
+        if (this.requests.get(requestId)?.controller === controller) this.cancel(requestId);
+        else controller.abort();
+      }, boundMs);
+      try {
+        const runtime = await this.loadRuntime(tier, controller.signal);
+        if (controller.signal.aborted) throw abortError();
+        const recognition = runtime.recognize(image, controller.signal);
+        const forget = (): void => {
+          this.pendingRecognitions.delete(recognition);
+        };
+        this.pendingRecognitions.add(recognition);
+        void recognition.then(forget, forget);
+        // A native run that ignores abort must not wedge the queue or a later delete().
+        return await withinSignal(recognition, controller.signal);
+      } finally {
+        if (timer !== undefined) clearTimeout(timer);
+      }
     });
     this.queue = operation.then(
       () => undefined,
@@ -230,10 +280,11 @@ export class OcrHost {
 
   private async loadRuntime(tier: OcrTier, signal: AbortSignal): Promise<OcrRuntimeLike> {
     if (this.runtime && this.runtimeTier === tier) return this.runtime;
-    if (this.runtimeTask && this.runtimeTier === tier) return this.runtimeTask;
+    if (this.runtimeTask && this.runtimeTier === tier)
+      return this.awaitRuntime(this.runtimeTask, signal);
     await this.releaseRuntime();
     this.runtimeTier = tier;
-    this.runtimeTask = (async () => {
+    const task = (async () => {
       const assets = await this.assets();
       if (!this.options.createRuntime) {
         const { OcrRuntime } = await import('./runtime');
@@ -241,26 +292,56 @@ export class OcrHost {
       }
       return this.options.createRuntime(assets, tier, signal);
     })();
+    this.runtimeTask = task;
+    return this.awaitRuntime(task, signal);
+  }
+
+  private async awaitRuntime(
+    task: Promise<OcrRuntimeLike>,
+    signal: AbortSignal,
+  ): Promise<OcrRuntimeLike> {
     try {
-      const runtime = await this.runtimeTask;
-      if (signal.aborted) {
-        await runtime.release();
-        throw abortError();
+      const runtime = await withinSignal(task, signal);
+      if (this.runtimeTask !== task) {
+        // A refresh, delete or tier change discarded this load while it was still running.
+        throw abortError('The OCR runtime changed while loading.');
       }
       this.runtime = runtime;
+      this.runtimeTask = null;
       return runtime;
     } catch (error) {
-      this.runtimeTask = null;
-      this.runtimeTier = null;
+      // A stalled load must not wedge the queue or make delete() wait forever.
+      this.discardRuntimeTask(task);
       throw error;
     }
   }
 
-  private async releaseRuntime(): Promise<void> {
-    const runtime = this.runtime;
-    this.runtime = null;
+  /** Drops ownership of a load and releases a session it may still create later. */
+  private discardRuntimeTask(task: Promise<OcrRuntimeLike>): void {
+    if (this.runtimeTask !== task) return;
     this.runtimeTask = null;
     this.runtimeTier = null;
-    if (runtime) await runtime.release();
+    if (this.discardedLoads.has(task)) return;
+    this.discardedLoads.add(task);
+    void task.then(
+      (runtime) => void Promise.resolve(runtime.release()).catch(() => undefined),
+      () => undefined,
+    );
+  }
+
+  private async releaseRuntime(): Promise<void> {
+    const runtime = this.runtime;
+    if (this.runtimeTask) this.discardRuntimeTask(this.runtimeTask);
+    this.runtime = null;
+    if (!runtime) return;
+    if (this.pendingRecognitions.size > 0) {
+      // Releasing an ORT session under a live native run is worse than a late release. Queue
+      // callers and delete() do not wait on a run that may never settle.
+      void Promise.allSettled([...this.pendingRecognitions]).then(() =>
+        Promise.resolve(runtime.release()).catch(() => undefined),
+      );
+      return;
+    }
+    await runtime.release();
   }
 }

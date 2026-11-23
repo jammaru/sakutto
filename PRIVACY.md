@@ -35,7 +35,7 @@ The developer does not receive your page text, your selections, your glossary, o
 
 PLaMo 3 Translate runs inside the extension on your device. The model file is not bundled with the extension: the extension downloads it from Hugging Face the first time it needs it, and keeps it on your device. After that, PLaMo translation does not need a network connection. On Chrome, Edge, and other Chromium browsers, first-run preselects a shared folder on this computer; browser storage remains available. Firefox stores the model in browser storage, and can copy official models from a shared folder once; the copies are checked before use. The folder and browser copy stay on your device. Nothing is sent.
 
-PP-OCRv6 runs inside the extension on your device for scanned PDF and image OCR. Its detector and recognizer weights are not bundled: they are downloaded from Hugging Face with the translation model during first setup, or later from Settings or the first OCR feature use. The ONNX Runtime Web WASM and character dictionary are bundled locally. After the weights are installed, OCR needs no network connection.
+PP-OCRv6 runs inside the extension on your device for scanned PDF and image OCR. Its detector and recognizer weights are not bundled. You choose when to download them: during first setup together with the translation model, or later from Settings. Using an OCR feature never starts a download on its own; if the weights are missing, the extension asks you to install them from Settings. The ONNX Runtime Web WASM and character dictionary are bundled locally. After the weights are installed, OCR needs no network connection.
 
 On Chrome, for language pairs PLaMo does not support, the extension uses Chrome's built-in translator, which also runs on the device. Chrome downloads the language packs for those pairs itself. When a page does not say what language it is in, Chrome's built-in language detector may look at some of the page text to work it out. These are Chrome features running on your device. They are not uploads that this extension sends to the developer or to Preferred Networks.
 
@@ -120,7 +120,7 @@ PDF を拡張機能のリーダーで開いたときは、ページの文字で�
 
 PLaMo 3 Translate は、拡張機能の中で、端末上で動きます。モデルのファイルは拡張機能に同梱しておらず、最初に必要になったときに Hugging Face から取得して端末に保存します。そのあとは、PLaMo の翻訳に通信は要りません。Chrome や Edge など Chromium 系ブラウザの初回は、このパソコン上の共有フォルダが選ばれています。ブラウザ内保存も選べます。Firefox はモデルをブラウザ内に保存し、共有フォルダにある公式モデルを一度だけコピーできます。コピーは使用前に検証します。フォルダもブラウザー内のコピーも端末の中にあり、どこかへ送ることはありません。
 
-PP-OCRv6 は、スキャンＰＤＦと画像の OCR のために拡張機能の中で端末上で動きます。検出・認識モデルの重みは同梱しておらず、初回設定で翻訳モデルと一緒に、または設定画面・初めての OCR 機能の利用時に Hugging Face から取得します。ONNX Runtime Web の WASM と文字辞書は同梱しています。モデルがインストールされたあとは OCR に通信は要りません。
+PP-OCRv6 は、スキャンＰＤＦと画像の OCR のために拡張機能の中で端末上で動きます。検出・認識モデルの重みは同梱しておらず、利用者が選んだときにだけ Hugging Face から取得します。初回設定で翻訳モデルと一緒に取得するか、あとから設定画面で取得できます。OCR 機能を使っても自動的にはダウンロードしません。重みがない場合は、設定画面からインストールするよう案内します。ONNX Runtime Web の WASM と文字辞書は同梱しています。モデルがインストールされたあとは OCR に通信は要りません。
 
 Chrome では、PLaMo が対応していない言語の組み合わせに Chrome 内蔵の翻訳を使います。これも端末の中で動きます。その言語の言語パックは Chrome 自身が取得します。ページが言語を示していないときは、Chrome 内蔵の言語判定が、ページの文字の一部を見ることがあります。いずれも端末上で動く Chrome の機能です。この拡張機能が開発者や Preferred Networks へ送るものではありません。
 
