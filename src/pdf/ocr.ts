@@ -370,25 +370,32 @@ function colonNotationBodyRow(wholeText: string, firstPiece: string): boolean {
   return /:\s*[A-Z]\s*$/u.test(firstPiece.trim());
 }
 
-/** A top-row title needs scientific or title-case evidence, not shared column edges alone. */
-function positiveTopPageTitle(pieces: readonly OcrTextPiece[], pageWidth: number): boolean {
-  if (!onePrintedTitleRow(pieces, pageWidth, true, true)) return false;
-  const ordered = [...pieces].sort((a, b) => a.box.x - b.box.x);
-  const first = ordered[0]?.text.trim() ?? '';
-  const second = ordered[1]?.text.trim() ?? '';
-  const secondWords = second.split(/\s+/u).filter(Boolean);
-  if (/:/u.test(first)) {
-    if (SCIENTIFIC_BODY_VERB.test(first)) return false;
+/**
+ * Independent, positional evidence that a top row is a heading rather than the first row of a
+ * two-column body. A colon or title-case words are not enough: body prose at the top of a page
+ * has both. A heading is set apart by a larger type size, by the whitespace above the first
+ * corroborated body row, or by a genuinely centred short measure.
+ */
+function topRowTitleGeometry(
+  pieces: readonly OcrTextPiece[],
+  bodyRows: readonly { readonly top: number; readonly height: number }[],
+  pageWidth: number,
+  corroborated = false,
+): boolean {
+  const rowTop = Math.min(...pieces.map((piece) => piece.box.y));
+  const height = median(pieces.map((piece) => piece.box.height));
+  const bodyHeight = median(bodyRows.map((row) => row.height));
+  if (bodyHeight > 0 && height >= bodyHeight * 1.25) return true;
+  // A corroborated row shares the page's body columns: only distinctly larger type can lift it
+  // out of them. Whitespace below the first body row is normal body spacing there.
+  if (corroborated) return false;
+  const nextTop = Math.min(...bodyRows.map((row) => row.top).filter((top) => top >= rowTop));
+  if (Number.isFinite(nextTop) && nextTop - rowTop - height >= Math.max(12, bodyHeight * 0.75)) {
     return true;
   }
-  if (SCIENTIFIC_TITLE_PREFIX.test(first)) {
-    return scientificShortTitleFirstPiece(first, second, true, false);
-  }
-  if (secondWords.length >= 2) {
-    if (SCIENTIFIC_BODY_VERB.test(first)) return false;
-    return titleCaseTail(secondWords);
-  }
-  return false;
+  const left = Math.min(...pieces.map((piece) => piece.box.x));
+  const right = Math.max(...pieces.map((piece) => piece.box.x + piece.box.width));
+  return rowCentredOnPage(pieces, pageWidth) && right - left < pageWidth * 0.72;
 }
 
 function onePrintedTitleRow(
@@ -745,15 +752,16 @@ export function ocrResultToTextLines(
   // of the page whether two body columns exist before judging a single row's centre gap.
   const twoColumnRows = twoColumnBodyRows(lines, resolved);
   const pageTwoColumn = twoColumnRows.length >= 2;
-  const twoColumnTops = twoColumnRows.map((index) =>
-    Math.min(
-      ...(lines[index]?.items ?? [])
-        .filter((item) => item.text.trim().length > 0)
-        .map(
-          (item) => regionPiece(item, item.vertical, '', resolved.scaleX, resolved.scaleY).box.y,
-        ),
-    ),
-  );
+  const twoColumnGeometry = twoColumnRows.map((index) => {
+    const boxes = (lines[index]?.items ?? [])
+      .filter((item) => item.text.trim().length > 0)
+      .map((item) => regionPiece(item, item.vertical, '', resolved.scaleX, resolved.scaleY).box);
+    return {
+      top: Math.min(...boxes.map((box) => box.y)),
+      height: median(boxes.map((box) => box.height)),
+    };
+  });
+  const twoColumnTops = twoColumnGeometry.map((row) => row.top);
   for (const [lineIndex, readingLine] of lines.entries()) {
     const lineId = `ocr:p${String(resolved.pageIndex)}:l${String(lineIndex)}`;
     const pieces: OcrTextPiece[] = [];
@@ -819,6 +827,19 @@ export function ocrResultToTextLines(
     // evidence against itself and stay split. Rows among the (other) body tops keep their split.
     const otherColumnRows = twoColumnRows.filter((index) => index !== lineIndex);
     const otherBodyTops = twoColumnTops.filter((_, index) => twoColumnRows[index] !== lineIndex);
+    const otherBodyGeometry = twoColumnGeometry.filter(
+      (_row, index) => twoColumnRows[index] !== lineIndex,
+    );
+    // A top row set apart from the body by type size or whitespace is a heading even when it
+    // shares the body's column edges, or when its own wide CJK row was counted as body evidence.
+    const titleGeometry =
+      rowsAbove.length === 0 &&
+      topRowTitleGeometry(
+        pieces,
+        otherBodyGeometry,
+        resolved.pageWidth,
+        twoColumnRows.includes(lineIndex),
+      );
     // A corroborated row that shares the page's column edges is itself a body row (including the
     // topmost one): it must not promote itself to a title just because it was excluded from the
     // evidence. A wide CJK title above the body does not share those edges, so it can be lifted
@@ -836,21 +857,17 @@ export function ocrResultToTextLines(
       sharesColumns &&
       !twoColumnRows.includes(lineIndex) &&
       otherColumnRows.length >= 2 &&
-      !positiveTopPageTitle(pieces, resolved.pageWidth);
+      !titleGeometry;
     const aboveAllBodyRows =
       otherBodyTops.length > 0 &&
       otherBodyTops.every((top) => top > rowTop) &&
-      !(twoColumnRows.includes(lineIndex) && sharesColumns) &&
+      !(twoColumnRows.includes(lineIndex) && sharesColumns && !titleGeometry) &&
       !topRowSharesBodyColumns;
     // A CJK row sharing the page's corroborated gutter is body text, not a spanning title: its
     // glyphs cannot carry the casing evidence an English title check relies on.
-    const cjkBodyGeometry = cjkTwoColumnBodyRow(
-      pieces,
-      resolved,
-      pageTwoColumn,
-      aboveAllBodyRows,
-      pageColumns,
-    );
+    const cjkBodyGeometry =
+      !titleGeometry &&
+      cjkTwoColumnBodyRow(pieces, resolved, pageTwoColumn, aboveAllBodyRows, pageColumns);
     const corroboratedBodyGeometry = cjkBodyGeometry || topRowSharesBodyColumns;
     // A real section heading can be printed between two-column body rows instead of above all
     // of them. Balanced page margins, a moderate (title-sized) span and a title-shaped tail

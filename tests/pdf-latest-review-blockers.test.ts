@@ -2061,4 +2061,61 @@ describe('93666bb review blockers: CJK two-column body rows', () => {
       ).toBe(false);
     },
   );
+
+  it('merges a full-measure CJK title on exact body column edges at the page top', () => {
+    const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+    const title = [
+      region('機械学習による自然言語処理の研究', quad(45, 60, 250, 32)),
+      region('とその応用についての考察', quad(305, 60, 250, 32)),
+    ];
+    const body = [140, 170, 200].map((y) => [
+      region('左列の本文テキストです', quad(45, y, 250, 20)),
+      region('右列の本文テキストです', quad(305, y, 250, 20)),
+    ]);
+    const result: OcrResult = {
+      regions: [...title, ...body.flat()],
+      lines: [readingLine(title), ...body.map(readingLine)],
+      text: '',
+    };
+    const full = '機械学習による自然言語処理の研究 とその応用についての考察';
+
+    const lines = ocrResultToTextLines(result, options);
+    expect(lines[0]?.text).toBe(full);
+    expect(lines[0]?.titleRow).toBe(true);
+    expect(lines.filter((line) => line.text === '左列の本文テキストです')).toHaveLength(3);
+    expect(lines.filter((line) => line.text === '右列の本文テキストです')).toHaveLength(3);
+
+    const layout = ocrResultToPageLayout(result, options);
+    expect(layout.blocks[0]?.text).toBe(full);
+    expect(layout.blocks[0]?.titleRow).toBe(true);
+  });
+
+  it.each(['The results are as follows:', 'Results were mixed for'])(
+    'splits a top body row with corroborated columns below (%s)',
+    (left) => {
+      const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+      const top = [
+        region(left, quad(45, 65, 250, 20)),
+        region('Older Adults', quad(305, 65, 250, 20)),
+      ];
+      const body = [95, 155, 185].map((y) => [
+        region('Left column prose for the first printed row.', quad(45, y, 250, 20)),
+        region('Right column prose on the same printed row.', quad(305, y, 250, 20)),
+      ]);
+      const result: OcrResult = {
+        regions: [...top, ...body.flat()],
+        lines: [readingLine(top), ...body.map(readingLine)],
+        text: '',
+      };
+
+      const lines = ocrResultToTextLines(result, options);
+      expect(lines.map((line) => line.text)).not.toContain(left + ' Older Adults');
+      expect(lines.find((line) => line.text === 'Older Adults')?.columnHint).toBe(1);
+      expect(lines.some((line) => line.titleRow === true)).toBe(false);
+
+      const layout = ocrResultToPageLayout(result, options);
+      expect(layout.blocks.map((block) => block.text)).not.toContain(left + ' Older Adults');
+      expect(layout.blocks.some((block) => block.titleRow === true)).toBe(false);
+    },
+  );
 });
