@@ -1315,3 +1315,89 @@ describe('latest DSH review blockers', () => {
     }
   });
 });
+
+describe('2053d13 review blocker 2: centre guards on every title merge path', () => {
+  const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+  const bodyRows = [
+    [
+      region('Left column prose for the first printed row.', quad(45, 100, 250, 20)),
+      region('Right column prose on the same printed row.', quad(305, 100, 250, 20)),
+    ],
+    [
+      region('A second left column line proving two columns.', quad(45, 130, 250, 20)),
+      region('A second right column line proving columns.', quad(305, 130, 250, 20)),
+    ],
+  ];
+
+  it.each([
+    { name: 'scientific prefix', left: 'mRNA Vaccine Design', right: 'Older Adults' },
+    { name: 'colon prefix', left: 'Key results:', right: 'Mice' },
+  ])(
+    'splits a $name row with a capital right fragment at a 10pt gutter',
+    ({ name, left, right }) => {
+      const narrow = [region(left, quad(45, 200, 250, 20)), region(right, quad(305, 200, 45, 20))];
+      const result: OcrResult = {
+        regions: [...bodyRows.flat(), ...narrow],
+        lines: [...bodyRows.map(readingLine), readingLine(narrow)],
+        text: '',
+      };
+      const fused = `${left} ${right}`;
+
+      const lines = ocrResultToTextLines(result, options);
+      expect(
+        lines.map((line) => line.text),
+        name,
+      ).not.toContain(fused);
+      expect(lines.find((line) => line.text === left)?.columnHint, name).toBe(0);
+      expect(lines.find((line) => line.text === right)?.columnHint, name).toBe(1);
+      expect(
+        lines.some((line) => line.titleRow === true),
+        name,
+      ).toBe(false);
+
+      const layout = ocrResultToPageLayout(result, options);
+      expect(
+        layout.blocks.map((block) => block.text),
+        name,
+      ).not.toContain(fused);
+      expect(
+        layout.blocks.every((block) => block.box.width < 500),
+        name,
+      ).toBe(true);
+      const placed = placePage({
+        layout,
+        translationOf: (block) => stubExpand(block.text),
+        target: 'ja',
+        measure: (_block, text, size) => measure(text, size),
+        pageHeight: options.pageHeight,
+      });
+      const metrics = pageMetrics(layout, placed, {
+        x: 0,
+        y: 0,
+        width: options.pageWidth,
+        height: options.pageHeight,
+      });
+      expect(metrics.crossColumnCovers, name).toBe(0);
+    },
+  );
+
+  it('still merges a centred row with a capital right fragment', () => {
+    for (const [left, right] of [
+      ['mRNA Vaccine Design', 'Older Adults'],
+      ['Key results:', 'Mice'],
+    ] as const) {
+      const centred = [
+        region(left, quad(190, 200, 120, 20)),
+        region(right, quad(320, 200, 45, 20)),
+      ];
+      const result: OcrResult = {
+        regions: centred,
+        lines: [readingLine(centred)],
+        text: '',
+      };
+      const lines = ocrResultToTextLines(result, options);
+      expect(lines.map((line) => line.text)).toEqual([`${left} ${right}`]);
+      expect(lines[0]?.columnHint).toBeUndefined();
+    }
+  });
+});

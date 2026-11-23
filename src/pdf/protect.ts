@@ -53,20 +53,46 @@ const DIMENSION_CHAIN = new RegExp(
 );
 
 /**
- * Prose words that look like short variables to `TEXT_NOTATION` / `DIMENSION_CHAIN`.
+ * Leading tokens that are unmistakably notation rather than ordinary prose.
  *
- * The notation pattern has to accept a leading word (`A ∈ R`) or an article before a size
- * (`a 3 × 3`) to cover symbols set in an ordinary text face. Those words belong in the prompt:
- * the model must translate "Let", "Our" and "Table 3 × 3", not paste them back into Japanese.
- * Determiners, quantifiers, number words and reference nouns are ordinary paper prose and fit
- * the operand shape (`Our`, `Both` and `Table` are just capitalized words), so they need to be
- * stripped explicitly. Without `Both`, the dimension matcher would swallow the word the model
- * must translate and restore it verbatim inside the Japanese sentence. The article alternative
- * requires a following number, so a real variable such as `a ∈ R` stays in the protected slot.
+ * The notation patterns accept a leading word (`A ∈ R`) or an article before a size
+ * (`a 3 × 3`) to cover symbols set in an ordinary text face. Instead of listing every prose word
+ * that can occupy that position (a list that broke on `Small`, `Large`, `Deep`, `More`, `Fewer`,
+ * `Double`, ...), decide from the token's shape: a single letter (including Greek), a number, or
+ * a letter carrying a digit/subscript/superscript is a variable; everything else is prose and
+ * belongs in the prompt. `a`/`A` immediately before a number is an article, not a variable.
  */
-const PROSE_LEAD =
-  /^(?:(?:Let|For|If|When|Where|Then|While|With|Given|The|This|That|These|Those|We|It|Its|Our|Their|His|Her|My|Your|And|But|Are|Was|Were|Has|Have|Can|May|Use|Using|From|Into|Over|Under|After|Before|By|In|On|At|To|Of|As|Since|Because|Here|Note|Thus|Hence|Therefore|Consequently|Accordingly|Moreover|Furthermore|However|Although|Though|Whereas|Meanwhile|Finally|First|Second|Third|Next|Now|Also|Indeed|Specifically|Notably|Recall|Observe|Consider|Suppose|Assume|Per|Via|Table|Figure|Section|Theorem|Lemma|Equation|Algorithm|Appendix|Listing|Both|All|Every|Each|Either|Neither|One|Two|Three|Four|Five|Six|Seven|Eight|Nine|Ten|Several|Such|Any|Some|Many|Few|Most|Other|Another|No|Not|Only|Multiple|Various|Different|Same|Whole)\s+|(?:A|a)\s+(?=\p{N}))/u;
+const LEAD_TOKEN = /^([^\s]+)(\s+)/u;
+const NOTATION_HEAD = /^(?:\p{L}[\p{N}_^]{0,3}|[\p{N}_^]+)$/u;
+const LEADING_NUMBER = /^[\p{N}]/u;
 
+function isNotationHead(token: string, following = ''): boolean {
+  // An article before a size is prose even though `a`/`A` fits the single-letter shape.
+  return NOTATION_HEAD.test(token) && !(/^[Aa]$/u.test(token) && LEADING_NUMBER.test(following));
+}
+
+/**
+ * Peels every leading prose token off a notation match.
+ *
+ * The guard below only protects a chain whose first remaining operand is clearly a variable, so
+ * the peeled words are always text the model must translate. No vocabulary list is involved: an
+ * adjective the report has not seen yet is stripped exactly like a determiner or a sentence
+ * opener, and a chain that starts with an English word is left alone.
+ */
+function splitProseLead(value: string): { lead: string; value: string } {
+  let lead = '';
+  let rest = value;
+  for (;;) {
+    const match = LEAD_TOKEN.exec(rest);
+    if (!match?.[1] || !match[2]) break;
+    const token = match[1];
+    const following = rest.slice(match[0].length);
+    if (isNotationHead(token, following)) break;
+    lead += match[0];
+    rest = following;
+  }
+  return { lead, value: rest };
+}
 /**
  * Prose words that look like dimension names to DIMENSION_CHAIN.
  *
@@ -103,24 +129,18 @@ function trimProseDimensionSuffix(match: string, following: string): string {
 }
 
 function protectSpan(match: string, slots: ProtectedSlot[], following: string): string {
-  {
-    const raw = match.trim();
-    const trimmed = trimProseDimensionSuffix(raw, following);
-    // The trimmed preposition stays in the prompt outside the placeholder.
-    const tail = raw.slice(trimmed.length);
-    let value = trimmed;
-    let lead = '';
-    for (;;) {
-      const prose = PROSE_LEAD.exec(value);
-      if (!prose?.[0]) break;
-      lead += prose[0];
-      value = value.slice(prose[0].length);
-    }
-    if (value.length < 4) return raw;
-    const index = slots.length;
-    slots.push({ text: value, script: 'none' });
-    return lead + PLACEHOLDER(index) + tail;
-  }
+  const raw = match.trim();
+  const trimmed = trimProseDimensionSuffix(raw, following);
+  // The trimmed preposition stays in the prompt outside the placeholder.
+  const tail = raw.slice(trimmed.length);
+  const { lead, value } = splitProseLead(trimmed);
+  const first = value.split(/\s+/u)[0] ?? '';
+  // Only a chain that starts with a variable or a number is notation. An English adjective or
+  // noun (`Small × Large`, `Model × Time`) is prose even when it fits the loose operand shape.
+  if (value.length < 4 || !isNotationHead(first)) return raw;
+  const index = slots.length;
+  slots.push({ text: value, script: 'none' });
+  return lead + PLACEHOLDER(index) + tail;
 }
 
 function protectTextNotation(text: string, slots: ProtectedSlot[]): string {

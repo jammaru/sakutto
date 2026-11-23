@@ -399,7 +399,10 @@ describe('review 5 notation and typography', () => {
     const block = layoutPage(lines).blocks[0];
     if (!block) throw new Error('expected a block');
     const protectedText = protectInlineMath(block);
-    expect(protectedText.slots.map((slot) => slot.text)).toContain('Wi Q ∈ R d model ×d k');
+    // Only the clearly-symbolic part is protected. `Wi` is a two-letter word to the prose
+    // guard, so it stays outside the slot where the model can translate it (source is kept).
+    expect(protectedText.slots.map((slot) => slot.text)).toContain('Q ∈ R d model ×d k');
+    expect(protectedText.text).toContain('parameter matrices Wi <i0>');
     expect(protectedText.text).toContain('parameter matrices ');
     expect(protectedText.text).toContain(', and ');
     expect(protectedText.text).not.toContain('model ×d k');
@@ -469,6 +472,67 @@ describe('current DSH review blockers', () => {
         source,
       ).toBe(false);
       expect(protectedText.text, source).toBe(prompt);
+      expectSourcePreserved(protectedText, source);
+    }
+  });
+});
+
+describe('2053d13 review blocker 1: notation heads instead of a prose whitelist', () => {
+  it('keeps ordinary adjectives before a dimension chain in the prompt', () => {
+    const cases = [
+      'Small 3 × 3 kernels are used.',
+      'Large 3 × 3 kernels are used.',
+      'Deep 3 × 3 convolutions are used.',
+      'More 3 × 3 filters are used.',
+      'Fewer 3 × 3 kernels remain.',
+      'Double 3 × 3 convolution follows.',
+      'Recent 5 × 5 filters are tested.',
+    ];
+    for (const source of cases) {
+      const notation = source.match(/\d+ × \d+/u)?.[0];
+      expect(notation, source).toBeDefined();
+      const lead = source.slice(0, source.indexOf(notation!));
+      const block = layoutPage(groupLines([piece(source, 49, 100, 430)])).blocks[0];
+      if (!block) throw new Error('expected a block');
+      const protectedText = protectInlineMath(block);
+      expect(
+        protectedText.slots.map((slot) => slot.text),
+        source,
+      ).toEqual([notation]);
+      expect(protectedText.text, source).toBe(
+        lead + '<i0>' + source.slice(lead.length + notation!.length),
+      );
+      expectSourcePreserved(protectedText, source);
+      expect(restoreInlineMath('訳文 <i0> です。', protectedText.slots)).not.toBeNull();
+    }
+  });
+
+  it('does not protect a chain that starts with an English word', () => {
+    for (const source of ['Small × Large matrices differ.', 'Model × Time is tracked.']) {
+      const block = layoutPage(groupLines([piece(source, 49, 100, 430)])).blocks[0];
+      if (!block) throw new Error('expected a block');
+      const protectedText = protectInlineMath(block);
+      expect(protectedText.slots, source).toEqual([]);
+      expect(protectedText.text, source).toBe(source);
+    }
+  });
+
+  it('protects chains whose first operand is a clear variable or number', () => {
+    const cases = [
+      { source: 'Q ∈ R d model × d k is fixed.', slot: 'Q ∈ R d model × d k' },
+      { source: 'A × B × C appears below.', slot: 'A × B × C' },
+      { source: 'x₁ × 3 denotes the shape.', slot: 'x₁ × 3' },
+      { source: 'a ∈ R holds here.', slot: 'a ∈ R' },
+      { source: 'a 3 × 3 kernel is used.', slot: '3 × 3' },
+    ];
+    for (const { source, slot } of cases) {
+      const block = layoutPage(groupLines([piece(source, 49, 100, 430)])).blocks[0];
+      if (!block) throw new Error('expected a block');
+      const protectedText = protectInlineMath(block);
+      expect(
+        protectedText.slots.map((entry) => entry.text),
+        source,
+      ).toContain(slot);
       expectSourcePreserved(protectedText, source);
     }
   });

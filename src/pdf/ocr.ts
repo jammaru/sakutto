@@ -743,12 +743,21 @@ export function ocrResultToTextLines(
           onePrintedTitleRow(pieces, resolved.pageWidth, true, true)));
     const orderedPieces = [...pieces].sort((a, b) => a.box.x - b.box.x);
     const firstPieceText = orderedPieces[0]?.text.trim() ?? '';
-    const scientificTitleRow = scientificShortTitleFirstPiece(
-      firstPieceText,
-      orderedPieces[1]?.text.trim() ?? '',
-      titleAboveBody,
-      titleAboveBody,
-    );
+    // Every title-merge path needs the same page-level or centre/margin evidence as
+    // `centredTitleRow`. On a two-column page a capitalised right fragment beside a column
+    // gutter is body text, whether its row carries a colon or a scientific prefix or not.
+    const titleCentreEvidence =
+      !pageTwoColumn ||
+      titleAboveBody ||
+      (rowCentredOnPage(pieces, resolved.pageWidth) && lineWidth < resolved.pageWidth * 0.6);
+    const scientificTitleRow =
+      titleCentreEvidence &&
+      scientificShortTitleFirstPiece(
+        firstPieceText,
+        orderedPieces[1]?.text.trim() ?? '',
+        titleAboveBody,
+        titleAboveBody,
+      );
     // A scientific prefix that fails the title check is body prose even when OCR capitalised the
     // row; the generic full-width-title heuristic must not rescue it. A row above every body
     // column is different: its gap is title whitespace, so titleAboveBody/wideGapTitleRow stay
@@ -797,7 +806,8 @@ export function ocrResultToTextLines(
       titleAboveBody,
       titleAboveBody,
     );
-    const colonTitleRow = twoPieceColonTitle(pieces, resolved.pageWidth, wholeText);
+    const colonTitleRow =
+      titleCentreEvidence && twoPieceColonTitle(pieces, resolved.pageWidth, wholeText);
     const titleLikeRow = printedTitleRow && headingWholeLine && !scientificBodyRow;
     // A short centred title can have a word gap far wider than a normal word space. A long
     // full-width title is only distinguishable from two body columns when the page's gutter

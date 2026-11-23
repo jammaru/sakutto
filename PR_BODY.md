@@ -21,6 +21,7 @@ PP-OCRv6 と ONNX Runtime Web を使い、スキャンPDFと画像の文字認�
 - 最新の DSH レビューの 5 件のブロッカーも修正：単一段の短い最終行による段落分断、1 個の縦書きスタンプによる二段組順序の無効化、通常の語間での長いタイトル・単一段行の誤分割、末尾の前置詞が数式スロットに残る問題、PR 本文の初回訳文レイテンシと生データの矛盾
 - 今回の DSH レビューの 3 件のブロッカーも修正：10pt の通常語間で全幅 1 行を二列に分割する問題、1.5pt の OCR ジッタを別々の行と誤る問題、中央に寄った見出し 2 行を二段組の根拠として本文を分割する問題
 - 最新の DSH レビューの 4 件のブロッカーも修正：2 つの OCR 領域に分かれた全幅 1 行の通常語間での分割、長いタイトルの二列化、単一段の全幅散文の cross-column 誤検知、spanning ブロックを含む対訳読み順の循環
+- 今回の DSH レビューの 2 件のブロッカーも修正：通常の英語形容詞が次元数式の保護スロットに取り込まれる問題、二段組でコロン・科学系接頭辞付きの本文行が中央寄り判定をすり抜けて見出しに結合される問題
 
 ### OCR モデル
 
@@ -57,7 +58,7 @@ Node 24 / ONNX Runtime Web 1.31.1 WASM、生成 CC0 フィクスチャ8件、各
 ### 検証
 
 - `pnpm lint`
-- `pnpm test` — 205 files, 2,690 passed, 1 optional smoke skipped
+- `pnpm test` — 205 files, 2,696 passed, 1 optional smoke skipped
 - `pnpm typecheck`
 - `pnpm format:check`
 - `pnpm exec wxt build`
@@ -85,6 +86,7 @@ This change adds on-device PP-OCRv6 recognition and translation for scanned PDFs
 - Also fixes five blockers from the latest DSH review: single-column paragraphs split at a short last line, two-column ordering disabled by one vertical margin stamp, long titles and single-column lines split at ordinary word gaps, trailing prepositions kept inside protected multiplication slots, and a PR narrative contradicting the committed first-block latency
 - Fixes three blockers from this DSH review: a full-width single line split at a 10pt word gap, 1.5pt OCR jitter treated as two source rows, and two centred title lines misread as two-column evidence that split a normal body line
 - Also fixes four blockers from the latest DSH review: a two-region full-width line split at a 10pt word gap, a long two-region title split into two columns, a false cross-column cover on a single-column prose line, and a cyclic bilingual reading order with a spanning block
+- Fixes two blockers from this DSH review: ordinary English adjectives swallowed into protected dimension slots, and colon/scientific-prefixed two-column body rows bypassing the centring guard and merging as titles
 
 ### Benchmark and default
 
@@ -107,7 +109,7 @@ Release `host_permissions` remains empty, with no new image-origin access. Canva
 ### Validation
 
 - `pnpm lint`
-- `pnpm test` — 205 files, 2,690 passed, 1 optional smoke skipped
+- `pnpm test` — 205 files, 2,696 passed, 1 optional smoke skipped
 - `pnpm typecheck`
 - `pnpm format:check`
 - `pnpm exec wxt build`
