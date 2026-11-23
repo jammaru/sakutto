@@ -266,6 +266,90 @@ describe('hybrid native and scanned PDF pages', () => {
     expect(background.layout.blocks.map((block) => block.text)).toContain(label.text);
     expect(background.layout.skipped.map((block) => block.text)).not.toContain(label.text);
   });
+
+  it('keeps the native header when the page scan is split into tiles', () => {
+    const header = nativeLine('Scanned report');
+    const duplicateHeader = region('Scanned report', quad(30, 20, 84, 10));
+    const scannedBody = region('Body text only in the scan', quad(30, 100, 300, 20));
+    const result = ocrResult(
+      [duplicateHeader, scannedBody],
+      [readingLine('horizontal', [duplicateHeader]), readingLine('horizontal', [scannedBody], [1])],
+    );
+    const tiles: FigureAreas = {
+      images: [
+        { x: 0, y: 0, width: 300, height: 800 },
+        { x: 300, y: 0, width: 300, height: 800 },
+      ],
+    };
+    const hybrid = ocrResultToHybridPage(
+      result,
+      {
+        index: 0,
+        width: PAGE.width,
+        height: PAGE.height,
+        lines: [header],
+        figures: tiles,
+        empty: false,
+      },
+      {
+        pageIndex: 0,
+        pageWidth: PAGE.width,
+        pageHeight: PAGE.height,
+        imageWidth: PAGE.width,
+        imageHeight: PAGE.height,
+      },
+    );
+    expect(hybrid.layout.blocks.map((block) => block.text)).toEqual([
+      header.text,
+      scannedBody.text,
+    ]);
+    expect(hybrid.layout.skipped.map((block) => block.text)).not.toContain(header.text);
+    expect(hybrid.lines.map((line) => line.text)).toEqual([scannedBody.text]);
+  });
+
+  it('drops a background scan while keeping a partial figure on the same page', () => {
+    const at = (text: string, y: number): TextLine =>
+      lineFrom([
+        {
+          text,
+          box: { x: 30, y, width: text.length * 6, height: 10 },
+          baseline: y + 10,
+          fontName: 'native',
+          family: 'serif',
+          bold: false,
+          italic: false,
+          math: false,
+          orientation: 0,
+          size: 10,
+          displayed: 0,
+        },
+      ]);
+    const header = at('Scanned report', 20);
+    const figureLabel = at('Axis label inside the drawing', 320);
+    const figures: FigureAreas = {
+      images: [
+        { x: 0, y: 0, width: 600, height: 800 },
+        { x: 0, y: 200, width: 300, height: 300 },
+      ],
+    };
+    const hybrid = ocrResultToHybridPage(
+      ocrResult([], []),
+      {
+        index: 0,
+        width: PAGE.width,
+        height: PAGE.height,
+        lines: [header, figureLabel],
+        figures,
+        empty: false,
+      },
+      { pageIndex: 0, pageWidth: PAGE.width, pageHeight: PAGE.height },
+    );
+    expect(hybrid.layout.blocks.map((block) => block.text)).toContain(header.text);
+    expect(hybrid.layout.skipped.map((block) => block.text)).toContain(figureLabel.text);
+    expect(hybrid.layout.skipped.find((block) => block.text === figureLabel.text)?.role).toBe(
+      'figure-label',
+    );
+  });
 });
 
 describe('hybrid OCR after Chrome message serialization', () => {

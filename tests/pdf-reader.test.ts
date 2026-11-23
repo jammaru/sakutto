@@ -127,6 +127,38 @@ function mixedScanPage(renders: { count: number }, scanned: boolean): PdfPage {
   };
 }
 
+/** A native header painted over a page-sized raster: the raster is the scan, not a figure. */
+function fullPageScanPage(renders: { count: number }): PdfPage {
+  return {
+    getViewport: ({ scale }) => ({
+      width: 200 * scale,
+      height: 280 * scale,
+      transform: [scale, 0, 0, -scale, 0, 280 * scale],
+    }),
+    getTextContent: async () => ({
+      items: [
+        {
+          str: 'Native header on the full-page scan',
+          transform: [10, 0, 0, 10, 20, 250],
+          width: 160,
+          height: 10,
+          fontName: 'F1',
+        },
+      ],
+      styles: {},
+    }),
+    getOperatorList: async () => ({
+      fnArray: [1, 2],
+      argsArray: [[200, 0, 0, 280, 0, 0], []],
+    }),
+    commonObjs: { get: () => null },
+    render: () => {
+      renders.count += 1;
+      return { promise: Promise.resolve() };
+    },
+  };
+}
+
 function fakeDocument(
   renders: { count: number },
   pages = 3,
@@ -1106,6 +1138,41 @@ describe('PdfReader viewport observer', () => {
     expect(reader.coverage(0).map((entry) => entry.sourceText)).toEqual([
       'Native prose outside the raster figure.',
     ]);
+    reader.destroy();
+  });
+
+  it('keeps a native header translatable when the full-page scan OCR fails', async () => {
+    vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver);
+    vi.stubGlobal('ResizeObserver', FakeResizeObserver);
+    ocrCanvas();
+    const recognize = vi.fn().mockRejectedValue(new Error('OCR is unavailable'));
+    const root = document.createElement('div');
+    Object.defineProperty(root, 'clientWidth', { configurable: true, get: () => 520 });
+    document.body.append(root);
+    const document_: PdfDocument = {
+      numPages: 1,
+      getPage: async () => fullPageScanPage({ count: 0 }),
+      getMetadata: async () => null,
+      destroy: async () => undefined,
+    };
+    const reader = new PdfReader(root, geometries(1), {
+      document: document_,
+      engine: silentEngine,
+      labels,
+      targetLanguage: 'ja',
+      form: 'plain',
+      onProgress: () => undefined,
+      ocr: { recognize },
+      ops: { transform: 1, paintImageXObject: 2 },
+    });
+
+    reader.start();
+    await vi.waitFor(() => expect(recognize).toHaveBeenCalledOnce());
+    await vi.waitFor(() => expect(pageHost(root, 0).dataset.ocrFailed).toBe('true'));
+    expect(reader.coverage(0).map((entry) => entry.sourceText)).toEqual([
+      'Native header on the full-page scan',
+    ]);
+    expect(pageHost(root, 0).dataset.pageEmpty).toBe('false');
     reader.destroy();
   });
 

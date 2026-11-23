@@ -4,6 +4,9 @@ import {
   figureAreas,
   isPlausibleFigure,
   MAX_FIGURE_PAGE_SHARE,
+  PAGE_BACKGROUND_COVERAGE,
+  rasterCoverage,
+  withoutPageBackground,
 } from '@/pdf/figures';
 import { groupLines } from '@/pdf/lines';
 import { layoutPage } from '@/pdf/layout';
@@ -229,5 +232,40 @@ describe('figure cluster caps', () => {
     const layout = layoutPage(lines, { images: [] }, { width: 600, height: 800 });
     expect(layout.blocks.some((block) => block.role === 'heading')).toBe(true);
     expect(layout.blocks.some((block) => block.role === 'prose')).toBe(true);
+  });
+});
+
+describe('page-background raster filtering', () => {
+  const width = 600;
+  const height = 800;
+
+  it('sums tiled raster coverage instead of looking at one image', () => {
+    const tiles = {
+      images: [
+        { x: 0, y: 0, width: 300, height: 800 },
+        { x: 300, y: 0, width: 300, height: 800 },
+      ],
+    };
+    expect(rasterCoverage(tiles, width, height)).toBe(1);
+    expect(rasterCoverage({ images: [] }, width, height)).toBe(0);
+    expect(rasterCoverage(tiles, 0, 0)).toBe(0);
+  });
+
+  it('drops a tiled or inset scan but keeps a partial figure', () => {
+    const tiles = {
+      images: [
+        { x: 0, y: 0, width: 300, height: 800 },
+        { x: 300, y: 0, width: 300, height: 800 },
+      ],
+    };
+    const inset = { images: [{ x: 20, y: 40, width: 550, height: 720 }] };
+    const partial = { images: [{ x: 40, y: 60, width: 300, height: 400 }] };
+    expect(rasterCoverage(inset, width, height)).toBeGreaterThanOrEqual(PAGE_BACKGROUND_COVERAGE);
+    expect(withoutPageBackground(tiles, width, height).images).toHaveLength(0);
+    expect(withoutPageBackground(inset, width, height).images).toHaveLength(0);
+    expect(withoutPageBackground(partial, width, height)).toEqual(partial);
+    // A drawing drawn on top of the scan must still protect its own labels.
+    const withFigure = { images: [...tiles.images, ...partial.images] };
+    expect(withoutPageBackground(withFigure, width, height).images).toEqual(partial.images);
   });
 });

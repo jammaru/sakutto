@@ -526,3 +526,59 @@ export function insideFigure(line: TextLine, areas: FigureAreas): boolean {
 export function figureBounds(areas: FigureAreas): Box | null {
   return unionBox(areas.images);
 }
+
+/**
+ * Share of a page covered by its raster boxes.
+ *
+ * Scans are routinely split into tiles whose individual boxes stay below any single-image
+ * threshold, so the areas of *all* boxes are added up — the same coverage the OCR gate uses
+ * before it decides a page needs a scan pass.
+ */
+export function rasterCoverage(
+  figures: FigureAreas,
+  pageWidth: number,
+  pageHeight: number,
+): number {
+  if (pageWidth <= 0 || pageHeight <= 0) return 0;
+  const pageArea = Math.max(1, pageWidth * pageHeight);
+  const rasterArea = figures.images.reduce(
+    (sum, image) => sum + Math.max(0, image.width) * Math.max(0, image.height),
+    0,
+  );
+  return rasterArea / pageArea;
+}
+
+/** Raster coverage at or above which the images are the scan of the page, not drawings on it. */
+export const PAGE_BACKGROUND_COVERAGE = 0.8;
+
+/**
+ * Figures a native layout may use without hiding real text.
+ *
+ * A page-sized scan (including a tiled or inset one) is the page's background: treating its
+ * boxes as figures would mark a native header or caption drawn on the scan as `figure-label`
+ * and skip it. Partial figures stay, so their own labels are still left alone.
+ */
+export function withoutPageBackground(
+  figures: FigureAreas,
+  pageWidth: number,
+  pageHeight: number,
+): FigureAreas {
+  if (rasterCoverage(figures, pageWidth, pageHeight) < PAGE_BACKGROUND_COVERAGE) return figures;
+  // Largest boxes first: the tiles that actually build the background are the ones needed to
+  // reach page coverage. An unrelated partial figure on the same page is kept as a figure.
+  const target = PAGE_BACKGROUND_COVERAGE * Math.max(1, pageWidth * pageHeight);
+  const bySize = figures.images
+    .map((image, index) => ({
+      index,
+      area: Math.max(0, image.width) * Math.max(0, image.height),
+    }))
+    .sort((left, right) => right.area - left.area);
+  const background = new Set<number>();
+  let covered = 0;
+  for (const entry of bySize) {
+    if (covered >= target) break;
+    background.add(entry.index);
+    covered += entry.area;
+  }
+  return { images: figures.images.filter((_image, index) => !background.has(index)) };
+}

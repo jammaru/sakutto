@@ -18,6 +18,7 @@ import {
   type PageLayout,
 } from './layout';
 import { layoutPage } from './layout';
+import { withoutPageBackground } from './figures';
 import { COVER_PAD_TOP_EM, HINTING_PAD_PX, coverPaintLayout, drawnBox } from './place';
 import { coverStyle, READER_STYLE, TextMeasurer } from './render';
 import { extractPage, renderPage, type PdfDocument } from './extract';
@@ -897,7 +898,14 @@ export class PdfReader {
         const runOcr =
           this.ocr !== null &&
           shouldRunPdfOcr(extracted.lines, extracted.figures, extracted.width, extracted.height);
-        const nativeLayout = layoutPage(extracted.lines, extracted.figures, {
+        // The same filter the hybrid layout uses: a scan covering the page is background, not
+        // a figure whose native header should be skipped when OCR fails.
+        const nativeFigures = withoutPageBackground(
+          extracted.figures,
+          extracted.width,
+          extracted.height,
+        );
+        const nativeLayout = layoutPage(extracted.lines, nativeFigures, {
           width: extracted.width,
           height: extracted.height,
           index: next,
@@ -934,13 +942,17 @@ export class PdfReader {
           });
           this.pageOcr = pageOcr;
           const recognized = await pageOcr.run(canvas);
-          const hybrid = ocrResultToHybridPage(recognized.ocr, extracted, {
-            pageIndex: next,
-            pageWidth: extracted.width,
-            pageHeight: extracted.height,
-            imageWidth: canvas.width,
-            imageHeight: canvas.height,
-          });
+          const hybrid = ocrResultToHybridPage(
+            recognized.ocr,
+            { ...extracted, figures: nativeFigures },
+            {
+              pageIndex: next,
+              pageWidth: extracted.width,
+              pageHeight: extracted.height,
+              imageWidth: canvas.width,
+              imageHeight: canvas.height,
+            },
+          );
           pageLayout = hybrid.layout;
           if (hybrid.lines.length > 0) textLines = [...extracted.lines, ...hybrid.lines];
         }

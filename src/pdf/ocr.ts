@@ -4,7 +4,7 @@ import { groupReadingLines } from '@/engine/ocr/order';
 import type { ImageDataLike, OcrQuad, OcrRegion, OcrResult, ReadingLine } from '@/engine/ocr/types';
 import { isImageOnlyPage, normalizeGlyphRun, type ExtractedPage } from './extract';
 import { CJK_MAJORITY, cjkRatio } from './fonts';
-import type { FigureAreas } from './figures';
+import { rasterCoverage, withoutPageBackground, type FigureAreas } from './figures';
 import { median, type Box } from './geometry';
 import {
   layoutPage,
@@ -30,10 +30,8 @@ export function shouldRunPdfOcr(
   height: number,
 ): boolean {
   if (isImageOnlyPage(lines, figures, width, height)) return true;
-  const pageArea = Math.max(1, width * height);
   // Tiled scans can cover most of a page without any single image reaching 35% of it.
-  const rasterArea = figures.images.reduce((sum, image) => sum + image.width * image.height, 0);
-  if (rasterArea < pageArea * 0.35) return false;
+  if (rasterCoverage(figures, width, height) < 0.35) return false;
   // A page already covered by a usable native text layer is an ordinary text page with a
   // background image; OCR would be discarded by the deduplication below after a full model
   // download and render. Keep the scan pass for pages whose native text is only a header,
@@ -1901,16 +1899,6 @@ export function uncoveredPdfOcrResult(
   };
 }
 
-/** A single raster covering nearly the whole page is the scan itself, not a drawing on it. */
-function isPageBackgroundImage(image: Box, pageWidth: number, pageHeight: number): boolean {
-  if (pageWidth <= 0 || pageHeight <= 0) return false;
-  return (
-    image.width >= pageWidth * 0.9 &&
-    image.height >= pageHeight * 0.9 &&
-    image.width * image.height >= pageWidth * pageHeight * 0.8
-  );
-}
-
 /** Native layout plus only the OCR lines not already represented by native text. */
 export function ocrResultToHybridPage(
   result: OcrResult,
@@ -1918,13 +1906,13 @@ export function ocrResultToHybridPage(
   options: OcrConversionOptions,
 ): { lines: OcrTextLine[]; layout: PageLayout } {
   // A page-sized scan is the background, not a figure whose native header should be skipped.
-  // Only those images are dropped: a large partial figure still protects the native text drawn
-  // inside it from being translated over the artwork.
-  const figures: FigureAreas = {
-    images: extracted.figures.images.filter(
-      (image) => !isPageBackgroundImage(image, extracted.width, extracted.height),
-    ),
-  };
+  // Coverage is summed across every tile, so a tiled or inset scan is dropped as a whole while
+  // a partial figure still protects the native text drawn inside it.
+  const figures: FigureAreas = withoutPageBackground(
+    extracted.figures,
+    extracted.width,
+    extracted.height,
+  );
   const native = layoutPage(extracted.lines, figures, {
     width: extracted.width,
     height: extracted.height,
