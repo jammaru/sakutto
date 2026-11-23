@@ -1865,6 +1865,87 @@ describe('page session', () => {
     expect(items()[0]?.textContent).toBe('新しい:New source');
   });
 
+  it('retranslates a block whose text the page changes while its request is running', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = '<p>Hello world</p>';
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const session = start(
+      document,
+      engineOf(async function* (segments) {
+        for (const segment of segments) {
+          if (segment.text === 'Hello world') {
+            yield { id: segment.id, textDelta: '途中。', engine: 'plamo' as const };
+            await gate;
+            // The stale request still answers even though the block changed under it.
+            yield { id: segment.id, final: '古い訳', engine: 'plamo' as const };
+            continue;
+          }
+          yield { id: segment.id, final: `訳:${segment.text}`, engine: 'plamo' as const };
+        }
+      }),
+      { reveal: 'sentence' },
+    );
+
+    await session.translate();
+    await vi.waitFor(() => {
+      expect(document.querySelector('p')?.textContent).toBe('途中。');
+    });
+
+    const block = document.querySelector('p');
+    if (!block || !(block.firstChild instanceof Text)) throw new Error('missing block text');
+    block.firstChild.nodeValue = 'New source';
+    // Let the mutation observer register the in-place change before the stale final lands.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    release();
+    await session.whenIdle();
+    expect(document.querySelector('p')?.textContent).toBe('訳:New source');
+    expect(session.state()).toMatchObject({ pending: 0, done: 1, total: 1, skipped: 0 });
+  });
+
+  it('retranslates a block whose text node the page replaces while its request is running', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = '<p>Hello world</p>';
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const session = start(
+      document,
+      engineOf(async function* (segments) {
+        for (const segment of segments) {
+          if (segment.text === 'Hello world') {
+            yield { id: segment.id, textDelta: '途中。', engine: 'plamo' as const };
+            await gate;
+            yield { id: segment.id, final: '古い訳', engine: 'plamo' as const };
+            continue;
+          }
+          yield { id: segment.id, final: `訳:${segment.text}`, engine: 'plamo' as const };
+        }
+      }),
+      { reveal: 'sentence' },
+    );
+
+    await session.translate();
+    await vi.waitFor(() => {
+      expect(document.querySelector('p')?.textContent).toBe('途中。');
+    });
+
+    const block = document.querySelector('p');
+    if (!block) throw new Error('missing block');
+    // Replacing the text node detaches the slot the old request would write its final into.
+    block.textContent = 'New source';
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    release();
+    await session.whenIdle();
+    expect(document.querySelector('p')?.textContent).toBe('訳:New source');
+    expect(session.state()).toMatchObject({ pending: 0, done: 1, total: 1, skipped: 0 });
+  });
+
   it('streams a block that is decoded by itself and will take more than three seconds', async () => {
     // No other block gets text beside it, as where one request is decoded at a time. Nine
     // letters in 0.6 s of the sixty it will have: four seconds, by its own speed. The speed

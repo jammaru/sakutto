@@ -2686,7 +2686,11 @@ export class PageSession {
     this.running = Math.max(0, this.running - 1);
   }
 
-  private abortBatches(match: (batch: InflightBatch) => boolean, requeue: boolean): void {
+  private abortBatches(
+    match: (batch: InflightBatch) => boolean,
+    requeue: boolean,
+    except?: Live,
+  ): void {
     let released = false;
     for (const batch of [...this.inflightBatches]) {
       if (!match(batch)) continue;
@@ -2694,6 +2698,14 @@ export class PageSession {
       this.releaseBatch(batch);
       released = true;
       for (const item of batch.items) {
+        if (item === except) {
+          // Its owner drops this item in a moment. Make every chunk the still-open request
+          // sends for it a no-op, so a stale final cannot repaint the newer page text.
+          item.state = 'idle';
+          item.batchToken = -1;
+          this.cancelFastFlush(item);
+          continue;
+        }
         if (item.role === 'selection') {
           item.state = 'idle';
           if (this.selection === item) this.selection = null;
@@ -3115,7 +3127,7 @@ export class PageSession {
 
   private refreshBlock(block: Element): void {
     const existing = this.liveByBlock.get(block);
-    if (!existing || existing.state === 'running') return;
+    if (!existing) return;
     const model = buildSegment(block);
     if (model && model.source === existing.source) return;
     const index = existing.index;
@@ -3124,6 +3136,13 @@ export class PageSession {
     this.changingReveal(() => {
       this.forgetLive(existing, false);
       this.addBlock(block, index);
+      if (existing.state === 'running') {
+        // The page changed this block while its request was still open. Stop that request
+        // or its final would overwrite the newer text (or be written into a detached node
+        // and leave untranslated prose behind). The replacement is queued above; the
+        // excepted item stays out of it while the request's other blocks are retried.
+        this.abortBatches((batch) => batch.items.includes(existing), true, existing);
+      }
     });
   }
 
