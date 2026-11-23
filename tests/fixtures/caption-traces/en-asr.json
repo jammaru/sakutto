@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "name": "synthetic-en-word-asr",
+  "sourceLanguage": "en",
+  "targetLanguage": "ja",
+  "videoId": "synthetic-en-asr",
+  "endMs": 78000,
+  "events": [
+    {
+      "atMs": 800,
+      "text": "The"
+    },
+    {
+      "atMs": 6800,
+      "text": "The station"
+    },
+    {
+      "atMs": 12800,
+      "text": "The station opens"
+    },
+    {
+      "atMs": 18800,
+      "text": "The station opens at"
+    },
+    {
+      "atMs": 24800,
+      "text": "The station opens at dawn."
+    },
+    {
+      "atMs": 32800,
+      "text": ""
+    },
+    {
+      "atMs": 38000,
+      "text": "Trains"
+    },
+    {
+      "atMs": 44000,
+      "text": "Trains carry"
+    },
+    {
+      "atMs": 50000,
+      "text": "Trains carry travelers"
+    },
+    {
+      "atMs": 56000,
+      "text": "Trains carry travelers toward"
+    },
+    {
+      "atMs": 62000,
+      "text": "Trains carry travelers toward the"
+    },
+    {
+      "atMs": 68000,
+      "text": "Trains carry travelers toward the city."
+    },
+    {
+      "atMs": 76000,
+      "text": ""
+    }
+  ]
+}

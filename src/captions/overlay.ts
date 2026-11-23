@@ -5,6 +5,7 @@ import {
   type DisplayMode,
   type VideoCaptionPosition,
 } from '@/shared/settings';
+import { cleanCaptionForMode, isBareSoundWord, isSoundTagOnly } from './text-cleanup';
 
 export interface CaptionOverlayLabels {
   label: string;
@@ -18,6 +19,12 @@ export interface CaptionOverlayState {
   translation: string | null;
   display: DisplayMode;
   pending: boolean;
+  /** Kept for session compatibility; main layout is always max-content. */
+  live?: boolean | undefined;
+  /** Auto-generated cue: bare sound words are production cues, not caption prose. */
+  asr?: boolean | undefined;
+  /** Immutable non-live VOD keeps its source visible instead of a loading placeholder. */
+  vodJson3?: boolean | undefined;
 }
 
 export const CAPTION_OVERLAY_HOST = 'sakutto-captions';
@@ -519,25 +526,44 @@ export class CaptionOverlay {
   }
 
   show(state: CaptionOverlayState): void {
-    const translation = state.translation?.trim() ?? '';
-    const original = state.original.trim();
-    // Native captions stay until a translation exists. Never paint empty black boxes.
-    if (translation.length === 0) {
+    // Last-mile guard: no sound tag reaches the DOM, including an original-only
+    // pending line for a bare ASR sound word such as "music".
+    const asr = state.asr === true;
+    const pureTranslation = isSoundTagOnly(state.translation ?? '');
+    const pureOriginal = isSoundTagOnly(state.original) || (asr && isBareSoundWord(state.original));
+    const translation = pureTranslation
+      ? ''
+      : cleanCaptionForMode(state.translation ?? '', asr).trim();
+    const original = pureOriginal ? '' : cleanCaptionForMode(state.original, asr).trim();
+    const originalOnly = translation.length === 0 && original.length > 0 && state.pending;
+    // Native captions stay until a translation exists, except for original-only pending.
+    if (translation.length === 0 && !originalOnly) {
       this.hide();
       return;
     }
 
     const bilingual = state.display === 'bilingual';
-    const showOriginal = bilingual && original.length > 0;
+    const showOriginal = original.length > 0 && (bilingual || originalOnly);
     this.originalLine.textContent = showOriginal ? original : '';
-    this.translatedLine.textContent = translation;
+    // Live ASR and immutable VOD keep the source visible until translation lands.
+    // Other pending cue-list modes retain their existing localized pending row.
+    this.translatedLine.textContent =
+      translation.length > 0
+        ? translation
+        : originalOnly
+          ? (asr && state.live === true) || state.vodJson3 === true
+            ? original
+            : this.labels.pending
+          : '';
     this.originalLine.hidden = !showOriginal;
-    this.translatedLine.hidden = false;
+    this.translatedLine.hidden = translation.length === 0 && !originalOnly;
     this.toggleLabel = bilingual ? this.labels.hideOriginal : this.labels.showOriginal;
     if (this.toggle.getAttribute('aria-label') !== this.toggleLabel) {
       this.toggle.setAttribute('aria-label', this.toggleLabel);
     }
-    this.host.setAttribute('data-sakutto-caption', translation);
+    this.host.removeAttribute('data-sakutto-notice');
+    if (translation.length > 0) this.host.setAttribute('data-sakutto-caption', translation);
+    else this.host.removeAttribute('data-sakutto-caption');
     this.host.setAttribute('data-sakutto-original', original);
     this.host.setAttribute('data-sakutto-show-original', showOriginal ? '1' : '0');
     if (state.pending) this.host.setAttribute('data-sakutto-pending', '1');
@@ -835,8 +861,9 @@ export class CaptionOverlay {
     }
     this.swallow(event);
     this.armClickSuppress();
-    const shouldClick = this.shortClickArmed && !this.dragging && !this.gestureMoved;
-    if (this.dragging) this.endDrag(true);
+    const cancelled = event.type === 'pointercancel' || event.type === 'touchcancel';
+    const shouldClick = !cancelled && this.shortClickArmed && !this.dragging && !this.gestureMoved;
+    if (this.dragging) this.endDrag(!cancelled);
     else this.cancelHold();
     this.gestureActive = false;
     this.gestureMoved = false;

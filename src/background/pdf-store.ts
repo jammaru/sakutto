@@ -192,21 +192,79 @@ export async function sweepStoredPdfs(maxAgeMs = 24 * 60 * 60 * 1000): Promise<v
   }
 }
 
-function fileNameFrom(url: string, response: Response): string {
-  const disposition = response.headers.get('content-disposition') ?? '';
-  const match = /filename\*?=(?:UTF-8'')?["']?([^"';]+)/iu.exec(disposition);
-  if (match?.[1]) {
-    try {
-      return decodeURIComponent(match[1]).slice(0, 200);
-    } catch {
-      return match[1].slice(0, 200);
+function dispositionParameter(disposition: string, extended: boolean): string | null {
+  const name = extended ? 'filename\\*' : 'filename';
+  const match = new RegExp(`(?:^|;)\\s*${name}\\s*=\\s*(?:"([^"]*)"|([^;]*))`, 'iu').exec(
+    disposition,
+  );
+  return (match?.[1] ?? match?.[2])?.trim() || null;
+}
+
+function decodeExtendedFileName(value: string): string | null {
+  const match = /^([^']*)'[^']*'(.*)$/u.exec(value);
+  if (!match) return null;
+  const charset = (match[1] ?? '').toLowerCase();
+  const encoded = match[2] ?? '';
+  try {
+    if (charset === 'utf-8') return decodeURIComponent(encoded);
+    if (charset !== 'iso-8859-1') return null;
+
+    let decoded = '';
+    for (let index = 0; index < encoded.length; index += 1) {
+      if (encoded.charAt(index) !== '%') {
+        decoded += encoded.charAt(index);
+        continue;
+      }
+      const hex = encoded.slice(index + 1, index + 3);
+      if (!/^[\da-f]{2}$/iu.test(hex)) return null;
+      decoded += String.fromCharCode(Number.parseInt(hex, 16));
+      index += 2;
     }
+    return decoded;
+  } catch {
+    return null;
+  }
+}
+
+function safeFileName(value: string): string {
+  const basename = value.replaceAll('\\', '/').split('/').pop() ?? '';
+  return basename
+    .split('')
+    .filter((character) => {
+      const code = character.charCodeAt(0);
+      return code > 0x1f && code !== 0x7f;
+    })
+    .join('')
+    .slice(0, 200);
+}
+
+export function fileNameFrom(url: string, response: Response): string {
+  const disposition = response.headers.get('content-disposition') ?? '';
+  const extended = dispositionParameter(disposition, true);
+  if (extended) {
+    const decoded = decodeExtendedFileName(extended);
+    const name = decoded === null ? '' : safeFileName(decoded);
+    if (name) return name;
+  }
+
+  const fallback = dispositionParameter(disposition, false);
+  if (fallback) {
+    let decoded = fallback;
+    try {
+      decoded = decodeURIComponent(fallback);
+    } catch {
+      // A plain filename is not necessarily percent-encoded; keep its literal value.
+    }
+    const name = safeFileName(decoded);
+    if (name) return name;
   }
 
   try {
     const parsed = new URL(url);
-    const name = decodeURIComponent(parsed.pathname.split('/').filter(Boolean).pop() ?? '');
-    if (name.toLowerCase().endsWith('.pdf')) return name.slice(0, 200);
+    const name = safeFileName(
+      decodeURIComponent(parsed.pathname.split('/').filter(Boolean).pop() ?? ''),
+    );
+    if (name.toLowerCase().endsWith('.pdf')) return name;
     if (name.length > 0) return `${name}.pdf`.slice(0, 200);
   } catch {
     // Fall through to the generic name.

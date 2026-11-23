@@ -39,7 +39,7 @@ YouTube exposes captions in three layers. v1 uses (1) and (2); (3) is the live f
    [DisTube captions guide](https://distube.js.org/ytdl-core/guides/captions/).
 
 2. **`/api/timedtext`.** Fetch `{baseUrl}` and **replace** (do not append) `fmt`:
-   - `fmt=json3` — `{ events: [{ tStartMs, dDurationMs, segs: [{ utf8 }] }] }`
+   - `fmt=json3` — `{ events: [{ tStartMs, dDurationMs, segs: [{ utf8, tOffsetMs }] }] }`
    - `fmt=vtt` — WebVTT
      Appending a second `fmt` leaves `srv3` in place and YouTube returns XML
      ([invidious#4221](https://github.com/iv-org/invidious/pull/4221)).
@@ -89,22 +89,23 @@ window. v1 reads one source window (spoken `lang`, then not-the-target), never
 `<sakutto-captions>`, and strips target-language script from mixed lines. Japanese
 glued onto English is not sent to the model.
 
-**VOD sentence assembly:** consecutive cues are merged at sentence-end punctuation (with
-a max span and character cap) and translated once. The overlay covers the combined time
-span. Mid-sentence fragments are not sent to the model. Japanese ASR (`kind=asr` /
-`vssId` `a.ja`) has almost no spaces or punctuation: growing overlapping json3 events are
-collapsed, CJK fragments are joined without ASCII spaces, and short silences are filled so
-the playhead still has a cue. `tlang` is stripped from timedtext URLs so YouTube
-auto-translate is not fetched as the source.
+**VOD sentence assembly:** a successful non-live json3 GET becomes one immutable timed-word
+timeline. Each segment starts at `tStartMs + tOffsetMs`; its end is the next distinct segment
+start or the event end. Rolling instances are deduplicated by absolute time and text, with a
+source-coverage audit. Sentence/display cues commit at punctuation or a real 700 ms inter-word
+pause. Duration/character limits split only at whole source tokens, never by character-ratio
+timestamps or through a numeric lexeme, and the last token keeps its natural end. Offset-less
+json3 and VTT retain the legacy compatibility parser; valid VOD never switches to rolling DOM.
+`tlang` is stripped from timedtext URLs so YouTube auto-translate is not fetched as the source.
 
 **Native vs overlay:** native captions stay only until the first translated overlay line,
 and again only when the overlay truly has nothing for the current time (passthrough of a
 same-language track, or no cue and no hold). A new uncached cue or a seek must not flash
 YouTube’s ja auto-captions over a ja→en overlay; the previous translated line stays until
-the next one lands. The hold cap (`CAPTION_HOLD_MAX_MS`, 4 s) applies only to **real
+the next one lands. The hold cap (`CAPTION_HOLD_MAX_MS`, 2 s) applies only to **real
 silence** (no current cue, and for live no on-screen `.ytp-caption-segment`). A current
 cue whose translation is still in flight is not silence. Live holds extend while the DOM
-line remains; they expire only after that line has been gone for 4 s. Seek/abort must not
+line remains; they expire only after that line has been gone for 2 s. Seek/abort must not
 be treated as a failed translation. A jump before the held cue’s start (loop, ad, rewind)
 drops the hold so a future line is not shown. After a true failure, show the original
 (`showNative`) instead of a stale line. `localStorage.sakuttoCaptionDebug = '1'` logs why
@@ -130,12 +131,12 @@ Live captions are not a stable VTT file. v1 treats them as first-class:
   [yt-dlp#2039](https://github.com/yt-dlp/yt-dlp/issues/2039)). v1 does not parse media
   segments.
 
-`LiveCaptionBuffer` waits for a sentence terminator, a pause (`LIVE_CAPTION_MAX_WAIT_MS` =
-0.9 s), or `LIVE_CAPTION_MAX_CHARS` (72), then translates **only the newest** committed
-line (older in-flight jobs are aborted). Growing fragments are not shown and are not
-sent to the model. The overlay paints a finalized pair only, held for
-`LIVE_CAPTION_MIN_DISPLAY_MS` (1.4 s) so the line does not jitter. The
-"translating captions…" status is not drawn over the video. Live jobs use priority `2`
+`AsrChunkStream` computes whole-word deltas from the rolling DOM, serializes translation,
+and commits results in sequence order with the committed prefix as context. Work stale by
+more than 2 s of media time is dropped; VOD scheduling and its FIFO never run for live.
+`LIVE_CAPTION_MAX_WAIT_MS` is 250 ms and `LIVE_CAPTION_MAX_CHARS` is 72. Refinements of a
+live line are held for `LIVE_CAPTION_MIN_DISPLAY_MS` (1.4 s) so the line does not jitter.
+The "translating captions…" status is not drawn over the video. Live jobs use priority `2`
 with `eager` and `preempt`.
 
 ### X (Twitter)
@@ -231,17 +232,20 @@ A typical caption is 8–15 English words (~12–25 output tokens in Japanese).
 
 **Design that follows from the budget:**
 
-- **On-demand:** translate the track ahead of the playhead (`captionPrefetchWindowMs`:
-  36 s on GPU, 16 s on `c8`, 8 s on smaller CPU tiers, multiplied by `playbackRate`).
-  Cues inside 8 s use live priority. Seeking aborts in-flight work and prefetches around
-  the new time. Rate changes widen the window. Repeated lines hit an in-memory map.
-- **Live / ASR / empty-timedtext DOM:** do not send each word and do not build a backlog.
-  `LiveCaptionBuffer` waits for a sentence terminator, a pause (`LIVE_CAPTION_MAX_WAIT_MS`
-  = 0.9 s), or `LIVE_CAPTION_MAX_CHARS` (72). Only the newest finalized line is translated.
+- **On-demand json3:** the whole immutable timeline is retained, but only two caption jobs
+  are outstanding. The current/overdue cue uses priority 1, deadline-near work and the ordered
+  display backlog use priority 2 (4 s horizon plus the next two cues), and a 30 s wall-clock
+  window uses priority 24. Completion advances the window without an initial transcript-sized
+  burst. Seek/rate generations re-prioritize without refetching or clearing cached translations.
+  Legacy VTT/cue-list fallback retains the tier-based `captionPrefetchWindowMs` policy.
+- **Live / ASR / empty-timedtext DOM:** do not send each word independently and do not build
+  the VOD whole-track backlog. `AsrChunkStream` serializes whole-word deltas, supplies the
+  committed prefix as context, and drops work stale by more than 2 s of media time.
 - **Queue:** live captions use priority `2` (after selection `0`, before visible page prose
-  `~10`) with `preempt: true`, so a running page batch is cancelled and the live line can
-  start. Prefetch uses `24` (after nearby prose `~22`, before far chrome `~34`). Cancel on
-  seek. Captions do not take the selection slot.
+  `~10`) with `preempt: true`. The VOD playhead uses priority 1, near work 2, and far prefetch
+  `24` (after nearby prose `~22`, before far chrome `~34`). Promotion aborts/restarts a warmer
+  only when its priority improves; stale far work is cancelled on seek/rate. Captions do not
+  take the selection slot.
 
 ## UX
 
@@ -257,9 +261,16 @@ A typical caption is 8–15 English words (~12–25 output tokens in Japanese).
   YouTube's player click handler cannot swallow it.
 - **Bilingual is the default** (`videoCaptionDisplay`). Side-by-side is what people use to
   study and to check accuracy. Replace mode is a setting and a control on the overlay.
-- The overlay shows **finalized units only** (original + translation together). It does
-  not re-render growing ASR text. A broken or `error: true` result is not cached and is
-  not painted; `isBrokenTranslation` from `src/engine/text/degenerate.ts` is the gate.
+- VOD paints cached translation at the source cue start, or the original while translation is
+  pending. Due cues form a FIFO: every uncensored Japanese cue receives at least
+  `VOD_MIN_DISPLAY_MS` (1.2 s), even when late, and natural cue ends never skip content.
+  Seek intentionally flushes the queue; pause does not reset dwell bookkeeping. Live retains
+  its separate incremental refinement behavior. A broken or `error: true` result is not cached
+  and is not painted; `isBrokenTranslation` from `src/engine/text/degenerate.ts` is the gate.
+- VOD numeric lexemes are replaced by caption-safe opaque markers before translation, restored
+  in exact source order/spelling, and validated before caching. Missing, duplicated, reordered,
+  or altered markers/numbers reject the engine result and use the exact source as a safe
+  fallback. An upstream ASR `55` is not guessed to be `5.5` without independent evidence.
 - Translation type is at least native YouTube caption size: native `.ytp-caption-segment`
   computed `font-size` when present, else ~5% of player height. Overlay width is 94% of
   the player (theater / fullscreen included). The original line is smaller (~0.68em).
@@ -332,15 +343,16 @@ already looking at.
 
 ## Test plan
 
-- **Unit:** WebVTT and json3 parsers; word-cue merge (no false sentences); VOD sentence
-  merge from fragmentary cues; 1-hour X VTT offset; live buffer; spoken-language track
+- **Unit:** WebVTT and json3 parsers; offset arithmetic, rolling coverage, whole-token cues,
+  deadline scheduling, display FIFO/dwell, hostile numeric output; 1-hour X VTT offset; live buffer; spoken-language track
   choice (not the first translated track); timedtext fetch cap; X playing-video picker and
   twimg allowlist; auto-inject gating; popup/options toggle permission-denied revert and
   enable-intent settle after a closed popup; overlay bilingual/replace and light-DOM
   toggle click; translator cache, seek cancel, degenerate skip, live preempt;
   scheduler preemption; session live original-then-translation, empty-timedtext DOM
   fallback, setting-off overlay removal, and silent X.
-- **e2e:** HTML5 dummy clip; YouTube on-demand; YouTube live auto-run without Translate;
+- **e2e:** real-time offset-json3 VOD replay (lag, dwell, content, numbers, seek/rate,
+  bounded long track, live isolation); HTML5 dummy clip; YouTube on-demand; YouTube live auto-run without Translate;
   X-like DOM + VTT (playing video only); X with no captions → nothing; overlay original
   toggle click through a fake chrome bar; popup switch on/off propagation, permission
   prompt that closes the popup still enabling on reopen, and permission-denied revert.

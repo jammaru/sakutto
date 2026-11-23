@@ -290,7 +290,7 @@ describe('typed source break marks', () => {
   });
 
   it('renders the result as one plain text node without per-line gap spans', () => {
-    expect(typed).toMatch(/<output class="result"[\s\S]*?\{result\}<\/output/u);
+    expect(typed).toMatch(/<output class="result"[\s\S]*?\{result\}\s*<\/output/u);
     expect(typed).not.toContain('wide-gap');
     expect(typed).not.toContain('resultGaps');
     // A legend names the marks while the mode is on.

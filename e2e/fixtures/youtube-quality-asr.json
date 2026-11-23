@@ -1,0 +1,94 @@
+{
+  "events": [
+    {
+      "tStartMs": 0,
+      "dDurationMs": 600,
+      "segs": [
+        {
+          "utf8": "E We should keep the codebase in a in a"
+        }
+      ]
+    },
+    {
+      "tStartMs": 600,
+      "dDurationMs": 600,
+      "segs": [
+        {
+          "utf8": "We should keep the codebase in a in a and the bot"
+        }
+      ]
+    },
+    {
+      "tStartMs": 1200,
+      "dDurationMs": 600,
+      "segs": [
+        {
+          "utf8": "We should keep the codebase in a in a and the bot stays"
+        }
+      ]
+    },
+    {
+      "tStartMs": 1800,
+      "dDurationMs": 600,
+      "segs": [
+        {
+          "utf8": "We should keep the codebase in a in a and the bot stays here."
+        }
+      ]
+    },
+    {
+      "tStartMs": 2400,
+      "dDurationMs": 600,
+      "segs": [
+        {
+          "utf8": "[Music]"
+        }
+      ]
+    },
+    {
+      "tStartMs": 3000,
+      "dDurationMs": 600,
+      "segs": [
+        {
+          "utf8": "NC Most of the blame falls on us"
+        }
+      ]
+    },
+    {
+      "tStartMs": 3600,
+      "dDurationMs": 600,
+      "segs": [
+        {
+          "utf8": "Most of the blame falls on us RS"
+        }
+      ]
+    },
+    {
+      "tStartMs": 4200,
+      "dDurationMs": 600,
+      "segs": [
+        {
+          "utf8": "Most of the blame falls on us."
+        }
+      ]
+    },
+    {
+      "tStartMs": 4800,
+      "dDurationMs": 600,
+      "segs": [
+        {
+          "utf8": "S1 We can fix it together. ED"
+        }
+      ]
+    },
+    {
+      "tStartMs": 5400,
+      "dDurationMs": 800,
+      "segs": [
+        {
+          "utf8": "We can fix it together."
+        }
+      ]
+    }
+  ]
+}

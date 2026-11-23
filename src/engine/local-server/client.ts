@@ -291,7 +291,7 @@ async function readSse(
   let sawDone = false;
 
   const consume = (block: string): boolean => {
-    for (const line of block.split('\n')) {
+    for (const line of block.split(/\r\n|\r|\n/u)) {
       const trimmed = line.trim();
       if (!trimmed.startsWith('data:')) continue;
       const data = trimmed.slice(5).trim();
@@ -333,7 +333,10 @@ async function readSse(
         break;
       }
       buffer += decoder.decode(chunk.value, { stream: true });
-      const parts = buffer.split('\n\n');
+      // An event ends at a blank line, and a line may end in LF, CRLF or CR.
+      // Splitting only on '\n\n' leaves CRLF-framed servers (some aiohttp/httpx
+      // stacks) buffering every delta until the stream closes.
+      const parts = buffer.split(/(?:\r\n|\r|\n){2}/u);
       buffer = parts.pop() ?? '';
       for (const part of parts) {
         if (consume(part)) {

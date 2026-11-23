@@ -1,0 +1,114 @@
+{
+  "version": 1,
+  "name": "synthetic-en-wrapped-rollup",
+  "sourceLanguage": "en",
+  "targetLanguage": "ja",
+  "videoId": "synthetic-en-wrapped-rollup",
+  "endMs": 71400,
+  "events": [
+    {
+      "atMs": 800,
+      "text": "The"
+    },
+    {
+      "atMs": 3400,
+      "text": "The old"
+    },
+    {
+      "atMs": 6000,
+      "text": "The old station"
+    },
+    {
+      "atMs": 8600,
+      "text": "The old station clock"
+    },
+    {
+      "atMs": 11200,
+      "text": "The old station clock keeps"
+    },
+    {
+      "atMs": 13800,
+      "text": "The old station clock keeps ticking"
+    },
+    {
+      "atMs": 16400,
+      "text": "The old station clock keeps ticking while"
+    },
+    {
+      "atMs": 19000,
+      "text": "The old station clock keeps ticking while travelers"
+    },
+    {
+      "atMs": 21600,
+      "text": "The old station clock keeps ticking while travelers cross"
+    },
+    {
+      "atMs": 24200,
+      "text": "The old station clock keeps ticking while travelers cross the"
+    },
+    {
+      "atMs": 26800,
+      "text": "The old station clock keeps ticking while travelers cross the crowded"
+    },
+    {
+      "atMs": 29400,
+      "text": "The old station clock keeps ticking while travelers cross the crowded platform"
+    },
+    {
+      "atMs": 32000,
+      "text": "The old station clock keeps ticking while travelers cross the crowded platform and"
+    },
+    {
+      "atMs": 34600,
+      "text": "The old station clock keeps ticking while travelers cross the crowded platform and follow"
+    },
+    {
+      "atMs": 37200,
+      "text": "The old station clock keeps ticking while travelers cross the crowded platform and follow the"
+    },
+    {
+      "atMs": 39800,
+      "text": "The old station clock keeps ticking while travelers cross the crowded platform and follow the silver"
+    },
+    {
+      "atMs": 42400,
+      "text": "The old station clock keeps ticking while travelers cross the crowded platform and follow the silver train"
+    },
+    {
+      "atMs": 45000,
+      "text": "The old station clock keeps ticking while travelers cross the crowded platform and follow the silver train into"
+    },
+    {
+      "atMs": 47600,
+      "text": "The old station clock keeps ticking while travelers cross the crowded platform and follow the silver train into the"
+    },
+    {
+      "atMs": 50200,
+      "text": "The old station clock keeps ticking while travelers cross the crowded platform and follow the silver train into the bright"
+    },
+    {
+      "atMs": 52800,
+      "text": "The old station clock keeps ticking while travelers cross the crowded platform and follow the silver train into the bright morning"
+    },
+    {
+      "atMs": 55400,
+      "text": "The old station clock keeps ticking while travelers cross the crowded platform and follow the silver train into the bright morning beyond"
+    },
+    {
+      "atMs": 58000,
+      "text": "The old station clock keeps ticking while travelers cross the crowded platform and follow the silver train into the bright morning beyond the"
+    },
+    {
+      "atMs": 60600,
+      "text": "The old station clock keeps ticking while travelers cross the crowded platform and follow the silver train into the bright morning beyond the sleeping"
+    },
+    {
+      "atMs": 63200,
+      "text": "The old station clock keeps ticking while travelers cross the crowded platform and follow the silver train into the bright morning beyond the sleeping city."
+    },
+    {
+      "atMs": 71400,
+      "text": ""
+    }
+  ]
+}

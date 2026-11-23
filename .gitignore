@@ -47,3 +47,4 @@ public/licenses/onnxruntime-ThirdPartyNotices.txt
 public/ocr/ort/ort-wasm-simd-threaded.wasm
 bench/ocr/fixtures/*.rgba
 en.pdf
+traces/

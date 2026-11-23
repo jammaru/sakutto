@@ -21,6 +21,7 @@ import {
 } from '@/engine/errors';
 import type { EngineKind, GlossaryEntry, TranslateOptions, TranslationChunk } from '@/engine/types';
 import { glossaryKey, mergeGlossary } from '@/shared/glossary';
+import { segmentSourceText } from '@/shared/source-break-marks';
 import {
   chooseTargetLanguage,
   effectivePageTarget,
@@ -87,6 +88,7 @@ import {
   type SegmentModel,
 } from './segment';
 import type { SiteAuto, SiteRule } from './sites';
+import { shouldPreserveNewlines } from './x-post';
 
 /** The engine packs by the same rule, so a request the page packs is not split up again. */
 const PACK_TOKEN_LIMIT = DEFAULT_BATCHING.maxBatchTokens;
@@ -209,6 +211,8 @@ interface Live {
   /** Selection only: normalized source, its model input, and the break map. */
   plainSource?: string;
   plainBreakMap?: PlainTextBreakMap;
+  /** Page only: line-by-line X bodies. One entry per request piece, in part order. */
+  linePieces?: { lineBreak: string }[];
 }
 
 interface InflightBatch {
@@ -1724,11 +1728,18 @@ export class PageSession {
 
   private complete(item: Live): void {
     if (item.role === 'page' && !this.active) return;
-    const joined = joinTranslatedSentences(
-      item.partText.map((part) => part.trim()).filter((part) => part.length > 0),
-      this.prefs.targetLanguage,
-    );
-    let translated = joined.length > 0 ? joined : item.partText.join('');
+    let translated: string;
+    if (item.linePieces && item.partText.length > 0) {
+      // One request per source line: put the original breaks back rather than gluing
+      // the answers into one paragraph. Blank lines live in `lineBreak`, not in a part.
+      translated = joinLinePieces(item, item.partText);
+    } else {
+      const joined = joinTranslatedSentences(
+        item.partText.map((part) => part.trim()).filter((part) => part.length > 0),
+        this.prefs.targetLanguage,
+      );
+      translated = joined.length > 0 ? joined : item.partText.join('');
+    }
     if (item.role === 'selection' && item.plainBreakMap) {
       translated = applyPlainTextLineBreaks(
         item.plainBreakMap.modelText,
@@ -1956,6 +1967,30 @@ export class PageSession {
   }
 
   /**
+   * Undo only the text this session's partial paint wrote, before a changed source is
+   * rebuilt. A full `resetLive` would also overwrite a slot the page changed while the
+   * request was running, so those edits are kept. `expected` records the value left by our
+   * last paint: a slot still holding it is ours to restore, a different value belongs to
+   * the page and must survive into the new segment. The bilingual path already restores
+   * its slots before adding the line, so this is a no-op there.
+   */
+  private restorePaintedSource(item: Live): void {
+    const model = item.model;
+    if (!model) return;
+    this.editDom(() => {
+      removeTranslationUi(model.block);
+      for (const node of item.created) node.remove();
+      item.created.length = 0;
+      for (const slot of allSlots(model)) {
+        const value = slot.node.nodeValue ?? '';
+        if (value !== slot.original && this.expected.get(slot.node) === value) {
+          slot.node.nodeValue = slot.original;
+        }
+      }
+    });
+  }
+
+  /**
    * A page translated by an older build keeps its badge in the DOM. Blocks that already
    * read as the target language are skipped by the scan, so the per-block cleanup never
    * reaches them: this clears the whole page before the first paint instead.
@@ -1980,7 +2015,11 @@ export class PageSession {
     this.running = Math.max(0, this.running - 1);
   }
 
-  private abortBatches(match: (batch: InflightBatch) => boolean, requeue: boolean): void {
+  private abortBatches(
+    match: (batch: InflightBatch) => boolean,
+    requeue: boolean,
+    except?: Live,
+  ): void {
     let released = false;
     for (const batch of [...this.inflightBatches]) {
       if (!match(batch)) continue;
@@ -1988,6 +2027,17 @@ export class PageSession {
       this.releaseBatch(batch);
       released = true;
       for (const item of batch.items) {
+        if (item === except) {
+          // The caller drops this item because its source changed mid-flight. Clearing it
+          // here stops `pump()` from starting a second request for the old source before
+          // the caller can forget it.
+          item.state = 'idle';
+          item.partText = [];
+          item.partFinal = [];
+          item.partError = [];
+          item.model?.block.removeAttribute('data-sakutto-pending');
+          continue;
+        }
         if (item.role === 'selection') {
           item.state = 'idle';
           if (this.selection === item) this.selection = null;
@@ -2246,7 +2296,20 @@ export class PageSession {
   }
 
   private onMutations(records: MutationRecord[]): void {
-    if (!this.active || this.applying > 0) return;
+    if (!this.active) return;
+    if (this.applying > 0) {
+      // An X detail page can mount a lazy reply in the same tick our own paint writes the
+      // main tweet's translation. Those mutation records reach us while `applying` is set,
+      // so editing here would write over a half-finished segment. Queue a scan instead of
+      // dropping the mount: the timer runs after the paint has settled.
+      const pageMount = records.some(
+        (record) =>
+          record.type === 'childList' &&
+          [...record.addedNodes].some((node) => !this.isOwnNode(node)),
+      );
+      if (pageMount) this.scheduleScan();
+      return;
+    }
     let external = false;
     let removed = 0;
     const stale = new Set<Element>();
@@ -2290,11 +2353,19 @@ export class PageSession {
     const element = node instanceof Element ? node : node.parentElement;
     if (!element) return false;
     if (element.id === PAGE_STYLE_ELEMENT_ID) return true;
+    // The bilingual line and the breaks it writes are our own paint, not a page mount.
+    if (element.closest(LINE_TAG) !== null) return true;
     return isOwnUi(element);
   }
 
   private blockOf(node: Node): Element | null {
     const element = node instanceof Element ? node : node.parentElement;
+    // A block only gets `data-sakutto-id` when it is first painted. A request that is still
+    // running can already have its source replaced, so live blocks are the authoritative
+    // index here; the attribute stays the fallback for blocks painted by another session.
+    for (let current: Element | null = element; current; current = current.parentElement) {
+      if (this.liveByBlock.has(current)) return current;
+    }
     return element?.closest('[data-sakutto-id]') ?? null;
   }
 
@@ -2344,9 +2415,43 @@ export class PageSession {
 
   private refreshBlock(block: Element): void {
     const existing = this.liveByBlock.get(block);
-    if (!existing || existing.state === 'running') return;
+    if (!existing) return;
     const model = buildSegment(block);
-    if (model && model.source === existing.source) return;
+    if (existing.state === 'running') {
+      if (model && model.source === existing.source) {
+        // React can replace the children while the request is in flight, before there is
+        // any cached translation to repaint. Rebind now so the final paint writes to the
+        // live nodes instead of the detached ones the request started with.
+        existing.model = model;
+        existing.originalChildren = model.order.filter(
+          (node) => !(node instanceof Element && isOwnUi(node)),
+        );
+        return;
+      }
+      // X swapped this tweet's text while its request was in flight — show-more expanded
+      // it or the virtual list recycled the cell. The in-flight output belongs to the old
+      // source. Abort only that batch, requeue its other items, restore whatever a partial
+      // replace paint overwrote, then enqueue the changed source from a clean segment.
+      this.abortBatches((batch) => batch.items.includes(existing), true, existing);
+      this.restorePaintedSource(existing);
+      this.forgetLive(existing, false);
+      this.addBlock(block, existing.index);
+      this.pump();
+      return;
+    }
+    if (model && model.source === existing.source) {
+      // React can replace the children while keeping this block mounted. Rebind the live
+      // segment to those new nodes, then put back cached output the reconciliation removed.
+      // A later scan would skip this already-known block and leave the source text bare.
+      existing.model = model;
+      existing.originalChildren = model.order.filter(
+        (node) => !(node instanceof Element && isOwnUi(node)),
+      );
+      if (existing.state === 'done' && existing.translation.trim().length > 0) {
+        this.paint(existing, false);
+      }
+      return;
+    }
     const index = existing.index;
     this.forgetLive(existing, false);
     this.addBlock(block, index);
@@ -2622,8 +2727,11 @@ function nextAfterSubtree(node: Node, root: Node): Node | null {
   return null;
 }
 
-function isBodyCopy(block: Element): boolean {
-  return block.matches('p, li, blockquote, dd, figcaption');
+export function isBodyCopy(block: Element): boolean {
+  return (
+    block.matches('p, li, blockquote, dd, figcaption, [data-testid="tweetText"]') ||
+    shouldPreserveNewlines(block)
+  );
 }
 
 /**
@@ -2678,9 +2786,45 @@ function openPlaceholderCount(source: string): number {
 
 function expandSource(item: Live): { id: string; text: string }[] {
   const source = item.flatten ? stripPlaceholderTokens(item.source) : item.source;
+  if (item.model && shouldPreserveNewlines(item.model.block) && source.includes('\n')) {
+    // X paints paragraph breaks as raw newlines under pre-wrap. Ask for one answer per
+    // line so the model cannot glue the lines into a single paragraph. A blank line is
+    // not a request: its bytes stay with the break of the line before it.
+    const lines = segmentSourceText(source);
+    const pieces: { id: string; text: string }[] = [];
+    const breaks: { lineBreak: string }[] = [];
+    let blank = '';
+    for (const line of lines) {
+      if (line.text.trim().length === 0) {
+        blank += line.lineBreak;
+        continue;
+      }
+      breaks.push({ lineBreak: line.lineBreak + blank });
+      blank = '';
+      pieces.push({ id: `${item.id}#${String(pieces.length)}`, text: line.text });
+    }
+    if (breaks.length > 0 && blank.length > 0) {
+      const last = breaks.at(-1);
+      if (last) last.lineBreak += blank;
+    }
+    item.linePieces = breaks;
+    return pieces;
+  }
+  delete item.linePieces;
   const pieces = chunkForTranslation(source);
   if (pieces.length <= 1) return [{ id: item.id, text: source }];
   return pieces.map((text, index) => ({ id: `${item.id}#${String(index)}`, text }));
+}
+
+/** Rebuilds one translated line per request, with the source's own break bytes. */
+function joinLinePieces(item: Live, parts: readonly string[]): string {
+  let output = '';
+  for (let index = 0; index < parts.length; index += 1) {
+    const part = parts[index] ?? '';
+    output += part.trim().replace(/\r\n?|\n/gu, ' ');
+    if (index < parts.length - 1) output += item.linePieces?.[index]?.lineBreak ?? '';
+  }
+  return output;
 }
 
 function placeholderGlossary(
@@ -2715,6 +2859,13 @@ function partIndex(id: string): number {
 }
 
 function partialText(item: Live, target: string): string {
+  if (item.linePieces && item.partText.length > 0) {
+    let last = -1;
+    for (let index = 0; index < item.partText.length; index += 1) {
+      if ((item.partText[index] ?? '').trim().length > 0) last = index;
+    }
+    return last < 0 ? '' : joinLinePieces(item, item.partText.slice(0, last + 1));
+  }
   const parts = item.partText.filter((part) => part.trim().length > 0);
   if (parts.length === 0) return '';
   return joinTranslatedSentences(parts, target);
