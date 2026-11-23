@@ -6,4 +6,4 @@ the product output order separately. `coverage` is word-level LCS against the GT
 
 | approach     | pairing            |   CER |   WER | line order | coverage | cross-column | ms/page | model bytes | lines | blocks | skipped | overflow |
 | ------------ | ------------------ | ----: | ----: | ---------: | -------: | -----------: | ------: | ----------: | ----: | -----: | ------: | -------: |
-| default-1600 | tiny_det+small_rec | 0.030 | 0.055 |      0.630 |    0.963 |            0 |   34562 |    22939968 |   117 |     48 |       6 |        4 |
+| default-1600 | tiny_det+small_rec | 0.030 | 0.055 |      0.630 |    0.963 |            0 |   34147 |    22939968 |   117 |     48 |       6 |        4 |

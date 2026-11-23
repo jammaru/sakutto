@@ -291,9 +291,21 @@ function rowHasInteriorSentenceBreak(text: string): boolean {
   );
 }
 
+/**
+ * Sentence-case verbs after a scientific prefix belong to a body sentence, not a title:
+ * "mRNA vaccines reduce", "CRISPR editing enables". Deliberately excludes copulas so a
+ * genuine sentence-case title such as "mRNA vaccines are effective" still merges.
+ */
+const SCIENTIFIC_BODY_VERB =
+  /\b(?:reduc(?:e|es|ed|ing)|enabl(?:e|es|ed|ing)|edit(?:s|ed|ing)?|induc(?:e|es|ed|ing)|inhibit(?:s|ed|ing)?|increas(?:e|es|ed|ing)|affect(?:s|ed|ing)?|improv(?:e|es|ed|ing)|regulat(?:e|es|ed|ing)|mediat(?:e|es|ed|ing)|promot(?:e|es|ed|ing)|target(?:s|ed|ing)?|encod(?:e|es|ed|ing)|express(?:es|ed|ing)?|detect(?:s|ed|ing)?|measur(?:e|es|ed|ing)|observ(?:e|es|ed|ing)|suggest(?:s|ed|ing)?|demonstrat(?:e|es|ed|ing)|confirm(?:s|ed|ing)?|analyz(?:e|es|ed|ing)|evaluat(?:e|es|ed|ing)|determin(?:e|es|ed|ing)|identif(?:y|ies|ied|ying)|generat(?:e|es|ed|ing)|bind(?:s|ing)?|bound|provid(?:e|es|ed|ing)|show(?:s|ed|ing)?|reveal(?:s|ed|ing)?)\b/u;
+const TITLE_TAIL_FUNCTION_WORD =
+  /^(?:in|of|for|to|and|the|a|an|on|with|from|by|at|as|via|or|but|into|using)$/u;
+
 /** OCR titles that start with a short scientific token (mRNA, eDNA, …), not body prose. */
+const SCIENTIFIC_TITLE_PREFIX = /^(?:mRNA|iOS|eBay|DNA|RNA|eDNA|CRISPR|Node\.js|U\.S\.)\b/iu;
+
 function scientificShortTitleFirstPiece(first: string, second: string): boolean {
-  if (!/^(?:mRNA|iOS|eBay|DNA|RNA|eDNA|CRISPR|Node\.js|U\.S\.)\b/iu.test(first)) {
+  if (!SCIENTIFIC_TITLE_PREFIX.test(first)) {
     return false;
   }
   if (/:/u.test(first)) return false;
@@ -306,10 +318,17 @@ function scientificShortTitleFirstPiece(first: string, second: string): boolean 
     /^(?:mRNA|iOS|eBay|DNA|RNA|eDNA|CRISPR|Node\.js|U\.S\.)\s+/iu,
     '',
   );
-  if (/\b[a-z]{2,}/u.test(afterPrefix)) {
-    return second.split(/\s+/u).filter(Boolean).length <= 6;
-  }
-  return true;
+  if (!/\b[a-z]{2,}/u.test(afterPrefix)) return true;
+  if (SCIENTIFIC_BODY_VERB.test(afterPrefix)) return false;
+  const tail = second.split(/\s+/u).filter(Boolean);
+  if (tail.length === 0 || tail.length > 6) return false;
+  // A short second fragment alone is not a title: "Severe disease in older adults" is the
+  // sentence continuing after the prefix, while "In Older Adults" is a real title tail.
+  return !tail
+    .slice(1)
+    .some(
+      (word) => /^[a-z]{3,}$/u.test(word) && !TITLE_TAIL_FUNCTION_WORD.test(word.toLowerCase()),
+    );
 }
 
 /** Colon rows that are inline notation (\": x\") belong in body columns, not merged titles. */
@@ -555,7 +574,17 @@ export function ocrResultToTextLines(
   const lines = readingLines(result);
   // A dense scan can put a real column gutter only 6pt from a word space. Decide from the rest
   // of the page whether two body columns exist before judging a single row's centre gap.
-  const pageTwoColumn = pageHasTwoColumns(lines, resolved);
+  const twoColumnRows = twoColumnBodyRows(lines, resolved);
+  const pageTwoColumn = twoColumnRows.length >= 2;
+  const twoColumnTops = twoColumnRows.map((index) =>
+    Math.min(
+      ...(lines[index]?.items ?? [])
+        .filter((item) => item.text.trim().length > 0)
+        .map(
+          (item) => regionPiece(item, item.vertical, '', resolved.scaleX, resolved.scaleY).box.y,
+        ),
+    ),
+  );
   for (const [lineIndex, readingLine] of lines.entries()) {
     const lineId = `ocr:p${String(resolved.pageIndex)}:l${String(lineIndex)}`;
     const pieces: OcrTextPiece[] = [];
@@ -608,6 +637,15 @@ export function ocrResultToTextLines(
       .join(' ')
       .trim();
     const headingWholeLine = wholeText.length <= 120 && !/[.!?。]$/u.test(wholeText);
+    const orderedPieces = [...pieces].sort((a, b) => a.box.x - b.box.x);
+    const firstPieceText = orderedPieces[0]?.text.trim() ?? '';
+    const scientificTitleRow = scientificShortTitleFirstPiece(
+      firstPieceText,
+      orderedPieces[1]?.text.trim() ?? '',
+    );
+    // A scientific prefix that fails the title check is body prose even when OCR capitalised the
+    // row; the generic full-width-title heuristic must not rescue it.
+    const scientificBodyRow = SCIENTIFIC_TITLE_PREFIX.test(firstPieceText) && !scientificTitleRow;
     // A full-width title starts with a capital and has no sentence-ending punctuation. Its
     // word gap at the gutter is ordinary spacing, not two columns, even when it is wide.
     const titleWholeLine =
@@ -615,12 +653,12 @@ export function ocrResultToTextLines(
       wholeText.length <= 100 &&
       wholeText.split(/\s+/u).length <= 12 &&
       !/[.,;:!?。]/u.test(wholeText) &&
-      /^\p{Lu}/u.test(wholeText);
+      /^\p{Lu}/u.test(wholeText) &&
+      !scientificBodyRow;
     // A long title or a wrapped body line can fail every title heuristic (a colon, more than
     // twelve words) yet still be one printed line. Word-sized boxes separated only by ordinary
     // word spaces are not two columns: a real gutter is wider than a word space, belongs to
     // line-region-scale text, or is corroborated by other rows on the page.
-    const orderedPieces = [...pieces].sort((a, b) => a.box.x - b.box.x);
     const wordGaps: number[] = [];
     for (let index = 1; index < orderedPieces.length; index += 1) {
       const previous = orderedPieces[index - 1]!;
@@ -646,12 +684,19 @@ export function ocrResultToTextLines(
     // own text structure decides. Page-wide column evidence still wins over that text guess.
     const printedTitleRow = onePrintedTitleRow(pieces, resolved.pageWidth);
     const colonTitleRow = twoPieceColonTitle(pieces, resolved.pageWidth, wholeText);
-    const scientificTitleRow = scientificShortTitleFirstPiece(
-      orderedPieces[0]?.text.trim() ?? '',
-      orderedPieces[1]?.text.trim() ?? '',
-    );
+    // A two-piece title printed above every two-column body row keeps its middle whitespace,
+    // however wide: the page's gutter evidence belongs to the body below it, not to the title.
+    const rowTop = Math.min(...pieces.map((piece) => piece.box.y));
+    const titleAboveBody = twoColumnTops.length > 0 && twoColumnTops.every((top) => top > rowTop);
+    const titleLikeRow = printedTitleRow && headingWholeLine && !scientificBodyRow;
+    // A short centred title can have a word gap far wider than a normal word space. A long
+    // full-width title is only distinguishable from two body columns when the page's gutter
+    // evidence sits below it; neither case covers a wide-gap two-column body row.
+    const wideGapTitleRow =
+      titleLikeRow && (lineWidth < resolved.pageWidth * 0.6 || titleAboveBody);
     const twoPieceTitleMerge =
-      (printedTitleRow && !pageTwoColumn) ||
+      (printedTitleRow && !pageTwoColumn && !scientificBodyRow) ||
+      wideGapTitleRow ||
       (printedTitleRow && scientificTitleRow) ||
       (colonTitleRow &&
         (!pageTwoColumn ||
@@ -664,7 +709,7 @@ export function ocrResultToTextLines(
         wordSpacedLine ||
         wordSpaceGutter(pieces, gutterGap) ||
         singleRowWordGap) &&
-      gutterGap <= WIDE_COLUMN_GUTTER + 2;
+      (gutterGap <= WIDE_COLUMN_GUTTER + 2 || wideGapTitleRow);
     const wideTwoColumnLine =
       lineWidth >= resolved.pageWidth * 0.82 &&
       leftWidth > resolved.pageWidth * 0.18 &&
@@ -738,13 +783,14 @@ export function ocrResultToTextLines(
  * 6pt from an ordinary word space, so the width of one gap is not enough on its own: two or more
  * rows with comparable measures on both sides of a centred gap prove the page has body columns.
  * A lone single-column row (including a centred title or a merged two-column row) has no such
- * corroboration and keeps its ordinary word gaps.
+ * corroboration and keeps its ordinary word gaps. The row indices let a title above the body keep
+ * its own whitespace even when the page as a whole is two-column.
  */
-function pageHasTwoColumns(
+function twoColumnBodyRows(
   lines: readonly ReadingLine<OcrRegion>[],
   resolved: ResolvedConversion,
-): boolean {
-  let gutterRows = 0;
+): readonly number[] {
+  const rows: number[] = [];
   for (const [lineIndex, readingLine] of lines.entries()) {
     const pieces: OcrTextPiece[] = [];
     for (const [itemIndex, region] of readingLine.items.entries()) {
@@ -778,11 +824,10 @@ function pageHasTwoColumns(
       measure(right) >= resolved.pageWidth * 0.15 &&
       gutterCentred(leftEnd, rightStart, resolved.pageWidth)
     ) {
-      gutterRows += 1;
-      if (gutterRows >= 2) return true;
+      rows.push(lineIndex);
     }
   }
-  return false;
+  return rows;
 }
 
 interface OcrBlockGroup {

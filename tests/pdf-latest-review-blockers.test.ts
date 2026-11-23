@@ -59,6 +59,61 @@ describe('latest DSH review blockers', () => {
     expect(layout.blocks.map((block) => block.column)).toEqual([0]);
   });
 
+  it('B1: keeps a centred two-piece title with a 20pt gap on one line', () => {
+    const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+    const items = [
+      region('Short Paper', quad(120, 100, 160, 20)),
+      region('Title Here', quad(300, 100, 160, 20)),
+    ];
+    const result = ocrResult(items);
+    const full = 'Short Paper Title Here';
+
+    expect(ocrResultToTextLines(result, options).map((line) => line.text)).toEqual([full]);
+    const layout = ocrResultToPageLayout(result, options);
+    expect(layout.blocks.map((block) => block.text)).toEqual([full]);
+    expect(layout.skipped).toEqual([]);
+  });
+
+  it('B1: keeps a long two-piece title above a two-column body on one line', () => {
+    const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+    const title = [
+      region('Attention Is All You Need', quad(50, 60, 220, 20)),
+      region('But This Title Has More Than Twelve Words', quad(280, 60, 270, 20)),
+    ];
+    const body = [
+      [
+        region('Left column prose for the first printed row.', quad(45, 140, 250, 20)),
+        region('Right column prose on the same printed row.', quad(305, 140, 250, 20)),
+      ],
+      [
+        region('A second left column line proving two columns.', quad(45, 170, 250, 20)),
+        region('A second right column line proving columns.', quad(305, 170, 250, 20)),
+      ],
+    ];
+    const result: OcrResult = {
+      regions: [...title, ...body.flat()],
+      lines: [readingLine(title), ...body.map(readingLine)],
+      text: '',
+    };
+    const full = 'Attention Is All You Need But This Title Has More Than Twelve Words';
+    const lines = ocrResultToTextLines(result, options);
+
+    expect(lines[0]?.text).toBe(full);
+    expect(lines[0]?.columnHint).toBeUndefined();
+    expect(lines.filter((line) => line.columnHint === 0)).toHaveLength(2);
+    expect(lines.filter((line) => line.columnHint === 1)).toHaveLength(2);
+    expect(lines.map((line) => line.text)).not.toContain(
+      'But This Title Has More Than Twelve Words',
+    );
+
+    const layout = ocrResultToPageLayout(result, options);
+    expect(layout.blocks[0]?.text).toBe(full);
+    expect(layout.blocks.filter((block) => block.text.includes('But This Title'))).toHaveLength(1);
+    expect(layout.blocks.map((block) => block.text)).not.toContain(
+      'But This Title Has More Than Twelve Words',
+    );
+  });
+
   it('B2: keeps a sentence-case mRNA title whole above two-column body', () => {
     const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
     const bodyRows = [
@@ -145,6 +200,43 @@ describe('latest DSH review blockers', () => {
     expect(lines.length).toBeGreaterThanOrEqual(4);
     expect(lines.map((line) => line.text)).toContain('mRNA expression levels are high in');
     expect(lines.map((line) => line.text)).toContain('The model is trained on this data');
+  });
+
+  it.each([
+    ['mRNA vaccines reduce', 'Severe disease in older adults'],
+    ['CRISPR editing enables', 'The precise repair of genes'],
+  ])('B2: column-splits scientific prose %s | %s', (left, right) => {
+    const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+    const bodyRows = [
+      [
+        region('Left column prose for the first printed row.', quad(45, 140, 250, 20)),
+        region('Right column prose on the same printed row.', quad(305, 140, 250, 20)),
+      ],
+      [
+        region('A second left column line proving two columns.', quad(45, 170, 250, 20)),
+        region('A second right column line proving columns.', quad(305, 170, 250, 20)),
+      ],
+    ];
+    const scientific = [
+      region(left, quad(45, 140, 250, 20)),
+      region(right, quad(305, 140, 250, 20)),
+    ];
+    const result: OcrResult = {
+      regions: [...scientific, ...bodyRows.flat()],
+      lines: [readingLine(scientific), ...bodyRows.map(readingLine)],
+      text: '',
+    };
+
+    const lines = ocrResultToTextLines(result, options);
+    const split = lines.filter((line) => line.text === left || line.text === right);
+    expect(split).toHaveLength(2);
+    expect(split.find((line) => line.text === left)?.columnHint).toBe(0);
+    expect(split.find((line) => line.text === right)?.columnHint).toBe(1);
+    expect(lines.map((line) => line.text)).not.toContain(`${left} ${right}`);
+
+    const layout = ocrResultToPageLayout(result, options);
+    expect(layout.blocks.some((block) => block.box.width >= 500)).toBe(false);
+    expect(layout.blocks.some((block) => block.text === `${left} ${right}`)).toBe(false);
   });
 
   it('B2: splits a scientific colon body row on a two-column page', () => {
