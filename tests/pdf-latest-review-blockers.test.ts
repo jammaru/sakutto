@@ -288,7 +288,6 @@ describe('latest DSH review blockers', () => {
     }
   });
 
-
   it('B4: paints bilingual rows with a spanning block at its reading position', () => {
     const reader = Object.create(PdfReader.prototype) as PdfReader;
     (reader as unknown as { target: string }).target = 'ja';

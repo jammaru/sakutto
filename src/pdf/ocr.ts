@@ -584,8 +584,7 @@ export function ocrResultToTextLines(
     // long title to just two pieces; the word-level guards above cannot see those, so their
     // own text structure decides. Page-wide column evidence still wins over that text guess.
     const printedTitleRow = onePrintedTitleRow(pieces, resolved.pageWidth);
-    const twoPieceTitleMerge =
-      printedTitleRow && (!pageTwoColumn || /:/u.test(wholeText));
+    const twoPieceTitleMerge = printedTitleRow && (!pageTwoColumn || /:/u.test(wholeText));
     const singleRowWordGap =
       twoPieceTitleMerge || (!pageTwoColumn && singleSentenceRow(pieces, resolved.pageWidth));
     const titleWordGap =

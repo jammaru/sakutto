@@ -36,7 +36,7 @@ PDF 翻訳を「動く」から「読める」に変えるため、抽出・段�
 
 `pnpm bench:pdf:quality --label final --shots` と `pnpm bench:pdf:scan:ocr --shots` を再実行しました。ベンチはモデル不要の決定的 fake engine で、コミット済みの paper.pdf / scan.pdf とキャッシュ済み arXiv 1706.03762（SHA-256 ピン留め）を使います。`firstBlockMs` はページ開始からの値で、サマリの `firstTranslatedBlockMs` はページ単位の最小値、実行開始からの値は `firstTranslatedBlockFromRunStartMs` として別途集計しています。baseline にはページ単位の値が無いため、上の表では比較可能な実行開始からの値（307 ms → 378 ms）を並べています。ページ処理からの 5 ms は fake engine の TTFB だけを測る参考値です。
 
-**scan 行は疑似 OCR です**: scan.pdf のページ寸法・背景を使い、paper.pdf のテキストから語単位の矩形を合成した入力で、認識ではなく OCR 後のレイアウト/配置を測ります。実スキャンの認識は下の実 OCR 表（`pnpm bench:pdf:scan:ocr`）で別途測定し、混ぜていません。実 OCR の overflow は描画済みの逸脱に加え、フィットせず描かれなかったブロックも数えます（default-1600 は 4 件）。
+**scan 行は疑似 OCR です**: scan.pdf のページ寸法・背景を使い、paper.pdf のテキストから語単位の矩形を合成した入力で、認識ではなく OCR 後のレイアウト/配置を測ります。実スキャンの認識は下の実 OCR 表（`pnpm bench:pdf:scan:ocr`）で別途測定し、混ぜていません。実 OCR の overflow は描画済みの逸脱に加え、フィットせず描かれなかったブロックも数えます（default-1600 は 5 件、`report.json` 参照）。
 
 | 指標                                       | 変更前 (baseline) | 変更後 (final) | 目標 |
 | ------------------------------------------ | ----------------: | -------------: | ---: |
