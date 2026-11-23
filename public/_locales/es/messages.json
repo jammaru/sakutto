@@ -1530,6 +1530,21 @@
   "translationPopupSizeHelp": {
     "message": "Cambia el tamaño del texto en las ventanas de traducción al pasar el cursor, al seleccionar y al redactar. Los subtítulos de vídeo tienen su propio ajuste de tamaño."
   },
+  "translationRevealLabel": {
+    "message": "Cómo aparecen las traducciones de la página"
+  },
+  "translationRevealHelp": {
+    "message": "La opción por oración es la predeterminada: muestra cada oración en cuanto se traduce y mantiene la altura del bloque hasta el final. Un párrafo que tarda mucho se muestra mientras se traduce y, en la vista bilingüe, la línea traducida crece oración por oración. La opción de sustitución conserva el texto original del párrafo hasta que su traducción está terminada y luego lo sustituye con un movimiento breve, para que la página no salte durante la traducción."
+  },
+  "translationRevealSmooth": {
+    "message": "Sustituir cada párrafo cuando esté terminado"
+  },
+  "translationRevealSentence": {
+    "message": "Mostrar cada oración en cuanto se traduzca"
+  },
+  "translationRevealStream": {
+    "message": "Mostrar el texto mientras se traduce (como antes)"
+  },
   "plainTextLineBreaksLabel": {
     "message": "Saltos de línea en la traducción"
   },

@@ -13,6 +13,15 @@ function mode(): BenchMode {
   return value;
 }
 
+function reveal(): 'smooth' | 'stream' | 'sentence' | undefined {
+  const value = arg('--reveal');
+  if (value === undefined) return undefined;
+  if (value !== 'smooth' && value !== 'stream' && value !== 'sentence') {
+    throw new Error(`--reveal must be smooth, stream or sentence, not "${value}".`);
+  }
+  return value;
+}
+
 function tier(): BenchTier {
   const value = arg('--tier') ?? 'auto';
   if (value !== 'auto' && value !== 'g' && value !== 'c8' && value !== 'c4') {
@@ -44,6 +53,7 @@ async function main(): Promise<void> {
     ...(arg('--compare') !== undefined ? { compare: arg('--compare') } : {}),
     ...(arg('--model') !== undefined ? { modelPath: arg('--model') } : {}),
     tier: tier(),
+    ...(reveal() === undefined ? {} : { reveal: reveal() }),
     ...(localServerUrl === undefined
       ? {}
       : {

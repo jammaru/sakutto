@@ -16,6 +16,7 @@ import {
   isTierPreference,
   normalizeGmailLanguageList,
   normalizePlainTextLineBreaks,
+  normalizeTranslationReveal,
   normalizeTranslationPopupSize,
   normalizeTranslationPopupWidth,
   normalizeVideoCaptionSize,
@@ -38,6 +39,7 @@ function stored(overrides: Partial<Settings> = {}): Settings {
     translationPopupWidth: 0,
     imagePopupWidth: 0,
     plainTextLineBreaks: 'none',
+    translationReveal: 'sentence',
     consent: null,
     highQualityDismissed: false,
     sharedFolderOfferDismissed: false,
@@ -443,6 +445,34 @@ describe('settings defaults', () => {
         'en-US',
       ).plainTextLineBreaks,
     ).toBe('none');
+  });
+
+  it('reveals sentences by default and keeps every explicit choice', () => {
+    expect(DEFAULT_SETTINGS.translationReveal).toBe('sentence');
+    expect(normalizeTranslationReveal(undefined)).toBe('sentence');
+    expect(normalizeTranslationReveal('smooth')).toBe('smooth');
+    expect(normalizeTranslationReveal('stream')).toBe('stream');
+    expect(normalizeTranslationReveal('sentence')).toBe('sentence');
+    expect(normalizeTranslationReveal('typewriter')).toBe('sentence');
+    expect(
+      normalizeSettings(
+        {
+          schemaVersion: SETTINGS_SCHEMA_VERSION,
+          targetLanguage: 'en',
+        },
+        'en-US',
+      ).translationReveal,
+    ).toBe('sentence');
+    expect(
+      normalizeSettings(
+        {
+          schemaVersion: SETTINGS_SCHEMA_VERSION,
+          targetLanguage: 'en',
+          translationReveal: 'stream',
+        },
+        'en-US',
+      ).translationReveal,
+    ).toBe('stream');
   });
 
   it('stores a selection popup width in em and treats zero as automatic', () => {

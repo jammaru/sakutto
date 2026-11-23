@@ -1530,6 +1530,21 @@
   "translationPopupSizeHelp": {
     "message": "Cambia la dimensione del testo nei popup di traduzione al passaggio del mouse, alla selezione e durante la composizione. I sottotitoli video hanno un'impostazione di dimensione separata."
   },
+  "translationRevealLabel": {
+    "message": "Come appaiono le traduzioni della pagina"
+  },
+  "translationRevealHelp": {
+    "message": "L'opzione per frase è quella predefinita: mostra ogni frase non appena è tradotta, mantenendo l'altezza del blocco fino alla fine. Un paragrafo che richiede molto tempo viene mostrato mentre viene tradotto e, nella visualizzazione bilingue, la riga tradotta cresce frase per frase. L'opzione di sostituzione mantiene il testo originale di un paragrafo finché la traduzione non è pronta, poi lo sostituisce con un breve movimento, così la pagina non salta durante la traduzione."
+  },
+  "translationRevealSmooth": {
+    "message": "Sostituisci ogni paragrafo quando è pronto"
+  },
+  "translationRevealSentence": {
+    "message": "Mostra ogni frase non appena è tradotta"
+  },
+  "translationRevealStream": {
+    "message": "Mostra il testo mentre viene tradotto (come prima)"
+  },
   "plainTextLineBreaksLabel": {
     "message": "Interruzioni di riga nella traduzione"
   },

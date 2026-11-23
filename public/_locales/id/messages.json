@@ -1530,6 +1530,21 @@
   "translationPopupSizeHelp": {
     "message": "Mengubah ukuran teks di popup terjemahan saat mengarahkan kursor, memilih teks, dan menulis. Subtitle video memiliki pengaturan ukuran tersendiri."
   },
+  "translationRevealLabel": {
+    "message": "Cara terjemahan halaman ditampilkan"
+  },
+  "translationRevealHelp": {
+    "message": "Opsi per kalimat adalah bawaan: menampilkan setiap kalimat segera setelah diterjemahkan sambil menjaga tinggi blok sampai akhir. Paragraf yang memakan waktu lama ditampilkan saat diterjemahkan, dan pada tampilan bilingual baris terjemahan bertambah kalimat demi kalimat. Opsi penggantian mempertahankan teks asli paragraf sampai terjemahannya selesai, lalu menggantinya dengan satu gerakan singkat, sehingga halaman tidak melompat saat diterjemahkan."
+  },
+  "translationRevealSmooth": {
+    "message": "Ganti setiap paragraf setelah selesai"
+  },
+  "translationRevealSentence": {
+    "message": "Tampilkan setiap kalimat segera setelah diterjemahkan"
+  },
+  "translationRevealStream": {
+    "message": "Tampilkan teks saat diterjemahkan (seperti sebelumnya)"
+  },
   "plainTextLineBreaksLabel": {
     "message": "Jeda baris pada terjemahan"
   },

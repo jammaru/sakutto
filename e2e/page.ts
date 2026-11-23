@@ -45,6 +45,7 @@ export async function resetExtensionStorage(
     captionCustomHosts?: string[];
     translationPopupSize?: number;
     translationPopupWidth?: number;
+    translationReveal?: 'stream' | 'smooth' | 'sentence';
     gmailTranslateBanner?: boolean;
     gmailAutoTranslateLangs?: string[];
     gmailNeverTranslateLangs?: string[];
@@ -56,6 +57,7 @@ export async function resetExtensionStorage(
   const captionCustomHosts = options.captionCustomHosts ?? [];
   const translationPopupSize = options.translationPopupSize ?? 100;
   const translationPopupWidth = options.translationPopupWidth ?? 0;
+  const translationReveal = options.translationReveal ?? 'smooth';
   const gmailTranslateBanner = options.gmailTranslateBanner !== false;
   const gmailAutoTranslateLangs = options.gmailAutoTranslateLangs ?? [];
   const gmailNeverTranslateLangs = options.gmailNeverTranslateLangs ?? [];
@@ -94,6 +96,7 @@ export async function resetExtensionStorage(
     captionCustomHosts,
     translationPopupSize,
     translationPopupWidth,
+    translationReveal,
     gmailTranslateBanner,
     gmailAutoTranslateLangs,
     gmailNeverTranslateLangs,

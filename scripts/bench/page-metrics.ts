@@ -25,6 +25,23 @@ export interface TimelineSample {
   state: string | null;
 }
 
+/** One row of the content script's per-block request/write trace. */
+export interface BlockPerfEntry {
+  id: string;
+  /** Fixture id from `data-bench-id`, when the page provides one. */
+  benchId: string | null;
+  tag: string;
+  index: number;
+  kind: 'prose' | 'chrome';
+  band: 'visible' | 'near' | 'far';
+  heading: boolean;
+  fast: boolean;
+  priority: number;
+  requestMs: number | null;
+  tokenMs: number | null;
+  writeMs: number | null;
+}
+
 /** The `sakutto-perf` payload the content script already writes for the e2e suite. */
 export interface PerfPayload {
   startedAt: number;
@@ -36,6 +53,17 @@ export interface PerfPayload {
   batches?: number;
   pieces?: number;
   engineMs?: number;
+  /** Absolute `performance.now` milestones on the same clock as `startedAt`. */
+  firstRequestAt?: number | null;
+  firstTokenAt?: number | null;
+  firstDomWriteAt?: number | null;
+  /** Milestones relative to `startedAt`, in ms. They add up to `domWriteMs`. */
+  requestMs?: number | null;
+  ttfbMs?: number | null;
+  paintMs?: number | null;
+  domWriteMs?: number | null;
+  /** Request order and first write of every job, sorted by document index. */
+  blocks?: BlockPerfEntry[];
 }
 
 export interface RecordedPage {
@@ -58,9 +86,21 @@ export interface RecordedPage {
   lateBlocks: number;
   /** How many tracked blocks carry each `data-sakutto-engine` value. */
   engines: Record<string, number>;
+  /** Cumulative layout shift during the run; null when the browser has no observer. */
+  cls: number | null;
+  /** Number of layout-shift entries counted in `cls`. */
+  layoutShifts: number | null;
   /** True when literal `code` blocks kept their exact source text. */
   codeUntouched: boolean | null;
   timeline: TimelineSample[];
+  /** Per-block DOM observations, in fixture document order. */
+  blockTimeline: {
+    id: string;
+    kind: string;
+    visible: boolean;
+    firstChangeMs: number | null;
+    doneMs: number | null;
+  }[];
   perf: PerfPayload | null;
   timedOut: boolean;
 }
@@ -98,6 +138,12 @@ function installRecorder(input: RecorderInput): void {
     finishedAt: number | null;
     lateBlocks: number;
     timer: ReturnType<typeof setInterval> | null;
+    /** Layout shifts seen since the page opened, and their value at the start of the run. */
+    shiftSum: number;
+    shiftCount: number;
+    shiftStart: number;
+    shiftsAtStart: number;
+    shiftSupported: boolean;
   }
 
   const tracker = globalThis as unknown as {
@@ -266,12 +312,38 @@ function installRecorder(input: RecorderInput): void {
     finishedAt: null,
     lateBlocks: 0,
     timer: null,
+    shiftSum: 0,
+    shiftCount: 0,
+    shiftStart: 0,
+    shiftsAtStart: 0,
+    shiftSupported: false,
   };
+
+  if (typeof PerformanceObserver !== 'undefined') {
+    try {
+      const observer = new PerformanceObserver((list) => {
+        const state = tracker.__sakuttoBenchRecorder;
+        if (!state) return;
+        for (const entry of list.getEntries()) {
+          const shift = entry as PerformanceEntry & { hadRecentInput?: boolean; value: number };
+          if (shift.hadRecentInput === true) continue;
+          state.shiftSum += shift.value;
+          state.shiftCount += 1;
+        }
+      });
+      observer.observe({ type: 'layout-shift', buffered: true });
+      tracker.__sakuttoBenchRecorder.shiftSupported = true;
+    } catch {
+      // A browser without layout-shift observations still runs the timing bench.
+    }
+  }
 
   tracker.__sakuttoBenchStart = (): void => {
     const state = tracker.__sakuttoBenchRecorder;
     if (!state) return;
     collect(state);
+    state.shiftStart = state.shiftSum;
+    state.shiftsAtStart = state.shiftCount;
     state.startedAt = performance.now();
     state.timer = setInterval(tick, 25);
     tick();
@@ -358,8 +430,19 @@ function installRecorder(input: RecorderInput): void {
       unfinished,
       lateBlocks: state.lateBlocks,
       engines: engineCounts(state),
+      cls: state.shiftSupported
+        ? Math.round((state.shiftSum - state.shiftStart) * 10000) / 10000
+        : null,
+      layoutShifts: state.shiftSupported ? state.shiftCount - state.shiftsAtStart : null,
       codeUntouched,
       timeline: state.timeline,
+      blockTimeline: state.tracked.map((item) => ({
+        id: item.id,
+        kind: item.kind,
+        visible: item.visible,
+        firstChangeMs: item.firstChangeMs === null ? null : Math.round(item.firstChangeMs),
+        doneMs: item.doneMs === null ? null : Math.round(item.doneMs),
+      })),
       perf,
       timedOut: state.timedOut,
     };

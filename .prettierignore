@@ -11,6 +11,7 @@ vendor
 scripts/icon.svg
 scripts/bench/fixtures/
 bench/ocr/fixtures/*.rgba
+bench/results/videos/
 coverage
 test-results
 playwright-report
