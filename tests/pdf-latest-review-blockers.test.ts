@@ -68,7 +68,9 @@ describe('latest DSH review blockers', () => {
     const result = ocrResult(items);
     const full = 'mRNA Vaccine Design: From Bench to Bedside';
     expect(ocrResultToTextLines(result, options).map((line) => line.text)).toEqual([full]);
-    expect(ocrResultToPageLayout(result, options).blocks.map((block) => block.text)).toEqual([full]);
+    expect(ocrResultToPageLayout(result, options).blocks.map((block) => block.text)).toEqual([
+      full,
+    ]);
   });
 
   it('B2: keeps a two-piece title with U.S. whole on one line', () => {
