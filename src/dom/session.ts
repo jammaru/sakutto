@@ -1766,8 +1766,15 @@ export class PageSession {
       // The page keeps showing source prose here, so it must not read as translated. A
       // block that exhausted its retries is the case the reported page hit: the requests
       // failed and the bar still said the page was done.
-      if (item.model) this.skippedBlocks.set(item.model.block, item.model.block.textContent ?? '');
-      this.resetLive(item);
+      if (item.model) {
+        const block = item.model.block;
+        this.changingReveal(() => {
+          this.resetLive(item);
+          // The optimistic partial text is gone now: record the source the reader sees,
+          // otherwise skippedProse() mistakes the restored block for a page replacement.
+          this.skippedBlocks.set(block, block.textContent ?? '');
+        });
+      }
       item.state = 'done';
       item.translation = '';
       item.partText = [];
@@ -1793,8 +1800,13 @@ export class PageSession {
    */
   private markUntranslated(item: Live, signal: AbortSignal): void {
     if (item.role === 'page' && item.model) {
-      this.skippedBlocks.set(item.model.block, item.model.block.textContent ?? '');
-      this.resetLive(item);
+      const block = item.model.block;
+      this.changingReveal(() => {
+        this.resetLive(item);
+        // Capture the restored source, not the optimistic translation that may have
+        // been painted before the request reported its error.
+        this.skippedBlocks.set(block, block.textContent ?? '');
+      });
     }
     item.state = 'done';
     item.translation = '';
@@ -1996,11 +2008,16 @@ export class PageSession {
     if (!direct && this.prefs.reveal === 'sentence') {
       const instant = this.firstOnScreen(item);
       if (partial) {
-        if (this.paintSentences(item, model, text, bilingual)) return;
+        if (this.paintSentences(item, model, bilingual)) return;
       } else if (item.streamed) {
-        const added = bilingual
-          ? () => model.block.querySelector(':scope > sakutto-line')
-          : undefined;
+        // Sentence writes create the bilingual line while the reader is already
+        // reading it. Fading that line in again at the final settle would blink the
+        // sentences on it; only a line created by this final write is new.
+        const hadLine = bilingual && model.block.querySelector(':scope > sakutto-line') !== null;
+        const added =
+          bilingual && !hadLine
+            ? () => model.block.querySelector(':scope > sakutto-line')
+            : undefined;
         this.revealer.settle(
           model.block,
           () => this.write(item, model, text, false, bilingual),
@@ -2059,13 +2076,15 @@ export class PageSession {
    * under it moves while the reader watches the translation arrive. Returns true when this
    * chunk has been dealt with.
    */
-  private paintSentences(
-    item: Live,
-    model: SegmentModel,
-    text: string,
-    bilingual: boolean,
-  ): boolean {
-    const ready = finishedSentenceText(text, this.prefs.targetLanguage);
+  private paintSentences(item: Live, model: SegmentModel, bilingual: boolean): boolean {
+    // Split each piece on its own: a terminator in a later piece may not close an
+    // unfinished sentence in an earlier one, and a piece that has not started yet may
+    // not be skipped. Pieces are translated in order and must appear in that order.
+    const ready = finishedSentenceText(
+      item.partText.map((part) => stripPlaceholderTokens(part)),
+      item.partFinal,
+      this.prefs.targetLanguage,
+    );
     // Once a sentence is on the page, an unfinished tail must not be written over it.
     // Neither may a restart's shorter prefix replace sentences already shown.
     if (
@@ -2768,8 +2787,12 @@ export class PageSession {
     const model = buildSegment(block);
     if (model && model.source === existing.source) return;
     const index = existing.index;
-    this.forgetLive(existing, false);
-    this.addBlock(block, index);
+    // Dropping the old reveal reports it settled. Keep that report back until the
+    // replacement is queued, or whenIdle() would see an idle page in between.
+    this.changingReveal(() => {
+      this.forgetLive(existing, false);
+      this.addBlock(block, index);
+    });
   }
 
   private forgetDisconnected(): void {
@@ -3254,14 +3277,35 @@ function partialText(item: Live, target: string): string {
 }
 
 /**
- * The sentences of a decoded translation that are finished. The last span of a stream is
- * still being decoded unless it ends on a sentence boundary, so it stays behind.
+ * The sentences of a decoded translation that are finished, in piece order. A piece is
+ * still being decoded unless it ends on a sentence boundary (or has its final answer),
+ * so its last span stays behind — and every later piece waits for it, because a
+ * terminator in a later piece says nothing about where the earlier one ended.
  */
-function finishedSentenceText(text: string, target: string): string {
-  const done = sentenceSpans(text)
-    .filter((span) => hasSentenceTerminator(span.text))
-    .map((span) => span.text);
-  return joinTranslatedSentences(done, target);
+function finishedSentenceText(
+  parts: readonly string[],
+  final: readonly boolean[],
+  target: string,
+): string {
+  const ready: string[] = [];
+  for (let index = 0; index < parts.length; index += 1) {
+    const part = parts[index]?.trim() ?? '';
+    if (part.length === 0) break;
+    const spans = sentenceSpans(part);
+    const done = spans.filter((span) => hasSentenceTerminator(span.text)).map((span) => span.text);
+    if (final[index] === true) {
+      // A finished piece needs no terminator: its whole text is ready.
+      if (spans.length > done.length) {
+        const tail = spans.at(-1);
+        if (tail) done.push(tail.text);
+      }
+      ready.push(...done);
+      continue;
+    }
+    ready.push(...done);
+    if (done.length < spans.length) break;
+  }
+  return joinTranslatedSentences(ready, target);
 }
 
 /**

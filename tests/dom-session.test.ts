@@ -450,6 +450,54 @@ describe('page session', () => {
     expect(document.querySelector('sakutto-line')?.textContent?.trim()).toBe('One. Two.');
   });
 
+  it('does not fade a bilingual sentence line the reader has already seen', async () => {
+    document.documentElement.lang = 'en';
+    // Two visible blocks: the second one is not the first on screen, so its final text
+    // gets the settle motion rather than being written at once.
+    document.body.innerHTML =
+      '<p style="height:40px">Opening source.</p>' +
+      '<p style="height:80px">First source. Second source.</p>';
+    const blocks = [...document.querySelectorAll('p')];
+    const opening = blocks[0];
+    const block = blocks[1];
+    if (!opening || !block) throw new Error('missing paragraphs');
+    opening.getBoundingClientRect = () => new DOMRect(0, 0, 300, 40);
+    block.getBoundingClientRect = () => new DOMRect(0, 60, 300, 80);
+    // Each sentence write recreates the bilingual line, so watch every animation on it.
+    const originalAnimate = Element.prototype.animate;
+    const lineFrames: Keyframe[][] = [];
+    Element.prototype.animate = function (this: Element, frames: Keyframe[]) {
+      if (this.localName === 'sakutto-line') lineFrames.push(frames);
+      return { pause() {}, cancel() {}, currentTime: 0 } as unknown as Animation;
+    } as typeof Element.prototype.animate;
+
+    try {
+      const session = start(
+        document,
+        engineOf(async function* (segments) {
+          for (const segment of segments) {
+            if (segment.text === 'Opening source.') {
+              yield { id: segment.id, final: 'Opening.', engine: 'plamo' as const };
+              continue;
+            }
+            yield { id: segment.id, textDelta: 'One. ', engine: 'plamo' as const };
+            await new Promise((resolve) => setTimeout(resolve, 0));
+            yield { id: segment.id, final: 'One. Two.', engine: 'plamo' as const };
+          }
+        }),
+        { reveal: 'sentence', display: 'bilingual' },
+      );
+
+      await session.translate();
+      await session.whenIdle();
+      expect(block.querySelector('sakutto-line')?.textContent?.trim()).toBe('One. Two.');
+      // The final settle must not fade a line the reader has already been reading.
+      expect(lineFrames.some((frames) => frames.some((frame) => frame.opacity === 0))).toBe(false);
+    } finally {
+      Element.prototype.animate = originalAnimate;
+    }
+  });
+
   it('keeps the source until a sentence terminator arrives, then writes only finished sentences', async () => {
     document.documentElement.lang = 'en';
     const source = 'First source. Second source.';
@@ -490,6 +538,37 @@ describe('page session', () => {
 
     await session.whenIdle();
     expect(document.querySelector('p')?.textContent).toBe('Hello. Two.');
+  });
+
+  it('does not join a piece without a terminator to a later piece in sentence mode', async () => {
+    document.documentElement.lang = 'en';
+    const source =
+      'The harbour office logs every crossing and publishes the delays each month. '.repeat(10);
+    document.body.innerHTML = `<p>${source}</p>`;
+    let afterLaterPiece: string | null = null;
+    let afterUnterminatedPiece: string | null = null;
+    const session = start(
+      document,
+      engineOf(async function* (segments) {
+        const [first, second] = segments;
+        if (!first || !second || segments.length !== 2) throw new Error('expected two pieces');
+        // The later piece has whole sentences while the first has no text yet.
+        yield { id: second.id, textDelta: '出発。到着。', engine: 'plamo' as const };
+        afterLaterPiece = document.querySelector('p')?.textContent ?? null;
+        // A prefix without a terminator still may not close against the later piece.
+        yield { id: first.id, textDelta: '港の事務所は', engine: 'plamo' as const };
+        afterUnterminatedPiece = document.querySelector('p')?.textContent ?? null;
+        yield { id: first.id, final: '港の事務所は出発。', engine: 'plamo' as const };
+        yield { id: second.id, final: '到着。', engine: 'plamo' as const };
+      }),
+      { reveal: 'sentence' },
+    );
+
+    await session.translate();
+    await session.whenIdle();
+    expect(afterLaterPiece).toBe(source);
+    expect(afterUnterminatedPiece).toBe(source);
+    expect(document.querySelector('p')?.textContent).toBe('港の事務所は出発。到着。');
   });
 
   it('tells the reveal which translations are the last of the page', async () => {
@@ -592,6 +671,55 @@ describe('page session', () => {
     await vi.waitFor(() => {
       expect(idle).toBe(true);
     });
+    expect(session.state().pending).toBe(0);
+  });
+
+  it('does not resolve whenIdle before an in-place block change is registered', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = '<p>Hello</p>';
+    const frames: (() => void)[] = [];
+    const session = new PageSession(document, {
+      engine: engineOf(async function* (segments) {
+        for (const segment of segments) {
+          yield { id: segment.id, final: '完了', engine: 'plamo' as const };
+        }
+      }),
+      labels,
+      preferences: preferences({ reveal: 'smooth' }),
+      scheduleFrame: (callback) => frames.push(callback),
+      debounceMs: 20,
+    });
+    sessions.push(session);
+    let idle = false;
+
+    await session.translate();
+    await vi.waitFor(() => {
+      expect(session.state().pending).toBe(1);
+    });
+    void session.whenIdle().then(() => {
+      idle = true;
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(idle).toBe(false);
+
+    // An SPA changes the source of a block whose final text is still waiting in the revealer.
+    const block = document.querySelector('p');
+    if (!block || !(block.firstChild instanceof Text)) throw new Error('missing block text');
+    block.firstChild.nodeValue = 'New source';
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(idle).toBe(false);
+    expect(session.state().pending).toBeGreaterThan(0);
+
+    // The replacement is a new job: let its final text reach the revealer before
+    // releasing the frame that writes it.
+    await vi.waitFor(() => {
+      expect(frames.length).toBeGreaterThan(0);
+    });
+    for (let attempt = 0; attempt < 10 && !idle; attempt += 1) {
+      while (frames.length > 0) frames.shift()?.();
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    expect(idle).toBe(true);
     expect(session.state().pending).toBe(0);
   });
 
@@ -986,6 +1114,20 @@ describe('page session', () => {
     await session.whenIdle();
     // The answer carries fallback text, not a translation: the early optimistic text goes.
     expect(items()[0]?.textContent).toBe('Departures');
+  });
+
+  it('counts a failed early final that restored its source as skipped prose', async () => {
+    const { session, items, release } = sharedRequest('Departures', 'smooth', true);
+    await session.translate();
+    await vi.waitFor(() => {
+      expect(items()[0]?.textContent).toBe('出発');
+    });
+
+    release();
+    await session.whenIdle();
+    expect(items()[0]?.textContent).toBe('Departures');
+    expect(session.state().skipped).toBe(1);
+    expect(document.documentElement.dataset.sakuttoState).toBe('partial');
   });
 
   it('does not let a stale request final overwrite a block the page replaced', async () => {
