@@ -1,5 +1,6 @@
 /**
- * Pure image transforms for the OCR bench and on-device pipeline.
+ * Pure image transforms used by the OCR bench's preprocessing sweep. The shipped pipeline
+ * calls the ONNX detector on the raw raster and does not import these transforms.
  */
 import type { ImageDataLike, OcrPoint } from './types';
 

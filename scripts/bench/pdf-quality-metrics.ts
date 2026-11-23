@@ -59,6 +59,8 @@ export interface QualityPage {
   twoColumn: boolean;
   /** Milliseconds from this page's start until its first block arrived. */
   firstBlockMs: number;
+  /** Milliseconds from the whole run's start until this page's first block arrived. */
+  firstBlockFromRunStartMs: number;
   pageMs: number;
 }
 
@@ -305,7 +307,7 @@ export function expectedReadingOrder(
 /** Aggregates page measurements into the rates printed in the PR table. */
 export function summarize(
   pages: readonly QualityPage[],
-  firstMs: number,
+  runFirstMs: number,
   totalMs: number,
 ): QualitySummary {
   const entries = pages.flatMap((page) => page.entries);
@@ -355,7 +357,7 @@ export function summarize(
         : pages.reduce((sum, page) => sum + page.readingOrder, 0) / pages.length,
     twoColumnPages: twoColumn.length,
     firstTranslatedBlockMs: Number.isFinite(pageFirst) ? pageFirst : 0,
-    firstTranslatedBlockFromRunStartMs: firstMs,
+    firstTranslatedBlockFromRunStartMs: runFirstMs,
     fullDocumentMs: totalMs,
     meanScale:
       scales.length === 0 ? 1 : scales.reduce((sum, value) => sum + value, 0) / scales.length,

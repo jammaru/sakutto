@@ -9,7 +9,7 @@ import { isOcrResult, isOcrStatus } from '@/shared/ocr';
 import {
   ENGINE_HOST_PORT,
   MODEL_STATUS_PROGRESS_ID,
-  OCR_RECOGNITION_TIMEOUT_MS,
+  ocrRecognitionTimeoutMs,
   errorFromPayload,
   isEngineHostMessage,
   serializeTranslateOptions,
@@ -414,7 +414,7 @@ export class EngineClient {
       const value = await this.roundTrip(
         port,
         { type: 'ocr-recognize', requestId, tier, image } satisfies OcrRecognizeRequest,
-        OCR_RECOGNITION_TIMEOUT_MS,
+        ocrRecognitionTimeoutMs(tier),
       );
       if (!isOcrResult(value)) throw hostError('The OCR host returned an invalid result.');
       return value;

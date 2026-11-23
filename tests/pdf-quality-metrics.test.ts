@@ -48,6 +48,7 @@ function page(entries: QualityEntry[]): QualityPage {
     readingOrder: 1,
     twoColumn: true,
     firstBlockMs: 0,
+    firstBlockFromRunStartMs: 0,
     pageMs: 0,
   };
 }

@@ -9,7 +9,7 @@ import { EngineClient } from '@/background/engine-client';
 import { OcrRecognitionRequests } from '@/background/ocr-requests';
 import { captureActiveSenderTab } from '@/background/image-capture';
 import { ModelDownloads } from '@/background/model-downloads';
-import { OCR_RECOGNITION_TIMEOUT_MS, type OcrFailureResponse } from '@/engine/offscreen/protocol';
+import { ocrRecognitionTimeoutMs, type OcrFailureResponse } from '@/engine/offscreen/protocol';
 import { createEngineHostController } from '@/background/engine-host-document';
 import {
   injectCaptionPages,
@@ -651,7 +651,7 @@ export default defineBackground(() => {
             // Abort both the local and the offscreen side, then answer instead of hanging.
             controller.abort();
             resolve({ __ocrError: 'timeout' });
-          }, OCR_RECOGNITION_TIMEOUT_MS);
+          }, ocrRecognitionTimeoutMs(message.tier));
         });
         const work = (async (): Promise<unknown> => {
           try {

@@ -1,6 +1,6 @@
-| label | pages | skipped prose | untranslated prose | mixed language | garbled tokens | overlap/box | overflow/box | reading order | first block ms | full ms |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| final | 5 | 0 | 0.0% | 0.0% | 0.04% | 0.000 | 0.024 | 98.3% | 6 | 937 |
+| label | pages | skipped prose | untranslated prose | mixed language | garbled tokens | overlap/box | overflow/box | reading order | first block from page ms | first block from run ms | full ms |
+| ----- | ----: | ------------: | -----------------: | -------------: | -------------: | ----------: | -----------: | ------------: | -----------------------: | ----------------------: | ------: |
+| final |     5 |             0 |               0.0% |           0.0% |          0.04% |       0.000 |        0.024 |         98.3% |                        5 |                     300 |     920 |
 
 "skipped prose" counts code/label blocks the layout skipped that still contain a natural-language sentence; they are part of the prose denominator and the untranslated rate. Proper names and page furniture are deliberately kept in the source and are reported separately, not counted as translation failures.
 

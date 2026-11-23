@@ -36,11 +36,22 @@ export const MODEL_STATUS_PROGRESS_ID = 'sakutto:model-status';
 /**
  * OCR is the only host operation with no streaming progress. A recognition that never posts a
  * result (stalled WASM init, a lost port, a wedged session) must not leave the reader pending
- * forever. Every layer that waits for one recognition shares this bound.
+ * forever. Standard tier measures ~43 s/page on the committed real scan (2x render, maxSide 1600), so a
+ * bound below that aborts a healthy recognition before it can produce an overlay. Leave
+ * headroom for slower devices but keep a hard stop for a wedged WASM session.
  */
-export const OCR_RECOGNITION_TIMEOUT_MS = 30_000;
-/** Slightly longer than the host bound so the typed error arrives before the page timer. */
-export const OCR_PAGE_TIMEOUT_MS = OCR_RECOGNITION_TIMEOUT_MS + 2_000;
+export const OCR_RECOGNITION_TIMEOUT_MS = 60_000;
+/** High tier measures ~214 s/page on the same scan with the larger detector/recognizer. */
+export const OCR_HIGH_RECOGNITION_TIMEOUT_MS = 240_000;
+/** The caller's bound must follow the tier it actually asked the host to run. */
+export function ocrRecognitionTimeoutMs(tier: OcrTier): number {
+  return tier === 'high' ? OCR_HIGH_RECOGNITION_TIMEOUT_MS : OCR_RECOGNITION_TIMEOUT_MS;
+}
+/**
+ * Local page/UI safety net. It sits above every host-tier bound, so the typed host timeout
+ * arrives first; it only fires when the host's own timer is unavailable.
+ */
+export const OCR_PAGE_TIMEOUT_MS = OCR_HIGH_RECOGNITION_TIMEOUT_MS + 2_000;
 
 export type OcrFailureCode = 'model-missing' | 'timeout' | 'failed';
 

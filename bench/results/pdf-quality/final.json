@@ -1,6 +1,6 @@
 {
   "label": "final",
-  "generatedAt": "2026-11-23T02:30:15.027Z",
+  "generatedAt": "2026-11-23T03:19:45.732Z",
   "engine": "deterministic local fake",
   "pace": {
     "ttfbMs": 6,
@@ -27,9 +27,9 @@
         "overflowRate": 0,
         "readingOrderAccuracy": 0.9895833333333334,
         "twoColumnPages": 1,
-        "firstTranslatedBlockMs": 6,
-        "firstTranslatedBlockFromRunStartMs": 6,
-        "fullDocumentMs": 210,
+        "firstTranslatedBlockMs": 5,
+        "firstTranslatedBlockFromRunStartMs": 300,
+        "fullDocumentMs": 228,
         "meanScale": 0.9846128195131897
       }
     },
@@ -47,8 +47,8 @@
         "readingOrderAccuracy": 0.9583333333333334,
         "twoColumnPages": 1,
         "firstTranslatedBlockMs": 7,
-        "firstTranslatedBlockFromRunStartMs": 7,
-        "fullDocumentMs": 67,
+        "firstTranslatedBlockFromRunStartMs": 862,
+        "fullDocumentMs": 65,
         "meanScale": 0.9885424892343686
       }
     }
@@ -61,7 +61,7 @@
       {
         "variant": "baseline-1x",
         "pairing": "tiny_det+small_rec",
-        "ms": 24941.694428000003,
+        "ms": 24068.772209,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.6671721767263169,
@@ -79,7 +79,7 @@
       {
         "variant": "dpi200",
         "pairing": "tiny_det+small_rec",
-        "ms": 35226.520011,
+        "ms": 32518.525821999996,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.20230512587200486,
@@ -97,7 +97,7 @@
       {
         "variant": "shipped-baseline",
         "pairing": "tiny_det+small_rec",
-        "ms": 28599.225672,
+        "ms": 32604.18638900001,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.11606510969568294,
@@ -115,7 +115,7 @@
       {
         "variant": "default-1600",
         "pairing": "tiny_det+small_rec",
-        "ms": 43153.93067600002,
+        "ms": 42492.78654,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.030330603579011222,
@@ -133,7 +133,7 @@
       {
         "variant": "dpi300",
         "pairing": "tiny_det+small_rec",
-        "ms": 46510.06056099996,
+        "ms": 41568.33762800001,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.030330603579011222,
@@ -151,7 +151,7 @@
       {
         "variant": "sauvola",
         "pairing": "tiny_det+small_rec",
-        "ms": 21265.48702999996,
+        "ms": 22534.82436800003,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.8252957233848953,
@@ -169,7 +169,7 @@
       {
         "variant": "dpi200+sauvola",
         "pairing": "tiny_det+small_rec",
-        "ms": 28303.27514600003,
+        "ms": 30483.743868999998,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.6860782529572339,
@@ -187,7 +187,7 @@
       {
         "variant": "dpi200+gray",
         "pairing": "tiny_det+small_rec",
-        "ms": 30622.128833999974,
+        "ms": 32097.062716999964,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.2227277322818724,
@@ -205,7 +205,7 @@
       {
         "variant": "gray+contrast",
         "pairing": "tiny_det+small_rec",
-        "ms": 30637.37343300006,
+        "ms": 32420.429743999965,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.21170761298149834,
@@ -223,7 +223,7 @@
       {
         "variant": "gray+contrast-1600",
         "pairing": "tiny_det+small_rec",
-        "ms": 35210.126722000074,
+        "ms": 35803.23160900001,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.030128399555151147,
@@ -241,7 +241,7 @@
       {
         "variant": "contrast",
         "pairing": "tiny_det+small_rec",
-        "ms": 30612.232332999934,
+        "ms": 30517.55066200008,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.20816904256394703,
@@ -259,7 +259,7 @@
       {
         "variant": "otsu",
         "pairing": "tiny_det+small_rec",
-        "ms": 27594.253020000062,
+        "ms": 27470.915986999986,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.689111313315135,
@@ -277,7 +277,7 @@
       {
         "variant": "denoise",
         "pairing": "tiny_det+small_rec",
-        "ms": 28912.232164000045,
+        "ms": 27795.586503,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.7235870993832777,
@@ -295,7 +295,7 @@
       {
         "variant": "trim",
         "pairing": "tiny_det+small_rec",
-        "ms": 32441.209654000006,
+        "ms": 30260.425930999918,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.1991709635021737,
@@ -313,7 +313,7 @@
       {
         "variant": "box-0.35",
         "pairing": "tiny_det+small_rec",
-        "ms": 31273.879427999957,
+        "ms": 30543.560167999938,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.20230512587200486,
@@ -331,7 +331,7 @@
       {
         "variant": "box-0.55",
         "pairing": "tiny_det+small_rec",
-        "ms": 32761.54070299992,
+        "ms": 30262.819643999916,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.20210292184814477,
@@ -349,7 +349,7 @@
       {
         "variant": "unclip-1.8",
         "pairing": "tiny_det+small_rec",
-        "ms": 26917.457929000026,
+        "ms": 26036.336085000075,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.3609341825902335,
@@ -377,9 +377,9 @@
     "overflowRate": 0.024390243902439025,
     "readingOrderAccuracy": 0.9833333333333334,
     "twoColumnPages": 2,
-    "firstTranslatedBlockMs": 6,
-    "firstTranslatedBlockFromRunStartMs": 303,
-    "fullDocumentMs": 937,
+    "firstTranslatedBlockMs": 5,
+    "firstTranslatedBlockFromRunStartMs": 300,
+    "fullDocumentMs": 920,
     "meanScale": 0.9857425995580282
   },
   "pages": [
@@ -897,8 +897,9 @@
       "skippedProse": 0,
       "readingOrder": 0.9583333333333334,
       "twoColumn": true,
-      "firstBlockMs": 12,
-      "pageMs": 86
+      "firstBlockMs": 13,
+      "firstBlockFromRunStartMs": 300,
+      "pageMs": 87
     },
     {
       "fixture": "arxiv",
@@ -1094,7 +1095,8 @@
       "skippedProse": 0,
       "readingOrder": 1,
       "twoColumn": false,
-      "firstBlockMs": 6,
+      "firstBlockMs": 5,
+      "firstBlockFromRunStartMs": 440,
       "pageMs": 38
     },
     {
@@ -1292,6 +1294,7 @@
       "readingOrder": 1,
       "twoColumn": false,
       "firstBlockMs": 7,
+      "firstBlockFromRunStartMs": 504,
       "pageMs": 26
     },
     {
@@ -1588,8 +1591,9 @@
       "skippedProse": 0,
       "readingOrder": 1,
       "twoColumn": false,
-      "firstBlockMs": 14,
-      "pageMs": 60
+      "firstBlockMs": 8,
+      "firstBlockFromRunStartMs": 556,
+      "pageMs": 77
     },
     {
       "fixture": "scan",
@@ -2106,7 +2110,8 @@
       "readingOrder": 0.9583333333333334,
       "twoColumn": true,
       "firstBlockMs": 7,
-      "pageMs": 67
+      "firstBlockFromRunStartMs": 862,
+      "pageMs": 65
     }
   ]
 }

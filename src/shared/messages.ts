@@ -13,7 +13,7 @@ import type { EngineKind } from '@/engine/types';
 import type { OcrTier } from '@/engine/ocr/catalog';
 import {
   isOcrFailureResponse,
-  OCR_RECOGNITION_TIMEOUT_MS,
+  ocrRecognitionTimeoutMs,
   type OcrFailureCode,
   type OcrImagePayload,
 } from '@/engine/offscreen/protocol';
@@ -749,10 +749,13 @@ export async function requestOcrRecognizeDetailed(
   }
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<OcrRecognizeOutcome>((resolve) => {
-    timer = setTimeout(() => {
-      void requestOcrCancel(tier, requestId);
-      resolve({ result: null, error: 'timeout' });
-    }, OCR_RECOGNITION_TIMEOUT_MS + 2_000);
+    timer = setTimeout(
+      () => {
+        void requestOcrCancel(tier, requestId);
+        resolve({ result: null, error: 'timeout' });
+      },
+      ocrRecognitionTimeoutMs(tier) + 2_000,
+    );
   });
   try {
     const response: unknown = await Promise.race([

@@ -6,7 +6,7 @@ import { abortError } from '@/engine/errors';
 import type { TranslationChunk, TranslateOptions, TranslateSegment } from '@/engine/types';
 import {
   MAX_OCR_PIXELS,
-  OCR_RECOGNITION_TIMEOUT_MS,
+  ocrRecognitionTimeoutMs,
   type OcrImagePayload,
 } from '@/engine/offscreen/protocol';
 import { requestOcrRecognizeDetailed } from '@/shared/messages';
@@ -379,10 +379,13 @@ export class ImageTranslationController {
       // A silent recognizer must never leave the panel at "translating" forever.
       let timer: ReturnType<typeof setTimeout> | undefined;
       const timeout = new Promise<never>((_resolve, reject) => {
-        timer = setTimeout(() => {
-          controller.abort();
-          reject(new Error('OCR timed out'));
-        }, OCR_RECOGNITION_TIMEOUT_MS + 2_000);
+        timer = setTimeout(
+          () => {
+            controller.abort();
+            reject(new Error('OCR timed out'));
+          },
+          ocrRecognitionTimeoutMs(settings.selectedOcrTier) + 2_000,
+        );
       });
       let result: OcrResult | null;
       try {

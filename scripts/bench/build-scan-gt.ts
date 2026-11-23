@@ -11,7 +11,7 @@
  * title block, abstract, left body column, right body column, references columns. Committed
  * output: bench/pdf/scan-p1.gt.txt.
  *
- *   pnpm exec node --experimental-transform-types --no-warnings --import ./scripts/bench/register-ts.mjs scripts/bench/build-scan-gt.ts
+ *   pnpm bench:pdf:scan:gt
  */
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';

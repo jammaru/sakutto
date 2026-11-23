@@ -751,6 +751,55 @@ describe('placePage', () => {
     expect(metrics.crossColumnCovers).toBe(0);
   });
 
+  it('does not flag native full-width headers assigned to the parent column', () => {
+    // Native XY-cut gives a crossing region its parent column (0 at the page root), not -1.
+    const pageWidth = 595;
+    const spanning = (
+      text: string,
+      y: number,
+      x: number,
+      width: number,
+      role: 'heading' | 'prose',
+    ): LayoutBlock => ({
+      box: { x, y, width, height: 22 },
+      room: { x, y, width, height: 22 },
+      lines: groupLines([piece(text, x, y + 12, width)]) as LayoutBlock['lines'],
+      text,
+      role,
+      fontSize: 9,
+      lineHeight: 1.2,
+      align: 'left',
+      bold: false,
+      italic: false,
+      column: 0,
+      advance: width,
+      writing: 0,
+    });
+    const blocks = [
+      spanning('Sakutto: On-Device Page Translation', 50, 46, 500, 'heading'),
+      spanning('ABSTRACT', 160, 268, 58, 'heading'),
+      spanning('Machine translation of web pages is usually a client', 176, 79, 437, 'prose'),
+    ];
+    for (const block of blocks) {
+      expect(blockSpansGutter(block, pageWidth)).toBe(true);
+      const fit = {
+        fits: true as const,
+        fontSize: 9,
+        lineHeight: 11,
+        lines: ['横断する訳文'],
+        height: 22,
+        grown: false,
+        width: block.box.width,
+      };
+      const drawn = drawnBox(block, fit, fit.width, pageWidth);
+      const metrics = paintIntegrityMetrics(
+        [{ block, translation: '横断する訳文', fit, paint: true, drawn, overflow: false }],
+        pageWidth,
+      );
+      expect(metrics.crossColumnCovers).toBe(0);
+    }
+  });
+
   it('does not flag a multi-piece full-width title whose 6pt word gap sits at the gutter', () => {
     const pageWidth = 595;
     const line = lineFrom([

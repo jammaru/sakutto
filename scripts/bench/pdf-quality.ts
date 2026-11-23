@@ -393,17 +393,28 @@ async function renderShots(report: unknown): Promise<void> {
 /**
  * Keep the committed PR body's final column in step with `final.json`. Without this a normal
  * `--label final` refresh silently invalidates tests/pdf-quality-report.test.ts until someone
- * edits the markdown by hand.
+ * edits the markdown by hand. Both latency rows are refreshed; only the run-start row can be
+ * compared with the older baseline artifact.
  */
 async function refreshPrBody(summary: ReturnType<typeof summarize>): Promise<void> {
   const path = join(ROOT, 'bench/results/pdf-quality/PR_BODY.md');
   const text = await readFile(path, 'utf8').catch(() => null);
   if (text === null) return;
   const values = new Map([
-    ['はみ出し/ブロック', summary.overflowRate.toFixed(3)],
+    [
+      '未翻訳散文ブロック率（skipped 散文を含む）',
+      (summary.untranslatedProseRate * 100).toFixed(1) + '%',
+    ],
     ['ブロック内言語混在率', (summary.mixedLanguageRate * 100).toFixed(1) + '%'],
+    ['文字化けトークン率', (summary.garbledTokenRate * 100).toFixed(2) + '%'],
+    ['重なり/ブロック', summary.overlapRate.toFixed(3)],
+    ['はみ出し/ブロック', summary.overflowRate.toFixed(3)],
     ['2 カラム読み順正解率', (summary.readingOrderAccuracy * 100).toFixed(1) + '%'],
-    ['最初の訳文が出るまで（ページ単位）', String(summary.firstTranslatedBlockMs) + ' ms'],
+    [
+      '最初の訳文が出るまで（実行開始から）',
+      String(summary.firstTranslatedBlockFromRunStartMs) + ' ms',
+    ],
+    ['最初の訳文が出るまで（ページ処理から）', String(summary.firstTranslatedBlockMs) + ' ms'],
     ['全文処理時間（fake engine）', String(summary.fullDocumentMs) + ' ms'],
   ]);
   const updated = text
@@ -620,12 +631,17 @@ async function main(): Promise<void> {
         skippedProse: entries.filter(
           (entry) => countsAsProse(entry) && !PROSE_ROLE.test(entry.role),
         ).length,
+        // `expectedReadingOrder` drops empty-text blocks before assigning keys, so emit the
+        // same filtered sequence; otherwise one empty block shifts every later expected key.
         readingOrder: orderAccuracy(
-          layout.blocks.map((_block, index) => 'k' + String(index)),
+          layout.blocks
+            .filter((block) => block.text.trim().length > 0)
+            .map((_block, index) => 'k' + String(index)),
           geometric.keys,
         ),
         twoColumn: geometric.twoColumn,
         firstBlockMs: firstMs,
+        firstBlockFromRunStartMs: runFirstMs,
         pageMs: Date.now() - pageStarted,
       });
 
@@ -653,12 +669,15 @@ async function main(): Promise<void> {
   const summary = summarize(pages, firstBlockMs, totalMs);
   const sourceSummary = (source: 'native' | 'simulated-ocr') => {
     const subset = pages.filter((page) => page.textSource === source);
-    const first = subset.reduce((min, page) => Math.min(min, page.firstBlockMs), Infinity);
+    const firstRun = subset.reduce(
+      (min, page) => Math.min(min, page.firstBlockFromRunStartMs),
+      Infinity,
+    );
     return {
       pages: subset.length,
       summary: summarize(
         subset,
-        Number.isFinite(first) ? first : 0,
+        Number.isFinite(firstRun) ? firstRun : 0,
         subset.reduce((sum, page) => sum + page.pageMs, 0),
       ),
     };
@@ -716,8 +735,8 @@ async function main(): Promise<void> {
     s.overflowRate.toFixed(3) +
     ' |';
   const markdown = [
-    '| label | pages | skipped prose | untranslated prose | mixed language | garbled tokens | overlap/box | overflow/box | reading order | first block ms | full ms |',
-    '| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |',
+    '| label | pages | skipped prose | untranslated prose | mixed language | garbled tokens | overlap/box | overflow/box | reading order | first block from page ms | first block from run ms | full ms |',
+    '| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |',
     '| ' +
       label +
       ' | ' +
@@ -738,6 +757,8 @@ async function main(): Promise<void> {
       (summary.readingOrderAccuracy * 100).toFixed(1) +
       '% | ' +
       String(summary.firstTranslatedBlockMs) +
+      ' | ' +
+      String(summary.firstTranslatedBlockFromRunStartMs) +
       ' | ' +
       String(summary.fullDocumentMs) +
       ' |',

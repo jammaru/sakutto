@@ -552,20 +552,20 @@ export function paintIntegrityMetrics(
     ) {
       drawnPaintMismatches += 1;
     }
-    // Only a genuinely spanning source (a title/byline assigned to no body column) may paint
-    // across the gutter. A block assigned to a column but widened by a mis-grouped line must be
-    // checked against the gutter, otherwise its cover silently paints over the other column.
-    const side =
-      blockSpansGutter(block, pageWidth) && block.column < 0
-        ? null
-        : columnSideForCap(block, entry.drawn.x, pageWidth, false);
+    // Only a genuinely spanning source may paint across the gutter. `column` cannot identify
+    // one on its own: native layout gives a crossing region its parent column (0 at the page
+    // root), while OCR gives it -1. A right-column block (column 1) whose lines happen to reach
+    // across the gutter is a mis-grouping, not a title, and must still be checked.
+    const mergesColumns = blockMergesColumns(block, pageWidth);
+    const spansAsSource = blockSpansGutter(block, pageWidth) && block.column <= 0 && !mergesColumns;
+    const side = spansAsSource ? null : columnSideForCap(block, entry.drawn.x, pageWidth, false);
     if (side === 0 && paint.x + paint.width > gutter + 2) crossColumnCovers += 1;
     if (side !== null && side > 0 && paint.x < gutter - 2) crossColumnCovers += 1;
-    // A merged two-column reading line also counts as a "spanning" source, so the old
-    // spanning-source exemption hid exactly the covers the gutter rule is meant to catch.
+    // A merged two-column reading line also spans the gutter geometrically, so it must never
+    // take the spanning-source exemption; that is exactly the cover the gutter rule catches.
     if (
       side === null &&
-      blockMergesColumns(block, pageWidth) &&
+      mergesColumns &&
       paint.x < gutter - 2 &&
       paint.x + paint.width > gutter + 2
     ) {

@@ -58,7 +58,8 @@
     "bench:pdf:quality": "node --experimental-transform-types --no-warnings --import ./scripts/bench/register-ts.mjs scripts/bench/pdf-quality.ts",
     "bench:pdf:quality:scan": "pnpm bench:pdf:scan:ocr && pnpm bench:pdf:quality",
     "bench:ocr:lab": "node --experimental-transform-types --no-warnings --import ./scripts/bench/register-ts.mjs scripts/bench/ocr-lab.ts",
-    "bench:pdf:scan:ocr": "node --experimental-transform-types --no-warnings --import ./scripts/bench/register-ts.mjs scripts/bench/pdf-scan-ocr.ts"
+    "bench:pdf:scan:ocr": "node --experimental-transform-types --no-warnings --import ./scripts/bench/register-ts.mjs scripts/bench/pdf-scan-ocr.ts",
+    "bench:pdf:scan:gt": "node --experimental-transform-types --no-warnings --import ./scripts/bench/register-ts.mjs scripts/bench/build-scan-gt.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

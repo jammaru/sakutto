@@ -11,6 +11,7 @@ interface Summary {
   overflowRate: number;
   readingOrderAccuracy: number;
   firstTranslatedBlockMs: number;
+  firstTranslatedBlockFromRunStartMs: number;
   fullDocumentMs: number;
 }
 interface ScanRun {
@@ -20,6 +21,7 @@ interface ScanRun {
   crossColumnCovers: number;
   lines: number;
   ms: number;
+  covered: number;
 }
 
 /** Markdown cells are padded by Prettier and emphasised with **; compare their bare values. */
@@ -37,6 +39,19 @@ function rowWithLabel(markdown: string, label: string): string[] {
 
 const PR_BODY = read('bench/results/pdf-quality/PR_BODY.md');
 
+/** Markdown rows are keyed by their first cell in the scan README's tables. */
+function scanReadmeRow(markdown: string, label: string): string[] {
+  const row = markdown
+    .split('\n')
+    .map((line) => line.trim())
+    .find((line) => line.startsWith('| ') && line.split('|')[1]?.trim() === label);
+  if (!row) throw new Error('no scan README row for ' + label);
+  return row
+    .split('|')
+    .slice(1, -1)
+    .map((cell) => cell.trim());
+}
+
 describe('committed quality report matches its raw data', () => {
   it('uses the final summary from final.json in the metrics table', () => {
     const summary = json<{ summary: Summary }>('bench/results/pdf-quality/final.json').summary;
@@ -47,12 +62,25 @@ describe('committed quality report matches its raw data', () => {
     expect(rowWithLabel(PR_BODY, '2 カラム読み順正解率')[2]).toBe(
       (summary.readingOrderAccuracy * 100).toFixed(1) + '%',
     );
-    expect(rowWithLabel(PR_BODY, '最初の訳文が出るまで（ページ単位）')[2]).toBe(
+    expect(rowWithLabel(PR_BODY, '最初の訳文が出るまで（実行開始から）')[2]).toBe(
+      String(summary.firstTranslatedBlockFromRunStartMs) + ' ms',
+    );
+    expect(rowWithLabel(PR_BODY, '最初の訳文が出るまで（ページ処理から）')[2]).toBe(
       String(summary.firstTranslatedBlockMs) + ' ms',
     );
     expect(rowWithLabel(PR_BODY, '全文処理時間（fake engine）')[2]).toBe(
       String(summary.fullDocumentMs) + ' ms',
     );
+  });
+
+  it('compares first-block latency using the definition both artifacts record', () => {
+    const baseline = json<{ summary: Summary }>('bench/results/pdf-quality/baseline.json').summary;
+    const final = json<{ summary: Summary }>('bench/results/pdf-quality/final.json').summary;
+    const runStartRow = rowWithLabel(PR_BODY, '最初の訳文が出るまで（実行開始から）');
+    expect(runStartRow[1]).toBe(String(baseline.firstTranslatedBlockFromRunStartMs) + ' ms');
+    expect(runStartRow[2]).toBe(String(final.firstTranslatedBlockFromRunStartMs) + ' ms');
+    // The older baseline has no page-level measurement, so it must not be shown in that row.
+    expect(rowWithLabel(PR_BODY, '最初の訳文が出るまで（ページ処理から）')[1]).toBe('—');
   });
 
   it('uses the scan OCR report for every real-scan row', () => {
@@ -76,6 +104,42 @@ describe('committed quality report matches its raw data', () => {
         (run.ms / 1000).toFixed(1) + ' s',
       ]);
     }
+  });
+
+  it('keeps the scan README tables in step with the committed runs', () => {
+    const readme = read('bench/results/scan-ocr/README.md');
+    const runs = json<ScanRun[]>('bench/results/scan-ocr/report.json');
+    for (const variant of [
+      'baseline-1x',
+      'shipped-baseline',
+      'default-1600',
+      'gray+contrast-1600',
+      'dpi300',
+      'sauvola',
+    ]) {
+      const run = runs.find((entry) => entry.variant === variant);
+      expect(run, variant).toBeDefined();
+      if (!run) continue;
+      const cells = scanReadmeRow(readme, variant);
+      expect([cells[2], cells[3], cells[4], cells[5], cells[7]], variant).toEqual([
+        (run.cer * 100).toFixed(1) + '%',
+        (run.wer * 100).toFixed(1) + '%',
+        String(run.crossColumnCovers),
+        (run.ms / 1000).toFixed(1) + ' s',
+        run.covered.toFixed(3),
+      ]);
+    }
+    const high = json<ScanRun[]>('bench/results/scan-ocr/high-tier.json').find(
+      (entry) => entry.variant === 'default-1600',
+    );
+    expect(high).toBeDefined();
+    if (!high) return;
+    const cells = scanReadmeRow(readme, 'default-1600 (high)');
+    expect([cells[2], cells[3], cells[4]]).toEqual([
+      (high.cer * 100).toFixed(1) + '%',
+      String(high.crossColumnCovers),
+      (high.ms / 1000).toFixed(1) + ' s',
+    ]);
   });
 
   it('uses the high-tier run for the High row', () => {
