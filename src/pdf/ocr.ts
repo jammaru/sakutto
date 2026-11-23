@@ -279,6 +279,18 @@ function wordSpaceGutter(pieces: readonly OcrTextPiece[], gutterGap: number): bo
  * than twelve words. Its middle whitespace is ordinary spacing, not a printed gutter, so it
  * must not become page-wide evidence for two body columns either.
  */
+function rowHasInteriorSentenceBreak(text: string): boolean {
+  const prose = text.replace(/\d\.\d/gu, '').replace(/\b(?:Dr|Mr|Ms|Prof|e\.g|i\.e)\./gu, '');
+  const withoutDottedTokens = prose.replace(/\b(?:\w\.)+\w*\.?/gu, (token) =>
+    token.replace(/\./g, ''),
+  );
+  return (
+    /[.!?。！？]\s+(?:\p{Lu}|[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}])/u.test(
+      withoutDottedTokens,
+    ) || (withoutDottedTokens.match(/[.!?。！？]/gu) ?? []).length > 1
+  );
+}
+
 function onePrintedTitleRow(pieces: readonly OcrTextPiece[], pageWidth: number): boolean {
   if (pieces.length !== 2 || !pieces.some((piece) => piece.box.width >= pageWidth * 0.12)) {
     return false;
@@ -291,18 +303,7 @@ function onePrintedTitleRow(pieces: readonly OcrTextPiece[], pageWidth: number):
   const cjk = /^[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u.test(text);
   if (!cjk && words.length < 3) return false;
   if (cjk && text.length < 8) return false;
-  const prose = text.replace(/\d\.\d/gu, '').replace(/\b(?:Dr|Mr|Ms|Prof|e\.g|i\.e)\./gu, '');
-  const withoutDottedTokens = prose.replace(/\b(?:\w\.)+\w*\.?/gu, (token) =>
-    token.replace(/\./g, ''),
-  );
-  if (
-    /[.!?。！？]\s+(?:\p{Lu}|[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}])/u.test(
-      withoutDottedTokens,
-    ) ||
-    (withoutDottedTokens.match(/[.!?。！？]/gu) ?? []).length > 1
-  ) {
-    return false;
-  }
+  if (rowHasInteriorSentenceBreak(text)) return false;
   if (!/^(\p{Lu}|\d|[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}])/u.test(text)) {
     return false;
   }
@@ -327,6 +328,20 @@ function singleSentenceRow(pieces: readonly OcrTextPiece[], pageWidth: number): 
   const prose = text.replace(/\d\.\d/gu, '').replace(/\b(?:Dr|Mr|Ms|Prof|e\.g|i\.e)\./gu, '');
   const stops = prose.match(/[.!?。]/gu);
   return stops?.length === 1 && /[.!?。]$/u.test(prose);
+}
+
+/** A two-piece line region with a colon is usually a title even when OCR casing is wrong. */
+function twoPieceColonTitle(
+  pieces: readonly OcrTextPiece[],
+  pageWidth: number,
+  wholeText: string,
+): boolean {
+  if (pieces.length !== 2 || !pieces.some((piece) => piece.box.width >= pageWidth * 0.12)) {
+    return false;
+  }
+  if (!/:/u.test(wholeText)) return false;
+  if (singleSentenceRow(pieces, pageWidth)) return false;
+  return !rowHasInteriorSentenceBreak(wholeText);
 }
 
 /**
@@ -600,7 +615,9 @@ export function ocrResultToTextLines(
     // long title to just two pieces; the word-level guards above cannot see those, so their
     // own text structure decides. Page-wide column evidence still wins over that text guess.
     const printedTitleRow = onePrintedTitleRow(pieces, resolved.pageWidth);
-    const twoPieceTitleMerge = printedTitleRow && (!pageTwoColumn || /:/u.test(wholeText));
+    const colonTitleRow = twoPieceColonTitle(pieces, resolved.pageWidth, wholeText);
+    const twoPieceTitleMerge =
+      (printedTitleRow || colonTitleRow) && (!pageTwoColumn || /:/u.test(wholeText));
     const singleRowWordGap =
       twoPieceTitleMerge || (!pageTwoColumn && singleSentenceRow(pieces, resolved.pageWidth));
     const titleWordGap =

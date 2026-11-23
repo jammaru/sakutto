@@ -921,6 +921,9 @@ export class PdfReader {
         if (element) {
           if (extracted.empty || ocrAttempted) {
             element.host.dataset.pageEmpty = pageLayout.blocks.length === 0 ? 'true' : 'false';
+            if (ocrAttempted && pageLayout.blocks.length === 0) {
+              element.missing.textContent = this.labels.emptyPage;
+            }
           } else {
             delete element.host.dataset.pageEmpty;
           }

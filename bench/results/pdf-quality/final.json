@@ -1,13 +1,17 @@
 {
   "label": "final",
-  "generatedAt": "2026-11-23T11:19:01.523Z",
+  "generatedAt": "2026-11-23T12:13:08.060Z",
   "engine": "deterministic local fake",
   "pace": {
     "ttfbMs": 6,
     "msPerChar": 0.04,
     "concurrency": 8
   },
-  "fixtures": ["paper", "arxiv", "scan"],
+  "fixtures": [
+    "paper",
+    "arxiv",
+    "scan"
+  ],
   "textSources": {
     "native": "paper.pdf and arXiv 1706.03762 use their own PDF text layer.",
     "simulated-ocr": "scan.pdf page geometry and background, word boxes synthesized from paper.pdf text (not OCR).",
@@ -27,9 +31,9 @@
         "overflowRate": 0,
         "readingOrderAccuracy": 0.9895833333333334,
         "twoColumnPages": 1,
-        "firstTranslatedBlockMs": 5,
-        "firstTranslatedBlockFromRunStartMs": 287,
-        "fullDocumentMs": 202,
+        "firstTranslatedBlockMs": 6,
+        "firstTranslatedBlockFromRunStartMs": 299,
+        "fullDocumentMs": 235,
         "meanScale": 0.9846128195131897
       }
     },
@@ -46,9 +50,9 @@
         "overflowRate": 0.08,
         "readingOrderAccuracy": 0.9583333333333334,
         "twoColumnPages": 1,
-        "firstTranslatedBlockMs": 5,
-        "firstTranslatedBlockFromRunStartMs": 832,
-        "fullDocumentMs": 82,
+        "firstTranslatedBlockMs": 7,
+        "firstTranslatedBlockFromRunStartMs": 885,
+        "fullDocumentMs": 62,
         "meanScale": 0.9885424892343686
       }
     }
@@ -115,7 +119,7 @@
       {
         "variant": "default-1600",
         "pairing": "tiny_det+small_rec",
-        "ms": 35626.090791999995,
+        "ms": 34788.667235,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.030330603579011222,
@@ -377,9 +381,9 @@
     "overflowRate": 0.024390243902439025,
     "readingOrderAccuracy": 0.9833333333333334,
     "twoColumnPages": 2,
-    "firstTranslatedBlockMs": 5,
-    "firstTranslatedBlockFromRunStartMs": 287,
-    "fullDocumentMs": 909,
+    "firstTranslatedBlockMs": 6,
+    "firstTranslatedBlockFromRunStartMs": 299,
+    "fullDocumentMs": 941,
     "meanScale": 0.9857425995580282
   },
   "pages": [
@@ -897,9 +901,9 @@
       "skippedProse": 0,
       "readingOrder": 0.9583333333333334,
       "twoColumn": true,
-      "firstBlockMs": 11,
-      "firstBlockFromRunStartMs": 287,
-      "pageMs": 81
+      "firstBlockMs": 13,
+      "firstBlockFromRunStartMs": 299,
+      "pageMs": 80
     },
     {
       "fixture": "arxiv",
@@ -1023,7 +1027,9 @@
           "untranslated": false,
           "prose": true,
           "mixedLanguage": false,
-          "garbled": ["h- t"],
+          "garbled": [
+            "h- t"
+          ],
           "scale": 1
         },
         {
@@ -1095,9 +1101,9 @@
       "skippedProse": 0,
       "readingOrder": 1,
       "twoColumn": false,
-      "firstBlockMs": 5,
-      "firstBlockFromRunStartMs": 424,
-      "pageMs": 39
+      "firstBlockMs": 6,
+      "firstBlockFromRunStartMs": 430,
+      "pageMs": 42
     },
     {
       "fixture": "arxiv",
@@ -1293,9 +1299,9 @@
       "skippedProse": 0,
       "readingOrder": 1,
       "twoColumn": false,
-      "firstBlockMs": 13,
-      "firstBlockFromRunStartMs": 503,
-      "pageMs": 31
+      "firstBlockMs": 7,
+      "firstBlockFromRunStartMs": 508,
+      "pageMs": 27
     },
     {
       "fixture": "arxiv",
@@ -1592,8 +1598,8 @@
       "readingOrder": 1,
       "twoColumn": false,
       "firstBlockMs": 8,
-      "firstBlockFromRunStartMs": 552,
-      "pageMs": 51
+      "firstBlockFromRunStartMs": 563,
+      "pageMs": 86
     },
     {
       "fixture": "scan",
@@ -2109,9 +2115,9 @@
       "skippedProse": 0,
       "readingOrder": 0.9583333333333334,
       "twoColumn": true,
-      "firstBlockMs": 5,
-      "firstBlockFromRunStartMs": 832,
-      "pageMs": 82
+      "firstBlockMs": 7,
+      "firstBlockFromRunStartMs": 885,
+      "pageMs": 62
     }
   ]
 }

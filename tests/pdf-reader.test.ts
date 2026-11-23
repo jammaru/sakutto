@@ -816,6 +816,37 @@ describe('PdfReader viewport observer', () => {
     reader.destroy();
   });
 
+  it('shows the empty-page label after OCR returns no text', async () => {
+    vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver);
+    vi.stubGlobal('ResizeObserver', FakeResizeObserver);
+    ocrCanvas();
+    const emptyResult: OcrResult = { regions: [], lines: [], text: '' };
+    const recognize = vi.fn().mockResolvedValue(emptyResult);
+    const root = document.createElement('div');
+    Object.defineProperty(root, 'clientWidth', { configurable: true, get: () => 520 });
+    document.body.append(root);
+    const reader = new PdfReader(root, geometries(1), {
+      document: fakeDocument({ count: 0 }, 1),
+      engine: silentEngine,
+      labels,
+      targetLanguage: 'ja',
+      form: 'plain',
+      onProgress: () => undefined,
+      ocr: { recognize },
+    });
+
+    reader.start();
+    await vi.waitFor(() => expect(recognize).toHaveBeenCalledOnce());
+    await vi.waitFor(() => expect(reader.coverage(0)).toHaveLength(0));
+    await vi.waitFor(() =>
+      expect(pageHost(root, 0).querySelector('.sakutto-page__missing')?.textContent).toBe(
+        labels.emptyPage,
+      ),
+    );
+    expect(pageHost(root, 0).dataset.pageEmpty).toBe('true');
+    reader.destroy();
+  });
+
   it('reports a transient OCR failure and replaces its fallback on retry', async () => {
     vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver);
     vi.stubGlobal('ResizeObserver', FakeResizeObserver);
