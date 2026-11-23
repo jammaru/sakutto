@@ -5,6 +5,7 @@ import { compareReadingOrder, layoutPage, type LayoutBlock } from '@/pdf/layout'
 import { groupLines, lineFrom } from '@/pdf/lines';
 import { metricsPass, pageMetrics } from '@/pdf/metrics';
 import { ocrResultToPageLayout, ocrResultToTextLines } from '@/pdf/ocr';
+import { protectInlineMath, restoreInlineMath } from '@/pdf/protect';
 import { paintIntegrityMetrics, placePage } from '@/pdf/place';
 import { PdfReader } from '@/pdf/reader';
 import type { BlockState } from '@/pdf/session';
@@ -1453,4 +1454,207 @@ describe('2053d13 review blocker 2: centre guards on every title merge path', ()
       expect(block?.column, name).toBeLessThan(0);
     },
   );
+});
+
+describe('9a60966 review blockers: combined regression suite', () => {
+  const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+  const bodyAbove = [
+    [
+      region('Left column prose for the first printed row.', quad(45, 100, 250, 20)),
+      region('Right column prose on the same printed row.', quad(305, 100, 250, 20)),
+    ],
+    [
+      region('A second left column line proving two columns.', quad(45, 130, 250, 20)),
+      region('A second right column line proving columns.', quad(305, 130, 250, 20)),
+    ],
+  ];
+  const bodyBelow = [
+    [
+      region('Left column prose after the title.', quad(45, 300, 250, 20)),
+      region('Right column prose after the title.', quad(305, 300, 250, 20)),
+    ],
+    [
+      region('Another left column line below the title.', quad(45, 330, 250, 20)),
+      region('Another right column line below the title.', quad(305, 330, 250, 20)),
+    ],
+  ];
+  function pageWithMiddleRow(middle: readonly OcrRegion[]): OcrResult {
+    const rows = [...bodyAbove, middle, ...bodyBelow];
+    return { regions: rows.flat(), lines: rows.map(readingLine), text: '' };
+  }
+
+  it.each([
+    {
+      name: 'scientific heading',
+      left: 'mRNA Vaccine Design in',
+      right: 'Older Adults and Children',
+    },
+    {
+      name: 'colon heading',
+      left: 'Key results from the trial:',
+      right: 'Older Adults and Children',
+    },
+  ])('merges a 65%-wide centred $name between two-column body rows', ({ name, left, right }) => {
+    // 105..495 = 390pt = 65% of the page, with equal 105pt margins. Body rows sit both above
+    // and below it, so only the heading's own size/margins can prove it is not a body row.
+    const heading = [region(left, quad(105, 200, 200, 20)), region(right, quad(315, 200, 180, 20))];
+    const result = pageWithMiddleRow(heading);
+    const fused = `${left} ${right}`;
+
+    const lines = ocrResultToTextLines(result, options);
+    expect(
+      lines.filter((line) => line.text === fused),
+      name,
+    ).toHaveLength(1);
+    const titleLine = lines.find((line) => line.text === fused);
+    expect(titleLine?.columnHint, name).toBeUndefined();
+    expect(titleLine?.titleRow, name).toBe(true);
+    expect(
+      lines.filter((line) => line.text === right),
+      name,
+    ).toHaveLength(0);
+
+    const layout = ocrResultToPageLayout(result, options);
+    const block = layout.blocks.find((candidate) => candidate.text === fused);
+    expect(block, name).toBeDefined();
+    expect(block?.column, name).toBeLessThan(0);
+    expect(block?.titleRow, name).toBe(true);
+    expect(
+      layout.blocks.some((candidate) => candidate.text === right),
+      name,
+    ).toBe(false);
+  });
+
+  it.each([
+    { name: '85%', leftX: 45, leftWidth: 250, rightX: 305, rightWidth: 250 },
+    { name: '75%', leftX: 75, leftWidth: 225, rightX: 315, rightWidth: 210 },
+    { name: '90%', leftX: 30, leftWidth: 265, rightX: 305, rightWidth: 265 },
+  ])(
+    'splits a $name-wide colon body row between two-column body rows',
+    ({ name, leftX, leftWidth, rightX, rightWidth }) => {
+      const left = 'The results are as follows:';
+      const right = 'and the second column text continues here now';
+      const result = pageWithMiddleRow([
+        region(left, quad(leftX, 200, leftWidth, 20)),
+        region(right, quad(rightX, 200, rightWidth, 20)),
+      ]);
+
+      const lines = ocrResultToTextLines(result, options);
+      expect(lines.find((line) => line.text === left)?.columnHint, name).toBe(0);
+      expect(lines.find((line) => line.text === right)?.columnHint, name).toBe(1);
+      expect(
+        lines.map((line) => line.text),
+        name,
+      ).not.toContain(`${left} ${right}`);
+      expect(
+        lines.some((line) => line.titleRow === true),
+        name,
+      ).toBe(false);
+
+      const layout = ocrResultToPageLayout(result, options);
+      expect(
+        layout.blocks.some((block) => block.text === `${left} ${right}`),
+        name,
+      ).toBe(false);
+      expect(
+        layout.blocks.some((block) => block.titleRow === true),
+        name,
+      ).toBe(false);
+      expect(
+        layout.blocks.every((block) => block.box.width < 500),
+        name,
+      ).toBe(true);
+    },
+  );
+
+  it('splits the reported colon body row with two-column body rows above', () => {
+    const left = 'The results are as follows:';
+    const right = 'and the second column text continues here now';
+    const colonBody = [
+      region(left, quad(45, 200, 250, 20)),
+      region(right, quad(305, 200, 250, 20)),
+    ];
+    const result: OcrResult = {
+      regions: [...bodyAbove.flat(), ...colonBody],
+      lines: [...bodyAbove.map(readingLine), readingLine(colonBody)],
+      text: '',
+    };
+
+    const lines = ocrResultToTextLines(result, options);
+    expect(lines.find((line) => line.text === left)?.columnHint).toBe(0);
+    expect(lines.find((line) => line.text === right)?.columnHint).toBe(1);
+    expect(lines.map((line) => line.text)).not.toContain(`${left} ${right}`);
+    expect(lines.some((line) => line.titleRow === true)).toBe(false);
+    expect(
+      ocrResultToPageLayout(result, options).blocks.some((block) => block.titleRow === true),
+    ).toBe(false);
+  });
+
+  it('keeps a wide-gap title above two-column body whole on one line', () => {
+    const title = [
+      region('Attention Is All You Need', quad(50, 60, 220, 20)),
+      region('But This Title Has More Than Twelve Words', quad(280, 60, 270, 20)),
+    ];
+    const result: OcrResult = {
+      regions: [...title, ...bodyAbove.flat()],
+      lines: [readingLine(title), ...bodyAbove.map(readingLine)],
+      text: '',
+    };
+    const fused = 'Attention Is All You Need But This Title Has More Than Twelve Words';
+
+    const lines = ocrResultToTextLines(result, options);
+    expect(lines[0]?.text).toBe(fused);
+    expect(lines[0]?.columnHint).toBeUndefined();
+    expect(
+      lines.filter((line) => line.text === 'But This Title Has More Than Twelve Words'),
+    ).toEqual([]);
+  });
+
+  it('column-splits the scientific body row mRNA vaccines reduce | Severe disease in older adults', () => {
+    const [left, right] = ['mRNA vaccines reduce', 'Severe disease in older adults'] as const;
+    const scientific = [
+      region(left, quad(45, 200, 250, 20)),
+      region(right, quad(305, 200, 250, 20)),
+    ];
+    const result: OcrResult = {
+      regions: [...scientific, ...bodyBelow.flat()],
+      lines: [readingLine(scientific), ...bodyBelow.map(readingLine)],
+      text: '',
+    };
+
+    const lines = ocrResultToTextLines(result, options);
+    expect(lines.find((line) => line.text === left)?.columnHint).toBe(0);
+    expect(lines.find((line) => line.text === right)?.columnHint).toBe(1);
+    expect(lines.some((line) => line.titleRow === true)).toBe(false);
+    expect(lines.map((line) => line.text)).not.toContain(`${left} ${right}`);
+
+    const layout = ocrResultToPageLayout(result, options);
+    expect(layout.blocks.some((block) => block.box.width >= 500)).toBe(false);
+    expect(layout.blocks.some((block) => block.text === `${left} ${right}`)).toBe(false);
+  });
+
+  it('keeps Wi/Wq dimension expressions inside one protected slot', () => {
+    const cases = [
+      {
+        source: 'Each head uses Wi ∈ R d model × d k for its projection.',
+        slot: 'Wi ∈ R d model × d k',
+      },
+      {
+        source: 'The query matrix Wq ∈ R d model × d k is learned.',
+        slot: 'Wq ∈ R d model × d k',
+      },
+    ];
+    for (const { source, slot } of cases) {
+      const block = layoutPage(groupLines([piece(source, 49, 100, 430)])).blocks[0];
+      if (!block) throw new Error('expected a block');
+      const protectedText = protectInlineMath(block);
+      expect(
+        protectedText.slots.map((entry) => entry.text),
+        source,
+      ).toEqual([slot]);
+      expect(protectedText.text, source).not.toContain(slot.slice(0, 2));
+      const restored = restoreInlineMath('訳文 <i0> です。', protectedText.slots);
+      expect(restored).toBe(`訳文 ${slot} です。`);
+    }
+  });
 });

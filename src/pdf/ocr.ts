@@ -731,25 +731,42 @@ export function ocrResultToTextLines(
     // whitespace: the page's gutter evidence belongs to the body below it, not to the title.
     const rowTop = Math.min(...pieces.map((piece) => piece.box.y));
     const rowsBelow = twoColumnTops.filter((top) => top > rowTop);
+    const rowsAbove = twoColumnTops.filter((top) => top < rowTop);
+    // A real section heading can be printed between two-column body rows instead of above all
+    // of them. Balanced page margins, a moderate (title-sized) span and a title-shaped tail
+    // distinguish it from a near-full-measure colon body row, which has body text above and
+    // below too but must be split at the gutter. The width ceiling is deliberately well below
+    // the 75-90% measure of ordinary two-column body rows.
+    const centredHeadingBetweenBody =
+      rowsAbove.length >= 2 &&
+      rowsBelow.length >= 2 &&
+      lineWidth >= resolved.pageWidth * 0.6 &&
+      lineWidth < resolved.pageWidth * 0.72 &&
+      rowCentredOnPage(pieces, resolved.pageWidth) &&
+      onePrintedTitleRow(pieces, resolved.pageWidth, true, true);
     // A title whose words trip a body-word guard can be counted as two-column evidence itself,
     // so it never appears to sit above the body. When this row is the topmost such row and at
     // least two corroborated rows sit below it, the page still proves it is a title: the only
     // shape that survives the relaxed check is a title, not a lowercase right-column fragment.
     const titleAboveBody =
-      twoColumnTops.length > 0 &&
-      (twoColumnTops.every((top) => top > rowTop) ||
-        (rowsBelow.length >= 2 &&
-          rowsBelow.length === twoColumnTops.length - 1 &&
-          onePrintedTitleRow(pieces, resolved.pageWidth, true, true)));
+      centredHeadingBetweenBody ||
+      (twoColumnTops.length > 0 &&
+        (twoColumnTops.every((top) => top > rowTop) ||
+          (rowsBelow.length >= 2 &&
+            rowsBelow.length === twoColumnTops.length - 1 &&
+            onePrintedTitleRow(pieces, resolved.pageWidth, true, true))));
     const orderedPieces = [...pieces].sort((a, b) => a.box.x - b.box.x);
     const firstPieceText = orderedPieces[0]?.text.trim() ?? '';
     // Every title-merge path needs the same page-level or centre/margin evidence as
     // `centredTitleRow`. On a two-column page a capitalised right fragment beside a column
     // gutter is body text, whether its row carries a colon or a scientific prefix or not.
-    // `rowCentredOnPage` already proves balanced page margins, so no 60% width cap belongs
-    // here: a real section title sitting between body columns can span 65% of the page.
+    // Balanced page margins alone are not enough: an ordinary 75-90%-wide two-column body row
+    // leaves nearly equal margins and would otherwise become a page-spanning colon title.
+    // Genuinely centred headings wider than 60% are covered by `centredHeadingBetweenBody`.
     const titleCentreEvidence =
-      !pageTwoColumn || titleAboveBody || rowCentredOnPage(pieces, resolved.pageWidth);
+      !pageTwoColumn ||
+      titleAboveBody ||
+      (rowCentredOnPage(pieces, resolved.pageWidth) && lineWidth < resolved.pageWidth * 0.6);
     const scientificTitleRow =
       titleCentreEvidence &&
       scientificShortTitleFirstPiece(

@@ -582,3 +582,73 @@ describe('402e0bb review blocker 2: flattened multi-letter math identifiers', ()
     }
   });
 });
+
+describe('9a60966 review blockers: two-letter sentence openers', () => {
+  const cases = [
+    {
+      source: 'If Q ∈ R d×d is orthogonal, the result follows.',
+      opener: 'If',
+      prompt: 'If <i0> is orthogonal, the result follows.',
+      slot: 'Q ∈ R d×d',
+    },
+    {
+      source: 'As W ∈ R d model is learned, the loss falls.',
+      opener: 'As',
+      prompt: 'As <i0> model is learned, the loss falls.',
+      slot: 'W ∈ R d',
+    },
+    {
+      source: 'At T ∈ R the value is fixed.',
+      opener: 'At',
+      prompt: 'At <i0> the value is fixed.',
+      slot: 'T ∈ R',
+    },
+    {
+      source: 'In W ∈ R d model the weights are learned.',
+      opener: 'In',
+      prompt: 'In <i0> model the weights are learned.',
+      slot: 'W ∈ R d',
+    },
+  ];
+
+  it.each(cases)(
+    'leaves $opener in the prompt instead of protecting it',
+    ({ source, prompt, slot }) => {
+      const block = layoutPage(groupLines([piece(source, 49, 100, 430)])).blocks[0];
+      if (!block) throw new Error('expected a block');
+      const protectedText = protectInlineMath(block);
+      expect(
+        protectedText.slots.map((entry) => entry.text),
+        source,
+      ).toEqual([slot]);
+      expect(protectedText.text, source).toBe(prompt);
+      expect(protectedText.text.startsWith(source.slice(0, 2)), source).toBe(true);
+      expectSourcePreserved(protectedText, source);
+      expect(restoreInlineMath('訳文 <i0> です。', protectedText.slots)).not.toBeNull();
+    },
+  );
+
+  it('still protects flattened identifiers with the same two-letter shape', () => {
+    const positives = [
+      {
+        source: 'Each head uses Wi ∈ R d model × d k for its projection.',
+        slot: 'Wi ∈ R d model × d k',
+      },
+      {
+        source: 'The value matrix Wv ∈ R d model × d v is learned.',
+        slot: 'Wv ∈ R d model × d v',
+      },
+    ];
+    for (const { source, slot } of positives) {
+      const block = layoutPage(groupLines([piece(source, 49, 100, 430)])).blocks[0];
+      if (!block) throw new Error('expected a block');
+      const protectedText = protectInlineMath(block);
+      expect(
+        protectedText.slots.map((entry) => entry.text),
+        source,
+      ).toEqual([slot]);
+      expect(protectedText.text, source).toContain('<i0>');
+      expectSourcePreserved(protectedText, source);
+    }
+  });
+});

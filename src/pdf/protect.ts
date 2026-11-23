@@ -61,7 +61,9 @@ const DIMENSION_CHAIN = new RegExp(
  * `Double`, ...), decide from the token's shape: a single letter (including Greek), a number, a
  * letter carrying a digit/subscript/superscript, or a flattened subscripted identifier whose
  * chain continues with an operator (`Wi ∈ R ...`) is a variable; everything else is prose and
- * belongs in the prompt. `a`/`A` immediately before a number is an article, not a variable.
+ * belongs in the prompt. `a`/`A` immediately before a number is an article, not a variable,
+ * and a two-letter English word (`If`, `As`, `At`, `In`, ...) is a sentence opener even when a
+ * variable follows it (`If Q ∈ R ...`).
  */
 const LEAD_TOKEN = /^([^\s]+)(\s+)/u;
 const NOTATION_HEAD = /^(?:\p{L}[\p{N}_^]{0,3}|[\p{N}_^]+)$/u;
@@ -71,10 +73,19 @@ const NOTATION_HEAD = /^(?:\p{L}[\p{N}_^]{0,3}|[\p{N}_^]+)$/u;
  * optional subscript marks; a prose adjective (`Small`, `Large`, `Deep`, ...) has a longer
  * lowercase tail and never matches. Shape alone is not enough for two-letter words such as
  * `In`, so the identifier only counts as notation when an operator follows its chain:
- * `Wi ∈ R ...`, `Wq Q ∈ R ...`, `Wk × d k`.
+ * `Wi ∈ R ...`, `Wq Q ∈ R ...`, `Wk × d k`. A two-letter English word is excluded even then,
+ * so `If Q ∈ R ...` leaves `If` in the prompt and protects only the notation.
  */
 const FLATTENED_IDENTIFIER = /^\p{Lu}\p{Ll}[\p{N}_^]{0,3}$/u;
 const IDENTIFIER_OPERATOR = /^\s*(?:\p{Lu}[\p{N}_^]{0,3}\s+)?[∈×÷]\s+\S/u;
+/**
+ * Two-letter words in English prose. Unlike a flattened matrix name (`Wi`, `Wq`, `Wk`, `Wv`),
+ * one of these can open a sentence whose first variable precedes the operator (`If Q ∈ R ...`).
+ * English has a small closed set of two-letter words, so naming them here cannot grow with the
+ * vocabulary the way an adjective whitelist would; they always stay in the prompt for translation.
+ */
+const TWO_LETTER_PROSE_WORD =
+  /^(?:ah|am|an|as|at|be|by|do|go|he|hi|if|in|is|it|me|my|no|of|oh|on|or|so|to|up|us|we|yo)$/iu;
 const LEADING_NUMBER = /^[\p{N}]/u;
 
 function isNotationHead(token: string, following = ''): boolean {
@@ -82,16 +93,22 @@ function isNotationHead(token: string, following = ''): boolean {
     // An article before a size is prose even though `a`/`A` fits the single-letter shape.
     return !(/^[Aa]$/u.test(token) && LEADING_NUMBER.test(following));
   }
-  return FLATTENED_IDENTIFIER.test(token) && IDENTIFIER_OPERATOR.test(following);
+  return (
+    FLATTENED_IDENTIFIER.test(token) &&
+    !TWO_LETTER_PROSE_WORD.test(token) &&
+    IDENTIFIER_OPERATOR.test(following)
+  );
 }
 
 /**
  * Peels every leading prose token off a notation match.
  *
  * The guard below only protects a chain whose first remaining operand is clearly a variable, so
- * the peeled words are always text the model must translate. No vocabulary list is involved: an
- * adjective the report has not seen yet is stripped exactly like a determiner or a sentence
- * opener, and a chain that starts with an English word is left alone.
+ * the peeled words are always text the model must translate. No growing vocabulary list is
+ * involved: an adjective the report has not seen yet is stripped exactly like a determiner or a
+ * sentence opener, and a chain that starts with an English word is left alone. The only fixed
+ * word set is the closed class of two-letter English words, which is ambiguous with flattened
+ * identifiers by shape alone.
  */
 function splitProseLead(value: string): { lead: string; value: string } {
   let lead = '';
