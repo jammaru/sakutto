@@ -70,6 +70,81 @@ describe('latest DSH review blockers', () => {
     expect(ocrResultToTextLines(result, options).map((line) => line.text)).toEqual([full]);
   });
 
+  it('B2: keeps an mRNA title whole above two-column body', () => {
+    const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+    const bodyRows = [
+      [
+        region('Machine translation of web pages is usually a', quad(45, 100, 250, 20)),
+        region('client of a remote service in this browser', quad(305, 100, 250, 20)),
+      ],
+      [
+        region('The extension runs the model on the local device', quad(45, 130, 250, 20)),
+        region('and keeps the page text inside the browser', quad(305, 130, 250, 20)),
+      ],
+    ];
+    const title = [
+      region('mRNA Vaccine Design', quad(45, 60, 250, 20)),
+      region('From Bench to Bedside', quad(305, 60, 250, 20)),
+    ];
+    const result: OcrResult = {
+      regions: [...title, ...bodyRows.flat()],
+      lines: [readingLine(title), ...bodyRows.map(readingLine)],
+      text: '',
+    };
+    const full = 'mRNA Vaccine Design From Bench to Bedside';
+    expect(ocrResultToTextLines(result, options).map((line) => line.text)[0]).toBe(full);
+  });
+
+  it('B1: does not treat camelCase body rows as titles on a two-column page', () => {
+    const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+    const bodyRows = [
+      [
+        region('mRNA expression levels are high in', quad(45, 100, 250, 20)),
+        region('The model is trained on this data', quad(305, 100, 250, 20)),
+      ],
+      [
+        region('eDNA samples were collected from', quad(45, 130, 250, 20)),
+        region('The results show a strong signal', quad(305, 130, 250, 20)),
+      ],
+    ];
+    const result: OcrResult = {
+      regions: bodyRows.flat(),
+      lines: bodyRows.map(readingLine),
+      text: '',
+    };
+    const lines = ocrResultToTextLines(result, options);
+    expect(lines.length).toBeGreaterThanOrEqual(4);
+    expect(lines.map((line) => line.text)).toContain('mRNA expression levels are high in');
+    expect(lines.map((line) => line.text)).toContain('The model is trained on this data');
+  });
+
+  it('B2: splits a scientific colon body row on a two-column page', () => {
+    const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+    const bodyRows = [
+      [
+        region('Left column prose for the first printed row.', quad(45, 140, 250, 20)),
+        region('Right column prose on that same printed row.', quad(305, 140, 250, 20)),
+      ],
+      [
+        region('A second left column line proving two columns.', quad(45, 170, 250, 20)),
+        region('A second right column line proving two columns.', quad(305, 170, 250, 20)),
+      ],
+    ];
+    const colonBody = [
+      region('mRNA expression levels: x', quad(45, 200, 250, 20)),
+      region('The model is trained on this data', quad(305, 200, 250, 20)),
+    ];
+    const result: OcrResult = {
+      regions: [...bodyRows.flat(), ...colonBody],
+      lines: [...bodyRows.map(readingLine), readingLine(colonBody)],
+      text: '',
+    };
+    const lines = ocrResultToTextLines(result, options).map((line) => line.text);
+    expect(lines).toContain('mRNA expression levels: x');
+    expect(lines).toContain('The model is trained on this data');
+    expect(lines).not.toContain('mRNA expression levels: x The model is trained on this data');
+  });
+
   it('B2: splits a colon body row on a two-column page', () => {
     const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
     const bodyRows = [

@@ -291,6 +291,20 @@ function rowHasInteriorSentenceBreak(text: string): boolean {
   );
 }
 
+/** OCR titles that start with a short scientific token (mRNA, eDNA, …), not body prose. */
+function scientificShortTitleFirstPiece(first: string): boolean {
+  if (!/^(?:mRNA|iOS|eBay|DNA|RNA|eDNA|CRISPR|Node\.js|U\.S\.)\b/iu.test(first)) {
+    return false;
+  }
+  if (/:/u.test(first)) return false;
+  return first.split(/\s+/u).filter(Boolean).length <= 4;
+}
+
+/** Colon rows that are inline notation (\": x\") belong in body columns, not merged titles. */
+function colonNotationBodyRow(wholeText: string): boolean {
+  return /:\s*[a-z]\b/u.test(wholeText) || /:\s*\d/u.test(wholeText);
+}
+
 function onePrintedTitleRow(pieces: readonly OcrTextPiece[], pageWidth: number): boolean {
   if (pieces.length !== 2 || !pieces.some((piece) => piece.box.width >= pageWidth * 0.12)) {
     return false;
@@ -304,15 +318,13 @@ function onePrintedTitleRow(pieces: readonly OcrTextPiece[], pageWidth: number):
   if (!cjk && words.length < 3) return false;
   if (cjk && text.length < 8) return false;
   if (rowHasInteriorSentenceBreak(text)) return false;
-  if (
-    !/^(\p{Lu}|\d|[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]|[a-z]{1,4}[A-Z][\p{L}\d./]*)/u.test(
-      text,
-    )
-  ) {
-    return false;
-  }
   const ordered = [...pieces].sort((a, b) => a.box.x - b.box.x);
+  const first = ordered[0]?.text.trim() ?? '';
   const second = ordered[1]?.text.trim() ?? '';
+  const startsTitle =
+    /^(\p{Lu}|\d|[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}])/u.test(text) ||
+    scientificShortTitleFirstPiece(first);
+  if (!startsTitle) return false;
   // Body columns often start the right piece with a lowercase word; titles rarely do.
   if (second.length > 0 && /^[a-z]/.test(second)) return false;
   return true;
@@ -620,9 +632,13 @@ export function ocrResultToTextLines(
     // own text structure decides. Page-wide column evidence still wins over that text guess.
     const printedTitleRow = onePrintedTitleRow(pieces, resolved.pageWidth);
     const colonTitleRow = twoPieceColonTitle(pieces, resolved.pageWidth, wholeText);
+    const scientificTitleRow = scientificShortTitleFirstPiece(orderedPieces[0]?.text.trim() ?? '');
     const twoPieceTitleMerge =
-      (printedTitleRow && (!pageTwoColumn || /:/u.test(wholeText))) ||
-      (colonTitleRow && !pageTwoColumn);
+      (printedTitleRow && !pageTwoColumn) ||
+      (printedTitleRow && scientificTitleRow) ||
+      (colonTitleRow &&
+        (!pageTwoColumn ||
+          (!colonNotationBodyRow(wholeText) && wholeText.split(/\s+/u).length <= 14)));
     const singleRowWordGap =
       twoPieceTitleMerge || (!pageTwoColumn && singleSentenceRow(pieces, resolved.pageWidth));
     const titleWordGap =

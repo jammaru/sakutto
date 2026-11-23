@@ -115,7 +115,7 @@
       {
         "variant": "default-1600",
         "pairing": "tiny_det+small_rec",
-        "ms": 34788.667235,
+        "ms": 34561.72683300001,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.030330603579011222,
