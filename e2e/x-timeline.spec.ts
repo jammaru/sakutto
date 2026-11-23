@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { loadExtension, type LoadedExtension } from './extension';
-import { FIXTURE_ORIGIN, commandPage, resetExtensionStorage, waitTranslated } from './page';
+import { FIXTURE_ORIGIN, MARKER, commandPage, resetExtensionStorage, waitTranslated } from './page';
 
 let extension: LoadedExtension;
 
@@ -373,6 +373,69 @@ test.describe('X timeline bilingual translation', () => {
       await expect(line).toContainText('長文の本文が展開後に新しいspan一つで表示され');
       await expect(line).not.toContainText('詳細は続きをご覧ください');
       await waitTranslated(page);
+    } finally {
+      await page.close();
+    }
+  });
+
+  // The product default is sentence reveal. The shared e2e helper still writes smooth
+  // for older specs, so this one asks for sentence explicitly while the fake engine
+  // answers one pre-wrap line at a time.
+  test('keeps the first line of a pre-wrap post aligned while sentence reveal is running', async () => {
+    await resetExtensionStorage(extension.worker, {
+      targetLanguage: 'en',
+      translationReveal: 'sentence',
+    });
+    const page = await extension.context.newPage();
+    try {
+      await page.goto(`${FIXTURE_ORIGIN}/x-timeline.html`);
+      await page.locator('#main-tweet').evaluate((element) => element.setAttribute('hidden', ''));
+      await page
+        .locator('#prewrap-stack-tweet')
+        .evaluate((element) => element.removeAttribute('hidden'));
+      await page.evaluate(() => {
+        // A slow final-only decode keeps the first answer on the page while the
+        // remaining lines are still being translated.
+        document.documentElement.dataset.benchPace = JSON.stringify({
+          ttfbMs: 300,
+          msPerChar: 12,
+          deltas: 0,
+        });
+        const snapshots: string[][] = [];
+        (globalThis as unknown as { __lineSnapshots: string[][] }).__lineSnapshots = snapshots;
+        const body = document.querySelector('#prewrap-stack-text');
+        if (!body) throw new Error('missing pre-wrap body');
+        const record = (): void => {
+          const line = body.querySelector(':scope > sakutto-line');
+          if (!line) return;
+          const chunks = Array.from(line.childNodes)
+            .filter((node) => node.nodeType === Node.TEXT_NODE)
+            .map((node) => node.nodeValue ?? '');
+          if (snapshots[snapshots.length - 1]?.join('\u0000') !== chunks.join('\u0000')) {
+            snapshots.push(chunks);
+          }
+        };
+        new MutationObserver(record).observe(body, {
+          childList: true,
+          subtree: true,
+          characterData: true,
+        });
+      });
+      await commandPage(extension.worker, page, 'bilingual');
+      await waitTranslated(page);
+
+      const snapshots = await page.evaluate(
+        () => (globalThis as unknown as { __lineSnapshots: string[][] }).__lineSnapshots,
+      );
+      const firstAnswer = `${MARKER}ログイン済みのタイムラインでは本文が白折返しで描画されます。`;
+      const partial = snapshots.find(
+        (chunks) =>
+          chunks[0] === firstAnswer && chunks.slice(1).every((chunk) => chunk.trim() === ''),
+      );
+      expect(partial, `snapshots were ${JSON.stringify(snapshots)}`).toBeDefined();
+      const finished = snapshots.at(-1) ?? [];
+      expect(finished.filter((chunk) => chunk.trim().length > 0)).toHaveLength(8);
+      expect(finished[2]).toContain(`${MARKER}短い行が続く場合でも`);
     } finally {
       await page.close();
     }

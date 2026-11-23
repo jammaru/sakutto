@@ -7012,4 +7012,70 @@ describe('X logged-in pre-wrap bodies', () => {
     expect(chunks.filter((chunk) => chunk.trim().length === 0)).toHaveLength(2);
     expect(line?.textContent).not.toContain('<i');
   });
+
+  it('keeps a finished line on its source line during sentence reveal', async () => {
+    document.documentElement.lang = 'ja';
+    const lines = [
+      '最初の行は長い日本語の本文です。訳文が一行目にそのまま入ることを確認します。',
+      '二行目も同じ長さの本文を用意しています。まだ訳が返ってこない段階を確認します。',
+      '三行目まで含めて三つの要求に分かれます。最後の行まで崩れないことを確かめます。',
+    ];
+    document.body.innerHTML =
+      '<article><div id="logged" data-testid="tweetText" lang="ja" class="r-whitespace-pre-wrap">' +
+      lines.map((line) => `<span>${line}</span>`).join('\n\n') +
+      '</div></article>';
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const session = start(
+      document,
+      engineOf(async function* (segments, options: TranslateOptions) {
+        for (const [index, segment] of segments.entries()) {
+          if (index > 0) {
+            await gate;
+            if (options.signal.aborted) return;
+          }
+          yield {
+            id: segment.id,
+            final: `Translated line ${index + 1}.`,
+            engine: 'plamo' as const,
+          };
+        }
+      }),
+      {
+        targetLanguage: 'en',
+        display: 'bilingual',
+        reveal: 'sentence',
+        auto: 'always',
+      },
+    );
+    const translating = session.translate();
+    await vi.waitFor(() => {
+      expect(document.querySelector('#logged > sakutto-line')?.textContent).toContain(
+        'Translated line 1.',
+      );
+    });
+
+    const partial = Array.from(document.querySelector('#logged > sakutto-line')?.childNodes ?? [])
+      .filter((node) => node.nodeType === Node.TEXT_NODE)
+      .map((node) => node.nodeValue ?? '');
+    expect(partial[0]).toBe('Translated line 1.');
+    expect(partial.filter((chunk) => chunk.trim().length > 0)).toEqual(['Translated line 1.']);
+
+    release();
+    await translating;
+    await session.whenIdle();
+    const finalLine = document.querySelector('#logged > sakutto-line');
+    const final = Array.from(finalLine?.childNodes ?? [])
+      .filter((node) => node.nodeType === Node.TEXT_NODE)
+      .map((node) => node.nodeValue ?? '');
+    expect(final).toEqual([
+      'Translated line 1.',
+      '',
+      'Translated line 2.',
+      '',
+      'Translated line 3.',
+    ]);
+  });
 });

@@ -2337,7 +2337,7 @@ export class PageSession {
     const parts = visiblePartialParts(item);
     const advanced = extendShownParts(parts, item.sentenceShownParts);
     if (advanced === null) return;
-    const text = joinTranslatedSentences(advanced.parts, this.prefs.targetLanguage);
+    const text = joinSentenceParts(item, advanced.parts, this.prefs.targetLanguage);
     if (text.trim().length === 0) return;
     if (item.streamed && !this.fastFlushDue(item, text)) {
       this.scheduleFastFlush(item);
@@ -2413,7 +2413,7 @@ export class PageSession {
     // piece keeps the longest prefix the reader has seen until the final settle.
     const advanced = extendShownParts(parts, item.sentenceShownParts);
     if (advanced === null) return true;
-    const ready = joinTranslatedSentences(advanced.parts, this.prefs.targetLanguage);
+    const ready = joinSentenceParts(item, advanced.parts, this.prefs.targetLanguage);
     if (ready.length === 0) return true;
     if (item.sentenceShownParts === undefined) {
       this.claim(item, model);
@@ -2473,7 +2473,7 @@ export class PageSession {
     const parts = visiblePartialParts(item);
     const advanced = extendShownParts(parts, item.sentenceShownParts);
     if (advanced === null) return false;
-    const text = joinTranslatedSentences(advanced.parts, this.prefs.targetLanguage);
+    const text = joinSentenceParts(item, advanced.parts, this.prefs.targetLanguage);
     if (text.trim().length === 0) return false;
     if (item.sentenceShownParts === undefined) {
       this.claim(item, model);
@@ -2664,7 +2664,11 @@ export class PageSession {
       if (item.engine) model.block.setAttribute('data-sakutto-engine', item.engine);
 
       if (bilingual) {
-        showBilingual(model, text, item.created);
+        // A pre-wrap body is translated one source line per request. Keep each answer
+        // on its own line while the rest are still decoding, including sentence-mode
+        // partial writes that join their pieces with the source's own line breaks.
+        const lineAligned = item.linePieces !== undefined && shouldPreserveNewlines(model.block);
+        showBilingual(model, text, item.created, lineAligned);
         const line = model.block.querySelector(LINE_TAG);
         if (line instanceof HTMLElement) line.lang = this.prefs.targetLanguage;
         if (!partial || !model.placeholder) model.block.removeAttribute('data-sakutto-pending');
@@ -3766,6 +3770,19 @@ function joinLinePieces(item: Live, parts: readonly string[]): string {
     if (index < parts.length - 1) output += item.linePieces?.[index]?.lineBreak ?? '';
   }
   return output;
+}
+
+/**
+ * Joins the parts a sentence-mode partial paint has reached. A pre-wrap X body is
+ * translated one source line per request: keep the source's line breaks instead of
+ * gluing the answers into one paragraph. The bilingual renderer then leaves the
+ * unanswered lines empty rather than spreading the first answer over the whole block.
+ */
+function joinSentenceParts(item: Live, parts: readonly string[], target: string): string {
+  if (item.linePieces && item.model && shouldPreserveNewlines(item.model.block)) {
+    return joinLinePieces(item, parts);
+  }
+  return joinTranslatedSentences(parts, target);
 }
 
 function placeholderGlossary(
