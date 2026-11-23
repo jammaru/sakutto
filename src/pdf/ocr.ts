@@ -441,8 +441,9 @@ function cjkTextRow(pieces: readonly OcrTextPiece[]): boolean {
 /**
  * A CJK row is body text when the page's other rows establish two columns and its own gutter
  * and measures match them. Without the page evidence a single CJK row stays a title: its text
- * shape alone cannot say either way. A row above every body-row top is a title too: its middle
- * gap belongs to the title, not to the page's columns.
+ * shape alone cannot say either way. A row above every body-row top is a title too, unless it
+ * starts in the corroborated left column and splits at their shared gutter: then the page proves
+ * its middle gap belongs to the body columns even though the row is topmost.
  */
 function cjkTwoColumnBodyRow(
   pieces: readonly OcrTextPiece[],
@@ -451,10 +452,7 @@ function cjkTwoColumnBodyRow(
   titleAboveBody: boolean,
   pageColumns: PageColumnGeometry | null,
 ): boolean {
-  // The row sits above every corroborated body-row top: its central gap is title whitespace even
-  // though CJK glyphs and a centred gutter otherwise look exactly like a two-column body row.
-  // Don't let the page's body geometry split such a title (or deny its own title evidence).
-  if (titleAboveBody || !pageTwoColumn || !cjkTextRow(pieces)) return false;
+  if (!pageTwoColumn || !cjkTextRow(pieces)) return false;
   const { left, right, leftEnd, rightStart } = splitAtGutter(pieces, resolved.pageWidth);
   if (left.length === 0 || right.length === 0 || rightStart - leftEnd < MIN_COLUMN_GUTTER) {
     return false;
@@ -476,6 +474,11 @@ function cjkTwoColumnBodyRow(
     pageColumns,
     resolved.pageWidth,
   );
+  // A row above every corroborated top is normally a title: its central gap is title whitespace
+  // even though CJK glyphs and a centred gutter look like body columns. Sharing the page's column
+  // edges is the exception — a short top-row fragment starts in the same column and splits at the
+  // same gutter, so its gap is body whitespace. A wide CJK title does not share those edges.
+  if (titleAboveBody && !sharesPageColumns) return false;
   return ownGeometry || sharesPageColumns;
 }
 
@@ -837,13 +840,18 @@ export function ocrResultToTextLines(
     // so it never appears to sit above the body. When this row is the topmost such row and at
     // least two corroborated rows sit below it, the page still proves it is a title: the only
     // shape that survives the relaxed check is a title, not a lowercase right-column fragment.
-    // A CJK body row also sits above its peers sometimes; its shared gutter rules that out.
+    // The twoColumnTops.length - 1 count includes the current row only when it is itself
+    // corroborated, and a row with a corroborated peer above it is never topmost. Without both
+    // guards, a narrow body row between one full row above and two below satisfies the count by
+    // accident and is promoted to a spanning title (review blockers 2a/2b).
     const titleAboveBody =
       !cjkBodyGeometry &&
       (centredHeadingBetweenBody ||
         (twoColumnTops.length > 0 &&
           (aboveAllBodyRows ||
-            (rowsBelow.length >= 2 &&
+            (rowsAbove.length === 0 &&
+              twoColumnRows.includes(lineIndex) &&
+              rowsBelow.length >= 2 &&
               rowsBelow.length === twoColumnTops.length - 1 &&
               onePrintedTitleRow(pieces, resolved.pageWidth, true, true)))));
     const orderedPieces = [...pieces].sort((a, b) => a.box.x - b.box.x);
@@ -1158,10 +1166,22 @@ function sharesCorroboratedColumns(
 ): boolean {
   if (pageColumns === null || left.length === 0) return false;
   const tolerance = Math.max(6, pageWidth * 0.03);
+  const leftStart = Math.min(...left.map((piece) => piece.box.x));
+  if (
+    Math.abs(leftStart - pageColumns.leftStart) > tolerance ||
+    Math.abs(rightStart - pageColumns.rightStart) > tolerance
+  ) {
+    return false;
+  }
+  if (Math.abs(leftEnd - pageColumns.leftEnd) <= tolerance) return true;
+  // A short left fragment ends before the corroborated left measure, but still belongs to that
+  // column when it starts at the same edge and the right column starts at the same edge. Require
+  // a clearly partial measure so a wide two-piece CJK title is not mistaken for such a fragment.
   return (
-    Math.abs(Math.min(...left.map((piece) => piece.box.x)) - pageColumns.leftStart) <= tolerance &&
-    Math.abs(leftEnd - pageColumns.leftEnd) <= tolerance &&
-    Math.abs(rightStart - pageColumns.rightStart) <= tolerance
+    leftEnd < pageColumns.leftEnd &&
+    leftEnd - leftStart < pageWidth * 0.15 &&
+    rightStart - leftEnd >
+      Math.max(WIDE_COLUMN_GUTTER * 2, (pageColumns.rightStart - pageColumns.leftEnd) * 2)
   );
 }
 

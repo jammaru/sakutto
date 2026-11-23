@@ -765,6 +765,14 @@ describe('ed88d36 review blockers: positional rule for every two-letter token', 
       prompt: '<i0> is a diagonal matrix.',
       slot: 'Si ∈ R d×d',
     },
+    {
+      // Flattened W_o is the canonical output-projection matrix even with an operand before the
+      // operator; only a clause-initial "Wo" is the German opener (see the openers list above).
+      token: 'Wo',
+      source: 'The projection Wo Q ∈ R d model ×d k is learned.',
+      prompt: 'The projection <i0> is learned.',
+      slot: 'Wo Q ∈ R d model ×d k',
+    },
   ];
 
   it.each(openers)('peels $token before another operand', ({ source, prompt, slot }) => {
@@ -851,6 +859,17 @@ describe('ed88d36 review blockers: positional rule for every two-letter token', 
         source: 'The projection Wi Q ∈ R d model ×d k is learned.',
         prompt: 'The projection <i0> is learned.',
         slot: 'Wi Q ∈ R d model ×d k',
+      },
+      {
+        // W_o gets the same protection, while a clause-initial Wo stays a German prose opener.
+        source: 'The projection Wo Q ∈ R d model ×d k is learned.',
+        prompt: 'The projection <i0> is learned.',
+        slot: 'Wo Q ∈ R d model ×d k',
+      },
+      {
+        source: 'Wo Q ∈ R d×d gilt, ist die Matrix symmetrisch.',
+        prompt: 'Wo <i0> gilt, ist die Matrix symmetrisch.',
+        slot: 'Q ∈ R d×d',
       },
     ];
     for (const { source, prompt, slot } of cases) {

@@ -77,9 +77,16 @@ const NOTATION_HEAD = /^(?:\p{L}[\p{N}_^]{0,3}|[\p{N}_^]+)$/u;
  * between the token and the operator makes it a prose opener, whatever the token's spelling.
  */
 const FLATTENED_IDENTIFIER = /^\p{Lu}\p{Ll}[\p{N}_^]{0,3}$/u;
-/** Flattened subscripted matrix names (`W_i`, `W_q`, `W_k`, `W_v`) are notation by shape. `Wo` is
- * the German opener in `Wo Q ∈`, not a subscript name, so it keeps its positional rule. */
-const FLATTENED_MATRIX_NAME = /^W[iqkv][\p{N}_^]{0,3}$/u;
+/** Flattened subscripted matrix names: W_i, W_q, W_k, W_v and W_o are notation by shape. */
+const FLATTENED_MATRIX_NAME = /^W[iqkvo][\p{N}_^]{0,3}$/u;
+/** Flattened W_o is indistinguishable by shape from the German opener "Wo Q ∈ ...". */
+const FLATTENED_OUTPUT_MATRIX = /^Wo[\p{N}_^]{0,3}$/u;
+/** A clause boundary before the token: the German "Wo" opens a clause, W_o does not. */
+const CLAUSE_BOUNDARY = /[.!?;:。、]$/u;
+function startsClause(preceding: string): boolean {
+  const before = preceding.trimEnd();
+  return before.length === 0 || CLAUSE_BOUNDARY.test(before);
+}
 const IDENTIFIER_OPERATOR = /^\s*(?:\p{Lu}[\p{N}_^]{0,3}\s+)?[∈×÷]\s+\S/u;
 /**
  * Another operand between a two-letter token and the operator: `If Q ∈`, `As W ∈`, `Si Q ∈`.
@@ -90,7 +97,7 @@ const IDENTIFIER_OPERATOR = /^\s*(?:\p{Lu}[\p{N}_^]{0,3}\s+)?[∈×÷]\s+\S/u;
 const OPENER_BEFORE_OPERAND = /^\p{Lu}[\p{N}_^]{0,3}\s+[∈×÷]\s+\S/u;
 const LEADING_NUMBER = /^[\p{N}]/u;
 
-function isNotationHead(token: string, following = ''): boolean {
+function isNotationHead(token: string, following = '', preceding = ''): boolean {
   if (NOTATION_HEAD.test(token)) {
     // An article before a size is prose even though `a`/`A` fits the single-letter shape.
     return !(/^[Aa]$/u.test(token) && LEADING_NUMBER.test(following));
@@ -99,9 +106,13 @@ function isNotationHead(token: string, following = ''): boolean {
   // Position alone decides, for every two-letter token whatever language it came from: another
   // operand before the operator makes it a sentence opener (`If Q ∈`, `Si Q ∈`, `Et Q ∈`, ...),
   // while the operator directly after it makes it the flattened matrix name (`We ∈`, `In ∈`).
-  // The one shape exception is a flattened W-subscript matrix name (`Wi Q ∈`, `Wq Q ∈`): it is
-  // notation in either position, so the model never sees a matrix name rewritten as prose.
-  return !OPENER_BEFORE_OPERAND.test(following) || FLATTENED_MATRIX_NAME.test(token);
+  // Flattened W-subscript names (`Wi Q ∈`, `Wq Q ∈`) are notation in either position, so the
+  // model never sees a matrix name rewritten as prose. The one ambiguous shape is `Wo`: it is
+  // W_o in "The projection Wo Q ∈ ..." but the German opener in "Wo Q ∈ ... gilt". Clause
+  // position disambiguates: a clause-initial `Wo` is prose, a preceded one is the matrix.
+  if (!OPENER_BEFORE_OPERAND.test(following)) return true;
+  if (!FLATTENED_MATRIX_NAME.test(token)) return false;
+  return !(FLATTENED_OUTPUT_MATRIX.test(token) && startsClause(preceding));
 }
 
 /**
@@ -114,7 +125,7 @@ function isNotationHead(token: string, following = ''): boolean {
  * are ambiguous with flattened identifiers by shape alone, so their position in the chain (an
  * operand before the operator, not the operator itself) decides whether they are peeled.
  */
-function splitProseLead(value: string): { lead: string; value: string } {
+function splitProseLead(value: string, preceding = ''): { lead: string; value: string } {
   let lead = '';
   let rest = value;
   for (;;) {
@@ -122,7 +133,7 @@ function splitProseLead(value: string): { lead: string; value: string } {
     if (!match?.[1] || !match[2]) break;
     const token = match[1];
     const following = rest.slice(match[0].length);
-    if (isNotationHead(token, following)) break;
+    if (isNotationHead(token, following, preceding)) break;
     lead += match[0];
     rest = following;
   }
@@ -163,18 +174,23 @@ function trimProseDimensionSuffix(match: string, following: string): string {
   return match.slice(0, prose.index);
 }
 
-function protectSpan(match: string, slots: ProtectedSlot[], following: string): string {
+function protectSpan(
+  match: string,
+  slots: ProtectedSlot[],
+  following: string,
+  preceding = '',
+): string {
   const raw = match.trim();
   const trimmed = trimProseDimensionSuffix(raw, following);
   // The trimmed preposition stays in the prompt outside the placeholder.
   const tail = raw.slice(trimmed.length);
-  const { lead, value } = splitProseLead(trimmed);
+  const { lead, value } = splitProseLead(trimmed, preceding);
   const first = value.split(/\s+/u)[0] ?? '';
   // Only a chain that starts with a variable or a number is notation. An English adjective or
   // noun (`Small × Large`, `Model × Time`) is prose even when it fits the loose operand shape.
   // A flattened identifier needs the same operator evidence the lead peeler used, so pass the
   // rest of the chain instead of an empty following string here.
-  if (value.length < 4 || !isNotationHead(first, value.slice(first.length))) return raw;
+  if (value.length < 4 || !isNotationHead(first, value.slice(first.length), preceding)) return raw;
   const index = slots.length;
   slots.push({ text: value, script: 'none' });
   return lead + PLACEHOLDER(index) + tail;
@@ -183,9 +199,11 @@ function protectSpan(match: string, slots: ProtectedSlot[], following: string): 
 function protectTextNotation(text: string, slots: ProtectedSlot[]): string {
   return text
     .replace(DIMENSION_CHAIN, (match, offset: number, whole: string) =>
-      protectSpan(match, slots, whole.slice(offset + match.length)),
+      protectSpan(match, slots, whole.slice(offset + match.length), whole.slice(0, offset)),
     )
-    .replace(TEXT_NOTATION, (match) => protectSpan(match, slots, ''));
+    .replace(TEXT_NOTATION, (match, offset: number, whole: string) =>
+      protectSpan(match, slots, whole.slice(offset + match.length), whole.slice(0, offset)),
+    );
 }
 
 export type ScriptRole = 'super' | 'sub' | 'none';

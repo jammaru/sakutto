@@ -1833,4 +1833,95 @@ describe('93666bb review blockers: CJK two-column body rows', () => {
     const layout = ocrResultToPageLayout(result, options);
     expect(layout.blocks.some((block) => block.titleRow === true)).toBe(false);
   });
+
+  it('8118c86 blocker 1: splits a topmost short CJK right fragment above three full rows', () => {
+    const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+    // The short row is the first body row: every corroborated row is below it, but its right
+    // fragment starts at the same corroborated right edge, so the gutter is body whitespace.
+    const short = [
+      region('左列の本文テキストです', quad(45, 65, 250, 20)),
+      region('右列の本文の続き', quad(305, 65, 80, 20)),
+    ];
+    const body = [95, 155, 185].map((y) => [
+      region('左列の本文テキストです', quad(45, y, 250, 20)),
+      region('右列の本文テキストです', quad(305, y, 250, 20)),
+    ]);
+    const result: OcrResult = {
+      regions: [...short, ...body.flat()],
+      lines: [readingLine(short), ...body.map(readingLine)],
+      text: '',
+    };
+    const fused = '左列の本文テキストです 右列の本文の続き';
+
+    const lines = ocrResultToTextLines(result, options);
+    expect(lines.map((line) => line.text)).not.toContain(fused);
+    expect(lines.find((line) => line.text === '左列の本文テキストです')?.columnHint).toBe(0);
+    expect(lines.find((line) => line.text === '右列の本文の続き')?.columnHint).toBe(1);
+    expect(lines.filter((line) => line.text === '左列の本文テキストです')).toHaveLength(4);
+    expect(lines.some((line) => line.titleRow === true)).toBe(false);
+
+    const layout = ocrResultToPageLayout(result, options);
+    expect(layout.blocks.map((block) => block.text)).not.toContain(fused);
+    expect(layout.blocks.some((block) => block.titleRow === true)).toBe(false);
+    expect(layout.blocks.every((block) => block.box.width < 300)).toBe(true);
+  });
+
+  it.each([
+    {
+      name: 'English short right fragment',
+      left: 'Results show strong effects on',
+      leftWidth: 250,
+      right: 'Mice',
+      rightWidth: 45,
+    },
+    {
+      name: 'CJK short left fragment',
+      left: '短い左',
+      leftWidth: 80,
+      right: '右列の本文テキストです',
+      rightWidth: 250,
+    },
+  ])(
+    '8118c86 blocker 2: splits a narrow row with a row above and two below ($name)',
+    (scenario) => {
+      const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+      const full = (y: number) => [
+        region('Left column prose for the first printed row.', quad(45, y, 250, 20)),
+        region('Right column prose on the same printed row.', quad(305, y, 250, 20)),
+      ];
+      const narrow = [
+        region(scenario.left, quad(45, 130, scenario.leftWidth, 20)),
+        region(scenario.right, quad(305, 130, scenario.rightWidth, 20)),
+      ];
+      const rows = [full(100), narrow, full(160), full(190)];
+      const result: OcrResult = {
+        regions: rows.flat(),
+        lines: rows.map(readingLine),
+        text: '',
+      };
+      const fused = scenario.left + ' ' + scenario.right;
+
+      const lines = ocrResultToTextLines(result, options);
+      expect(
+        lines.map((line) => line.text),
+        scenario.name,
+      ).not.toContain(fused);
+      expect(lines.find((line) => line.text === scenario.left)?.columnHint, scenario.name).toBe(0);
+      expect(lines.find((line) => line.text === scenario.right)?.columnHint, scenario.name).toBe(1);
+      expect(
+        lines.some((line) => line.titleRow === true),
+        scenario.name,
+      ).toBe(false);
+
+      const layout = ocrResultToPageLayout(result, options);
+      expect(
+        layout.blocks.map((block) => block.text),
+        scenario.name,
+      ).not.toContain(fused);
+      expect(
+        layout.blocks.some((block) => block.titleRow === true),
+        scenario.name,
+      ).toBe(false);
+    },
+  );
 });
