@@ -432,9 +432,9 @@
   {#if phase === 'no-consent'}
     <div class="notice-panel">
       <p>{t('typedNeedsConsent')}</p>
-      <button class="button" type="button" onclick={openOnboarding}
-        >{t('typedOpenOnboarding')}</button
-      >
+      <button class="button" type="button" onclick={openOnboarding}>
+        {t('typedOpenOnboarding')}
+      </button>
     </div>
   {:else if phase === 'model-missing'}
     <div class="notice-panel">

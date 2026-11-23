@@ -772,12 +772,12 @@
         <p class="age">{t('onboardingAgeNotice')}</p>
 
         <p class="consent-links">
-          <a href={officialLinks.licenseJa} target="_blank" rel="noreferrer"
-            >{t('plamoOfficialLicenseJa')}</a
-          >
-          <a href={officialLinks.registration} target="_blank" rel="noreferrer"
-            >{t('plamoRegistrationLink')}</a
-          >
+          <a href={officialLinks.licenseJa} target="_blank" rel="noreferrer">
+            {t('plamoOfficialLicenseJa')}
+          </a>
+          <a href={officialLinks.registration} target="_blank" rel="noreferrer">
+            {t('plamoRegistrationLink')}
+          </a>
         </p>
 
         <!--
@@ -788,36 +788,37 @@
           <summary>{t('onboardingOtherLicenses')}</summary>
           <ul class="consent-links">
             <li>
-              <a href={officialLinks.licenseEn} target="_blank" rel="noreferrer"
-                >{t('plamoOfficialLicenseEn')}</a
-              >
+              <a href={officialLinks.licenseEn} target="_blank" rel="noreferrer">
+                {t('plamoOfficialLicenseEn')}
+              </a>
             </li>
             <li>
-              <a href={licenseLinks.plamoJa} target="_blank" rel="noreferrer"
-                >{t('licensePlaMoJa')}</a
-              >
+              <a href={licenseLinks.plamoJa} target="_blank" rel="noreferrer">
+                {t('licensePlaMoJa')}
+              </a>
             </li>
             <li>
-              <a href={licenseLinks.plamoEn} target="_blank" rel="noreferrer"
-                >{t('licensePlaMoEn')}</a
-              >
+              <a href={licenseLinks.plamoEn} target="_blank" rel="noreferrer">
+                {t('licensePlaMoEn')}
+              </a>
             </li>
             <li>
               <a href={licenseLinks.mit} target="_blank" rel="noreferrer">{t('licenseMit')}</a>
             </li>
             <li>
-              <a href={licenseLinks.notice} target="_blank" rel="noreferrer">{t('licenseNotice')}</a
-              >
+              <a href={licenseLinks.notice} target="_blank" rel="noreferrer">
+                {t('licenseNotice')}
+              </a>
             </li>
             <li>
-              <a href={projectLinks.privacy} target="_blank" rel="noreferrer"
-                >{t('privacyPolicyLink')}</a
-              >
+              <a href={projectLinks.privacy} target="_blank" rel="noreferrer">
+                {t('privacyPolicyLink')}
+              </a>
             </li>
             <li>
-              <a href={projectLinks.source} target="_blank" rel="noreferrer"
-                >{t('sourceCodeLink')}</a
-              >
+              <a href={projectLinks.source} target="_blank" rel="noreferrer">
+                {t('sourceCodeLink')}
+              </a>
             </li>
           </ul>
         </details>
@@ -918,8 +919,9 @@
         <button class="button" type="button" onclick={trySample}>{t('onboardingTry')}</button>
       {/if}
       {#if phase === 'downloading'}
-        <button class="button secondary" type="button" onclick={pause}>{t('downloadCancel')}</button
-        >
+        <button class="button secondary" type="button" onclick={pause}>
+          {t('downloadCancel')}
+        </button>
       {:else if showStartButton}
         <button
           class="button"
