@@ -1625,6 +1625,10 @@ export class PageSession {
         item.partText = pieces.map((_, index) =>
           item.partFinal[index] === true ? (item.partText[index] ?? '') : '',
         );
+        // The matching high-water marks must go too: a retry's first clause is not an
+        // extension of the failed attempt's fragment and would otherwise be rejected
+        // until the final settle, leaving the stale fragment on the page.
+        this.keepFinalShownParts(item);
       } else {
         item.partText = pieces.map(() => '');
       }
@@ -1784,6 +1788,21 @@ export class PageSession {
         this.settleFailed(item);
       }
     }
+  }
+
+  /**
+   * A retry answers every unfinished piece afresh. Keep only the high-water marks of
+   * pieces that finished: an old mark would reject the replacement's partials and hold
+   * the previous attempt's fragment on the page until the final settle. A fast-path
+   * flush queued for that fragment belongs to the discarded attempt as well.
+   */
+  private keepFinalShownParts(item: Live): void {
+    this.cancelFastFlush(item);
+    const shown = item.sentenceShownParts;
+    if (!shown) return;
+    const kept = shown.map((text, index) => (item.partFinal[index] === true ? text : ''));
+    if (kept.some((text) => text.length > 0)) item.sentenceShownParts = kept;
+    else delete item.sentenceShownParts;
   }
 
   /**
@@ -2623,6 +2642,9 @@ export class PageSession {
         item.partText = [];
         item.partFinal = [];
         item.partError = [];
+        // Every piece is requested again after this abort. No mark from the interrupted
+        // attempt may block the replacement partials, and no stale flush may fire later.
+        this.keepFinalShownParts(item);
         item.model?.block.removeAttribute('data-sakutto-pending');
         if (requeue && this.active && !this.navigating) this.enqueue(item);
       }

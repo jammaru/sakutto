@@ -2081,6 +2081,50 @@ describe('page session', () => {
     expect(block?.textContent).toContain('New text,');
   });
 
+  it('repaints a fast block from a clean high-water mark after a generic retry', async () => {
+    document.documentElement.lang = 'en';
+    const source =
+      'The harbour office logs every crossing and publishes the delays each month. '.repeat(10);
+    document.body.innerHTML = `<p>${source}</p>`;
+    const block = document.querySelector('p');
+    if (!block) throw new Error('missing paragraph');
+    block.getBoundingClientRect = () => new DOMRect(0, 0, 300, 40);
+    let calls = 0;
+    const seen: string[] = [];
+    const session = start(
+      document,
+      engineOf(async function* (segments) {
+        calls += 1;
+        if (calls === 1) {
+          const [first, second] = segments;
+          if (!first || !second || segments.length !== 2) throw new Error('expected two pieces');
+          yield { id: first.id, final: 'One. Two.', engine: 'plamo' as const };
+          yield { id: second.id, textDelta: 'Par,', engine: 'plamo' as const };
+          seen.push(block.textContent ?? '');
+          // A transient engine error retries this block; only the second piece is unfinished.
+          throw new Error('transient engine failure');
+        }
+        const retry = segments[0];
+        if (!retry || segments.length !== 1) throw new Error('expected one piece');
+        seen.push(block.textContent ?? '');
+        yield { id: retry.id, textDelta: 'New,', engine: 'plamo' as const };
+        seen.push(block.textContent ?? '');
+        yield { id: retry.id, final: 'New text,', engine: 'plamo' as const };
+      }),
+      { reveal: 'sentence' },
+    );
+
+    await session.translate();
+    await session.whenIdle();
+    expect(calls).toBe(2);
+    expect(seen[0]).toBe('One. Two.Par,');
+    expect(seen[1]).toContain('Par,');
+    // The retry's clause must replace the failed attempt's fragment before the final
+    // settle; a stale high-water mark would reject "New," and freeze the block.
+    expect(seen[2]).toBe('One. Two.New,');
+    expect(block.textContent).toBe('One. Two.New text,');
+  });
+
   it('does not arm the selection folder timeout when the grant gate is off', async () => {
     vi.useFakeTimers();
     try {
