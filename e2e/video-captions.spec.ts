@@ -388,7 +388,7 @@ test.describe('video captions', () => {
     }
   });
 
-  test('keeps native captions visible until the first translated overlay line', async () => {
+  test('shows the original overlay before the first translation arrives', async () => {
     const extension = await loadExtension('en-US');
     try {
       await resetExtensionStorage(extension.worker, {
@@ -409,14 +409,13 @@ test.describe('video captions', () => {
         translateVideoCaptions: true,
         targetLanguage: 'ja',
       });
-      await expect(page.locator('.ytp-caption-window-container')).toHaveCSS(
-        'visibility',
-        'visible',
-      );
-      await expect(page.locator('sakutto-captions[data-sakutto-caption]')).toHaveCount(0);
-      await expect(page.locator('.ytp-caption-segment')).toContainText(
+      await expect(page.locator('sakutto-captions')).toHaveAttribute(
+        'data-sakutto-original',
         'The station opens at dawn.',
       );
+      await expect(page.locator('sakutto-captions[data-sakutto-caption]')).toHaveCount(0);
+      await expect(page.locator('.ytp-caption-window-container')).toHaveCSS('visibility', 'hidden');
+      await expect(page.locator('html')).toHaveAttribute('data-sakutto-captions', 'overlay');
       await expect(page.locator('sakutto-captions')).toHaveAttribute(
         'data-sakutto-caption',
         /§ja§The station opens at dawn/,

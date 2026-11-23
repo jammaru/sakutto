@@ -418,9 +418,9 @@
         {:else if resultError}
           <p class="error note" role="alert">{t(resultErrorKey)}</p>
         {:else if result.trim().length > 0}
-          <output class="result" lang={targetLanguage} aria-labelledby="typed-result-title"
-            >{result}</output
-          >
+          <output class="result" lang={targetLanguage} aria-labelledby="typed-result-title">
+            {result}
+          </output>
         {:else}
           <p class="muted empty">{t('typedResultEmpty')}</p>
         {/if}

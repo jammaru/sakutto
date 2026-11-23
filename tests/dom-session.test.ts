@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Revealer } from '@/dom/reveal';
 import { REVEAL_STREAM_AFTER_MS } from '@/dom/reveal';
 import { buildSegment } from '@/dom/segment';
-import { applyTranslation, restoreSegment } from '@/dom/render';
+import { applyTranslation, restoreSegment, showBilingual } from '@/dom/render';
 import {
   POPUP_TEXT_SCALE_VAR,
   popupCardMetrics,
@@ -21,6 +21,7 @@ import {
   type SessionPreferences,
 } from '@/dom/session';
 import { CAPTION_PLAYHEAD_PRIORITY } from '@/captions/engine';
+import { CaptionOverlay } from '@/captions/overlay';
 import { abortError, modelChangedError } from '@/engine/errors';
 import { JobScheduler } from '@/engine/queue/scheduler';
 import type { TranslateOptions } from '@/engine/types';
@@ -310,6 +311,29 @@ describe('segment restore', () => {
     expect(snapshot(block)).toEqual(before);
     expect(block.querySelector('a')).toBe(link);
   });
+
+  it('distributes flattened CJK output across bilingual source paragraphs', () => {
+    document.body.innerHTML =
+      '<div data-testid="tweetText"><span>一つ目の短い段落</span><br /><br />' +
+      '<span>二つ目の少し長めの段落です</span><br /><br /><span>三つ目の段落</span></div>';
+    const block = document.querySelector('[data-testid="tweetText"]');
+    if (!block) throw new Error('missing tweet');
+    const model = buildSegment(block);
+    if (!model) throw new Error('missing segment');
+
+    showBilingual(model, '最初の訳文二番目の訳文です最後の訳文', []);
+
+    const line = block.querySelector('sakutto-line');
+    const chunks = Array.from(line?.childNodes ?? [])
+      .filter((node) => node.nodeType === Node.TEXT_NODE)
+      .map((node) => node.nodeValue ?? '');
+    expect(line?.querySelectorAll('br')).toHaveLength(4);
+    expect(chunks).toHaveLength(5);
+    expect(chunks[0]?.trim()).not.toBe('');
+    expect(chunks[2]?.trim()).not.toBe('');
+    expect(chunks[4]?.trim()).not.toBe('');
+    expect(chunks.join('')).toBe('最初の訳文二番目の訳文です最後の訳文');
+  });
 });
 
 describe('page session', () => {
@@ -357,6 +381,81 @@ describe('page session', () => {
     expect(snapshot(document.body)).toEqual(before);
     expect(document.querySelector('sakutto-line')).toBeNull();
     expect(document.querySelector('sakutto-note')).toBeNull();
+  });
+
+  it('keeps page nodes and page translation out of the caption overlay host', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = `
+      <div id="player">
+        <h1 id="title">A trip through Hokkaido</h1>
+        <div id="author">Rail films</div>
+        <div id="potato">Potato recipes</div>
+        <div id="eye">👀 12,345 views</div>
+        <div id="si">SI</div>
+        <video></video>
+      </div>
+    `;
+    const player = document.querySelector('#player');
+    if (!(player instanceof HTMLElement)) throw new Error('missing player');
+    const overlay = new CaptionOverlay(document, {
+      label: 'Translated captions',
+      pending: 'Translating caption…',
+      showOriginal: 'Show original caption',
+      hideOriginal: 'Hide original caption',
+    });
+    overlay.attach(player);
+    overlay.show({
+      original: 'The station opens at dawn.',
+      translation: '駅は夜明けに開きます。',
+      display: 'bilingual',
+      pending: false,
+    });
+    const host = player.querySelector('sakutto-captions');
+    if (!(host instanceof HTMLElement)) throw new Error('missing caption host');
+    const seen: string[] = [];
+    const session = start(
+      document,
+      engineOf(async function* (segments) {
+        for (const segment of segments) {
+          seen.push(segment.text);
+          yield { id: segment.id, final: `訳:${segment.text}`, engine: 'plamo' };
+        }
+      }),
+    );
+
+    await session.translate();
+    await session.whenIdle();
+    overlay.show({
+      original: 'A red train waits at platform two.',
+      translation: '赤い列車が二番線に停まっています。',
+      display: 'bilingual',
+      pending: false,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    await session.whenIdle();
+
+    const lines = [...(overlay.shadow()?.querySelectorAll('.line') ?? [])];
+    expect(lines.map((line) => line.textContent)).toEqual([
+      'A red train waits at platform two.',
+      '赤い列車が二番線に停まっています。',
+    ]);
+    expect(host.textContent).toBe('');
+    expect(host.childNodes).toHaveLength(0);
+    expect(host.querySelector('#title, #author, #potato, #eye, #si')).toBeNull();
+    for (const id of ['title', 'author', 'potato', 'eye', 'si']) {
+      const element = document.getElementById(id);
+      expect(element).not.toBeNull();
+      expect(host.contains(element)).toBe(false);
+    }
+    for (const caption of [
+      'The station opens at dawn.',
+      '駅は夜明けに開きます。',
+      'A red train waits at platform two.',
+      '赤い列車が二番線に停まっています。',
+    ]) {
+      expect(seen.every((source) => !source.includes(caption))).toBe(true);
+    }
+    overlay.detach();
   });
 
   it('clears the navigation stop after a persisted BFCache restore', async () => {
@@ -3196,6 +3295,140 @@ describe('page session', () => {
     await session.whenIdle();
 
     expect(added.textContent).toContain('訳:Added later');
+  });
+
+  it('rebinds a cached translation when an SPA replaces children in the same block', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = '<p id="lead"><span>Hello world</span></p>';
+    const session = start(
+      document,
+      immediate((text) => `訳:${text}`),
+    );
+    await session.translate();
+    await session.whenIdle();
+
+    const lead = document.querySelector('#lead');
+    if (!lead) throw new Error('missing lead');
+    lead.replaceChildren(document.createElement('span'));
+    if (!lead.firstElementChild) throw new Error('missing replacement');
+    lead.firstElementChild.textContent = 'Hello world';
+
+    await vi.waitFor(() => expect(lead.textContent).toBe('訳:Hello world'));
+    session.restore();
+    expect(lead.textContent).toBe('Hello world');
+  });
+
+  it('rebinds a same-source child replacement while the request is still running', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = '<p id="lead"><span>Hello world</span></p>';
+    const lead = document.querySelector('#lead');
+    if (!lead) throw new Error('missing lead');
+
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let calls = 0;
+    const session = start(
+      document,
+      engineOf(async function* (segments, options) {
+        calls += 1;
+        const first = calls === 1;
+        for (const segment of segments) {
+          if (first) {
+            yield { id: segment.id, textDelta: '…', engine: 'plamo' as const };
+            await gate;
+            if (options.signal.aborted) return;
+          }
+          yield { id: segment.id, final: `訳:${segment.text}`, engine: 'plamo' as const };
+        }
+      }),
+    );
+
+    await session.translate();
+    await vi.waitFor(() => expect(lead.textContent).toContain('…'));
+
+    // React replaces the child with the same source while the first request is in flight.
+    lead.replaceChildren(document.createElement('span'));
+    const fresh = lead.firstElementChild;
+    if (!fresh) throw new Error('missing replacement');
+    fresh.textContent = 'Hello world';
+    // Let the mutation observer rebind the segment before the request finishes.
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    release();
+    await session.whenIdle();
+
+    expect(calls).toBe(1);
+    expect(lead.textContent).toBe('訳:Hello world');
+    // The paint has to reach the live block; the old span was detached by the replacement.
+    expect(
+      [...lead.childNodes].some(
+        (node) => node.nodeType === Node.TEXT_NODE && (node.nodeValue ?? '').includes('訳:'),
+      ),
+    ).toBe(true);
+    expect(fresh.textContent).toBe('Hello world');
+  });
+
+  it('rebuilds from original source after a partial replace paint and a source change', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = '<p id="lead"><span>Hello</span> <span>world</span></p>';
+    const lead = document.querySelector('#lead');
+    if (!lead) throw new Error('missing lead');
+
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let calls = 0;
+    const session = start(
+      document,
+      engineOf(async function* (segments, options) {
+        calls += 1;
+        for (const segment of segments) {
+          if (calls === 1) {
+            yield { id: segment.id, textDelta: '…', engine: 'plamo' as const };
+            await gate;
+            if (options.signal.aborted) return;
+          }
+          yield { id: segment.id, final: `訳:${segment.text}`, engine: 'plamo' as const };
+        }
+      }),
+    );
+
+    await session.translate();
+    await vi.waitFor(() => expect(lead.querySelector('span')?.textContent).toBe(''));
+
+    // The page edits the second span after our partial paint cleared both source slots.
+    const second = lead.querySelectorAll('span')[1];
+    if (!second) throw new Error('missing second span');
+    second.textContent = 'WORLD';
+    await new Promise((resolve) => setTimeout(resolve, 40));
+
+    release();
+    await session.whenIdle();
+
+    expect(calls).toBe(2);
+    expect(lead.textContent).toContain('Hello');
+    expect(lead.textContent).toContain('WORLD');
+    expect(lead.textContent).not.toContain('…');
+  });
+
+  it('keeps source line breaks in a bilingual translation', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML =
+      '<p id="lead"><span>First line.</span><br /><br /><span>Second line.</span></p>';
+    const session = start(
+      document,
+      immediate((text) => `訳:${text}`),
+      { display: 'bilingual' },
+    );
+    await session.translate();
+    await session.whenIdle();
+
+    const line = document.querySelector('#lead > sakutto-line');
+    expect(line?.querySelectorAll('br')).toHaveLength(2);
+    expect(line?.childNodes[0]?.nodeValue).toBe('訳:First line.');
+    expect(line?.childNodes[4]?.nodeValue).toBe('Second line.');
   });
 
   it('interrupts an in-flight page translation for a selection', async () => {
@@ -6595,5 +6828,188 @@ describe('selection offers on a never host and at init', () => {
     );
     session.offerExistingSelection();
     expect(icon().hidden).toBe(true);
+  });
+});
+
+describe('X detail conversation', () => {
+  function xEngine(seen: string[]): PageEngine {
+    return engineOf(async function* (segments) {
+      for (const segment of segments) {
+        seen.push(segment.text);
+        yield { id: segment.id, final: `§en§${segment.text}`, engine: 'plamo' as const };
+      }
+    });
+  }
+
+  const xPreferences = {
+    targetLanguage: 'en',
+    display: 'bilingual' as const,
+    auto: 'always' as const,
+  };
+
+  it('translates a reply mounted in the same tick as the main tweet is painted', async () => {
+    document.documentElement.lang = 'ja';
+    const main = '最初の投稿です。'.repeat(12);
+    document.body.innerHTML =
+      '<article data-testid="tweet"><div id="main" data-testid="tweetText" lang="ja">' +
+      main +
+      '</div></article><div id="conversation"></div>';
+    let injected = false;
+    // X lazy-loads the conversation while the primary tweet is being painted. The page's
+    // mutation and our paint land in the same observer callback, which used to be discarded.
+    const pageObserver = new MutationObserver((records) => {
+      if (injected) return;
+      const painted = records.some((record) =>
+        [...record.addedNodes].some(
+          (node) => node instanceof Element && node.tagName === 'SAKUTTO-LINE',
+        ),
+      );
+      if (!painted) return;
+      injected = true;
+      const conversation = document.getElementById('conversation');
+      if (!conversation) return;
+      conversation.innerHTML =
+        '<article data-testid="tweet"><div id="reply" data-testid="tweetText" lang="ja">' +
+        `返信の本文です。${'続き。'.repeat(30)}` +
+        '</div></article>';
+    });
+    pageObserver.observe(document.body, { childList: true, subtree: true });
+    try {
+      const seen: string[] = [];
+      const session = start(document, xEngine(seen), xPreferences);
+      await session.translate();
+      await session.whenIdle();
+      await new Promise((resolve) => setTimeout(resolve, 60));
+      await session.whenIdle();
+
+      expect(injected).toBe(true);
+      expect(seen.some((source) => source.includes('返信'))).toBe(true);
+      expect(document.querySelector('#reply > sakutto-line')?.textContent).toContain(
+        '§en§返信の本文です',
+      );
+    } finally {
+      pageObserver.disconnect();
+    }
+  });
+
+  it('translates a conversation injected after a pushState navigation', async () => {
+    document.documentElement.lang = 'ja';
+    document.body.innerHTML =
+      '<article data-testid="tweet"><div id="main" data-testid="tweetText" lang="ja">' +
+      `最初の投稿です。${'続き。'.repeat(30)}` +
+      '</div></article><div id="spa"></div>';
+    const seen: string[] = [];
+    const session = start(document, xEngine(seen), xPreferences);
+    await session.translate();
+    await session.whenIdle();
+    expect(seen.some((source) => source.includes('最初の投稿'))).toBe(true);
+
+    document.defaultView?.history.pushState({}, '', '/i/web/status/165');
+    const spa = document.getElementById('spa');
+    if (!spa) throw new Error('missing SPA root');
+    spa.innerHTML =
+      '<article data-testid="tweet"><div id="spa-reply" data-testid="tweetText" lang="ja">' +
+      `SPA後の返信です。${'続き。'.repeat(30)}` +
+      '</div></article>';
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    await session.whenIdle();
+
+    expect(seen.some((source) => source.includes('SPA後の返信'))).toBe(true);
+    expect(document.querySelector('#spa-reply > sakutto-line')?.textContent).toContain(
+      '§en§SPA後の返信です',
+    );
+  });
+});
+
+describe('X logged-in pre-wrap bodies', () => {
+  it('requests each raw line once and puts its answer back on that line', async () => {
+    document.documentElement.lang = 'ja';
+    const lines = [
+      'ログイン済みのタイムラインでは本文が白折返しで描画されます。',
+      '短い行が続く場合でも対訳の同じ位置に改行が残ることを確認します。',
+      '絵文字の画像が混ざる行も訳せます。',
+      'ハッシュタグやメンションを含む行も一行ずつ要求として送られます。',
+      'ハッシュタグとメンションを含む行です。',
+      '空白行をはさんでも訳文が混ざらないことを確かめる六行目です。',
+      '七行目も同じ間隔で訳文が配置され原文の改行が保たれます。',
+      '最後の行まで崩れずに表示されることを確認するための八行目です。',
+    ];
+    document.body.innerHTML =
+      '<article><div id="logged" data-testid="tweetText" lang="ja" class="r-whitespace-pre-wrap">' +
+      lines.map((line) => `<span>${line}</span>`).join('\n\n') +
+      '</div></article>';
+
+    const seen: string[] = [];
+    const engine = engineOf(async function* (segments) {
+      for (const segment of segments) {
+        seen.push(segment.text);
+        yield {
+          id: segment.id,
+          final: `§en§${segment.text}`,
+          engine: 'plamo' as const,
+        };
+      }
+    });
+    const session = start(document, engine, {
+      targetLanguage: 'en',
+      display: 'bilingual',
+      auto: 'always',
+    });
+    await session.translate();
+    await session.whenIdle();
+
+    expect(seen).toHaveLength(lines.length);
+    expect(seen.every((text) => !text.includes('\n'))).toBe(true);
+    expect(seen).not.toContain('');
+    const line = document.querySelector('#logged > sakutto-line');
+    expect(line?.querySelectorAll('br')).toHaveLength(14);
+    const chunks = Array.from(line?.childNodes ?? [])
+      .filter((node) => node.nodeType === Node.TEXT_NODE)
+      .map((node) => node.nodeValue ?? '');
+    expect(chunks).toHaveLength(15);
+    expect(chunks.filter((chunk) => chunk.trim().length === 0)).toHaveLength(7);
+    expect(chunks.filter((chunk) => chunk.trim().length > 0)).toEqual(
+      lines.map((line) => `§en§${line}`),
+    );
+  });
+
+  it('keeps line pieces aligned when a missing placeholder forces a flatten retry', async () => {
+    document.documentElement.lang = 'ja';
+    document.body.innerHTML =
+      '<article><div id="logged" data-testid="tweetText" lang="ja" class="r-whitespace-pre-wrap">' +
+      '<span>最初の行には長い日本語の本文が書かれています。続きの文章も十分に長く用意しています。</span>\n\n' +
+      '<span><a href="/hashtag/野球">#野球</a> を含む二行目も長い本文です。続きの文章をさらに足しています。</span>\n\n' +
+      '<span>最後の行には三分の本文を書いています。最後まで長さを保つための追加文章です。</span>' +
+      '</div></article>';
+    const seen: string[] = [];
+    const engine = engineOf(async function* (segments) {
+      for (const segment of segments) {
+        seen.push(segment.text);
+        // First round drops the placeholder tags, so the session retries flat.
+        const text =
+          seen.length <= segments.length ? segment.text.replace(/<\/?i\d+>/gu, '') : segment.text;
+        yield { id: segment.id, final: `§en§${text}`, engine: 'plamo' as const };
+      }
+    });
+    const session = start(document, engine, {
+      targetLanguage: 'en',
+      display: 'bilingual',
+      auto: 'always',
+    });
+    await session.translate();
+    await session.whenIdle();
+
+    expect(seen).toHaveLength(6);
+    expect(seen.every((text) => !text.includes('\n'))).toBe(true);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    await session.whenIdle();
+    const line = document.querySelector('#logged > sakutto-line');
+    expect(line?.querySelectorAll('br')).toHaveLength(4);
+    const chunks = Array.from(line?.childNodes ?? [])
+      .filter((node) => node.nodeType === Node.TEXT_NODE)
+      .map((node) => node.nodeValue ?? '');
+    expect(chunks).toHaveLength(5);
+    expect(chunks.filter((chunk) => chunk.trim().length === 0)).toHaveLength(2);
+    expect(line?.textContent).not.toContain('<i');
   });
 });

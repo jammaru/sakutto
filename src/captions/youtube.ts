@@ -1,6 +1,7 @@
 import { isRecord } from '@/shared/object';
 import { isPlamoOnlyTarget } from '@/shared/languages';
 import { parseTimedtextJson3, parseWebVtt, type CaptionCue } from './cues';
+import { cleanHumanCaptionText } from './text-cleanup';
 
 export interface YoutubeCaptionTrack {
   baseUrl: string;
@@ -371,6 +372,14 @@ function captionDomWindows(root: ParentNode): Element[] {
   return [];
 }
 
+interface CaptionWindowSnapshot {
+  segments: Element[];
+  texts: string[];
+  join: boolean;
+}
+
+const captionWindowSnapshots = new WeakMap<Element, CaptionWindowSnapshot>();
+
 function captionWindowText(window: Element): string {
   const segments = [...window.querySelectorAll(YOUTUBE_CAPTION_SEGMENT_SELECTOR)].filter(
     (segment) => !segment.closest(CAPTION_HOST_TAG),
@@ -378,11 +387,34 @@ function captionWindowText(window: Element): string {
   if (segments.length === 0 && window.matches(YOUTUBE_CAPTION_SEGMENT_SELECTOR)) {
     return normalizeDomCaption(window.textContent ?? '');
   }
-  return normalizeDomCaption(segments.map((segment) => segment.textContent ?? '').join(' '));
+  const texts = segments
+    .map((segment) => normalizeDomCaption(segment.textContent ?? ''))
+    .filter((text) => text.length > 0);
+  const current = texts.at(-1) ?? '';
+  const previous = captionWindowSnapshots.get(window);
+  const previousNodes = new Set(previous?.segments ?? []);
+  const currentNodes = new Set(segments);
+  const appended = segments.some((segment) => !previousNodes.has(segment));
+  const removed = (previous?.segments ?? []).some((segment) => !currentNodes.has(segment));
+
+  // A cue appearing from an empty window is simultaneous pop-on. Once roll-up
+  // appends/removes fragment nodes, only the newest active fragment is current.
+  const join =
+    previous === undefined
+      ? texts.length > 1
+      : previous.texts.length === 0
+        ? !appended && !removed
+        : appended || removed
+          ? false
+          : previous.join;
+  captionWindowSnapshots.set(window, { segments, texts, join });
+  return join ? texts.join(' ') : current;
 }
 
 function normalizeDomCaption(value: string): string {
-  return value.replace(/\s+/g, ' ').trim();
+  // Do not strip maintainer-looking words here: the ASR session applies its own
+  // cleanup once it knows the selected track is auto-generated.
+  return cleanHumanCaptionText(value.replace(/\s+/g, ' ').trim());
 }
 
 function languagePrefix(value: string | null | undefined): string {
@@ -554,14 +586,15 @@ export function parseTimedtextPayload(
   body: string,
   fmt: 'json3' | 'vtt',
   language?: string,
+  asr = false,
 ): CaptionCue[] {
   const trimmed = body.trim();
   if (trimmed.length === 0) return [];
-  if (fmt === 'vtt' || trimmed.startsWith('WEBVTT')) return parseWebVtt(trimmed, language);
+  if (fmt === 'vtt' || trimmed.startsWith('WEBVTT')) return parseWebVtt(trimmed, language, asr);
   try {
-    return parseTimedtextJson3(JSON.parse(trimmed) as unknown, language);
+    return parseTimedtextJson3(JSON.parse(trimmed) as unknown, language, asr);
   } catch {
-    if (trimmed.startsWith('WEBVTT')) return parseWebVtt(trimmed, language);
+    if (trimmed.startsWith('WEBVTT')) return parseWebVtt(trimmed, language, asr);
     return [];
   }
 }

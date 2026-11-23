@@ -1,0 +1,112 @@
+{
+  "events": [
+    {
+      "tStartMs": 0,
+      "dDurationMs": 600,
+      "segs": [
+        {
+          "utf8": "The station opens"
+        }
+      ]
+    },
+    {
+      "tStartMs": 0,
+      "dDurationMs": 1100,
+      "segs": [
+        {
+          "utf8": "The station opens at"
+        }
+      ]
+    },
+    {
+      "tStartMs": 0,
+      "dDurationMs": 1800,
+      "segs": [
+        {
+          "utf8": "station opens at dawn."
+        }
+      ]
+    },
+    {
+      "tStartMs": 2200,
+      "dDurationMs": 500,
+      "segs": [
+        {
+          "utf8": "A red train waits"
+        }
+      ]
+    },
+    {
+      "tStartMs": 2200,
+      "dDurationMs": 1100,
+      "segs": [
+        {
+          "utf8": "A red train waits on"
+        }
+      ]
+    },
+    {
+      "tStartMs": 2200,
+      "dDurationMs": 1700,
+      "segs": [
+        {
+          "utf8": "red train waits on platform two."
+        }
+      ]
+    },
+    {
+      "tStartMs": 4200,
+      "dDurationMs": 500,
+      "segs": [
+        {
+          "utf8": "Tickets are sold"
+        }
+      ]
+    },
+    {
+      "tStartMs": 4200,
+      "dDurationMs": 1200,
+      "segs": [
+        {
+          "utf8": "Tickets are sold near"
+        }
+      ]
+    },
+    {
+      "tStartMs": 4200,
+      "dDurationMs": 1800,
+      "segs": [
+        {
+          "utf8": "sold near the north gate."
+        }
+      ]
+    },
+    {
+      "tStartMs": 6300,
+      "dDurationMs": 500,
+      "segs": [
+        {
+          "utf8": "The next train leaves"
+        }
+      ]
+    },
+    {
+      "tStartMs": 6300,
+      "dDurationMs": 1000,
+      "segs": [
+        {
+          "utf8": "The next train leaves at"
+        }
+      ]
+    },
+    {
+      "tStartMs": 6300,
+      "dDurationMs": 1700,
+      "segs": [
+        {
+          "utf8": "next train leaves at three."
+        }
+      ]
+    }
+  ]
+}
