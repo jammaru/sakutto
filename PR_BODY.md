@@ -15,6 +15,7 @@ PP-OCRv6 と ONNX Runtime Web を使い、スキャンPDFと画像の文字認�
 - 最新の DSH レビューの 6 件のブロッカーも修正：右列内の語間で切れる OCR ガター分割、実スキャン overflow の過小報告、コード行の散文誤判定、coverage sweep によるリトライ上限のバイパス、連鎖数式の末尾保護漏れ、レポートと生データの不一致
 - 今回の DSH レビューの 4 件のブロッカーも修正：ページ中央に近い語間をガターと誤る分割、非対称段組の短い左段行の右段誤登録と cross-column 指標の取りこぼし、空の翻訳をリトライ回数に数えない経路、キーワード＋コロン節の散文を見落とす判定
 - 最新の DSH レビューの 4 件のブロッカーも修正：単一段の通常語間や短い中央見出しの誤分割、大文字始まりの合体行をタイトルと誤判定して列分割しない問題、短い日本語見出しの label 誤判定と未翻訳、ベンチ PR のレポート数値と生データの不一致
+- 今回の DSH レビューの 5 件のブロッカーも修正：比較演算子を含む散文のコード誤判定と段落分断、数式前の `Since` / `Thus` などの文頭語の保護、短い見出し横での右列語間ガター誤選択と単一段の誤分割、warm-up を除外せずに除外を謳うベンチ、ページ単位と実行単位の先頭ブロック時刻の混同
 
 ### OCR モデル
 
@@ -39,7 +40,7 @@ Node 24 / ONNX Runtime Web 1.31.1 WASM、生成 CC0 フィクスチャ8件、各
 
 再現: `pnpm bench:ocr`。詳細: `bench/results/ocr-benchmark.md`。
 
-実スキャン `bench/pdf/scan.pdf` p1 は、コミット済みの正解テキスト（`bench/pdf/scan-p1.gt.txt`）に対して `pnpm bench:pdf:scan:ocr` で測定します。旧ベンチの参照は印刷用 paper.pdf の行でスキャンレイアウトと不一致でした。修正後の出荷設定（2x / maxSide 1600, Standard）は CER 3.0% / WER 5.5%、cross-column 0、約 35 秒/ページです。実スキャンの overflow は未描画のフィット失敗も数え、default-1600 で 6 件です。詳細: `bench/results/scan-ocr/README.md`。組版品質ベンチは mixed language 0.0%（目標 ≤2%）、reading order 98.3%（目標 ≥98%）を維持しています。
+実スキャン `bench/pdf/scan.pdf` p1 は、コミット済みの正解テキスト（`bench/pdf/scan-p1.gt.txt`）に対して `pnpm bench:pdf:scan:ocr` で測定します。旧ベンチの参照は印刷用 paper.pdf の行でスキャンレイアウトと不一致でした。修正後の出荷設定（2x / maxSide 1600, Standard）は CER 3.0% / WER 5.5%、cross-column 0、約 43 秒/ページです。実スキャンの overflow は未描画のフィット失敗も数え、default-1600 で 4 件です。詳細: `bench/results/scan-ocr/README.md`。組版品質ベンチは mixed language 0.0%（目標 ≤2%）、reading order 98.3%（目標 ≥98%）を維持しています。
 
 ### 権限とプライバシー
 
@@ -51,7 +52,7 @@ Node 24 / ONNX Runtime Web 1.31.1 WASM、生成 CC0 フィクスチャ8件、各
 ### 検証
 
 - `pnpm lint`
-- `pnpm test` — 202 files, 2,607 passed, 1 optional smoke skipped
+- `pnpm test` — 202 files, 2,613 passed, 1 optional smoke skipped
 - `pnpm typecheck`
 - `pnpm format:check`
 - `pnpm exec wxt build`
@@ -73,6 +74,7 @@ This change adds on-device PP-OCRv6 recognition and translation for scanned PDFs
 - Also fixes six blockers from the latest DSH review: an OCR gutter split landing inside the right column, under-reported real-scan overflow, a code listing counted as prose, a coverage sweep bypassing the retry cap, an unprotected tail of a chained formula, and report artifacts contradicting the committed data
 - Fixes four blockers from this DSH review: a word gap near the page midpoint chosen as the gutter, a short left-column line misgrouped into the right column (and the integrity metric that hid its cover), an empty translation that bypassed the retry cap, and keyword-plus-colon prose mislabeled as code
 - Fixes four blockers from the latest DSH review: splitting a single-column word gap or short centred title at the page midpoint, leaving a capitalised merged two-column row whole because it looked title-like, skipping short Japanese section headings as labels, and PR text contradicting the committed bench data
+- Fixes five blockers from this DSH review: technical prose with a comparison operator classified as code and splitting its paragraph, sentence openers such as `Since` and `Thus` swallowed into notation slots, a right-column word gap chosen as the gutter beside a short heading (and a single-column line split), benches claiming warm-up exclusion without warming up, and one name for two different first-block latencies
 
 ### Benchmark and default
 
@@ -86,7 +88,7 @@ The default is latency-first; the high tier uses the same weights with a larger 
 
 The standard pairing was practical on every default-tier case: English scan, Japanese horizontal and vertical text, slides, low-resolution/skew, two columns, mixed Japanese/English, and small text. These generated-fixture results do not establish broad real-world superiority. English and Japanese OCR output also passed through a deterministic local translation stub as a plumbing sanity check, not as translation-quality evidence.
 
-Reproduce with `pnpm bench:ocr`; see `bench/results/ocr-benchmark.md`. The real scan bench keeps the shipped Standard row at CER 3.0% and cross-column 0, with overflow counting unpainted fit failures (6 blocks); see `bench/results/scan-ocr/report.md`. The PDF quality bench keeps mixed-language at 0.0% (target ≤2%) and reading order at 98.3% (target ≥98%); see `bench/results/pdf-quality/final.md`.
+Reproduce with `pnpm bench:ocr`; see `bench/results/ocr-benchmark.md`. The real scan bench keeps the shipped Standard row at CER 3.0% and cross-column 0, with overflow counting unpainted fit failures (4 blocks); see `bench/results/scan-ocr/report.md`. The PDF quality bench keeps mixed-language at 0.0% (target ≤2%) and reading order at 98.3% (target ≥98%); see `bench/results/pdf-quality/final.md`.
 
 ### Permissions and privacy
 
@@ -95,7 +97,7 @@ Release `host_permissions` remains empty, with no new image-origin access. Canva
 ### Validation
 
 - `pnpm lint`
-- `pnpm test` — 202 files, 2,607 passed, 1 optional smoke skipped
+- `pnpm test` — 202 files, 2,613 passed, 1 optional smoke skipped
 - `pnpm typecheck`
 - `pnpm format:check`
 - `pnpm exec wxt build`

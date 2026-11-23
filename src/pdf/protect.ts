@@ -62,7 +62,7 @@ const DIMENSION_CHAIN = new RegExp(
  * inside the protected slot.
  */
 const PROSE_LEAD =
-  /^(?:(?:Let|For|If|When|Where|Then|While|With|Each|Given|The|This|That|These|Those|We|It|And|But|Are|Was|Were|Has|Have|Can|May|Use|Using|From|Into|Over|Under|After|Before|By|In|On|At|To|Of|As)\s+|(?:A|a)\s+(?=\p{N}))/u;
+  /^(?:(?:Let|For|If|When|Where|Then|While|With|Each|Given|The|This|That|These|Those|We|It|And|But|Are|Was|Were|Has|Have|Can|May|Use|Using|From|Into|Over|Under|After|Before|By|In|On|At|To|Of|As|Since|Because|Here|Note|Thus|Hence|Therefore|Consequently|Accordingly|Moreover|Furthermore|However|Although|Though|Whereas|Meanwhile|Finally|First|Second|Third|Next|Now|Also|Indeed|Specifically|Notably|Recall|Observe|Consider|Suppose|Assume|Per|Via)\s+|(?:A|a)\s+(?=\p{N}))/u;
 
 /**
  * Prose words that look like dimension names to DIMENSION_CHAIN.

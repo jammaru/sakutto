@@ -57,7 +57,7 @@ export interface QualityPage {
   /** Correctly ordered adjacent pairs / all adjacent pairs, 0-1. */
   readingOrder: number;
   twoColumn: boolean;
-  /** Milliseconds from the start of the run until this page's first block arrived. */
+  /** Milliseconds from this page's start until its first block arrived. */
   firstBlockMs: number;
   pageMs: number;
 }
@@ -74,7 +74,10 @@ export interface QualitySummary {
   overflowRate: number;
   readingOrderAccuracy: number;
   twoColumnPages: number;
+  /** Earliest per-page first-block latency; excludes fixture loading before the first page. */
   firstTranslatedBlockMs: number;
+  /** Arrival of the first block relative to the whole run, including fixture loading. */
+  firstTranslatedBlockFromRunStartMs: number;
   fullDocumentMs: number;
   /** Mean painted font size / source font size, where a translation was painted. */
   meanScale: number;
@@ -323,6 +326,10 @@ export function summarize(
     .filter((entry) => entry.painted)
     .map((entry) => entry.scale);
   const twoColumn = pages.filter((page) => page.twoColumn);
+  const pageFirst = pages.reduce(
+    (min, page) => Math.min(min, page.firstBlockMs),
+    Number.POSITIVE_INFINITY,
+  );
   return {
     pages: pages.length,
     proseBlocks: prose.length,
@@ -347,7 +354,8 @@ export function summarize(
         ? 1
         : pages.reduce((sum, page) => sum + page.readingOrder, 0) / pages.length,
     twoColumnPages: twoColumn.length,
-    firstTranslatedBlockMs: firstMs,
+    firstTranslatedBlockMs: Number.isFinite(pageFirst) ? pageFirst : 0,
+    firstTranslatedBlockFromRunStartMs: firstMs,
     fullDocumentMs: totalMs,
     meanScale:
       scales.length === 0 ? 1 : scales.reduce((sum, value) => sum + value, 0) / scales.length,

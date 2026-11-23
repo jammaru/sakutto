@@ -305,6 +305,28 @@ describe('latest DSH review blockers', () => {
   });
 });
 
+describe('latest DSH review report blockers', () => {
+  it('B2: leaves common sentence openers outside the protected notation slot', () => {
+    const cases = [
+      { source: 'Since Q ∈ R d is fixed, the result follows.', lead: 'Since ' },
+      { source: 'Because Q ∈ R d is fixed, it follows.', lead: 'Because ' },
+      { source: 'Here Q ∈ R d is fixed.', lead: 'Here ' },
+      { source: 'Note Q ∈ R d is fixed.', lead: 'Note ' },
+      { source: 'Thus Q ∈ R d is fixed.', lead: 'Thus ' },
+    ];
+    for (const { source, lead } of cases) {
+      const lines = groupLines([piece(source, 49, 100, 430)]);
+      const block = layoutPage(lines).blocks[0];
+      if (!block) throw new Error('expected a block');
+      const protectedText = protectInlineMath(block);
+      expect(protectedText.slots, source).toEqual([{ text: 'Q ∈ R d', script: 'none' }]);
+      expect(protectedText.text, source).toBe(lead + '<i0> ' + source.slice(lead.length + 8));
+      expectSourcePreserved(protectedText, source);
+      expect(restoreInlineMath('訳文 <i0> です。', protectedText.slots)).not.toBeNull();
+    }
+  });
+});
+
 describe('review 5 notation and typography', () => {
   it('B4: protects the whole dimension expression and keeps the sentence', () => {
     const source =

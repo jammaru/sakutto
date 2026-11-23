@@ -1,6 +1,7 @@
 {
   "label": "pair-medium_det+medium_rec",
   "pairing": "medium_det+medium_rec",
+  "warmups": 1,
   "results": [
     {
       "experiment": "baseline",
@@ -14,8 +15,52 @@
           "order": 1,
           "column": 1,
           "blockIoU": 0.4330802543085729,
-          "ms": 8261.517643,
+          "ms": 8694.337597000002,
           "lines": 7
+        },
+        {
+          "fixture": "ja-horizontal",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.5463056759789334,
+          "ms": 9091.043722000002,
+          "lines": 6
+        },
+        {
+          "fixture": "ja-vertical",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.7614539863740536,
+          "ms": 6615.177064000003,
+          "lines": 5
+        },
+        {
+          "fixture": "slides",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8266164460690298,
+          "ms": 7723.101812000001,
+          "lines": 6
+        },
+        {
+          "fixture": "low-res-skew",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.926191802665403,
+          "ms": 7089.298469000001,
+          "lines": 6
         },
         {
           "fixture": "two-column",
@@ -25,7 +70,7 @@
           "order": 1,
           "column": 1,
           "blockIoU": 0.8616680832867116,
-          "ms": 8988.915213999999,
+          "ms": 9663.811523000004,
           "lines": 8
         },
         {
@@ -36,7 +81,7 @@
           "order": 1,
           "column": 1,
           "blockIoU": 0.7698986076449428,
-          "ms": 7124.760893000002,
+          "ms": 7739.358788000005,
           "lines": 6
         },
         {
@@ -47,18 +92,19 @@
           "order": 1,
           "column": 1,
           "blockIoU": 0.8808816760522107,
-          "ms": 8936.75832,
+          "ms": 9683.629707,
           "lines": 8
         }
       ],
       "summary": {
-        "cer": 0.008620689655172414,
-        "wer": 0.109375,
+        "cer": 0.004310344827586207,
+        "wer": 0.0546875,
         "recall": 1,
         "order": 1,
         "column": 1,
-        "blockIoU": 0.7363821553231095,
-        "ms": 8327.9880175
+        "blockIoU": 0.7507620665474821,
+        "ms": 8287.469835250002,
+        "failures": 0
       }
     },
     {
@@ -73,8 +119,52 @@
           "order": 1,
           "column": 1,
           "blockIoU": 0.5931114832035254,
-          "ms": 8027.010846999998,
+          "ms": 8272.566634999996,
           "lines": 7
+        },
+        {
+          "fixture": "ja-horizontal",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.567003000695624,
+          "ms": 7897.720441999991,
+          "lines": 6
+        },
+        {
+          "fixture": "ja-vertical",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.8313214996904567,
+          "ms": 6253.661200000002,
+          "lines": 5
+        },
+        {
+          "fixture": "slides",
+          "cer": 0.015873015873015872,
+          "wer": 0.15,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.9034114347386439,
+          "ms": 7313.124916999994,
+          "lines": 6
+        },
+        {
+          "fixture": "low-res-skew",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.9225408690271357,
+          "ms": 7073.004453999994,
+          "lines": 6
         },
         {
           "fixture": "two-column",
@@ -84,7 +174,7 @@
           "order": 1,
           "column": 1,
           "blockIoU": 0.8835731887869301,
-          "ms": 8959.604784000003,
+          "ms": 9118.468548000004,
           "lines": 8
         },
         {
@@ -95,7 +185,7 @@
           "order": 1,
           "column": 1,
           "blockIoU": 0.7786132320058895,
-          "ms": 7060.577309,
+          "ms": 7303.493954999998,
           "lines": 6
         },
         {
@@ -106,18 +196,19 @@
           "order": 1,
           "column": 1,
           "blockIoU": 0.9017459192702756,
-          "ms": 8800.260214000002,
+          "ms": 9199.404518999989,
           "lines": 8
         }
       ],
       "summary": {
-        "cer": 0.004310344827586207,
-        "wer": 0.046875,
+        "cer": 0.0041392993979200874,
+        "wer": 0.0421875,
         "recall": 1,
         "order": 1,
         "column": 1,
-        "blockIoU": 0.7892609558166551,
-        "ms": 8211.8632885
+        "blockIoU": 0.79766507842731,
+        "ms": 7803.930583749996,
+        "failures": 0
       }
     },
     {
@@ -132,8 +223,52 @@
           "order": 1,
           "column": 1,
           "blockIoU": 0.9314074456114865,
-          "ms": 5058.629795000001,
+          "ms": 5216.8228119999985,
           "lines": 7
+        },
+        {
+          "fixture": "ja-horizontal",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.6311737153104962,
+          "ms": 4537.642499999987,
+          "lines": 6
+        },
+        {
+          "fixture": "ja-vertical",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.7755542760391425,
+          "ms": 4705.001848000014,
+          "lines": 5
+        },
+        {
+          "fixture": "slides",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.851382669536628,
+          "ms": 7290.437333000009,
+          "lines": 6
+        },
+        {
+          "fixture": "low-res-skew",
+          "cer": 0,
+          "wer": 0,
+          "recall": 1,
+          "order": 1,
+          "column": 1,
+          "blockIoU": 0.9366116285037989,
+          "ms": 5237.388393000001,
+          "lines": 6
         },
         {
           "fixture": "two-column",
@@ -143,7 +278,7 @@
           "order": 1,
           "column": 1,
           "blockIoU": 0.8636967697095039,
-          "ms": 6541.330979999999,
+          "ms": 6773.380959000002,
           "lines": 8
         },
         {
@@ -154,7 +289,7 @@
           "order": 1,
           "column": 1,
           "blockIoU": 0.8146939489783378,
-          "ms": 4431.122334999993,
+          "ms": 4681.869111999986,
           "lines": 6
         },
         {
@@ -165,18 +300,19 @@
           "order": 1,
           "column": 1,
           "blockIoU": 0.9195753848226532,
-          "ms": 5356.036502999996,
+          "ms": 5607.656683999987,
           "lines": 8
         }
       ],
       "summary": {
-        "cer": 0.004310344827586207,
-        "wer": 0.046875,
+        "cer": 0.0021551724137931034,
+        "wer": 0.0234375,
         "recall": 1,
         "order": 1,
         "column": 1,
-        "blockIoU": 0.8823433872804954,
-        "ms": 5346.779903249997
+        "blockIoU": 0.8405119798140058,
+        "ms": 5506.274955124998,
+        "failures": 0
       }
     }
   ]

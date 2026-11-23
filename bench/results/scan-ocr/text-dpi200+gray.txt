@@ -95,13 +95,13 @@ WABGPU, 2 seguences 348 1.5s 41s
 WHeGPU, I snqurnce 201 218 50s
 short. CPU, 8 theeats 14.6 2.8s 965
 D emát(translate(block))
-CPU/, 4 theads 91 34s 156 s
 placehoiders.
 S8s
 96s
 150s
 NAOCPU,2sm WRBCPU, 1 9g CKC. 8 tmah CKL, 4 fmoth
 Plgure L Tie to translate the whole fiature artkcle. ty backand. The CPU pah k ot onls fate pe tolenc lk aho pacds shon boca lm
+CPU/, 4 theads 91 34s 156 s
 Ackmauedp k. The modl wgh w pohdled by Poll Nworka anle the PLaMo Camty Licwe. The rontime i a putehedl boul
 of lamo gp cmpet wih Emerpom Teote ih aftnt win th work.
 [2]A. Autos. "llama.cpp: inlernoe of lage langge modkl ie C and C," Sultwan, 2t23-202%.

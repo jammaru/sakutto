@@ -90,11 +90,11 @@ function tier(id: OcrTier, det: OcrModelEntry, rec: OcrModelEntry): OcrTierEntry
   return { id, det, rec, files, size: assetBundleSize(files) };
 }
 
-// Standard remains the default for latency. The generated CC0 eight-case Node/WASM run after
-// the aspect-preserving recognition fix measured 0.7% micro-CER / 1208 ms/page (tiny+small)
-// versus 3.5%/1531 ms (small+small) and 0.4%/7795 ms (medium+medium). The earlier 10.3%
+// Standard remains the default for latency. The committed CC0 eight-case Node/WASM run after
+// the aspect-preserving recognition fix measured 0.7% micro-CER / 1412.7 ms/page (tiny+small)
+// versus 3.5%/2115.3 ms (small+small) and 0.4%/10846.6 ms (medium+medium). The earlier 10.3%
 // high-tier figure came from squashing wide recognition crops to 320 px, not from model quality.
-// See bench/results/ocr-benchmark.md.
+// See bench/results/ocr-benchmark.md for the run's own scope and timing note.
 export const OCR_TIER_CATALOG: Readonly<Record<OcrTier, OcrTierEntry>> = Object.freeze({
   standard: tier('standard', OCR_MODEL_CATALOG.tiny_det, OCR_MODEL_CATALOG.small_rec),
   high: tier('high', OCR_MODEL_CATALOG.medium_det, OCR_MODEL_CATALOG.medium_rec),

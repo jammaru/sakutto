@@ -20,6 +20,7 @@
     "readingOrderAccuracy": 0.9833333333333332,
     "twoColumnPages": 1,
     "firstTranslatedBlockMs": 307,
+    "firstTranslatedBlockFromRunStartMs": 307,
     "fullDocumentMs": 909,
     "meanScale": 0.9834835635324822
   },

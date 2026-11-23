@@ -136,4 +136,4 @@ resultをcheckしてから共有できます。
     pnpm vitest run --configLoader runner tests/ocr-bench.test.ts
     OCR_BENCH_SMOKE=1 pnpm vitest run --configLoader runner tests/ocr-bench.test.ts
 
-No existing source file or DEFAULT_OCR_TIER was changed.
+This benchmark run changed no existing source file or DEFAULT_OCR_TIER.

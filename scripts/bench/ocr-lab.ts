@@ -280,6 +280,8 @@ interface Summary {
   column: number;
   blockIoU: number;
   ms: number;
+  /** Cases that threw during the experiment; they are excluded from the timing mean. */
+  failures: number;
 }
 
 interface CaseResult {
@@ -292,6 +294,8 @@ interface CaseResult {
   blockIoU: number;
   ms: number;
   lines: number;
+  /** Failed cases keep accuracy zeros but must not contribute a fake 0 ms timing. */
+  failed?: boolean;
 }
 
 async function main(): Promise<void> {
@@ -311,7 +315,15 @@ async function main(): Promise<void> {
   }
   const results: { experiment: string; category: string; cases: CaseResult[]; summary: Summary }[] =
     [];
+  const warmImage = [...images.values()][0];
   try {
+    // ONNX sessions and kernels are lazy: the first inference pays the warm-up cost. Run one
+    // unreported inference on the loaded pairing before timing any experiment so the baseline
+    // row is not biased by being first.
+    if (warmImage && selectedExperiments.length > 0) {
+      const warm = makePipeline(loaded, selectedExperiments[0] ?? EXPERIMENTS[0]!);
+      await warm.pipeline.run(warmImage);
+    }
     for (const experiment of selectedExperiments) {
       const variant = makePipeline(loaded, experiment);
       const cases: CaseResult[] = [];
@@ -374,6 +386,7 @@ async function main(): Promise<void> {
         } catch (error) {
           cases.push({
             fixture: fixture.id,
+            failed: true,
             cer: 1,
             wer: 1,
             recall: 0,
@@ -390,8 +403,11 @@ async function main(): Promise<void> {
       }
       const total = (key: 'cer' | 'wer') =>
         cases.reduce((sum, item) => sum + item[key], 0) / Math.max(1, cases.length);
-      const mean = (key: 'recall' | 'order' | 'column' | 'blockIoU' | 'ms') =>
-        cases.reduce((sum, item) => sum + item[key], 0) / Math.max(1, cases.length);
+      const mean = (key: 'recall' | 'order' | 'column' | 'blockIoU' | 'ms') => {
+        const values = key === 'ms' ? cases.filter((item) => item.failed !== true) : cases;
+        return values.reduce((sum, item) => sum + item[key], 0) / Math.max(1, values.length);
+      };
+      const failures = cases.filter((item) => item.failed === true).length;
       const summary = {
         cer: total('cer'),
         wer: total('wer'),
@@ -400,6 +416,7 @@ async function main(): Promise<void> {
         column: mean('column'),
         blockIoU: mean('blockIoU'),
         ms: mean('ms'),
+        failures,
       };
       results.push({ experiment: experiment.id, category: experiment.category, cases, summary });
       console.log(
@@ -433,6 +450,7 @@ async function main(): Promise<void> {
       '# OCR experiment lab — ' + label,
       '',
       'Pairing: ' + pairing + '. ' + selectedFixtures.map((fixture) => fixture.id).join(', ') + '.',
+      'One unreported warm-up inference is run before timing; ms/page excludes it.',
       '',
       header,
       ...results.map((entry) => {
@@ -462,7 +480,7 @@ async function main(): Promise<void> {
   await mkdir(OUT, { recursive: true });
   await writeFile(
     join(OUT, label + '.json'),
-    JSON.stringify({ label, pairing, results }, null, 2) + '\n',
+    JSON.stringify({ label, pairing, warmups: warmImage ? 1 : 0, results }, null, 2) + '\n',
   );
   await writeFile(join(OUT, label + '.md'), markdown);
   console.log('\nwrote ' + join(OUT, label + '.md'));

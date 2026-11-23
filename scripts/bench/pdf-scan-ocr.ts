@@ -301,6 +301,9 @@ async function main(): Promise<void> {
         detectionPreprocess: { maxSide: variant.maxSide, multiple: 32 },
         recognitionPreprocess: variant.recognition ?? { height: 48, maxWidth: 4096 },
       });
+      // The first inference initialises lazy ONNX kernels. Discard one run so the first
+      // variant is not charged for warm-up and the reported ms/page matches the PR claim.
+      await pipeline.run(preprocessed.image);
       const started = performance.now();
       const result = await pipeline.run(preprocessed.image);
       const ms = performance.now() - started;
@@ -391,6 +394,7 @@ async function main(): Promise<void> {
         variant: variant.id,
         pairing,
         ms,
+        warmups: 1,
         modelBytes,
         cer: characterErrorRate(reference, hypothesis).rate,
         wer: wordErrorRate(reference, hypothesis).rate,

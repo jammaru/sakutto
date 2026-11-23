@@ -390,6 +390,39 @@ async function renderShots(report: unknown): Promise<void> {
   }
 }
 
+/**
+ * Keep the committed PR body's final column in step with `final.json`. Without this a normal
+ * `--label final` refresh silently invalidates tests/pdf-quality-report.test.ts until someone
+ * edits the markdown by hand.
+ */
+async function refreshPrBody(summary: ReturnType<typeof summarize>): Promise<void> {
+  const path = join(ROOT, 'bench/results/pdf-quality/PR_BODY.md');
+  const text = await readFile(path, 'utf8').catch(() => null);
+  if (text === null) return;
+  const values = new Map([
+    ['はみ出し/ブロック', summary.overflowRate.toFixed(3)],
+    ['ブロック内言語混在率', (summary.mixedLanguageRate * 100).toFixed(1) + '%'],
+    ['2 カラム読み順正解率', (summary.readingOrderAccuracy * 100).toFixed(1) + '%'],
+    ['最初の訳文が出るまで（ページ単位）', String(summary.firstTranslatedBlockMs) + ' ms'],
+    ['全文処理時間（fake engine）', String(summary.fullDocumentMs) + ' ms'],
+  ]);
+  const updated = text
+    .split('\n')
+    .map((line) => {
+      const cells = line.split('|');
+      const label = cells[1]?.trim() ?? '';
+      const value = values.get(label);
+      if (value === undefined || cells[3] === undefined) return line;
+      const original = cells[3];
+      const decorated = original.includes('**') ? '**' + value + '**' : value;
+      const width = Math.max(original.length, decorated.length + 2);
+      cells[3] = ' ' + decorated.padStart(width - 2) + ' ';
+      return cells.join('|');
+    })
+    .join('\n');
+  await writeFile(path, updated);
+}
+
 async function main(): Promise<void> {
   const started = Date.now();
   await mkdir(OUT, { recursive: true });
@@ -764,6 +797,7 @@ async function main(): Promise<void> {
     hasTable ? markdown.split('\n').slice(2).join('\n') + '\n' : markdown + '\n',
   );
   await writeFile(join(OUT, label + '.md'), fullMarkdown + '\n');
+  if (label === 'final') await refreshPrBody(summary);
 
   if (takeShots && shots.length > 0) await renderShots(shots);
 

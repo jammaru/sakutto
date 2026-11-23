@@ -96,16 +96,16 @@ s,-θ-B√S-1
 WeGPU, 1 sngurnce 20.1 218 50s
 short. CPU, 8 theeats 14.6 2.8s 965
 for hleck in page! 1f ss_equatien(htack): continue
-CPU/, 4 tmals 91 34s 156s
 emát(translate(block))
 placehoiders
 S8s
 N6s
 15s
+CPU/, 4 tmals 91 34s 156s
 WebCPU, 2 snq WeDCPU, 1 sg CPU, 8 tmah CK, 4 fwolh
 Flgure L Tie to translate the whole ixtare artkcle. ly backend. The CU path k st onls fatet pe tokmc ik aho pacds shon bloca im one completion, so it isues roughly a shid as maty mquest.
-. The ml wgh a pohay Pw Nk ane the PMo Cmmity Lice The rotime is a pateed beile
 Ackmvded
+. The ml wgh a pohay Pw Nk ane the PMo Cmmity Lice The rotime is a pateed beile
 of Ttamo gp compliet wih Emcrpemn Neoter ih afftand win thh work.
 [2]A. Autos. "llama.cpp: inlernce of lage languge modkls in C and C," Sultwan, 223-202%.
 [3]A. Asthor. "wllame: Weo Assemtty tentings for lama.pp." Sofware, 2024-202m.

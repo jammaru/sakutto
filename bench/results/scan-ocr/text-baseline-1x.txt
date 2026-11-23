@@ -30,6 +30,9 @@ rg nio thas dale vh  alae fns, anl Setn 4 de mmn. Sectn S dan de lae moe we The 
 could sot design avoy, and Section s Bots dhe wortk tar memains.
 The esenios i Maes V3 pecage van tour poes A servic oer ows he lete of eving e Aa
 do doe lon de nms lee a se ske oe lat a sobonly leg am a mpmen
+A cont sopt waos te pagr and vrites wunltos back imo the domen Ppp. soos ant obrdig pogs ende he settigs
+The model is PLaMo 3 Tonsae, an 0.0-bilto paramter decder tainel toe antaton in S ngags i he de f l p  Te p  l o   h    e
+in ss is o bid ot de rune a a piel coit peel in no pes s t voten and the y m ll  peg   o  U    fo
 maniland fins, ten biodo witis atot two screens in dhe directon dhe mder is soling Soolling ip re-rasks he
 gese, shah a sly a made sle jos io he onclon pt dhe ocle saer dn de iodatn.
 shen le a l, ue ol a oe he l  –a peked te a m p to eg pe omplet anl
@@ -43,9 +46,6 @@ mntegrescTotem a Lope ek ne me eme mmptme
 mantacakme 10 Sa nen  oe pead ma
 mahetlegre 8 Mak i oe paad nge
 ptrcoCan m Sengne ne of anme mon ams an ome jromge
-A cont sopt waos te pagr and vrites wunltos back imo the domen Ppp. soos ant obrdig pogs ende he settigs
-The model is PLaMo 3 Tonsae, an 0.0-bilto paramter decder tainel toe antaton in S ngags i he de f l p  Te p  l o   h    e
-in ss is o bid ot de rune a a piel coit peel in no pes s t voten and the y m ll  peg   o  U    fo
 W. Te  is  d    a   at a   Evy n a e All e e fo o la g     y  l   r  at
 ropr lom a ctt ccle, thoe toen, anl de aodan k mporet
 41 Tiemnglput Te   e o   m        d y    g
@@ -60,13 +60,9 @@ WoGIK, 2 ongancon 348 1.0s 64
 WOR: I ampase 281 218 502
 o CPU. ttrb 346 20s 902
 D for slack in poge: ir i ti(ack) cmne
-CPU., a noad 52 kas e
 D mctrante())
 A po i st a l of pegyle The cooer hoter we de d ter dan aleg a hol ot o g
 ind  mts tour shape decnty: ondiy proe, an ten of a gt oe fes ce, a oll t a npeg d  and a cmer she em tet of is o heide m cheldn. The demetto me he a tmlt  wottee hek ito
-te sde hd aded bo  was noc a pgh i peck wad ind de prt o very cte pogp ant de w pe pe      an y h Te  l i  y t
-mee   ht  e ly s g g  a ule a  ml de b al l de
-sot somder of mget ly ss
 he int sodes de sooror atroty hat. A row ld out an a gt leomes a vtot pte it is sntse nd bmn de
 ol il af ade dem
 hte cem der ae at poe — code, lestoant leys smptr ot. pomntutn ant chue nake — ty
@@ -80,6 +76,10 @@ Referenees
 Ader at stes  3 Te s  se Ser ,
 2A Ae g sese oa li d eC ant Cvem. 2s om
 XA Aa e Wy tomg le lMv. .20m
+CPU., a noad 52 kas e
+te sde hd aded bo  was noc a pgh i peck wad ind de prt o very cte pogp ant de w pe pe      an y h Te  l i  y t
+mee   ht  e ly s g g  a ule a  ml de b al l de
+sot somder of mget ly ss
 Thee hhen hpel de omt drign noe dat ay homne af
 Rtd plti m lat ee A pge tha sgpe cka  o aot et all sad s was
 mndaot The ber aw omot tods dhar ser graah ant npots de por n pott inmal

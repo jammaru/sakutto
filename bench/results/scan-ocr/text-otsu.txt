@@ -1,6 +1,6 @@
 Sakutto: Oa-Device Page Translation with a Saall Instruction-Tuned Model
 J. Anmuaru
-S Hィ
+S
 2.2 Prage mode?
 4 fr
 3. Scheduling
@@ -17,11 +17,9 @@ A rk w   Eh tke  l o ch poe k    ll
 exersins tht torwank he sg w + cher, i wt the Fagtkh The lru neo w de rr. and rverr wwno e
 raader makes altenwands, ta a rhird pany For à weseanch paper amder wvine, a prvase luwe sracher ar a medcal secenl
 dhs is often uuacoepable, and li is frequoady peotbitet ley die oecd the roada us bod leyp
-sanr.
 Homg th modd  he brwe noowa t boouhe Te p o mvt lono e pos,  a  dol,
 and dhe exiension wrks oftine once the reghin ae dewnloadied. Me comn  Laicy nl mmoy: d tmnkwr shn
 seever would run n an aceloraor hal  iic in a uab, compte walk de p wor er ru, ul proect wko cne a a
-tT L
 dme In front ef a readet whn Is alneady lidng a mc ea.
 n rule tha drode wat io paiete fiy, and Srtre & ee unnrs. Seree  da ter luere mndo we This pape repore s vorag syumn nade thue a aew medel. Serino  decrhes die sz, Secnoe lke scell
 uuid nck dewue way.  sectaom è lists she woek ch remm
@@ -30,7 +28,9 @@ Shon os  b,   e, a u l n t pad   reu,  b gh p un
 é toece tok  loul. Paong  ool aplaed lo ppephs.  pragreph a  long d te prompt tpletr, so pack
 ww d ik  y blo n the k ben de el  e whole uk. Th e i u
 d St 2 o  n  wi pk a de e an e on r eu
+sanr.
 LL LDU n CDU
+tT L
 f
 cT
 mtlT 140Suuece kokm i a pyn kad upe
@@ -62,13 +62,6 @@ for bloch in pagd: if 14_rquarion[blochp: coatsnue
 maat(cransiatetbloch))
 A page a noc  le of perph. the colbecto sepion twallu de doctme nedr dhn seecog + frtonl w el tage.
 and t tets lour shaph ddeeasy ordney prel  R ot a l ot f c.  o ol  eo d ne coate tats dwtu Ds ol dr oed bhdk e ceiea. he decde a le a elove  wte be me
-LP.1P 91 sds IVH4
-7 rtel perHey oe
-Wwe peckl peagaph an wrlt on Lbrls in an marly botid Thie sfungr lokel huemina, since esy mgarv ca rieml srs
-d  e  w we a pa a  wnd hend dhe ell my rarlier pah l thr
-dta e i tet erd mor g si Rrancg packing se hincés mnde h nns oevhel de le el reducrdl thr
-ool frot ol gaha ly G1
-3. IFalturt Mode
 de w rde the rr stredy l At leri ou   grd boe  rete p   reto  brto
 Wee IN In shw
 Inile rkmmes lhal arr n pm — cndr, luybnund lunys, le mu okt  ce uren —
@@ -78,6 +71,18 @@ A4
 N.
 la9
 AOGPIU. 2 54 WWC.PU1mL CKC. # twol ckc. adra
+purs L. Tew lu awiae de vlatr luua udukie. ly lhasur Thw C uah h nt wih Laat por a a e hah km beh
+u c L k  ruh
+A mradr dors not read a pge In dooenm odin, n she nsmvio dns  wade le run onins rn Ewy
+Adomn
+[1] A. Mele aad odens. Tabo 3 Taciawe: à compact cransbadec radit." Tededicat mper. a.
+LP.1P 91 sds IVH4
+7 rtel perHey oe
+Wwe peckl peagaph an wrlt on Lbrls in an marly botid Thie sfungr lokel huemina, since esy mgarv ca rieml srs
+d  e  w we a pa a  wnd hend dhe ell my rarlier pah l thr
+dta e i tet erd mor g si Rrancg packing se hincés mnde h nns oevhel de le el reducrdl thr
+ool frot ol gaha ly G1
+3. IFalturt Mode
 we Lk ihel d caret dgs mone dudh oy becne d.
 W cka e med e  e tht u blod  o no e s ad
 wd Te e c h e s Rr  r nd setr c  niel .
@@ -88,11 +93,6 @@ M tnd e d r B  d w de  e hu  l u lek tevel Th
 me qwd me wera  mrdd reproa liuell kueied
 Eaxh a d w t   ad, t by a irt nd w hun sture thu fas wv tr lix. W tukc this
 eklr   wraao th a ste probkdr te arode a te  pe, and the docattee is the led che
-purs L. Tew lu awiae de vlatr luua udukie. ly lhasur Thw C uah h nt wih Laat por a a e hah km beh
-u c L k  ruh
-A mradr dors not read a pge In dooenm odin, n she nsmvio dns  wade le run onins rn Ewy
-Adomn
-[1] A. Mele aad odens. Tabo 3 Taciawe: à compact cransbadec radit." Tededicat mper. a.
 ZTwu h yos of lkea arr sll nt of moch. The ttrst ls the pir shat a zeader opeua ko tve browset's own virwec
 vhor led a lel oat by a irut ogoe ndar dba lby tie bu. tlie xecond u tbe kcanend dkxunebl, uikre lbe ool)
 led a a p tiod d ie se og troe tha ptn:  tralon that laps the tpn geomely,  thuat.
@@ -101,4 +101,4 @@ frs cae As wda  figee d  ub some ddo rute. We repet on ur Tst  roe ad uonk
 w Fw eke v we von
 14 Wdwa wa Casventm HCPU speiafen" Caolme nKcoammdaden. 2Z%.
 HA 1R v k gkn a waisg  real omoi 2007.
-T H 1 otwen  Tss wwtwh ap n wwml cwmywlalimn, 22
+Hィ T H 1 otwen  Tss wwtwh ap n wwml cwmywlalimn, 22

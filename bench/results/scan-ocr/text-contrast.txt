@@ -104,8 +104,8 @@ N6s
 15s
 WebCPU, 2 snq WeDCPU, 1 sg CPU, 8 tmah CK, 4 fwolh
 Flgure L Tie to translate the whole fixtare artkcle. ly backend. The CU path k ot onls fatet pe tokmc ik aho pads shon bloca im one completion, so it iasues rouglily a shid as maty mquest.
-. The ml wgh a pohay Pw Nk une the PMo Cmmity Lice The rontime is a pateed beile
 Ackmvded
+. The ml wgh a pohay Pw Nk une the PMo Cmmity Lice The rontime is a pateed beile
 of Ttamo gp compliet wih Emcrpemn Neoter h afftand wtin th work.
 [2]A. Autos. "llama.cpp: inlernce of lage languge modkls in C and C," Sultwan, 2023-202%.
 [3]A. Asthor. "wtlame: Weo Assemtty tentings for lama.pp." Sofware, 2024-202m.

@@ -418,7 +418,27 @@ function blockMergesColumns(block: LayoutBlock, pageWidth: number): boolean {
     if (left.length > 0 && right.length > 0) {
       const leftEnd = Math.max(...left.map((piece) => piece.box.x + piece.box.width));
       const rightStart = Math.min(...right.map((piece) => piece.box.x));
-      if (rightStart - leftEnd >= MIN_COLUMN_GUTTER) return true;
+      const gutterWidth = rightStart - leftEnd;
+      // A full-width title can have an ordinary 6pt word gap exactly at the page gutter.
+      // A merged column row's gutter is wider than any word gap inside either column.
+      const widestInnerGap = (group: typeof pieces): number => {
+        const ordered = [...group].sort((a, b) => a.box.x - b.box.x);
+        let widest = 0;
+        for (let index = 1; index < ordered.length; index += 1) {
+          const previous = ordered[index - 1]!;
+          widest = Math.max(
+            widest,
+            (ordered[index]?.box.x ?? 0) - (previous.box.x + previous.box.width),
+          );
+        }
+        return widest;
+      };
+      if (
+        gutterWidth >= MIN_COLUMN_GUTTER &&
+        gutterWidth > Math.max(widestInnerGap(left), widestInnerGap(right)) + 0.001
+      ) {
+        return true;
+      }
     }
     if (pieces.length < 4) return false;
     const height = pieces.reduce((sum, piece) => sum + piece.box.height, 0) / pieces.length;

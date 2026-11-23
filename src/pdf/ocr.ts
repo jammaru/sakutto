@@ -63,6 +63,8 @@ export interface OcrTextPiece extends TextPiece {
 export interface OcrTextLine extends TextLine {
   readonly id: string;
   pieces: OcrTextPiece[];
+  /** Column of a line emitted by a gutter split; geometry decides when it is absent. */
+  readonly columnHint?: number | undefined;
 }
 
 /** LayoutBlock is structurally extended so PdfSession can consume it without changes. */
@@ -259,37 +261,46 @@ interface PieceSplit {
 function splitAtGutter(pieces: readonly OcrTextPiece[], pageWidth: number): PieceSplit {
   const middle = pageWidth / 2;
   const byX = [...pieces].sort((a, b) => a.box.x - b.box.x);
-  let best:
-    | { index: number; leftEnd: number; rightStart: number; width: number; measure: number }
-    | undefined;
+  const candidates: {
+    index: number;
+    leftEnd: number;
+    rightStart: number;
+    width: number;
+    measure: number;
+    score: number;
+  }[] = [];
   for (let index = 1; index < byX.length; index += 1) {
     const leftEnd = Math.max(...byX.slice(0, index).map((piece) => piece.box.x + piece.box.width));
     const rightStart = Math.min(...byX.slice(index).map((piece) => piece.box.x));
     const width = rightStart - leftEnd;
     if (width < MIN_COLUMN_GUTTER) continue;
     if (!gutterCentred(leftEnd, rightStart, pageWidth)) continue;
-    // Centre distance alone is not enough: an ordinary right-column word space can sit closer
-    // to the page midpoint than a real gutter that is off-centre. The printed gutter separates
-    // two comparable column measures; a word gap inside a column leaves one side much shorter.
-    // Do not require the gutter's left edge to be right of 0.4 x page width: left-asymmetric
-    // columns put it further left.
+    // Normally the printed gutter leaves a usable measure on both sides, while a word gap
+    // merely trims one column and grows the other. A gap that is dramatically wider than
+    // every other candidate is the physical gutter, though: a short heading beside a
+    // word-level body can make the measure heuristic prefer a 6pt space inside that body.
     const leftMeasure = leftEnd - Math.min(...byX.slice(0, index).map((piece) => piece.box.x));
     const rightMeasure =
       Math.max(...byX.slice(index).map((piece) => piece.box.x + piece.box.width)) - rightStart;
-    const measure = Math.min(leftMeasure, rightMeasure);
-    const score = Math.abs((leftEnd + rightStart) / 2 - middle);
-    const bestScore =
-      best === undefined ? Infinity : Math.abs((best.leftEnd + best.rightStart) / 2 - middle);
-    if (
-      !best ||
-      measure > best.measure + 0.001 ||
-      (Math.abs(measure - best.measure) <= 0.001 &&
-        (width > best.width + 0.001 ||
-          (Math.abs(width - best.width) <= 0.001 && score < bestScore - 0.001)))
-    ) {
-      best = { index, leftEnd, rightStart, width, measure };
-    }
+    candidates.push({
+      index,
+      leftEnd,
+      rightStart,
+      width,
+      measure: Math.min(leftMeasure, rightMeasure),
+      score: Math.abs((leftEnd + rightStart) / 2 - middle),
+    });
   }
+  const widths = candidates.map((candidate) => candidate.width).sort((a, b) => b - a);
+  const dominantGap =
+    widths[0] !== undefined &&
+    widths[0] >= Math.max(20, WIDE_COLUMN_GUTTER * 2) &&
+    (widths[1] === undefined || widths[0] >= widths[1] * 2);
+  const best = candidates.sort((a, b) =>
+    dominantGap
+      ? b.width - a.width || a.score - b.score
+      : b.measure - a.measure || b.width - a.width || a.score - b.score,
+  )[0];
   if (!best) {
     const left = pieces.filter((piece) => piece.box.x + piece.box.width / 2 < middle);
     const right = pieces.filter((piece) => piece.box.x + piece.box.width / 2 >= middle);
@@ -468,13 +479,15 @@ export function ocrResultToTextLines(
       gutterEvidence &&
       gutterGap >= WIDE_COLUMN_GUTTER &&
       !titleWordGap;
-    // The narrow-line arm previously accepted any 6pt gap near the midpoint, which is just an
-    // ordinary word gap on a single-column line (and split centred titles the same way). A
-    // printed gutter between two columns is at least WIDE_COLUMN_GUTTER wide.
+    // The narrow-line arm previously accepted any 6-10pt gap near the midpoint, which is just
+    // an ordinary word gap on a single-column line (and split centred titles the same way).
+    // A narrow row needs page-wide corroboration; a wide row can stand on its real gutter.
     const narrowTwoColumnLine =
       lineWidth < resolved.pageWidth * 0.82 &&
-      (gutterGap >= WIDE_COLUMN_GUTTER || (pageTwoColumn && gutterGap >= MIN_COLUMN_GUTTER)) &&
-      !titleWordGap;
+      !titleWordGap &&
+      ((pageTwoColumn && gutterGap >= MIN_COLUMN_GUTTER) ||
+        // Without page-wide evidence, only a gutter far wider than any word space counts.
+        gutterGap >= WIDE_COLUMN_GUTTER * 2);
     // A short left heading beside a normal body line is a two-column row too: the 18% width
     // floor for `wideTwoColumnLine` cannot see it, but the gutter and shared baseline can.
     const shortHeadingBesideBody =
@@ -483,6 +496,7 @@ export function ocrResultToTextLines(
       leftWidth >= 40 &&
       rightWidth > resolved.pageWidth * 0.18 &&
       isShortHeadingPieces(leftPieces) &&
+      hasHeadingEvidence(leftText, median(leftPieces.map((piece) => piece.box.height)), 0) &&
       rightText.length >= Math.max(24, leftText.length * 2) &&
       sharesBaseline(leftPieces, rightPieces);
     // This detector emits one quad per printed line, so a merged two-column row often has
@@ -503,23 +517,23 @@ export function ocrResultToTextLines(
       gutterGap >= MIN_COLUMN_GUTTER &&
       gutterEvidence &&
       (narrowTwoColumnLine || wideTwoColumnLine || shortHeadingBesideBody || wideLineRegionMerge);
-    const pushLine = (selected: OcrTextPiece[], id: string): void => {
+    const pushLine = (selected: OcrTextPiece[], id: string, columnHint?: number): void => {
       if (selected.length === 0) return;
       const line = lineFrom(selected);
       const text = selected.map((piece) => piece.text).join(pieceVertical ? '' : ' ');
-      output.push({ ...line, text, id, pieces: selected });
+      output.push({ ...line, text, id, pieces: selected, columnHint });
     };
     if (resolved.pageWidth > 0 && !pieceVertical && lineWidth >= resolved.pageWidth * 0.82) {
       const rows = splitMergedBodyLine(pieces, resolved.pageWidth);
       if (rows) {
-        pushLine(rows[0], lineId + ':left');
-        pushLine(rows[1], lineId + ':right');
+        pushLine(rows[0], lineId + ':left', 0);
+        pushLine(rows[1], lineId + ':right', 1);
         continue;
       }
     }
     if (crossesGutter) {
-      pushLine(leftPieces, lineId + ':left');
-      pushLine(rightPieces, lineId + ':right');
+      pushLine(leftPieces, lineId + ':left', 0);
+      pushLine(rightPieces, lineId + ':right', 1);
       continue;
     }
     pushLine(pieces, lineId);
@@ -710,6 +724,9 @@ function lineColumn(
   context: ColumnContext = columnContext([line], pageWidth),
 ): number {
   if (pageWidth <= 0) return 0;
+  // A line emitted by a gutter split already knows which side of the printed column it came
+  // from. Recomputing from its own box would misclassify an overflowing right-column row.
+  if (line.columnHint !== undefined && !verticalLine(line)) return line.columnHint;
   const mid = line.box.x + line.box.width / 2;
   if (line.box.width > pageWidth * 0.6) return SPANNING_COLUMN;
   // Without two body columns there is nothing to interleave: a centred single-column scan
@@ -823,11 +840,12 @@ function hasHeadingEvidence(text: string, height: number, bodySize: number): boo
  * A listing line whose OCR lost its indentation but kept code punctuation.
  *
  * Treating leading `for`, `if`, `return`, ... as proof of code skips ordinary paper sentences
- * (`For each batch we compute the loss`), so code punctuation is required: brackets,
- * semicolons, assignments and operators distinguish a bare statement from prose. A colon is
- * only code evidence when it terminates the statement; a colon followed by a prose clause
- * ("For each batch: we compute the loss") is an ordinary sentence. Sentences that end in a
- * full stop are prose regardless of their first word.
+ * (`For each batch we compute the loss`), so statement structure is required: block brackets
+ * or a terminating `;` / `:` distinguish a listing from prose. A bare operator, an assignment
+ * sign, or a mid-sentence semicolon is not enough: `If the loss < 0.1 we stop training after`
+ * is a wrapped sentence. A colon followed by a prose clause ("For each batch: we compute the
+ * loss") is ordinary prose unless it ends the line. Sentences that end in a full stop are prose
+ * regardless of their first word.
  */
 function looksLikeBareCodeLine(text: string): boolean {
   const trimmed = text.trim();
@@ -838,9 +856,13 @@ function looksLikeBareCodeLine(text: string): boolean {
   // Parentheses on their own are ordinary prose ("For each layer (see Figure 2), we ...").
   // Statements keep their assignment, block, continuation and operator punctuation; a bare
   // function call is code only when nothing follows its closing parenthesis.
-  if (/[;{}[\]=+*\x2f%<>_]/u.test(statement)) return true;
-  if (/:\s*$/u.test(statement)) return true;
-  return /^(?:for|foreach|if|while|emit|return|continue|def)\s*[\p{L}_][\p{L}\p{N}_]*\([^()]*\)\s*;?$/iu.test(
+  // A bare operator is not code evidence: technical prose compares values too
+  // ("If the loss < 0.1 we stop training after") and identifiers may contain an
+  // underscore or a URL. Only statement structure distinguishes a listing line:
+  // a terminating `;` / `:`, block delimiters, or a complete call/loop header.
+  if (/[;:]\s*$/u.test(statement)) return true;
+  if (/[{}[\]]/u.test(statement)) return true;
+  return /^(?:for|foreach|if|while|emit|return|continue|def)\s+[\p{L}_][\p{L}\p{N}_]*\([^()]*\)\s*;?$/iu.test(
     statement,
   );
 }
@@ -855,7 +877,9 @@ function groupText(lines: readonly OcrTextLine[]): string {
       output = value;
       continue;
     }
-    const hyphenated = /[-‐‑‒–]\p{L}?$/u.test(output) && /^[\p{Ll}]/u.test(value);
+    // A line-broken word continues even when the remainder starts with a capital
+    // ("Web-" / "Assembly" is one proper noun, not two translation units).
+    const hyphenated = /[-‐‑‒–]\p{L}?$/u.test(output) && /^\p{L}/u.test(value);
     output = hyphenated
       ? output.replace(/[-‐‑‒–]\p{L}?$/u, '') + value
       : output + (vertical ? '' : ' ') + value;

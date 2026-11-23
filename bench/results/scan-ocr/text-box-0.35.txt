@@ -97,11 +97,11 @@ s, = θ - AUS-1
 WGPU, I sngunnce 20.1 21s 20A
 short. CPU, 8 theats 14.6 2.81 965
 D for hleck in page! if ts_equatien(htack): conttnun
-CPU, d theals 91 34s 156 a
 D emát(translate(block))
 S8s
 96s
 15s
+CPU, d theals 91 34s 156 a
 WeoCPU, 2 seq WBCPU, I sg CPU, 8 :tmah CPL, 4 dieth
 Figure L Tie to ranslte he whole fie atkle, ly bacnd The CPU path k no onty at pe k k ao puda shon boc o
 Ackdedpmtk. The modt wige ae pohatad y Paleed Nevoris ande ite PaMe Camily Lice. The ime is a putrted bul

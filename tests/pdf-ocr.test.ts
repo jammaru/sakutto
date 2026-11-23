@@ -1350,6 +1350,89 @@ describe('latest DSH review blockers', () => {
     });
   });
 
+  describe('latest DSH review report blockers', () => {
+    it('B1: keeps wrapped technical prose containing a comparison operator together', () => {
+      const items = [
+        region('If the loss < 0.1 we stop training after', quad(45, 100, 400, 20)),
+        region('the first epoch and report the result.', quad(45, 125, 400, 20)),
+      ];
+      const result = ocrResult(
+        items,
+        items.map((item, index) => readingLine('horizontal', [item], [index])),
+      );
+      const layout = ocrResultToPageLayout(result, {
+        pageIndex: 0,
+        pageWidth: 600,
+        pageHeight: 800,
+      });
+      expect(layout.blocks.map((block) => block.text)).toEqual([
+        'If the loss < 0.1 we stop training after the first epoch and report the result.',
+      ]);
+      expect(layout.blocks[0]?.role).toBe('prose');
+      expect(layout.skipped).toEqual([]);
+    });
+
+    it('B3: selects the printed gutter beside a short heading, not a body word gap', () => {
+      const words = [
+        'in',
+        'two',
+        'places',
+        'so',
+        'that',
+        'workers',
+        'and',
+        'the',
+        'WebAssembly',
+        'module',
+      ];
+      for (const charWidth of [4, 7]) {
+        let x = 307;
+        const right = words.map((text) => {
+          const item = region(text, quad(x, 340, text.length * charWidth, 12));
+          x += text.length * charWidth + 6;
+          return item;
+        });
+        const items = [region('2. Methods and Results', quad(45, 340, 135, 12)), ...right];
+        const result = ocrResult(items, [readingLine('horizontal', items)]);
+        const layout = ocrResultToPageLayout(result, {
+          pageIndex: 0,
+          pageWidth: 600,
+          pageHeight: 800,
+        });
+        expect(
+          layout.blocks.map((block) => block.text),
+          String(charWidth),
+        ).toEqual(['2. Methods and Results', words.join(' ')]);
+        expect(
+          layout.blocks.map((block) => block.column),
+          String(charWidth),
+        ).toEqual([0, 1]);
+        expect(
+          layout.blocks.map((block) => block.role),
+          String(charWidth),
+        ).toEqual(['heading', 'prose']);
+      }
+    });
+
+    it('B3: does not split a single-column line at a wide word gap', () => {
+      const items = [
+        region('A single column line', quad(100, 100, 200, 12)),
+        region('with a wide middle', quad(310, 100, 120, 12)),
+        region('gap in it.', quad(430, 100, 80, 12)),
+      ];
+      const result = ocrResult(items, [readingLine('horizontal', items)]);
+      const layout = ocrResultToPageLayout(result, {
+        pageIndex: 0,
+        pageWidth: 600,
+        pageHeight: 800,
+      });
+      expect(layout.blocks.map((block) => block.text)).toEqual([
+        'A single column line with a wide middle gap in it.',
+      ]);
+      expect(layout.skipped).toEqual([]);
+    });
+  });
+
   it('B3: splits at the real off-centre gutter, not the page midpoint', () => {
     const leftText =
       'Left column words that end past the midpoint more left column words left tail word';

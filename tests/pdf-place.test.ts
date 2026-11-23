@@ -751,6 +751,46 @@ describe('placePage', () => {
     expect(metrics.crossColumnCovers).toBe(0);
   });
 
+  it('does not flag a multi-piece full-width title whose 6pt word gap sits at the gutter', () => {
+    const pageWidth = 595;
+    const line = lineFrom([
+      piece('A full', 45, 112, 155),
+      piece('width title', 206, 112, 79),
+      piece('and', 291, 112, 29),
+      piece('subtitle', 326, 112, 215),
+    ]);
+    const block: LayoutBlock = {
+      box: { x: 45, y: 100, width: 496, height: 24 },
+      room: { x: 45, y: 100, width: 496, height: 24 },
+      lines: [line],
+      text: 'A full width title and subtitle',
+      role: 'heading',
+      fontSize: 9,
+      lineHeight: 1.2,
+      align: 'left',
+      bold: false,
+      italic: false,
+      column: -1,
+      advance: 496,
+      writing: 0,
+    };
+    const fit = {
+      fits: true as const,
+      fontSize: 9,
+      lineHeight: 11,
+      lines: ['横断するタイトル'],
+      height: 22,
+      grown: false,
+      width: 480,
+    };
+    const drawn = drawnBox(block, fit, fit.width, pageWidth);
+    const metrics = paintIntegrityMetrics(
+      [{ block, translation: '横断するタイトル', fit, paint: true, drawn, overflow: false }],
+      pageWidth,
+    );
+    expect(metrics.crossColumnCovers).toBe(0);
+  });
+
   it('counts a cover starting in the left column for a mis-grouped right block', () => {
     // The block's source lines sit on both sides of the gutter, but no single line crosses it.
     // The spanning-source exemption must therefore not hide a cover painted over the left column.

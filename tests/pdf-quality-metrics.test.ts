@@ -92,6 +92,19 @@ describe('PDF quality metrics', () => {
     expect(summary.untranslatedProseRate).toBeCloseTo(1 / 3);
   });
 
+  it('reports the earliest per-page first block separately from the run-level arrival', () => {
+    const entries = [entry('prose', 'A translated paragraph.', true)];
+    const pages = [
+      { ...page(entries), firstBlockMs: 12 },
+      { ...page(entries), firstBlockMs: 5 },
+      { ...page(entries), firstBlockMs: 8 },
+    ];
+    const summary = summarize(pages, 313, 917);
+    expect(summary.firstTranslatedBlockMs).toBe(5);
+    expect(summary.firstTranslatedBlockFromRunStartMs).toBe(313);
+    expect(summarize([], 0, 0).firstTranslatedBlockMs).toBe(0);
+  });
+
   it('falls back to roles for reports recorded before the prose flag existed', () => {
     const old = { role: 'prose' } as Pick<QualityEntry, 'role' | 'prose'>;
     expect(countsAsProse(old)).toBe(true);
