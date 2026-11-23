@@ -1351,6 +1351,54 @@ describe('page session', () => {
     expect(session.state().pending).toBe(0);
   });
 
+  it('does not resolve a waiting idle call when a language change aborts a running request', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = '<p>Hello</p>';
+    const prefs = preferences();
+    let started!: () => void;
+    const firstStart = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const session = start(
+      document,
+      engineOf(async function* (segments) {
+        started();
+        await gate;
+        for (const segment of segments) {
+          yield { id: segment.id, final: '完了', engine: 'plamo' as const };
+        }
+      }),
+      prefs,
+    );
+    let idle = false;
+
+    await session.translate();
+    await firstStart;
+    void session.whenIdle().then(() => {
+      idle = true;
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(idle).toBe(false);
+    expect(session.state().pending).toBe(1);
+
+    // The language change aborts the in-flight request before the replacements are
+    // enqueued. An idle observation in that gap must not release the waiter.
+    session.setPreferences({ ...prefs, targetLanguage: 'de' });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(idle).toBe(false);
+    expect(session.state().pending).toBeGreaterThan(0);
+
+    release();
+    await vi.waitFor(() => {
+      expect(idle).toBe(true);
+    });
+    expect(session.state().pending).toBe(0);
+  });
+
   it('does not resolve whenIdle before an in-place block change is registered', async () => {
     document.documentElement.lang = 'en';
     document.body.innerHTML = '<p>Hello</p>';

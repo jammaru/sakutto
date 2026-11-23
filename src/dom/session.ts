@@ -424,6 +424,9 @@ export class PageSession {
   /** Clear/forget report the reveal as settled before their replacement work is queued. */
   private revealChanging = 0;
   private revealSettled = false;
+  // An idle observation made while a reveal change is in progress is re-evaluated
+  // when the change finishes: the new work is not registered yet in that window.
+  private idleDeferred = false;
   private prefs: SessionPreferences;
   private labels: OverlayLabels;
   private detectedLanguage: string | null = null;
@@ -3454,14 +3457,24 @@ export class PageSession {
       return change();
     } finally {
       this.revealChanging -= 1;
-      if (this.revealChanging === 0 && this.revealSettled) {
+      if (this.revealChanging === 0) {
+        const settled = this.revealSettled;
+        const deferred = this.idleDeferred;
         this.revealSettled = false;
-        this.resolveIdle();
+        this.idleDeferred = false;
+        if (settled || deferred) this.resolveIdle();
       }
     }
   }
 
   private resolveIdle(): void {
+    // A change can look idle after tearing work down but before its replacement is
+    // enqueued: abortRunning(false) pumps before retranslateNow() queues the new jobs.
+    // Re-check when the change is over instead of releasing waiters in that gap.
+    if (this.revealChanging > 0) {
+      this.idleDeferred = true;
+      return;
+    }
     if (!this.isIdle()) return;
     const waiters = this.idleWaiters.splice(0);
     for (const resolve of waiters) resolve();
