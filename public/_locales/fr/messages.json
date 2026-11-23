@@ -1739,12 +1739,25 @@
     "description": "Explains tier switching and old model cleanup."
   },
   "onboardingOcrNote": {
-    "message": "Les modèles OCR standard ($1) pour les PDFs numérisés et les images sont également téléchargés sur l'appareil.",
-    "description": "Combined onboarding download note with OCR bundle size."
+    "message": "Les modèles OCR standard ($SIZE$) pour les PDFs numérisés et les images sont également téléchargés sur l'appareil.",
+    "description": "Combined onboarding download note with OCR bundle size.",
+    "placeholders": {
+      "size": {
+        "content": "$1"
+      }
+    }
   },
   "pdfOcrReading": {
     "message": "Reconnaissance de la page numérisée $1 sur $2…",
-    "description": "Shown while OCR runs on a scanned PDF page."
+    "description": "Shown while OCR runs on a scanned PDF page.",
+    "placeholders": {
+      "page": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
   },
   "pdfOcrFailed": {
     "message": "La reconnaissance du texte a échoué sur cette page numérisée.",

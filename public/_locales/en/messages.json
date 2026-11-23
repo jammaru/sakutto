@@ -1753,12 +1753,25 @@
     "description": "Explains tier switching and old model cleanup."
   },
   "onboardingOcrNote": {
-    "message": "Also downloads the standard on-device OCR models ($1) for scanned PDFs and images.",
-    "description": "Combined onboarding download note with OCR bundle size."
+    "message": "Also downloads the standard on-device OCR models ($SIZE$) for scanned PDFs and images.",
+    "description": "Combined onboarding download note with OCR bundle size.",
+    "placeholders": {
+      "size": {
+        "content": "$1"
+      }
+    }
   },
   "pdfOcrReading": {
-    "message": "Recognizing scanned page $1 of $2…",
-    "description": "Shown while OCR runs on a scanned PDF page."
+    "message": "Recognizing scanned page $PAGE$ of $TOTAL$…",
+    "description": "Shown while OCR runs on a scanned PDF page.",
+    "placeholders": {
+      "page": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
   },
   "pdfOcrFailed": {
     "message": "Text recognition failed on this scanned page.",

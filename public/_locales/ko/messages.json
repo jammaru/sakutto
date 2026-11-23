@@ -1739,12 +1739,25 @@
     "description": "Explains tier switching and old model cleanup."
   },
   "onboardingOcrNote": {
-    "message": "스캔한 PDFs와 이미지를 위한 표준 기기 내 OCR 모델($1)도 함께 다운로드합니다.",
-    "description": "Combined onboarding download note with OCR bundle size."
+    "message": "스캔한 PDFs와 이미지를 위한 표준 기기 내 OCR 모델($SIZE$)도 함께 다운로드합니다.",
+    "description": "Combined onboarding download note with OCR bundle size.",
+    "placeholders": {
+      "size": {
+        "content": "$1"
+      }
+    }
   },
   "pdfOcrReading": {
-    "message": "스캔한 페이지 $1/$2의 텍스트를 인식하는 중…",
-    "description": "Shown while OCR runs on a scanned PDF page."
+    "message": "스캔한 페이지 $PAGE$/$TOTAL$의 텍스트를 인식하는 중…",
+    "description": "Shown while OCR runs on a scanned PDF page.",
+    "placeholders": {
+      "page": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
   },
   "pdfOcrFailed": {
     "message": "이 스캔 페이지에서 텍스트를 인식하지 못했습니다.",

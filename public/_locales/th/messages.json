@@ -1739,12 +1739,25 @@
     "description": "Explains tier switching and old model cleanup."
   },
   "onboardingOcrNote": {
-    "message": "ยังดาวน์โหลดโมเดล OCR มาตรฐานบนอุปกรณ์ ($1) สำหรับ PDFs ที่สแกนและรูปภาพด้วย",
-    "description": "Combined onboarding download note with OCR bundle size."
+    "message": "ยังดาวน์โหลดโมเดล OCR มาตรฐานบนอุปกรณ์ ($SIZE$) สำหรับ PDFs ที่สแกนและรูปภาพด้วย",
+    "description": "Combined onboarding download note with OCR bundle size.",
+    "placeholders": {
+      "size": {
+        "content": "$1"
+      }
+    }
   },
   "pdfOcrReading": {
     "message": "กำลังจดจำหน้าที่สแกน $1 จาก $2…",
-    "description": "Shown while OCR runs on a scanned PDF page."
+    "description": "Shown while OCR runs on a scanned PDF page.",
+    "placeholders": {
+      "page": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
   },
   "pdfOcrFailed": {
     "message": "การจดจำข้อความในหน้าที่สแกนนี้ล้มเหลว",

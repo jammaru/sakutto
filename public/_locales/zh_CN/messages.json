@@ -1739,12 +1739,25 @@
     "description": "Explains tier switching and old model cleanup."
   },
   "onboardingOcrNote": {
-    "message": "还会下载用于扫描版 PDFs 和图片的标准设备端 OCR 模型（$1）。",
-    "description": "Combined onboarding download note with OCR bundle size."
+    "message": "还会下载用于扫描版 PDFs 和图片的标准设备端 OCR 模型（$SIZE$）。",
+    "description": "Combined onboarding download note with OCR bundle size.",
+    "placeholders": {
+      "size": {
+        "content": "$1"
+      }
+    }
   },
   "pdfOcrReading": {
-    "message": "正在识别扫描版第 $1 页，共 $2 页…",
-    "description": "Shown while OCR runs on a scanned PDF page."
+    "message": "正在识别扫描版第 $PAGE$ 页，共 $TOTAL$ 页…",
+    "description": "Shown while OCR runs on a scanned PDF page.",
+    "placeholders": {
+      "page": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
   },
   "pdfOcrFailed": {
     "message": "无法识别此扫描页面中的文字。",

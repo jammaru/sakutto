@@ -1739,12 +1739,25 @@
     "description": "Explains tier switching and old model cleanup."
   },
   "onboardingOcrNote": {
-    "message": "Juga mengunduh model OCR standar di perangkat ($1) untuk PDFs pindaian dan gambar.",
-    "description": "Combined onboarding download note with OCR bundle size."
+    "message": "Juga mengunduh model OCR standar di perangkat ($SIZE$) untuk PDFs pindaian dan gambar.",
+    "description": "Combined onboarding download note with OCR bundle size.",
+    "placeholders": {
+      "size": {
+        "content": "$1"
+      }
+    }
   },
   "pdfOcrReading": {
     "message": "Mengenali halaman pindaian $1 dari $2…",
-    "description": "Shown while OCR runs on a scanned PDF page."
+    "description": "Shown while OCR runs on a scanned PDF page.",
+    "placeholders": {
+      "page": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
   },
   "pdfOcrFailed": {
     "message": "Pengenalan teks gagal pada halaman pindaian ini.",

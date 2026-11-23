@@ -263,6 +263,7 @@ async function main(): Promise<void> {
       block: {
         text: string;
         role: string;
+        column: number;
         box: { x: number; y: number; width: number; height: number };
         fontSize: number;
       };

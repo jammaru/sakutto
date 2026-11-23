@@ -1739,12 +1739,25 @@
     "description": "Explains tier switching and old model cleanup."
   },
   "onboardingOcrNote": {
-    "message": "還會下載用於掃描版 PDFs 和圖片的標準裝置端 OCR 模型（$1）。",
-    "description": "Combined onboarding download note with OCR bundle size."
+    "message": "還會下載用於掃描版 PDFs 和圖片的標準裝置端 OCR 模型（$SIZE$）。",
+    "description": "Combined onboarding download note with OCR bundle size.",
+    "placeholders": {
+      "size": {
+        "content": "$1"
+      }
+    }
   },
   "pdfOcrReading": {
-    "message": "正在辨識掃描版第 $1 頁，共 $2 頁…",
-    "description": "Shown while OCR runs on a scanned PDF page."
+    "message": "正在辨識掃描版第 $PAGE$ 頁，共 $TOTAL$ 頁…",
+    "description": "Shown while OCR runs on a scanned PDF page.",
+    "placeholders": {
+      "page": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
   },
   "pdfOcrFailed": {
     "message": "無法辨識此掃描頁面中的文字。",

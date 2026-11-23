@@ -1739,12 +1739,25 @@
     "description": "Explains tier switching and old model cleanup."
   },
   "onboardingOcrNote": {
-    "message": "Также загружаются стандартные модели OCR ($1) для отсканированных PDFs и изображений на этом устройстве.",
-    "description": "Combined onboarding download note with OCR bundle size."
+    "message": "Также загружаются стандартные модели OCR ($SIZE$) для отсканированных PDFs и изображений на этом устройстве.",
+    "description": "Combined onboarding download note with OCR bundle size.",
+    "placeholders": {
+      "size": {
+        "content": "$1"
+      }
+    }
   },
   "pdfOcrReading": {
     "message": "Распознаётся отсканированная страница $1 из $2…",
-    "description": "Shown while OCR runs on a scanned PDF page."
+    "description": "Shown while OCR runs on a scanned PDF page.",
+    "placeholders": {
+      "page": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
   },
   "pdfOcrFailed": {
     "message": "Не удалось распознать текст на этой отсканированной странице.",
