@@ -304,7 +304,11 @@ function onePrintedTitleRow(pieces: readonly OcrTextPiece[], pageWidth: number):
   if (!cjk && words.length < 3) return false;
   if (cjk && text.length < 8) return false;
   if (rowHasInteriorSentenceBreak(text)) return false;
-  if (!/^(\p{Lu}|\d|[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}])/u.test(text)) {
+  if (
+    !/^(\p{Lu}|\d|[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]|[a-z]{1,4}[A-Z][\p{L}\d./]*)/u.test(
+      text,
+    )
+  ) {
     return false;
   }
   const ordered = [...pieces].sort((a, b) => a.box.x - b.box.x);
@@ -617,7 +621,8 @@ export function ocrResultToTextLines(
     const printedTitleRow = onePrintedTitleRow(pieces, resolved.pageWidth);
     const colonTitleRow = twoPieceColonTitle(pieces, resolved.pageWidth, wholeText);
     const twoPieceTitleMerge =
-      (printedTitleRow || colonTitleRow) && (!pageTwoColumn || /:/u.test(wholeText));
+      (printedTitleRow && (!pageTwoColumn || /:/u.test(wholeText))) ||
+      (colonTitleRow && !pageTwoColumn);
     const singleRowWordGap =
       twoPieceTitleMerge || (!pageTwoColumn && singleSentenceRow(pieces, resolved.pageWidth));
     const titleWordGap =

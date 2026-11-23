@@ -59,6 +59,46 @@ describe('latest DSH review blockers', () => {
     expect(layout.blocks.map((block) => block.column)).toEqual([0]);
   });
 
+  it('B2: keeps an mRNA title without a colon whole on one line', () => {
+    const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+    const items = [
+      region('mRNA Vaccine Design', quad(45, 60, 250, 20)),
+      region('From Bench to Bedside', quad(305, 60, 250, 20)),
+    ];
+    const result = ocrResult(items);
+    const full = 'mRNA Vaccine Design From Bench to Bedside';
+    expect(ocrResultToTextLines(result, options).map((line) => line.text)).toEqual([full]);
+  });
+
+  it('B2: splits a colon body row on a two-column page', () => {
+    const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+    const bodyRows = [
+      [
+        region('Left column prose for the first printed row.', quad(45, 140, 250, 20)),
+        region('Right column prose on that same printed row.', quad(305, 140, 250, 20)),
+      ],
+      [
+        region('A second left column line proving two columns.', quad(45, 170, 250, 20)),
+        region('A second right column line proving two columns.', quad(305, 170, 250, 20)),
+      ],
+    ];
+    const colonBody = [
+      region('we use the following notation: x', quad(45, 200, 250, 20)),
+      region('The model is trained on this data', quad(305, 200, 250, 20)),
+    ];
+    const result: OcrResult = {
+      regions: [...bodyRows.flat(), ...colonBody],
+      lines: [...bodyRows.map(readingLine), readingLine(colonBody)],
+      text: '',
+    };
+    const lines = ocrResultToTextLines(result, options).map((line) => line.text);
+    expect(lines).toContain('we use the following notation: x');
+    expect(lines).toContain('The model is trained on this data');
+    expect(lines).not.toContain(
+      'we use the following notation: x The model is trained on this data',
+    );
+  });
+
   it('B2: keeps a lowercase-prefixed colon title whole on one line', () => {
     const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
     const items = [
