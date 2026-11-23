@@ -744,6 +744,35 @@ describe('EngineHost', () => {
     expect(response).toMatchObject({ requestId: 'f1', ok: true });
   });
 
+  it('only removes the browser OCR copy on folder adoption, not files in an old folder', async () => {
+    for (const configured of [false, true]) {
+      const { services } = createServices();
+      const { host, port } = await openRunningHost(services);
+      const refreshStore = vi.fn(async () => undefined);
+      (host as unknown as { ocrHostTask: Promise<unknown> }).ocrHostTask = Promise.resolve({
+        refreshStore,
+      });
+      const adopted = {
+        supported: true,
+        configured: true,
+        permission: 'granted' as const,
+        name: 'Sakutto',
+        opfsCopies: [],
+        integrityIssues: [],
+        recordedModels: [],
+      } satisfies SharedFolderStatus;
+      (host as unknown as { folderSession: unknown }).folderSession = {
+        status: () => ({ ...adopted, configured }),
+        apply: vi.fn(async () => adopted),
+      };
+
+      port.emit({ type: 'folder-adopt', requestId: 'adopt' });
+      await flushTasks();
+
+      expect(refreshStore).toHaveBeenCalledWith({ removeSource: !configured });
+    }
+  });
+
   it('resets a loaded runtime when model-set changes the id, and caches the next translation under the new model', async () => {
     const { services, unload, reset } = createServices();
     services.manager.status = installed({

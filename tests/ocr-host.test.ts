@@ -196,12 +196,13 @@ describe('OcrHost', () => {
     await refreshing;
     expect(refreshApplied).toBe(true);
     expect([...browser.files.keys()]).toContain('models/ocr-standard/model.onnx');
-    expect([...folder.files.keys()]).toEqual([]);
-
-    // A fresh download now resolves storage afresh and writes into the adopted folder.
-    await host.download('after-adopt', 'standard');
-    expect(createAssetManager).toHaveBeenCalledTimes(2);
+    // The verified bundle follows the folder. A plain reload keeps the browser copy.
     expect([...folder.files.keys()]).toContain('models/ocr-standard/model.onnx');
+    expect([...folder.files.keys()]).toContain('models/ocr-standard/asset.json');
+
+    // A later load re-resolves storage and serves the migrated bundle without re-downloading.
+    await host.download('after-adopt', 'standard');
+    expect(createAssetManager).toHaveBeenCalledTimes(3);
     expect(await host.status('standard')).toMatchObject({ state: 'ready' });
   });
 
@@ -245,6 +246,108 @@ describe('OcrHost', () => {
     await refreshing;
     expect(runtime.release).toHaveBeenCalledOnce();
     expect(await host.status('standard')).toMatchObject({ state: 'absent' });
-    expect(createAssetManager).toHaveBeenCalledTimes(2);
+    // One manager for the original store, one to migrate into, one for the next status call.
+    expect(createAssetManager).toHaveBeenCalledTimes(3);
+  });
+
+  function bundleStorePair() {
+    const browser = new MemoryFileStore();
+    const folder = new MemoryFileStore();
+    const payload = bytesOf('bundle bytes');
+    const file = {
+      path: 'model.onnx',
+      commit: 'pinned-commit',
+      size: payload.length,
+      sha256: sha256Hex(payload),
+      url: 'https://example.test/model.onnx',
+    };
+    const bundles = {
+      standard: { id: 'standard', files: [file], size: payload.length },
+      high: { id: 'high', files: [file], size: payload.length },
+    } as const;
+    const fetchImpl = vi.fn(async () => new Response(new Uint8Array(payload), { status: 200 }));
+    return {
+      browser,
+      folder,
+      payload,
+      fetchImpl,
+      managerFor: (store: MemoryFileStore) =>
+        new AssetManager<OcrTier>({
+          store,
+          bundles,
+          fetchImpl,
+          hashBlob: async (blob) => sha256Hex(new Uint8Array(await blob.arrayBuffer())),
+        }),
+    };
+  }
+
+  it('moves verified OCR bundles into an adopted folder and deletes the browser tier', async () => {
+    const { browser, folder, fetchImpl, managerFor } = bundleStorePair();
+    const browserManager = managerFor(browser);
+    const folderManager = managerFor(folder);
+    let call = 0;
+    const host = new OcrHost({
+      createAssetManager: async () => (call++ === 0 ? browserManager : folderManager),
+    });
+
+    await host.download('install', 'standard');
+    expect([...browser.files.keys()]).toContain('models/ocr-standard/model.onnx');
+
+    await host.refreshStore({ removeSource: true });
+
+    expect(
+      [...browser.files.keys()].filter((path) => path.startsWith('models/ocr-standard/')),
+    ).toEqual([]);
+    expect([...folder.files.keys()].sort()).toEqual([
+      'models/ocr-standard/asset.json',
+      'models/ocr-standard/model.onnx',
+    ]);
+    expect(await folderManager.status('standard')).toMatchObject({ state: 'ready', progress: 1 });
+    expect(await (await folderManager.readFile('standard', 'model.onnx')).text()).toBe(
+      'bundle bytes',
+    );
+    expect(await host.status('standard')).toMatchObject({ state: 'ready' });
+
+    const fetches = fetchImpl.mock.calls.length;
+    await host.download('after-move', 'standard');
+    expect(fetchImpl).toHaveBeenCalledTimes(fetches);
+  });
+
+  it('copies verified folder bundles back to browser storage without deleting folder files', async () => {
+    const { browser, folder, managerFor } = bundleStorePair();
+    const folderManager = managerFor(folder);
+    const browserManager = managerFor(browser);
+    let call = 0;
+    const host = new OcrHost({
+      createAssetManager: async () => (call++ === 0 ? folderManager : browserManager),
+    });
+
+    await host.download('install', 'standard');
+    await host.refreshStore();
+
+    expect([...browser.files.keys()].sort()).toEqual([
+      'models/ocr-standard/asset.json',
+      'models/ocr-standard/model.onnx',
+    ]);
+    expect([...folder.files.keys()]).toContain('models/ocr-standard/model.onnx');
+    expect(await browserManager.status('standard')).toMatchObject({ state: 'ready', progress: 1 });
+    expect(await host.status('standard')).toMatchObject({ state: 'ready' });
+  });
+
+  it('keeps the browser bundle when a move cannot verify its folder copy', async () => {
+    const { browser, folder, managerFor } = bundleStorePair();
+    const browserManager = managerFor(browser);
+    const folderManager = managerFor(folder);
+    let call = 0;
+    const host = new OcrHost({
+      createAssetManager: async () => (call++ === 0 ? browserManager : folderManager),
+    });
+    await host.download('install', 'standard');
+
+    vi.spyOn(folder, 'createWriter').mockRejectedValue(new Error('no space'));
+    await expect(host.refreshStore({ removeSource: true })).resolves.toBeUndefined();
+
+    expect([...browser.files.keys()]).toContain('models/ocr-standard/model.onnx');
+    expect([...folder.files.keys()]).toEqual([]);
   });
 });

@@ -1289,6 +1289,9 @@ export class EngineHost {
 
   private async reloadFolder(moveOpfs: boolean): Promise<SharedFolderStatus> {
     const services = await this.services();
+    // Capture the old storage choice before apply() replaces the snapshot. A move deletes
+    // the browser OCR copy only; files in a previously linked folder belong to its profiles.
+    const leavingBrowser = !(this.folderSession?.status().configured ?? false);
     for (const [id, live] of this.requests) {
       if (live.kind === 'download') continue;
       this.abortLiveRequest(id, live);
@@ -1299,7 +1302,9 @@ export class EngineHost {
     const status = this.folderSession
       ? await this.folderSession.apply({ moveOpfs })
       : emptySharedFolderStatus(false);
-    await this.refreshOcrStore();
+    // A folder adoption moves the verified OCR bundles too; a plain reload only copies
+    // browser files into the folder, exactly as the translation manager does.
+    await this.refreshOcrStore({ removeSource: moveOpfs && leavingBrowser });
     const model = modelStatusForSharedFolder(
       await services.manager.status(this.activeModelId),
       status,
@@ -1312,10 +1317,10 @@ export class EngineHost {
   }
 
   /** OCR keeps its own lazy store; re-resolve it after a folder choice changes. */
-  private async refreshOcrStore(): Promise<void> {
+  private async refreshOcrStore(options: { removeSource?: boolean } = {}): Promise<void> {
     if (!this.ocrHostTask) return;
     const host = await this.ocrHostTask.catch(() => null);
-    await host?.refreshStore();
+    await host?.refreshStore(options);
   }
 
   private async handleFolderReload(

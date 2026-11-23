@@ -2,7 +2,7 @@ import { abortError, isAbortError } from '@/engine/errors';
 import { AssetManager } from '@/engine/model/asset-manager';
 import type { AssetStatus } from '@/engine/model/asset';
 import { OpfsModelFileStore, type ModelFileStore } from '@/engine/model/file-store';
-import { DEFAULT_OCR_TIER, OCR_TIER_CATALOG, type OcrTier } from './catalog';
+import { DEFAULT_OCR_TIER, OCR_TIER_CATALOG, SELECTABLE_OCR_TIERS, type OcrTier } from './catalog';
 import type { DecodedOcrImage } from './codec';
 
 export interface OcrRuntimeLike {
@@ -39,6 +39,8 @@ export class OcrHost {
   private readonly requests = new Map<string, OcrRequest>();
   /** A folder change arrived while requests were still bound to the previous store. */
   private pendingRefresh = false;
+  /** Folder adoption moves verified browser bundles; switching back only copies them. */
+  private pendingRemoveSource = false;
   private refreshing = false;
   private readonly refreshWaiters: Array<() => void> = [];
 
@@ -128,8 +130,13 @@ export class OcrHost {
    * left on its original store: swapping files underneath an ORT session or a ranged
    * transfer would be worse than letting it finish. The refresh is deferred until the last
    * request settles, and callers wait for it so no stale manager survives the folder switch.
+   *
+   * Verified bundles follow the folder: adopting it moves the browser copies into it, while
+   * switching back copies the folder files into OPFS and leaves the shared files in place
+   * (see PRIVACY.md and docs/design/shared-model-folder.md).
    */
-  async refreshStore(): Promise<void> {
+  async refreshStore(options: { removeSource?: boolean } = {}): Promise<void> {
+    this.pendingRemoveSource ||= options.removeSource === true;
     if (this.requests.size === 0 && !this.refreshing) {
       await this.applyRefresh();
       return;
@@ -151,14 +158,35 @@ export class OcrHost {
     this.refreshing = true;
     this.pendingRefresh = false;
     const stale = this.assetsTask;
+    const removeSource = this.pendingRemoveSource;
+    this.pendingRemoveSource = false;
     try {
       // Wait for queued inference first: releasing an ORT session while its native run is
       // still using the handle is worse than finishing the run on the old store.
       await this.queue;
       await this.releaseRuntime();
       // A newer request may have re-created the manager while the runtime was releasing.
-      // Only drop the manager that predates this refresh.
-      if (this.assetsTask === stale) this.assetsTask = null;
+      // Only touch the manager that predates this refresh.
+      if (this.assetsTask === stale) {
+        if (stale) {
+          try {
+            const previous = await stale;
+            const current = await this.createAssets();
+            for (const tier of SELECTABLE_OCR_TIERS) {
+              try {
+                await previous.copyToStore(tier, current.fileStore, { removeSource });
+              } catch {
+                // Keep a tier in its old store when its copy cannot be verified. It can be
+                // downloaded again; deleting it here could lose the only working bundle.
+              }
+            }
+          } catch {
+            // The new store may be blocked (a linked folder without a grant). The old files
+            // stay put, and status() surfaces the storage error on the next request.
+          }
+        }
+        this.assetsTask = null;
+      }
     } finally {
       this.refreshing = false;
       this.pendingRefresh = false;
@@ -181,20 +209,23 @@ export class OcrHost {
   }
 
   private assets(): Promise<AssetManager<OcrTier>> {
-    if (!this.assetsTask) {
-      this.assetsTask = this.options.createAssetManager
-        ? this.options.createAssetManager()
-        : (this.options.createAssetStore?.() ?? OpfsModelFileStore.open()).then(
-            (store) =>
-              new AssetManager<OcrTier>({
-                store,
-                bundles: OCR_TIER_CATALOG,
-                ...(this.options.hasConsent ? { hasConsent: this.options.hasConsent } : {}),
-                ...(this.options.onStatus ? { onStatus: this.options.onStatus } : {}),
-              }),
-          );
-    }
+    if (!this.assetsTask) this.assetsTask = this.createAssets();
     return this.assetsTask;
+  }
+
+  /** Resolves the current store without caching, so a refresh can migrate into it. */
+  private createAssets(): Promise<AssetManager<OcrTier>> {
+    return this.options.createAssetManager
+      ? this.options.createAssetManager()
+      : (this.options.createAssetStore?.() ?? OpfsModelFileStore.open()).then(
+          (store) =>
+            new AssetManager<OcrTier>({
+              store,
+              bundles: OCR_TIER_CATALOG,
+              ...(this.options.hasConsent ? { hasConsent: this.options.hasConsent } : {}),
+              ...(this.options.onStatus ? { onStatus: this.options.onStatus } : {}),
+            }),
+        );
   }
 
   private async loadRuntime(tier: OcrTier, signal: AbortSignal): Promise<OcrRuntimeLike> {

@@ -1,5 +1,6 @@
 import { abortError, EngineError, isAbortError } from '../errors';
 import type { AssetBundle, AssetFile, AssetStatus } from './asset';
+import { copyModelFile } from './copy';
 import {
   DEFAULT_CONCURRENCY,
   DEFAULT_SEGMENT_BYTES,
@@ -177,6 +178,54 @@ export class AssetManager<Id extends string> {
     return this.store.read(this.finalPath(id, file));
   }
 
+  /** The store this manager is bound to, for migrating bundles when storage changes. */
+  get fileStore(): ModelFileStore {
+    return this.store;
+  }
+
+  /**
+   * Copies one verified bundle into another store through the same pinned copy helper as
+   * PLaMo models, with no network request. A target that is already verified is left alone;
+   * the source tier is removed only after the copy is complete and verified, so a failed
+   * move never leaves the user without a loadable bundle. Used when a shared folder is
+   * adopted (move) or left in place (copy back to browser storage).
+   */
+  async copyToStore(
+    id: Id,
+    target: ModelFileStore,
+    options: { removeSource?: boolean; signal?: AbortSignal } = {},
+  ): Promise<boolean> {
+    const signal = options.signal ?? new AbortController().signal;
+    let source = await this.inspect(id);
+    if (source.needsHash) {
+      await this.ensureVerified(id, signal);
+      source = await this.inspect(id);
+    }
+    if (source.status.state !== 'ready') return false;
+
+    if ((await this.inspect(id, target)).status.state !== 'ready') {
+      for (const file of this.bundles[id].files) {
+        if (signal.aborted) throw abortError();
+        await copyModelFile({
+          blob: await this.store.read(this.finalPath(id, file)),
+          store: target,
+          partPath: this.partPath(id, file),
+          finalPath: this.finalPath(id, file),
+          size: file.size,
+          sha256: file.sha256,
+          signal,
+          ...(this.hashBlob ? { hashBlob: this.hashBlob } : {}),
+        });
+      }
+      // Reuse the normal sidecar writer so the target is verified on the next load without
+      // hashing several hundred MB again.
+      await this.writeManifest(id, undefined, target);
+    }
+
+    if (options.removeSource) await this.store.removeDirectory(this.directory(id));
+    return true;
+  }
+
   private async runDownload(
     id: Id,
     signal: AbortSignal,
@@ -264,15 +313,15 @@ export class AssetManager<Id extends string> {
     }
   }
 
-  private async inspect(id: Id): Promise<Inspection<Id>> {
+  private async inspect(id: Id, store: ModelFileStore = this.store): Promise<Inspection<Id>> {
     const bundle = this.bundles[id];
-    const manifest = await this.readManifest(id);
+    const manifest = await this.readManifest(id, store);
     let received = 0;
     let needsHash = false;
     let present = false;
 
     for (const file of bundle.files) {
-      const stat = await this.store.stat(this.finalPath(id, file));
+      const stat = await store.stat(this.finalPath(id, file));
       const decision = decideIntegrity(file, stat, this.manifestFile(manifest, file.path));
       if (decision === 'reject-size') {
         const error = `Unexpected size for ${file.path}.`;
@@ -294,7 +343,7 @@ export class AssetManager<Id extends string> {
         received += file.size;
         present = true;
       } else {
-        const partial = await this.store.size(this.partPath(id, file));
+        const partial = await store.size(this.partPath(id, file));
         received += Math.min(partial, file.size);
         if (partial > 0) present = true;
       }
@@ -429,9 +478,12 @@ export class AssetManager<Id extends string> {
     }
   }
 
-  private async readManifest(id: Id): Promise<AssetManifest | null> {
+  private async readManifest(
+    id: Id,
+    store: ModelFileStore = this.store,
+  ): Promise<AssetManifest | null> {
     try {
-      const text = await (await this.store.read(this.manifestPath(id))).text();
+      const text = await (await store.read(this.manifestPath(id))).text();
       return parseAssetManifest(JSON.parse(text) as unknown, id);
     } catch {
       return null;
@@ -445,6 +497,7 @@ export class AssetManager<Id extends string> {
   private async writeManifest(
     id: Id,
     verification?: { signal: AbortSignal; generation: number },
+    store: ModelFileStore = this.store,
   ): Promise<void> {
     const assertCurrent = () => {
       if (verification) {
@@ -454,7 +507,7 @@ export class AssetManager<Id extends string> {
     assertCurrent();
     const files: AssetManifest['files'] = [];
     for (const file of this.bundles[id].files) {
-      const stat = await this.store.stat(this.finalPath(id, file));
+      const stat = await store.stat(this.finalPath(id, file));
       assertCurrent();
       if (!stat || stat.size !== file.size) {
         throw new EngineError('model-integrity', `Asset ${file.path} is incomplete.`);
@@ -464,15 +517,15 @@ export class AssetManager<Id extends string> {
     const manifest: AssetManifest = { id, verifiedAt: Date.now(), files };
     const bytes = TEXT_ENCODER.encode(JSON.stringify(manifest));
     assertCurrent();
-    await this.store.append(this.manifestPath(id), bytes, 0);
+    await store.append(this.manifestPath(id), bytes, 0);
     assertCurrent();
     // append() preserves bytes after a shorter rewrite, so replace through a fresh temp file.
-    const remaining = await this.store.size(this.manifestPath(id));
+    const remaining = await store.size(this.manifestPath(id));
     assertCurrent();
     if (remaining !== bytes.length) {
-      await this.store.remove(this.manifestPath(id));
+      await store.remove(this.manifestPath(id));
       assertCurrent();
-      await this.store.append(this.manifestPath(id), bytes, 0);
+      await store.append(this.manifestPath(id), bytes, 0);
     }
   }
 
