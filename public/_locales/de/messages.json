@@ -1752,7 +1752,7 @@
     }
   },
   "pdfOcrReading": {
-    "message": "Gescannte Seite $1 von $2 wird erkannt…",
+    "message": "Gescannte Seite $PAGE$ von $TOTAL$ wird erkannt…",
     "description": "Shown while OCR runs on a scanned PDF page.",
     "placeholders": {
       "page": {

@@ -1748,7 +1748,7 @@
     }
   },
   "pdfOcrReading": {
-    "message": "Распознаётся отсканированная страница $1 из $2…",
+    "message": "Распознаётся отсканированная страница $PAGE$ из $TOTAL$…",
     "description": "Shown while OCR runs on a scanned PDF page.",
     "placeholders": {
       "page": {

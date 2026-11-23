@@ -1748,7 +1748,7 @@
     }
   },
   "pdfOcrReading": {
-    "message": "Reconociendo la página escaneada $1 de $2…",
+    "message": "Reconociendo la página escaneada $PAGE$ de $TOTAL$…",
     "description": "Shown while OCR runs on a scanned PDF page.",
     "placeholders": {
       "page": {

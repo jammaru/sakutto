@@ -40,7 +40,7 @@ PP-OCRv6 と ONNX Runtime Web により、スキャン PDF・画像の文字認�
 
 |       CER |   WER | cross-column | ms/page |
 | --------: | ----: | -----------: | ------: |
-| **0.054** | 0.077 |            1 |    ~37s |
+| **0.054** | 0.077 |            0 |  ~36.4s |
 
 スクリーンショット: `bench/results/screenshots/baseline/` → `final/`（arXiv p1/p3/p5、scan 疑似・実 OCR `scan-p1-real-ocr.png`）
 

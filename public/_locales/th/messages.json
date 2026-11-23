@@ -1748,7 +1748,7 @@
     }
   },
   "pdfOcrReading": {
-    "message": "กำลังจดจำหน้าที่สแกน $1 จาก $2…",
+    "message": "กำลังจดจำหน้าที่สแกน $PAGE$ จาก $TOTAL$…",
     "description": "Shown while OCR runs on a scanned PDF page.",
     "placeholders": {
       "page": {

@@ -1748,7 +1748,7 @@
     }
   },
   "pdfOcrReading": {
-    "message": "Mengenali halaman pindaian $1 dari $2…",
+    "message": "Mengenali halaman pindaian $PAGE$ dari $TOTAL$…",
     "description": "Shown while OCR runs on a scanned PDF page.",
     "placeholders": {
       "page": {
