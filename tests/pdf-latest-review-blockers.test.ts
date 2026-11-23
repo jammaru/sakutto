@@ -1169,59 +1169,149 @@ describe('latest DSH review blockers', () => {
   });
 
   it('B2: does not merge a narrow two-column body row with a short right fragment', () => {
-    const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
-    const corroborating = [
-      [
-        region('Left column prose for the first printed row.', quad(45, 100, 250, 20)),
-        region('Right column prose on the same printed row.', quad(305, 100, 250, 20)),
-      ],
-      [
-        region('A second left column line proving two columns.', quad(45, 130, 250, 20)),
-        region('A second right column line proving columns.', quad(305, 130, 250, 20)),
-      ],
-    ];
-    // The whole row is 305pt wide (< 60% of the page) and its right column is only 45pt, so a
-    // width-only "centred heading" guess would keep it as one spanning title line.
-    const narrow = [
-      region('Results show strong effects on', quad(45, 200, 250, 20)),
-      region('mice', quad(305, 200, 45, 20)),
-    ];
-    const result: OcrResult = {
-      regions: [...corroborating.flat(), ...narrow],
-      lines: [...corroborating.map(readingLine), readingLine(narrow)],
-      text: '',
-    };
+    // The whole row is narrower than 60% of the page and its right column is only a short
+    // fragment, so a width-only "centred heading" guess would keep it as one spanning title line.
+    // The fragment's casing/script and the page's left margin must not change that: a capital, a
+    // numeral or a CJK fragment is ordinary column text, and US Letter's 1-inch margin (72pt on
+    // 612pt) is a left-aligned row, not a centred title (review 0ab8032 blocker 2).
+    const scenarios = [
+      {
+        name: 'lowercase, 45pt margins',
+        pageWidth: 600,
+        pageHeight: 800,
+        leftX: 45,
+        rightX: 305,
+        columnWidth: 250,
+        rightWidth: 45,
+        rightText: 'mice',
+      },
+      {
+        name: 'capitalised fragment',
+        pageWidth: 600,
+        pageHeight: 800,
+        leftX: 45,
+        rightX: 305,
+        columnWidth: 250,
+        rightWidth: 45,
+        rightText: 'Mice',
+      },
+      {
+        name: 'numeric fragment',
+        pageWidth: 600,
+        pageHeight: 800,
+        leftX: 45,
+        rightX: 305,
+        columnWidth: 250,
+        rightWidth: 45,
+        rightText: '42',
+      },
+      {
+        name: 'compact CJK fragment',
+        pageWidth: 600,
+        pageHeight: 800,
+        leftX: 45,
+        rightX: 305,
+        columnWidth: 250,
+        rightWidth: 45,
+        rightText: '结果',
+      },
+      {
+        name: 'US Letter, 1-inch margins',
+        pageWidth: 612,
+        pageHeight: 792,
+        leftX: 72,
+        rightX: 312,
+        columnWidth: 228,
+        rightWidth: 118,
+        rightText: 'mice and rats',
+      },
+    ] as const;
 
-    const lines = ocrResultToTextLines(result, options);
-    expect(lines).toHaveLength(6);
-    expect(lines.map((line) => line.text)).toContain('Results show strong effects on');
-    expect(lines.map((line) => line.text)).toContain('mice');
-    expect(lines.map((line) => line.text)).not.toContain('Results show strong effects on mice');
-    expect(lines.find((line) => line.text === 'Results show strong effects on')?.columnHint).toBe(
-      0,
-    );
-    expect(lines.find((line) => line.text === 'mice')?.columnHint).toBe(1);
-    expect(lines.some((line) => line.titleRow === true)).toBe(false);
+    for (const scenario of scenarios) {
+      const { name, pageWidth, pageHeight, leftX, rightX, columnWidth, rightWidth, rightText } =
+        scenario;
+      const options = { pageIndex: 0, pageWidth, pageHeight };
+      const corroborating = [
+        [
+          region('Left column prose for the first printed row.', quad(leftX, 100, columnWidth, 20)),
+          region('Right column prose on the same printed row.', quad(rightX, 100, columnWidth, 20)),
+        ],
+        [
+          region(
+            'A second left column line proving two columns.',
+            quad(leftX, 130, columnWidth, 20),
+          ),
+          region('A second right column line proving columns.', quad(rightX, 130, columnWidth, 20)),
+        ],
+      ];
+      const narrow = [
+        region('Results show strong effects on', quad(leftX, 200, columnWidth, 20)),
+        region(rightText, quad(rightX, 200, rightWidth, 20)),
+      ];
+      const result: OcrResult = {
+        regions: [...corroborating.flat(), ...narrow],
+        lines: [...corroborating.map(readingLine), readingLine(narrow)],
+        text: '',
+      };
+      const fused = `Results show strong effects on ${rightText}`;
 
-    const layout = ocrResultToPageLayout(result, options);
-    expect(layout.blocks.some((block) => block.titleRow === true)).toBe(false);
-    expect(layout.blocks.every((block) => block.box.width < 500)).toBe(true);
-    expect(layout.blocks.map((block) => block.text)).not.toContain(
-      'Results show strong effects on mice',
-    );
-    for (const block of layout.blocks) {
-      const crosses = block.room.x < 294 && block.room.x + block.room.width > 305;
-      expect(crosses, block.text).toBe(false);
+      const lines = ocrResultToTextLines(result, options);
+      expect(lines, name).toHaveLength(6);
+      expect(
+        lines.map((line) => line.text),
+        name,
+      ).toContain('Results show strong effects on');
+      expect(
+        lines.map((line) => line.text),
+        name,
+      ).toContain(rightText);
+      expect(
+        lines.map((line) => line.text),
+        name,
+      ).not.toContain(fused);
+      expect(
+        lines.find((line) => line.text === 'Results show strong effects on')?.columnHint,
+        name,
+      ).toBe(0);
+      expect(lines.find((line) => line.text === rightText)?.columnHint, name).toBe(1);
+      expect(
+        lines.some((line) => line.titleRow === true),
+        name,
+      ).toBe(false);
+
+      const layout = ocrResultToPageLayout(result, options);
+      expect(
+        layout.blocks.some((block) => block.titleRow === true),
+        name,
+      ).toBe(false);
+      expect(
+        layout.blocks.every((block) => block.box.width < 500),
+        name,
+      ).toBe(true);
+      expect(
+        layout.blocks.map((block) => block.text),
+        name,
+      ).not.toContain(fused);
+      const leftEnd = leftX + columnWidth;
+      for (const block of layout.blocks) {
+        const crosses = block.room.x < leftEnd && block.room.x + block.room.width > rightX;
+        expect(crosses, `${name}: ${block.text}`).toBe(false);
+      }
+
+      const placed = placePage({
+        layout,
+        translationOf: (block) => stubExpand(block.text),
+        target: 'ja',
+        measure: (_block, text, size) => measure(text, size),
+        pageHeight,
+      });
+      const metrics = pageMetrics(layout, placed, {
+        x: 0,
+        y: 0,
+        width: pageWidth,
+        height: pageHeight,
+      });
+      expect(metrics.crossColumnCovers, name).toBe(0);
     }
-
-    const placed = placePage({
-      layout,
-      translationOf: (block) => stubExpand(block.text),
-      target: 'ja',
-      measure: (_block, text, size) => measure(text, size),
-      pageHeight: 800,
-    });
-    const metrics = pageMetrics(layout, placed, { x: 0, y: 0, width: 600, height: 800 });
-    expect(metrics.crossColumnCovers).toBe(0);
   });
 });

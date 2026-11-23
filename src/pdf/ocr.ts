@@ -459,8 +459,14 @@ function rowCentredOnPage(pieces: readonly OcrTextPiece[], pageWidth: number): b
   if (pageWidth <= 0 || pieces.length === 0) return false;
   const left = Math.min(...pieces.map((piece) => piece.box.x));
   const right = Math.max(...pieces.map((piece) => piece.box.x + piece.box.width));
-  // Same 10% asymmetry allowance as a printed gutter: real layouts are not perfectly centred.
-  return Math.abs((left + right) / 2 - pageWidth / 2) <= pageWidth * 0.1;
+  const leftMargin = left;
+  const rightMargin = pageWidth - right;
+  if (leftMargin < 0 || rightMargin < 0) return false;
+  // A span's midpoint alone is not centring: a left-aligned fused body row ending in a short
+  // right fragment can have its midpoint near the page midpoint while its own margins differ
+  // wildly (72pt versus 182pt on US Letter). Compare the margins the row actually leaves.
+  // 10% asymmetry allowance: real layouts are not perfectly centred.
+  return Math.abs(leftMargin - rightMargin) <= pageWidth * 0.1;
 }
 
 /**
@@ -472,13 +478,22 @@ function rowCentredOnPage(pieces: readonly OcrTextPiece[], pageWidth: number): b
  * fragment is also narrower than 60% of the page; treating it as a heading swallows the
  * fragment into the left column and paints a cover across the gutter. Require balanced page
  * margins before a short capitalised body row can count as title evidence.
+ *
+ * `onePrintedTitleRow` must not bypass that requirement: capitalisation, a short fragment and a
+ * missing terminal period are all normal at a two-column line break. Only a row above every body
+ * row has page-level title evidence; its whitespace is title whitespace even when it is not
+ * centred. Callers that need that exception pass `pageTitleEvidence`.
  */
-function isCentredHeadingRow(pieces: readonly OcrTextPiece[], pageWidth: number): boolean {
+function isCentredHeadingRow(
+  pieces: readonly OcrTextPiece[],
+  pageWidth: number,
+  pageTitleEvidence = false,
+): boolean {
+  if (pageTitleEvidence && onePrintedTitleRow(pieces, pageWidth, true, true)) return true;
   const text = pieces
     .map((piece) => piece.text)
     .join(' ')
     .trim();
-  if (onePrintedTitleRow(pieces, pageWidth)) return true;
   if (text.length === 0 || text.length > 100 || /[.!?。]$/u.test(text)) return false;
   const words = text.split(/\s+/u).filter(Boolean);
   if (words.length === 0 || words.length > 12) return false;
@@ -807,7 +822,8 @@ export function ocrResultToTextLines(
     // evidence. Capitalisation plus a short word-sized gap is not: a short two-column body row
     // at a line break looks exactly like that, and must not suppress the gutter split.
     const centredTitleRow =
-      isCentredHeadingRow(pieces, resolved.pageWidth) && lineWidth < resolved.pageWidth * 0.6;
+      isCentredHeadingRow(pieces, resolved.pageWidth, titleAboveBody) &&
+      lineWidth < resolved.pageWidth * 0.6;
     const positiveTitleEvidence = titleAboveBody || twoPieceTitleMerge || centredTitleRow;
     const wordGapTitleGuess =
       titleWholeLine || wordSpacedLine || wordSpaceGutter(pieces, gutterGap) || singleRowWordGap;

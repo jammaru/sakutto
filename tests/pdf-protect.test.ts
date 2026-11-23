@@ -341,6 +341,25 @@ describe('review 9166c54: leading prose before notation', () => {
       'Section 3 × 3 explains it.',
       'Theorem 3 × 3 is stated below.',
       'Lemma 3 × 3 is proved there.',
+      // Determiners and quantifiers are prose too: the model must translate them, not paste
+      // them back verbatim from a protected slot (review 0ab8032 blocker 1).
+      'Both 3 × 3 convolutions are applied.',
+      'All 3 × 3 kernels are applied.',
+      'Every 3 × 3 kernel is used.',
+      'Two 3 × 3 kernels are stacked.',
+      'Several 3 × 3 filters are compared.',
+      'Such 3 × 3 kernels are shared.',
+      'Each 3 × 3 kernel is used.',
+      'Any 3 × 3 kernel works.',
+      'Some 3 × 3 kernels are pruned.',
+      'Many 3 × 3 filters are used.',
+      'Few 3 × 3 matrices remain.',
+      'Most 3 × 3 kernels are shared.',
+      'Other 3 × 3 filters differ.',
+      'Another 3 × 3 kernel is added.',
+      'No 3 × 3 kernel is kept.',
+      'Not 3 × 3 matrices are kept.',
+      'Only 3 × 3 kernels are kept.',
     ];
     for (const source of cases) {
       const lead = source.slice(0, source.indexOf(notation));
@@ -359,6 +378,16 @@ describe('review 9166c54: leading prose before notation', () => {
       const tags = protectedText.slots.map((_slot, index) => `<i${String(index)}>`).join('');
       expect(restoreInlineMath('訳文 ' + tags + ' です。', protectedText.slots)).not.toBeNull();
     }
+
+    // The same determiner must stay outside every slot of a multi-expression sentence.
+    const source = 'Both 3 × 3 and 5 × 5 filters matter.';
+    const lines = groupLines([piece(source, 49, 100, 430)]);
+    const block = layoutPage(lines).blocks[0];
+    if (!block) throw new Error('expected a block');
+    const protectedText = protectInlineMath(block);
+    expect(protectedText.slots.map((slot) => slot.text)).toEqual(['3 × 3', '5 × 5']);
+    expect(protectedText.text).toBe('Both <i0> and <i1> filters matter.');
+    expectSourcePreserved(protectedText, source);
   });
 });
 

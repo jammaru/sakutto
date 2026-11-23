@@ -57,7 +57,7 @@ Node 24 / ONNX Runtime Web 1.31.1 WASM、生成 CC0 フィクスチャ8件、各
 ### 検証
 
 - `pnpm lint`
-- `pnpm test` — 205 files, 2,688 passed, 1 optional smoke skipped
+- `pnpm test` — 205 files, 2,690 passed, 1 optional smoke skipped
 - `pnpm typecheck`
 - `pnpm format:check`
 - `pnpm exec wxt build`
@@ -107,7 +107,7 @@ Release `host_permissions` remains empty, with no new image-origin access. Canva
 ### Validation
 
 - `pnpm lint`
-- `pnpm test` — 205 files, 2,688 passed, 1 optional smoke skipped
+- `pnpm test` — 205 files, 2,690 passed, 1 optional smoke skipped
 - `pnpm typecheck`
 - `pnpm format:check`
 - `pnpm exec wxt build`
