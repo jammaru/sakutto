@@ -13,7 +13,7 @@ Mock pace: 12 ms prefill, 0.35 ms per character, 3 deltas. Times are millisecond
 | first-paragraph-then-long-tail | smooth   |           150 |      1400 | 0.0317 |             3 |
 | many-cards                     | smooth   |           150 |      1325 | 0.0336 |             7 |
 | mixed-ui                       | smooth   |           175 |      1075 | 0.0318 |             6 |
-| long-article                   | sentence |           125 |      1800 | 0.1045 |            17 |
-| first-paragraph-then-long-tail | sentence |           125 |      1400 | 0.0466 |             9 |
-| many-cards                     | sentence |           100 |      1300 |  0.091 |            24 |
-| mixed-ui                       | sentence |           125 |      1050 | 0.0542 |            11 |
+| long-article                   | sentence |           175 |      1775 | 0.0321 |             6 |
+| first-paragraph-then-long-tail | sentence |           150 |      1400 | 0.0318 |             4 |
+| many-cards                     | sentence |           150 |      1300 | 0.0324 |             6 |
+| mixed-ui                       | sentence |           150 |      1050 | 0.0318 |             6 |

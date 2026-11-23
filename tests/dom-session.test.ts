@@ -450,6 +450,48 @@ describe('page session', () => {
     expect(document.querySelector('sakutto-line')?.textContent?.trim()).toBe('One. Two.');
   });
 
+  it('keeps the source until a sentence terminator arrives, then writes only finished sentences', async () => {
+    document.documentElement.lang = 'en';
+    const source = 'First source. Second source.';
+    document.body.innerHTML = `<p>${source}</p>`;
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let afterUnterminated: string | null = null;
+    let afterTail: string | null = null;
+    const session = start(
+      document,
+      engineOf(async function* (segments, options: TranslateOptions) {
+        for (const segment of segments) {
+          yield { id: segment.id, textDelta: 'Hel', engine: 'plamo' as const };
+          afterUnterminated = document.querySelector('p')?.textContent ?? null;
+          await gate;
+          if (options.signal.aborted) return;
+          yield { id: segment.id, textDelta: 'lo. Tw', engine: 'plamo' as const };
+          afterTail = document.querySelector('p')?.textContent ?? null;
+          yield { id: segment.id, final: 'Hello. Two.', engine: 'plamo' as const };
+        }
+      }),
+      { reveal: 'sentence' },
+    );
+
+    await session.translate();
+    await vi.waitFor(() => {
+      expect(afterUnterminated).not.toBeNull();
+    });
+    expect(afterUnterminated).toBe(source);
+
+    release();
+    await vi.waitFor(() => {
+      expect(afterTail).not.toBeNull();
+    });
+    expect(afterTail).toBe('Hello.');
+
+    await session.whenIdle();
+    expect(document.querySelector('p')?.textContent).toBe('Hello. Two.');
+  });
+
   it('tells the reveal which translations are the last of the page', async () => {
     document.documentElement.lang = 'en';
     const long = 'The harbour office logs every crossing and publishes the delays each month. ';
@@ -508,6 +550,48 @@ describe('page session', () => {
       expect(idle).toBe(true);
     });
     expect(document.body.textContent).toBe('完了');
+    expect(session.state().pending).toBe(0);
+  });
+
+  it('does not resolve a waiting idle call when a language change replaces a pending reveal', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = '<p>Hello</p>';
+    const frames: (() => void)[] = [];
+    const prefs = preferences({ reveal: 'smooth' });
+    const session = new PageSession(document, {
+      engine: engineOf(async function* (segments) {
+        for (const segment of segments) {
+          yield { id: segment.id, final: '完了', engine: 'plamo' as const };
+        }
+      }),
+      labels,
+      preferences: prefs,
+      scheduleFrame: (callback) => frames.push(callback),
+      debounceMs: 20,
+    });
+    sessions.push(session);
+    let idle = false;
+
+    await session.translate();
+    await vi.waitFor(() => {
+      expect(session.state().pending).toBe(1);
+    });
+    void session.whenIdle().then(() => {
+      idle = true;
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(idle).toBe(false);
+
+    // The reveal is cleared before the replacement batch is queued.
+    session.setPreferences({ ...prefs, targetLanguage: 'de' });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(idle).toBe(false);
+    expect(session.state().pending).toBeGreaterThan(0);
+
+    while (frames.length > 0) frames.shift()?.();
+    await vi.waitFor(() => {
+      expect(idle).toBe(true);
+    });
     expect(session.state().pending).toBe(0);
   });
 
@@ -823,6 +907,7 @@ describe('page session', () => {
   function sharedRequest(
     answer: string,
     reveal: 'smooth' | 'stream' = 'smooth',
+    failed = false,
   ): { session: PageSession; items: () => Element[]; release: () => void } {
     document.documentElement.lang = 'en';
     document.body.innerHTML =
@@ -849,7 +934,12 @@ describe('page session', () => {
         if (options.signal.aborted) return;
         yield { id: second.id, textDelta: '着', engine: 'plamo' as const };
         yield { id: third.id, textDelta: '時刻表', engine: 'plamo' as const };
-        yield { id: first.id, final: answer, engine: 'plamo' as const };
+        yield {
+          id: first.id,
+          final: answer,
+          engine: 'plamo' as const,
+          ...(failed ? { error: true } : {}),
+        };
         yield { id: second.id, final: '到着', engine: 'plamo' as const };
         yield { id: third.id, final: '時刻表', engine: 'plamo' as const };
       }),
@@ -883,6 +973,77 @@ describe('page session', () => {
     release();
     await session.whenIdle();
     expect(items().map((item) => item.textContent)).toEqual(['出発便', '到着', '時刻表']);
+  });
+
+  it('honours a failed final for a line that was finished when the next line began', async () => {
+    const { session, items, release } = sharedRequest('Departures', 'smooth', true);
+    await session.translate();
+    await vi.waitFor(() => {
+      expect(items()[0]?.textContent).toBe('出発');
+    });
+
+    release();
+    await session.whenIdle();
+    // The answer carries fallback text, not a translation: the early optimistic text goes.
+    expect(items()[0]?.textContent).toBe('Departures');
+  });
+
+  it('does not let a stale request final overwrite a block the page replaced', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML =
+      '<ul><li>Harbour</li><li>Departures</li><li>Arrivals</li><li>Timetable</li></ul>';
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const session = start(
+      document,
+      engineOf(async function* (segments, options: TranslateOptions) {
+        const ids = new Map(segments.map((segment) => [segment.text, segment.id]));
+        for (const segment of segments) {
+          if (segment.text === 'New source') {
+            yield { id: segment.id, final: '新しい:New source', engine: 'plamo' as const };
+            continue;
+          }
+          if (segment.text === 'Departures') {
+            const departures = segment.id;
+            const arrivals = ids.get('Arrivals');
+            if (!arrivals) return;
+            yield { id: departures, textDelta: '出', engine: 'plamo' as const };
+            yield { id: departures, textDelta: '発', engine: 'plamo' as const };
+            // The next line starts: the request has answered for Departures for now.
+            yield { id: arrivals, textDelta: '到', engine: 'plamo' as const };
+            await gate;
+            if (options.signal.aborted) return;
+            yield { id: departures, final: '出発便', engine: 'plamo' as const };
+            yield { id: arrivals, final: '到着', engine: 'plamo' as const };
+            const timetable = ids.get('Timetable');
+            if (timetable) yield { id: timetable, final: '時刻表', engine: 'plamo' as const };
+            continue;
+          }
+          yield { id: segment.id, final: '港', engine: 'plamo' as const };
+        }
+      }),
+      { reveal: 'smooth' },
+    );
+    const items = (): Element[] => [...document.querySelectorAll('li')].slice(1);
+
+    await session.translate();
+    await vi.waitFor(() => {
+      expect(items()[0]?.textContent).toBe('出発');
+    });
+
+    // An in-place page change replaces the block while the old request is still open.
+    const block = items()[0];
+    if (!block || !(block.firstChild instanceof Text)) throw new Error('missing block text');
+    block.firstChild.nodeValue = 'New source';
+    await vi.waitFor(() => {
+      expect(items()[0]?.textContent).toBe('新しい:New source');
+    });
+
+    release();
+    await session.whenIdle();
+    expect(items()[0]?.textContent).toBe('新しい:New source');
   });
 
   it('streams a block that is decoded by itself and will take more than three seconds', async () => {
@@ -1039,6 +1200,66 @@ describe('page session', () => {
       expect(document.querySelector('sakutto-line')).toBeNull();
 
       release();
+      await session.whenIdle();
+      expect(document.querySelector('sakutto-line')?.textContent).toBe('完了');
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
+  it('does not grow a bilingual line when a streamed replace block switches display', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = '<p>Hello world</p>';
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let finish!: () => void;
+    const finalGate = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    let switchDeltaSeen = false;
+    let afterSwitchDelta: string | null = null;
+    const clock = vi.spyOn(performance, 'now');
+    const session = start(
+      document,
+      engineOf(async function* (segments, options: TranslateOptions) {
+        for (const segment of segments) {
+          clock.mockReturnValue(1000);
+          yield { id: segment.id, textDelta: '途', engine: 'plamo' as const };
+          clock.mockReturnValue(1000 + REVEAL_STREAM_AFTER_MS + 1);
+          yield { id: segment.id, textDelta: '中', engine: 'plamo' as const };
+          await gate;
+          if (options.signal.aborted) return;
+          yield { id: segment.id, textDelta: 'です', engine: 'plamo' as const };
+          switchDeltaSeen = true;
+          afterSwitchDelta = document.querySelector('sakutto-line')?.textContent ?? null;
+          await finalGate;
+          if (options.signal.aborted) return;
+          yield { id: segment.id, final: '完了', engine: 'plamo' as const };
+        }
+      }),
+      { display: 'replace', reveal: 'smooth' },
+    );
+
+    try {
+      await session.translate();
+      await vi.waitFor(() => {
+        expect(document.body.textContent).toContain('途中');
+      });
+      expect(document.querySelector('sakutto-line')).toBeNull();
+
+      // The display switch clears the partial paint: the hold starts over in bilingual mode.
+      session.setPreferences({ ...preferences(), display: 'bilingual', reveal: 'smooth' });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      release();
+      await vi.waitFor(() => {
+        expect(switchDeltaSeen).toBe(true);
+      });
+      expect(afterSwitchDelta).toBeNull();
+      expect(document.querySelector('sakutto-line')).toBeNull();
+
+      finish();
       await session.whenIdle();
       expect(document.querySelector('sakutto-line')?.textContent).toBe('完了');
     } finally {

@@ -66,33 +66,33 @@
   {
     "variant": "sentence",
     "page": "long-article",
-    "firstVisibleMs": 125,
-    "fullPageMs": 1800,
-    "cls": 0.1045,
-    "layoutShifts": 17
+    "firstVisibleMs": 175,
+    "fullPageMs": 1775,
+    "cls": 0.0321,
+    "layoutShifts": 6
   },
   {
     "variant": "sentence",
     "page": "first-paragraph-then-long-tail",
-    "firstVisibleMs": 125,
+    "firstVisibleMs": 150,
     "fullPageMs": 1400,
-    "cls": 0.0466,
-    "layoutShifts": 9
+    "cls": 0.0318,
+    "layoutShifts": 4
   },
   {
     "variant": "sentence",
     "page": "many-cards",
-    "firstVisibleMs": 100,
+    "firstVisibleMs": 150,
     "fullPageMs": 1300,
-    "cls": 0.091,
-    "layoutShifts": 24
+    "cls": 0.0324,
+    "layoutShifts": 6
   },
   {
     "variant": "sentence",
     "page": "mixed-ui",
-    "firstVisibleMs": 125,
+    "firstVisibleMs": 150,
     "fullPageMs": 1050,
-    "cls": 0.0542,
-    "layoutShifts": 11
+    "cls": 0.0318,
+    "layoutShifts": 6
   }
 ]

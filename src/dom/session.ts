@@ -370,6 +370,9 @@ export class PageSession {
   private readonly live = new Map<string, Live>();
   private readonly liveByBlock = new Map<Element, Live>();
   private readonly idleWaiters: Array<() => void> = [];
+  /** Clear/forget report the reveal as settled before their replacement work is queued. */
+  private revealChanging = 0;
+  private revealSettled = false;
   private prefs: SessionPreferences;
   private labels: OverlayLabels;
   private detectedLanguage: string | null = null;
@@ -494,6 +497,10 @@ export class PageSession {
       },
       settled: () => {
         if (this.active) this.publishState();
+        if (this.revealChanging > 0) {
+          this.revealSettled = true;
+          return;
+        }
         this.resolveIdle();
       },
     });
@@ -1609,7 +1616,7 @@ export class PageSession {
           // A line that was finished when the next line of its request began. The request
           // answers for it now; that answer counts where it says something else.
           if (chunk.final !== undefined && this.endedEarly.get(item) === token) {
-            this.correctLine(item, chunk.final, chunk.error === true);
+            this.correctLine(item, chunk.final, chunk.error === true, token, signal);
           }
           continue;
         }
@@ -2060,10 +2067,13 @@ export class PageSession {
   ): boolean {
     const ready = finishedSentenceText(text, this.prefs.targetLanguage);
     // Once a sentence is on the page, an unfinished tail must not be written over it.
-    if (item.sentenceShown !== undefined && (ready.length === 0 || ready === item.sentenceShown)) {
+    // Neither may a restart's shorter prefix replace sentences already shown.
+    if (
+      ready.length === 0 ||
+      (item.sentenceShown !== undefined && ready.length <= item.sentenceShown.length)
+    ) {
       return true;
     }
-    if (ready.length === 0) return false;
     if (item.sentenceShown === undefined) {
       this.claim(item, model);
       this.revealer.reserve(model.block);
@@ -2074,8 +2084,8 @@ export class PageSession {
       if (generation !== this.paintGeneration || !this.active) return;
       if (item.model !== model || !model.block.isConnected) return;
       if (item.state !== 'running' && item.state !== 'queued') return;
-      if (text.trim().length === 0) return;
-      this.write(item, model, text, true, bilingual);
+      if (ready.trim().length === 0) return;
+      this.write(item, model, ready, true, bilingual);
     };
     // The paragraph the reader is looking at first is written at once. The rest share the
     // next frame, as the other page writes do.
@@ -2144,12 +2154,36 @@ export class PageSession {
   }
 
   /** Takes the request's own answer for a line that `endLineBefore` finished. */
-  private correctLine(item: Live, final: string, failed: boolean): void {
+  private correctLine(
+    item: Live,
+    final: string,
+    failed: boolean,
+    token: number,
+    signal: AbortSignal,
+  ): void {
+    if (this.endedEarly.get(item) !== token) return;
     this.endedEarly.delete(item);
-    if (failed || item.state !== 'done' || !this.active) return;
-    if (final.trim() === (item.partText[0] ?? '').trim()) return;
+    if (!this.active || item.state !== 'done' || item.batchToken !== token) return;
+    // The page may have replaced this block while the old request was still open.
+    if (!this.ownsBlock(item)) return;
+    const previous = item.partText[0] ?? '';
+    if (failed) {
+      // An error final carries fallback text, not a translation: honour it instead of
+      // leaving the optimistic early text on the page.
+      item.partText[0] = final;
+      item.partFinal[0] = true;
+      item.partError[0] = true;
+      this.markUntranslated(item, signal);
+      return;
+    }
+    if (final.trim() === previous.trim()) return;
     item.partText[0] = final;
     this.complete(item);
+  }
+
+  /** Whether this item still owns the block its request is painting. */
+  private ownsBlock(item: Live): boolean {
+    return !item.model || this.liveByBlock.get(item.model.block) === item;
   }
 
   /** How fast text comes, learned from a block that has just finished. */
@@ -2179,6 +2213,7 @@ export class PageSession {
       apply: () => {
         if (generation !== this.paintGeneration || !this.active) return;
         if (item.state !== 'done' || item.model !== model || !model.block.isConnected) return;
+        if (!this.ownsBlock(item)) return;
         this.write(item, model, text, false, bilingual);
       },
       ...(bilingual ? { added: () => model.block.querySelector(':scope > sakutto-line') } : {}),
@@ -2267,14 +2302,25 @@ export class PageSession {
   }
 
   private repaintAll(): void {
-    this.revealer.clear();
-    for (const item of this.live.values()) {
-      if (!item.translation) continue;
-      this.paint(item, false, true);
-    }
+    this.changingReveal(() => {
+      this.revealer.clear();
+      for (const item of this.live.values()) {
+        if (!item.translation) {
+          // A display switch removes the old partial paint and starts the hold over:
+          // a block that streamed in replace mode must not grow a bilingual line.
+          if (item.model) this.resetLive(item);
+          continue;
+        }
+        this.paint(item, false, true);
+      }
+    });
   }
 
   private retranslate(): void {
+    this.changingReveal(() => this.retranslateNow());
+  }
+
+  private retranslateNow(): void {
     this.revealer.clear();
     // What was learned about speed and length belongs to the language it was learned in.
     this.outputRatio = null;
@@ -2306,20 +2352,22 @@ export class PageSession {
   }
 
   private resetLive(item: Live): void {
-    if (!item.model) return;
-    const model = item.model;
-    const block = model.block;
-    this.revealer.forget(block);
-    this.shown.delete(block);
-    item.streamed = false;
-    delete item.sentenceShown;
-    this.editDom(() => {
-      restoreSegment(model, item.created);
-      removeTranslationUi(block);
-      for (const node of item.originalChildren) {
-        if (node.parentNode === block) block.appendChild(node);
-      }
-      this.remember(model, item.created);
+    this.changingReveal(() => {
+      if (!item.model) return;
+      const model = item.model;
+      const block = model.block;
+      this.revealer.forget(block);
+      this.shown.delete(block);
+      item.streamed = false;
+      delete item.sentenceShown;
+      this.editDom(() => {
+        restoreSegment(model, item.created);
+        removeTranslationUi(block);
+        for (const node of item.originalChildren) {
+          if (node.parentNode === block) block.appendChild(node);
+        }
+        this.remember(model, item.created);
+      });
     });
   }
 
@@ -2393,23 +2441,25 @@ export class PageSession {
   }
 
   private forgetLive(item: Live, restore: boolean): void {
-    if (item.model) {
-      if (restore) this.resetLive(item);
-      else {
-        this.revealer.forget(item.model.block);
-        this.shown.delete(item.model.block);
-        removeTranslationUi(item.model.block);
-        item.model.block.removeAttribute('data-sakutto-pending');
-        item.model.block.removeAttribute('data-sakutto-id');
-        item.model.block.removeAttribute('data-sakutto-engine');
-        for (const node of item.created) node.remove();
-        item.created.length = 0;
+    this.changingReveal(() => {
+      if (item.model) {
+        if (restore) this.resetLive(item);
+        else {
+          this.revealer.forget(item.model.block);
+          this.shown.delete(item.model.block);
+          removeTranslationUi(item.model.block);
+          item.model.block.removeAttribute('data-sakutto-pending');
+          item.model.block.removeAttribute('data-sakutto-id');
+          item.model.block.removeAttribute('data-sakutto-engine');
+          for (const node of item.created) node.remove();
+          item.created.length = 0;
+        }
+        this.liveByBlock.delete(item.model.block);
       }
-      this.liveByBlock.delete(item.model.block);
-    }
-    this.live.delete(item.id);
-    this.queue.remove((candidate) => candidate === item);
-    this.dirty.delete(item);
+      this.live.delete(item.id);
+      this.queue.remove((candidate) => candidate === item);
+      this.dirty.delete(item);
+    });
   }
 
   /**
@@ -2982,6 +3032,23 @@ export class PageSession {
       this.selectionTimer === null &&
       this.pendingScans === 0
     );
+  }
+
+  /**
+   * Reveal removal reports `settled` before the replacement work is registered. Hold that
+   * report until the caller is done: an `whenIdle()` waiter must still see the new work.
+   */
+  private changingReveal<T>(change: () => T): T {
+    this.revealChanging += 1;
+    try {
+      return change();
+    } finally {
+      this.revealChanging -= 1;
+      if (this.revealChanging === 0 && this.revealSettled) {
+        this.revealSettled = false;
+        this.resolveIdle();
+      }
+    }
   }
 
   private resolveIdle(): void {

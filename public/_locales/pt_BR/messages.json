@@ -1527,7 +1527,7 @@
     "message": "Como as traduções da página aparecem"
   },
   "translationRevealHelp": {
-    "message": "A primeira opção mantém o texto original de um parágrafo até a tradução ficar pronta e então o substitui com um movimento curto, para que a página não salte durante a tradução. Um parágrafo que demora muito é mostrado enquanto é traduzido. A exibição bilíngue não muda."
+    "message": "A primeira opção mantém o texto original de um parágrafo até a tradução ficar pronta e então o substitui com um movimento curto, para que a página não salte durante a tradução. A opção por frase mostra cada frase assim que for traduzida, mantendo a altura do bloco até o final. Um parágrafo que demora muito é mostrado enquanto é traduzido. A exibição bilíngue não muda."
   },
   "translationRevealSmooth": {
     "message": "Substituir cada parágrafo quando estiver pronto"
