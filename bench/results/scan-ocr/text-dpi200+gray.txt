@@ -19,7 +19,7 @@ ing rules that decide what to translate first, and Section 4 the mesurements. Se
 2. System Design
 The extension is a Manifest V3 package with four processes. A service worker owns the lBifetime of everything ehse. An
 offscreen document hosts the runtime, because a service worker cannot hold a wobAssembly heap across a suspenslon.
-A content scrtpt walks the page and wettes translations hack into the document. Popup, options and onboarding pages
+A content scrtpt walks the page and wettes translations hack into the document. Popup, options and onboarding pages All umbers onme frm ome laptop: etght cnres, 32 GaB of memory, an integrated GPU, and a browser build that sapport
 render the settings.
 2.1 Runtime
 The model is PLaMo 3 Translate, an 0.8-billion-parameter decoder trained for translation in 53 languges in either direc-
@@ -53,7 +53,6 @@ manSegmenTokens 48 Longst block thar may share a completion
 manBand/ukens 100 Source sokens in one gpackad roguest
 piecaChars 600 Longt mn of suemteom snt as one prompe
 4. Measurements
-All umbers onme frm ome laptop: etght cnres, 32 GaB of memory, an integrated GPU, and a browser build that sapport
 webcPU. The fixture is a 1,900-woed artacle wth a sidebar, a code block and a navigation bar. Every run translates the
 poge from a cold cache, three times, and the median is reported.
 4.1 Throughput

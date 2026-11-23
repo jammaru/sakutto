@@ -21,7 +21,6 @@ could not design away, and Section 6 lists the work that remains.
 2. System Design
 The extension is a Manifest V3 package with four processes. A service worker owns the lifetime of everything else. An
 offscreen document hosts the runtime, because a service worker cannot hold a WebAssembly heap across a suspension.
-A content script walks the page and writes translations back into the document. Popup, options and onboarding pages
 render the settings.
 2.1 Runtime
 The model is PLaMo 3 Translate, an 0.8-billion-parameter decoder trained for translation in 53 languages in either direc-
@@ -70,7 +69,7 @@ maxBatchTokens 160 Source tokens in one packed request
 maxBatchSegments 8 Blocks in one packed request
 pieceChars 600 Longest run of sentences sent as one prompt
 4. Measurements
-All numbers come from one laptop: eight cores, 32 GB of memory, an integrated GPU, and a browser build that supports
+A content script walks the page and writes translations back into the document. Popup, options and onboarding pages All numbers come from one laptop: eight cores, 32 GB of memory, an integrated GPU, and a browser build that supports
 WebGPU. The fixture is a 1,900-word article with a sidebar, a code block and a navigation bar. Every run translates the
 page from a cold cache, three times, and the median is reported.
 4.1 Throughput

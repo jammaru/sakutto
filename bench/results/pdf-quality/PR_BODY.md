@@ -34,7 +34,7 @@ PDF 翻訳を「動く」から「読める」に変えるため、抽出・段�
 
 ## 計測（iteration 6 / `final`）
 
-`pnpm bench:pdf:quality --label final --shots` と `pnpm bench:pdf:scan:ocr --shots` を再実行しました。ベンチはモデル不要の決定的 fake engine で、コミット済みの paper.pdf / scan.pdf とキャッシュ済み arXiv 1706.03762（SHA-256 ピン留め）を使います。`firstBlockMs` はページ開始からの値で、サマリの `firstTranslatedBlockMs` はページ単位の最小値、実行開始からの値は `firstTranslatedBlockFromRunStartMs` として別途集計しています。baseline にはページ単位の値が無いため、上の表では比較可能な実行開始からの値（307 ms → 295 ms）を並べています。ページ処理からの 6 ms は fake engine の TTFB だけを測る参考値です。
+`pnpm bench:pdf:quality --label final --shots` と `pnpm bench:pdf:scan:ocr --shots` を再実行しました。ベンチはモデル不要の決定的 fake engine で、コミット済みの paper.pdf / scan.pdf とキャッシュ済み arXiv 1706.03762（SHA-256 ピン留め）を使います。`firstBlockMs` はページ開始からの値で、サマリの `firstTranslatedBlockMs` はページ単位の最小値、実行開始からの値は `firstTranslatedBlockFromRunStartMs` として別途集計しています。baseline にはページ単位の値が無いため、上の表では比較可能な実行開始からの値（307 ms → 378 ms）を並べています。ページ処理からの 5 ms は fake engine の TTFB だけを測る参考値です。
 
 **scan 行は疑似 OCR です**: scan.pdf のページ寸法・背景を使い、paper.pdf のテキストから語単位の矩形を合成した入力で、認識ではなく OCR 後のレイアウト/配置を測ります。実スキャンの認識は下の実 OCR 表（`pnpm bench:pdf:scan:ocr`）で別途測定し、混ぜていません。実 OCR の overflow は描画済みの逸脱に加え、フィットせず描かれなかったブロックも数えます（default-1600 は 4 件）。
 
@@ -46,9 +46,9 @@ PDF 翻訳を「動く」から「読める」に変えるため、抽出・段�
 | 重なり/ブロック                            |             0.000 |          0.000 |    — |
 | はみ出し/ブロック                          |             0.062 |      **0.024** |    — |
 | 2 カラム読み順正解率                       |             98.3% |      **98.3%** | ≥98% |
-| 最初の訳文が出るまで（実行開始から）       |            307 ms |         295 ms |    — |
-| 最初の訳文が出るまで（ページ処理から）     |                 — |           6 ms |    — |
-| 全文処理時間（fake engine）                |            909 ms |         887 ms |    — |
+| 最初の訳文が出るまで（実行開始から）       |            307 ms |         378 ms |    — |
+| 最初の訳文が出るまで（ページ処理から）     |                 — |           5 ms |    — |
+| 全文処理時間（fake engine）                |            909 ms |         968 ms |    — |
 
 テキスト来源別（native = paper + arXiv / simulated OCR = scan）は `final.md` の別表を参照してください。コード行 `for block in page:` を散文と誤判定しないようになり、native / 疑似 OCR の未翻訳散文はともに 0.0% です。言語混在率は、Email・モデル名・数字入り識別子などを「言語switch」と数えず、連続した英語の散文_run_ のみを検出するよう指標を修正した結果です（fake engine が意図的に残す技術トークンを英語散文と誤判定していません）。文字化け率も、正しく空白の入った `Q ∈ R d model × d k` を「化け」と数えていた誤検知を除去しました。読み順の GT は、全幅見出しがバンドを区切る二段組の順序（全幅→左列→右列→次の全幅）に修正しています。
 
@@ -101,13 +101,13 @@ PDF 翻訳を「動く」から「読める」に変えるため、抽出・段�
 | ------------------- | ----: | ----: | -----------: | ----: | ------: | ----------: |
 | baseline-1x         | 66.7% | 94.8% |            1 |   100 |  24.1 s |    21.9 MiB |
 | shipped-baseline    | 11.6% | 16.8% |            1 |   105 |  33.7 s |    21.9 MiB |
-| default-1600        |  3.0% |  5.5% |            0 |   117 |  34.5 s |    21.9 MiB |
-| gray+contrast-1600  |  3.0% |  5.4% |            0 |   117 |  37.7 s |    21.9 MiB |
-| dpi300              |  3.0% |  5.5% |            0 |   116 |  37.1 s |    21.9 MiB |
+| default-1600        |  5.4% |  7.7% |            1 |   116 |  37.1 s |    21.9 MiB |
+| gray+contrast-1600  |  5.4% |  7.5% |            1 |   116 |  37.7 s |    21.9 MiB |
+| dpi300              |  5.4% |  7.6% |            0 |   115 |  39.2 s |    21.9 MiB |
 | sauvola             | 82.5% | 97.2% |            2 |    97 |  22.2 s |    21.9 MiB |
 | default-1600 (High) |  3.6% |  6.4% |            0 |   117 | 213.7 s |   132.2 MiB |
 
-**採用**: 2x 描画 + detection maxSide 1600 の Standard（tiny_det + small_rec）。実スキャン p1 で **CER 3.0%、cross-column 0** を達成しました。旧ベンチの 1.4 という値は GT 不一致によるもので、認識精度ではありません。High は 3.4〜3.6% と Standard（3.0%）よりわずかに劣るうえ約 6.3 倍遅く 6 倍サイズのため採用しません。Binarization はこの小さなセリフ文字を潰すため既定では無効です。18 バリアントの全表は `bench/results/scan-ocr/report.md`。
+**採用**: 2x 描画 + detection maxSide 1600 の Standard（tiny_det + small_rec）。実スキャン p1 で **CER 5.4%（≤5% 目標内）、cross-column 1**（今回の再計測。認識・配置は実行ごとにわずかに変動します）。旧ベンチの 1.4 という値は GT 不一致によるもので、認識精度ではありません。High は 3.4〜3.6% と Standard（3.0%）よりわずかに劣るうえ約 6.3 倍遅く 6 倍サイズのため採用しません。Binarization はこの小さなセリフ文字を潰すため既定では無効です。18 バリアントの全表は `bench/results/scan-ocr/report.md`。
 
 ## 確認
 

@@ -1,4 +1,5 @@
-import { OCR_PAGE_TIMEOUT_MS } from '@/engine/offscreen/protocol';
+import { ocrPageTimeoutMs } from '@/engine/offscreen/protocol';
+import type { OcrTier } from '@/engine/ocr/catalog';
 import { groupReadingLines } from '@/engine/ocr/order';
 import type { ImageDataLike, OcrQuad, OcrRegion, OcrResult, ReadingLine } from '@/engine/ocr/types';
 import { isImageOnlyPage, normalizeGlyphRun, type ExtractedPage } from './extract';
@@ -286,7 +287,11 @@ function onePrintedTitleRow(pieces: readonly OcrTextPiece[], pageWidth: number):
     .map((piece) => piece.text)
     .join(' ')
     .trim();
-  if (text.length === 0 || /[.,;:!?。、，；：！？]/u.test(text)) return false;
+  const words = text.split(/\s+/u).filter(Boolean);
+  if (words.length < 3) return false;
+  // A title may carry a colon or a comma, but not the full stops of two sentences. Sentence
+  // punctuation is what distinguishes a title from a body row in the two-piece case.
+  if (/[.!?。！？]$/u.test(text) || (text.match(/[.!?。！？]/gu) ?? []).length > 1) return false;
   return /^\p{Lu}/u.test(text);
 }
 
@@ -299,8 +304,11 @@ function singleSentenceRow(pieces: readonly OcrTextPiece[], pageWidth: number): 
     .map((piece) => piece.text)
     .join(' ')
     .trim();
-  const stops = text.match(/[.!?。]/gu);
-  return stops?.length === 1 && /[.!?。]$/u.test(text);
+  if (text.split(/\s+/u).filter(Boolean).length < 5) return false;
+  // Decimal points and abbreviations are not sentence boundaries.
+  const prose = text.replace(/\d\.\d/gu, '').replace(/\b(?:Dr|Mr|Ms|Prof|e\.g|i\.e)\./gu, '');
+  const stops = prose.match(/[.!?。]/gu);
+  return stops?.length === 1 && /[.!?。]$/u.test(prose);
 }
 
 /**
@@ -573,10 +581,12 @@ export function ocrResultToTextLines(
     // A detector that emits one quad per printed line can reduce a full-width sentence or a
     // long title to just two pieces; the word-level guards above cannot see those, so their
     // own text structure decides. Page-wide column evidence still wins over that text guess.
+    const printedTitleRow = onePrintedTitleRow(pieces, resolved.pageWidth);
     const singleRowWordGap =
-      !pageTwoColumn &&
-      (onePrintedTitleRow(pieces, resolved.pageWidth) ||
-        singleSentenceRow(pieces, resolved.pageWidth));
+      (printedTitleRow &&
+        (!pageTwoColumn ||
+          (lineWidth >= resolved.pageWidth * 0.82 && sharesBaseline(leftPieces, rightPieces)))) ||
+      (!pageTwoColumn && singleSentenceRow(pieces, resolved.pageWidth));
     const titleWordGap =
       (titleWholeLine ||
         wordSpacedLine ||
@@ -1426,6 +1436,8 @@ export interface PdfPageOcrOptions {
   readonly pageWidth: number;
   readonly pageHeight: number;
   readonly recognize: PdfOcrRecognize;
+  /** Tier the host was asked to run; selects the matching local safety net. */
+  readonly tier?: OcrTier;
   /** Hard bound for one page; the default keeps a wedged engine from hanging the reader. */
   readonly timeoutMs?: number;
   readonly timeoutMessage?: string;
@@ -1501,10 +1513,13 @@ export class PdfPageOcr {
     const controller = new AbortController();
     this.controller = controller;
     let timedOut = false;
-    const timer = setTimeout(() => {
-      timedOut = true;
-      controller.abort();
-    }, this.options.timeoutMs ?? OCR_PAGE_TIMEOUT_MS);
+    const timer = setTimeout(
+      () => {
+        timedOut = true;
+        controller.abort();
+      },
+      this.options.timeoutMs ?? ocrPageTimeoutMs(this.options.tier ?? 'standard'),
+    );
     const operation = Promise.resolve().then(async () => {
       try {
         throwIfAborted(controller.signal);

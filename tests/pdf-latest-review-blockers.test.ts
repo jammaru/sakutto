@@ -2,10 +2,10 @@
 import { describe, expect, it } from 'vitest';
 import type { OcrQuad, OcrRegion, OcrResult, ReadingLine } from '@/engine/ocr/types';
 import { compareReadingOrder, layoutPage, type LayoutBlock } from '@/pdf/layout';
-import { groupLines } from '@/pdf/lines';
+import { groupLines, lineFrom } from '@/pdf/lines';
 import { metricsPass, pageMetrics } from '@/pdf/metrics';
 import { ocrResultToPageLayout, ocrResultToTextLines } from '@/pdf/ocr';
-import { placePage } from '@/pdf/place';
+import { paintIntegrityMetrics, placePage } from '@/pdf/place';
 import { PdfReader } from '@/pdf/reader';
 import type { BlockState } from '@/pdf/session';
 import { stubExpand } from '@/pdf/stub';
@@ -101,6 +101,44 @@ describe('latest DSH review blockers', () => {
     ]);
   });
 
+  it('B2: a two-piece title with a colon survives two-column page evidence', () => {
+    const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+    const title = [
+      region('Attention Is All You Need:', quad(45, 60, 250, 20)),
+      region('A Study of Long Context Windows', quad(305, 60, 250, 20)),
+    ];
+    const body = [
+      [
+        region('Left column prose for the first printed row.', quad(45, 140, 250, 20)),
+        region('Right column prose on that same printed row.', quad(305, 140, 250, 20)),
+      ],
+      [
+        region('A second left column line proving two columns.', quad(45, 170, 250, 20)),
+        region('A second right column line proving two columns.', quad(305, 170, 250, 20)),
+      ],
+    ];
+    const result: OcrResult = {
+      regions: [...title, ...body.flat()],
+      lines: [readingLine(title), ...body.map(readingLine)],
+      text: '',
+    };
+    const lines = ocrResultToTextLines(result, options);
+    expect(lines[0]?.text).toBe('Attention Is All You Need: A Study of Long Context Windows');
+    expect(lines[0]?.columnHint).toBeUndefined();
+  });
+
+  it('B1: a decimal point does not make a full-width sentence two columns', () => {
+    const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+    const items = [
+      region('The score increased from 3.2', quad(45, 100, 250, 20)),
+      region('points in this single column line.', quad(305, 100, 250, 20)),
+    ];
+    const full = 'The score increased from 3.2 points in this single column line.';
+    expect(ocrResultToTextLines(ocrResult(items), options).map((line) => line.text)).toEqual([
+      full,
+    ]);
+  });
+
   it('B3: does not report a single-column full-width prose line as a cross-column cover', () => {
     const pageWidth = 595;
     const lines = groupLines([
@@ -120,6 +158,54 @@ describe('latest DSH review blockers', () => {
     const metrics = pageMetrics(layout, placed, { x: 0, y: 0, width: pageWidth, height: 800 });
     expect(metrics.crossColumnCovers).toBe(0);
     expect(metricsPass(metrics)).toBe(true);
+  });
+
+  it('B3: a genuinely fused heading row is still a cross-column cover', () => {
+    const pageWidth = 595;
+    const text = 'Left half of a fused heading row right half of the same row';
+    const block: LayoutBlock = {
+      box: { x: 45, y: 100, width: 505, height: 24 },
+      room: { x: 45, y: 100, width: 505, height: 24 },
+      lines: [
+        lineFrom([
+          piece('Left half of a fused heading row', 45, 112, 205),
+          piece('right half of the same row', 275, 112, 275),
+        ]),
+      ],
+      text,
+      role: 'heading',
+      fontSize: 10,
+      lineHeight: 1.2,
+      align: 'left',
+      bold: false,
+      italic: false,
+      column: 0,
+      advance: 505,
+      writing: 0,
+    };
+    const fit = {
+      fits: true as const,
+      fontSize: 10,
+      lineHeight: 12,
+      lines: ['横断する見出し'],
+      height: 24,
+      grown: false,
+      width: 505,
+    };
+    const metrics = paintIntegrityMetrics(
+      [
+        {
+          block,
+          translation: '横断する見出し',
+          fit,
+          paint: true,
+          drawn: { x: 45, y: 100, width: 505, height: 24 },
+          overflow: false,
+        },
+      ],
+      pageWidth,
+    );
+    expect(metrics.crossColumnCovers).toBe(1);
   });
 
   function permutations<T>(items: readonly T[]): T[][] {

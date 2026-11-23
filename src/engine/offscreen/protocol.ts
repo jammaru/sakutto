@@ -48,10 +48,16 @@ export function ocrRecognitionTimeoutMs(tier: OcrTier): number {
   return tier === 'high' ? OCR_HIGH_RECOGNITION_TIMEOUT_MS : OCR_RECOGNITION_TIMEOUT_MS;
 }
 /**
- * Local page/UI safety net. It sits above every host-tier bound, so the typed host timeout
- * arrives first; it only fires when the host's own timer is unavailable.
+ * Local page/UI safety net for the tier actually requested. It sits above the matching host
+ * bound, so the typed host timeout arrives first; it only fires when the host timer is lost.
+ * Defaulting every page to the high-tier bound would leave a standard-tier scan 'reading' for
+ * about four minutes when that fallback is the only timer left.
  */
-export const OCR_PAGE_TIMEOUT_MS = OCR_HIGH_RECOGNITION_TIMEOUT_MS + 2_000;
+export function ocrPageTimeoutMs(tier: OcrTier): number {
+  return ocrRecognitionTimeoutMs(tier) + 2_000;
+}
+/** High-tier alias for callers that do not track the requested tier. */
+export const OCR_PAGE_TIMEOUT_MS = ocrPageTimeoutMs('high');
 
 export type OcrFailureCode = 'model-missing' | 'timeout' | 'failed';
 

@@ -23,6 +23,11 @@ const GUTTER_CLEARANCE = 4;
  */
 const MERGED_COLUMN_GUTTER = 10;
 /**
+ * A full-width heading or caption can have a generous 12pt word space exactly on the page
+ * gutter, so it needs a clearly wider white gap before it counts as two fused columns.
+ */
+const MERGED_HEADING_GUTTER = 16;
+/**
  * Extra cover below the source box, as a fraction of em, to hide Latin descenders.
  *
  * 0.22em covers `g`/`p`/`y` without the 0.32em pad that grew covers into the next block.
@@ -413,11 +418,11 @@ export function blockSpansGutter(
  */
 function blockMergesColumns(block: LayoutBlock, pageWidth: number): boolean {
   if (pageWidth <= 0) return false;
-  // A heading or caption that spans the page is a full-width title, not a row of two
-  // columns fused together. OCR often splits such a title into two text regions with a
-  // word gap near the gutter; treating that gap as a column merge reported the title's
-  // correctly fitted cover as crossing into the neighbouring column.
-  if (block.column <= 0 && (block.role === 'heading' || block.role === 'caption')) return false;
+  // A heading or caption that spans the page is usually a full-width title, not a row of
+  // two columns fused together. OCR splits such titles into two text regions with a word
+  // gap near the gutter, so they need a wider gap than prose before counting as a merge.
+  const spanningTitle = block.column <= 0 && (block.role === 'heading' || block.role === 'caption');
+  const minimumGutter = spanningTitle ? MERGED_HEADING_GUTTER : MERGED_COLUMN_GUTTER;
   const gutter = pageWidth * 0.49;
   return block.lines.some((line) => {
     const pieces = line.pieces;
@@ -428,9 +433,9 @@ function blockMergesColumns(block: LayoutBlock, pageWidth: number): boolean {
       const leftEnd = Math.max(...left.map((piece) => piece.box.x + piece.box.width));
       const rightStart = Math.min(...right.map((piece) => piece.box.x));
       const gutterWidth = rightStart - leftEnd;
-      // A full-width title can have an ordinary 6pt word gap exactly at the page gutter.
-      // A merged column row's gutter is wider than any word gap inside either column.
-      // Spanning headings are exempted above, so this only judges prose rows.
+      // A full-width title can have an ordinary 6-12pt word gap exactly at the page gutter.
+      // A merged column row's gutter is wider than any word gap inside either column, and
+      // a spanning heading must clear the stricter title threshold as well.
       const widestInnerGap = (group: typeof pieces): number => {
         const ordered = [...group].sort((a, b) => a.box.x - b.box.x);
         let widest = 0;
@@ -444,7 +449,7 @@ function blockMergesColumns(block: LayoutBlock, pageWidth: number): boolean {
         return widest;
       };
       if (
-        gutterWidth >= MERGED_COLUMN_GUTTER &&
+        gutterWidth >= minimumGutter &&
         gutterWidth > Math.max(widestInnerGap(left), widestInnerGap(right)) + 0.001
       ) {
         return true;

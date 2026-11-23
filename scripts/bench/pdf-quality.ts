@@ -401,20 +401,30 @@ async function renderShots(report: unknown): Promise<void> {
  * Keep the committed PR body's final column in step with `final.json`. Without this a normal
  * `--label final` refresh silently invalidates tests/pdf-quality-report.test.ts until someone
  * edits the markdown by hand. Both latency rows are refreshed; only the run-start row can be
- * compared with the older baseline artifact.
+ * compared with the older baseline artifact. A fresh checkout without that artifact still gets
+ * its final results written.
  */
 async function refreshPrBody(summary: ReturnType<typeof summarize>): Promise<void> {
   const path = join(ROOT, 'bench/results/pdf-quality/PR_BODY.md');
   const text = await readFile(path, 'utf8').catch(() => null);
   if (text === null) return;
-  const baselineSummary = JSON.parse(await readFile(join(OUT, 'baseline.json'), 'utf8')) as {
-    summary: { firstTranslatedBlockFromRunStartMs: number };
-  };
+  const baselineText = await readFile(join(OUT, 'baseline.json'), 'utf8').catch(() => null);
+  let baselineMs: number | null = null;
+  if (baselineText !== null) {
+    try {
+      const baselineSummary = JSON.parse(baselineText) as {
+        summary?: { firstTranslatedBlockFromRunStartMs?: number };
+      };
+      const value = baselineSummary.summary?.firstTranslatedBlockFromRunStartMs;
+      if (typeof value === 'number' && Number.isFinite(value)) baselineMs = value;
+    } catch {
+      // A truncated or legacy baseline must not abort the final report refresh.
+    }
+  }
   const runStart =
-    String(baselineSummary.summary.firstTranslatedBlockFromRunStartMs) +
-    ' ms → ' +
-    String(summary.firstTranslatedBlockFromRunStartMs) +
-    ' ms';
+    baselineMs === null
+      ? null
+      : String(baselineMs) + ' ms → ' + String(summary.firstTranslatedBlockFromRunStartMs) + ' ms';
   const values = new Map([
     [
       '未翻訳散文ブロック率（skipped 散文を含む）',
@@ -442,15 +452,17 @@ async function refreshPrBody(summary: ReturnType<typeof summarize>): Promise<voi
         // The prose sentence used to hard-code the same latencies as the table, so a refresh
         // contradicted its own raw data. Keep both in step with the committed summaries.
         if (!line.includes('実行開始からの値（')) return line;
-        return line
-          .replace(
-            /比較可能な実行開始からの値（[^）]*）/u,
-            '比較可能な実行開始からの値（' + runStart + '）',
-          )
-          .replace(
-            /ページ処理からの \d+ ms/u,
-            'ページ処理からの ' + String(summary.firstTranslatedBlockMs) + ' ms',
-          );
+        return (
+          runStart === null
+            ? line
+            : line.replace(
+                /比較可能な実行開始からの値（[^）]*）/u,
+                '比較可能な実行開始からの値（' + runStart + '）',
+              )
+        ).replace(
+          /ページ処理からの \d+ ms/u,
+          'ページ処理からの ' + String(summary.firstTranslatedBlockMs) + ' ms',
+        );
       }
       const original = cells[3];
       const decorated = original.includes('**') ? '**' + value + '**' : value;

@@ -76,7 +76,7 @@ and pushed every followtng cell one place along. Such a container is now descend
 Each of these was found by a mader, mot by a test, and each now has a fixture that fatls wthout the fx. We take thts a
 esdence that poge translation is a systems peoblem: the model is the easy pat, and the document is the hand one.
 6. Remalning Werk
-Twe shapes of document are seill out of reach. The first is the PDr that a reader opens in the browser's own vtewer
+Figure L Tie to ranslte he whole fie atkle, ty bacnd The PU path k no only at pe k k ao puda son oc Twe shapes of document are seill out of reach. The first is the PDr that a reader opens in the browser's own vtewer
 whose text is laid out by a PDF engine rather than by the DOM. The second is the scanned document, where the only
 test is a bitmap. Both need the same thing from this system: a translation thet keeps the original geometry, so that
 figure's caption stays under the figure and a table's column widths survive. We report on the first of these in a companior
@@ -101,7 +101,6 @@ S8s
 15s
 CPU, d theals 91 34s 156 a
 WeoCPU, 2 seq WBCPU, I sg CKC. 8 fmah CPL, 4 dieth
-Figure L Tie to ranslte he whole fie atkle, ty bacnd The PU path k no only at pe k k ao puda son oc
 Acknaudwdpm k. The modd swgle aw oatal by haled Neors ande ie PaMe Cmmity Lie. The ntie is a putrtel bul
 of ftamo go compted win Emsrpem Neoter is aftand win th work.
 [2]A. Autos. "Ilamacpp: inlernoe of lage langge modl ie C and C," Sultwan, 2023-202%.

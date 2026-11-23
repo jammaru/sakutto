@@ -298,6 +298,18 @@ interface CaseResult {
   failed?: boolean;
 }
 
+/** Input scale an experiment actually times, including adaptive thresholding. */
+function experimentScale(experiment: Experiment, lines: readonly { quad: OcrQuad }[]): number {
+  if (experiment.adaptiveThreshold === undefined) return experiment.scale ?? 1;
+  const availableHeight = (quad: OcrQuad): number =>
+    Math.hypot(quad[3].x - quad[0].x, quad[3].y - quad[0].y);
+  const medianHeight =
+    lines.map((line) => availableHeight(line.quad)).sort((a, b) => a - b)[
+      Math.floor(lines.length / 2)
+    ] ?? 20;
+  return Math.max(1, Math.min(2, experiment.adaptiveThreshold / Math.max(1, medianHeight)));
+}
+
 async function main(): Promise<void> {
   const selectedExperiments = EXPERIMENTS.filter(
     (experiment) => experimentFilter.length === 0 || experimentFilter.includes(experiment.id),
@@ -317,12 +329,20 @@ async function main(): Promise<void> {
     [];
   const warmImage = [...images.values()][0];
   try {
-    // ONNX sessions and kernels are lazy: the first inference pays the warm-up cost. Run one
-    // unreported inference on the loaded pairing before timing any experiment so the baseline
-    // row is not biased by being first.
-    if (warmImage && selectedExperiments.length > 0) {
-      const warm = makePipeline(loaded, selectedExperiments[0] ?? EXPERIMENTS[0]!);
-      await warm.pipeline.run(warmImage);
+    // ONNX sessions and kernels are lazy. Warm each experiment with its own preprocessing and
+    // input shape before timing it: one shared warm-up only removes the baseline's lazy init,
+    // while scaled or binarized rows would still pay it inside their first reported inference.
+    const warmFixture = selectedFixtures[0];
+    if (warmImage && warmFixture) {
+      for (const experiment of selectedExperiments) {
+        const warm = makePipeline(loaded, experiment);
+        const preprocessed = applyOcrPreprocess(
+          warmImage,
+          experiment.steps ?? [],
+          experimentScale(experiment, warmFixture.lines),
+        );
+        await warm.pipeline.run(preprocessed.image);
+      }
     }
     for (const experiment of selectedExperiments) {
       const variant = makePipeline(loaded, experiment);
@@ -331,17 +351,11 @@ async function main(): Promise<void> {
         const source = images.get(fixture.id);
         if (!source) continue;
         try {
-          const availableHeight = (quad: OcrQuad): number =>
-            Math.hypot(quad[3].x - quad[0].x, quad[3].y - quad[0].y);
-          const medianHeight =
-            fixture.lines.map((line) => availableHeight(line.quad)).sort((a, b) => a - b)[
-              Math.floor(fixture.lines.length / 2)
-            ] ?? 20;
-          const scale =
-            experiment.adaptiveThreshold !== undefined
-              ? Math.max(1, Math.min(2, experiment.adaptiveThreshold / Math.max(1, medianHeight)))
-              : (experiment.scale ?? 1);
-          const preprocessed = applyOcrPreprocess(source, experiment.steps ?? [], scale);
+          const preprocessed = applyOcrPreprocess(
+            source,
+            experiment.steps ?? [],
+            experimentScale(experiment, fixture.lines),
+          );
           const started = performance.now();
           let result: OcrResult;
           if (experiment.tiling) result = await runTiled(variant, preprocessed.image, experiment);
@@ -450,7 +464,7 @@ async function main(): Promise<void> {
       '# OCR experiment lab — ' + label,
       '',
       'Pairing: ' + pairing + '. ' + selectedFixtures.map((fixture) => fixture.id).join(', ') + '.',
-      'One unreported warm-up inference is run before timing; ms/page excludes it.',
+      'One unreported warm-up inference per experiment uses its own input shape before timing; ms/page excludes it.',
       '',
       header,
       ...results.map((entry) => {
@@ -480,7 +494,16 @@ async function main(): Promise<void> {
   await mkdir(OUT, { recursive: true });
   await writeFile(
     join(OUT, label + '.json'),
-    JSON.stringify({ label, pairing, warmups: warmImage ? 1 : 0, results }, null, 2) + '\n',
+    JSON.stringify(
+      {
+        label,
+        pairing,
+        warmups: warmImage && selectedFixtures[0] ? selectedExperiments.length : 0,
+        results,
+      },
+      null,
+      2,
+    ) + '\n',
   );
   await writeFile(join(OUT, label + '.md'), markdown);
   console.log('\nwrote ' + join(OUT, label + '.md'));

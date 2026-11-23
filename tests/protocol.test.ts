@@ -11,6 +11,7 @@ import {
   isEngineHostMessage,
   isEngineHostRequest,
   isOcrFailureResponse,
+  ocrPageTimeoutMs,
   ocrRecognitionTimeoutMs,
   OCR_PAGE_TIMEOUT_MS,
   OCR_RECOGNITION_TIMEOUT_MS,
@@ -451,6 +452,11 @@ describe('engine host protocol', () => {
     expect(ocrRecognitionTimeoutMs('standard')).toBe(OCR_RECOGNITION_TIMEOUT_MS);
     expect(ocrRecognitionTimeoutMs('high')).toBeGreaterThan(high.ms * 1.1);
     expect(OCR_PAGE_TIMEOUT_MS).toBeGreaterThan(ocrRecognitionTimeoutMs('high'));
+    // The local fallback follows the requested tier, so a standard page never waits for the
+    // high-tier bound when the host timer is unavailable.
+    expect(ocrPageTimeoutMs('standard')).toBe(OCR_RECOGNITION_TIMEOUT_MS + 2_000);
+    expect(ocrPageTimeoutMs('high')).toBe(OCR_PAGE_TIMEOUT_MS);
+    expect(ocrPageTimeoutMs('standard')).toBeLessThan(ocrPageTimeoutMs('high'));
   });
 
   it('accepts only explicit OCR failure codes', () => {
