@@ -106,6 +106,14 @@ const MAX_BATCH_PLACEHOLDERS = 16;
 const PACK_PRIORITY_SLACK = 24;
 const SLICE_SIZE = 24;
 const MAX_PAGE_FAILURES = 2;
+/**
+ * How many viewport blocks stream their tokens before their first sentence ends. Only
+ * the first ones need the fast path: they are what a reader meets on arrival, and the
+ * first painted word is all the page bench times. Holding the rest to whole sentences
+ * keeps the height reservation from shifting a screenful of short labels as tokens
+ * grow, which is what drove layout shift above the smooth-mode range.
+ */
+const FAST_VISIBLE_BLOCKS = 2;
 /** Keyboard selections settle before inference, so a partial highlight does not occupy the model. */
 const SELECTION_SETTLE_MS = 48;
 /** A selectionchange that follows pointerup is the same gesture and should not wait out the keyboard delay. */
@@ -438,6 +446,12 @@ export class PageSession {
   private frameQueued = false;
   private paintGeneration = 0;
   private startedAt = 0;
+  /** When the first engine request of this run was sent. */
+  private firstRequestAt: number | null = null;
+  /** When the first decoded token of this run arrived from the engine. */
+  private firstTokenAt: number | null = null;
+  /** When translated text was first written into a page block in this run. */
+  private firstDomWriteAt: number | null = null;
   private firstTextAt: number | null = null;
   private samples: { id: string; ms: number }[] = [];
   private perf: HTMLElement | null = null;
@@ -793,12 +807,20 @@ export class PageSession {
     this.sweepLegacyNotes();
     this.startedAt = performance.now();
     this.firstTextAt = null;
+    this.firstRequestAt = null;
+    this.firstTokenAt = null;
+    this.firstDomWriteAt = null;
     this.samples = [];
     this.throughputSamples = [{ atMs: this.startedAt, tokens: 0, segments: 0 }];
     this.heldRates = { tokensPerSecond: null, segmentsPerSecond: null };
     this.heldTokensAt = 0;
     this.heldSegmentsAt = 0;
     this.work = { batches: 0, pieces: 0, engineMs: 0 };
+    // Create the hook now rather than at the first completion: the first request, token and
+    // DOM write all happen long before a block finishes on a slow engine, and the bench
+    // reads this element to break the first-visible time down.
+    this.ensurePerf();
+    this.writePerf();
     this.pageController = new AbortController();
     this.eagerOnce = true;
     this.lastRateAt = 0;
@@ -1559,6 +1581,12 @@ export class PageSession {
     for (const item of batch) {
       if (item.role === 'page' && item.model) {
         item.model.block.setAttribute('data-sakutto-pending', '1');
+        // The source is still on the page here, so measure its box once and hold that
+        // height before the first token arrives. On screen, sentence mode then writes
+        // tokens as they decode without moving whatever sits under the block.
+        if (this.prefs.reveal === 'sentence' && item.band === 'visible') {
+          this.revealer.reserve(item.model.block);
+        }
       }
       item.firstPieceAt = null;
       const pieces = expandSource(item);
@@ -1600,6 +1628,10 @@ export class PageSession {
     this.work.batches += 1;
     this.work.pieces += requests.length;
     const engineStarted = performance.now();
+    if (this.firstRequestAt === null) {
+      this.firstRequestAt = engineStarted;
+      this.writePerf();
+    }
     let abortedByEngine = false;
 
     try {
@@ -1629,6 +1661,10 @@ export class PageSession {
           }
           item.firstPieceAt ??= performance.now();
           if (chunk.textDelta.length > 0) {
+            if (this.firstTokenAt === null) {
+              this.firstTokenAt = performance.now();
+              this.writePerf();
+            }
             item.lastPieceAt = performance.now();
             if (this.pieceFor !== item) {
               this.otherPieceAt = this.pieceAt;
@@ -2007,6 +2043,14 @@ export class PageSession {
     const bilingual = this.prefs.display === 'bilingual' && this.keepsOriginalVisible(item);
     if (!direct && this.prefs.reveal === 'sentence') {
       const instant = this.firstOnScreen(item);
+      if (partial && this.fastVisible(item)) {
+        // On screen the reader is watching the block. Write decoded tokens straight
+        // into its reserved box instead of waiting for a sentence terminator: that
+        // wait is what made the first visible word slower than stream mode. We are
+        // already in a paint frame here, so no extra frame stands before first paint.
+        this.paintVisibleTokens(item, model, text, bilingual);
+        return;
+      }
       if (partial) {
         if (this.paintSentences(item, model, bilingual)) return;
       } else if (item.streamed) {
@@ -2018,12 +2062,21 @@ export class PageSession {
         const added = bilingual
           ? () => model.block.querySelector(':scope > sakutto-line')
           : undefined;
+        const fast = this.fastVisible(item);
+        const motion =
+          instant || (bilingual && hadLine)
+            ? undefined
+            : {
+                kind: revealKind(item),
+                ...(added ? { added } : {}),
+                // The above-fold path only needs a cheap fade at the end. It has
+                // already painted many times, so no glide/blur is worth the cost.
+                ...(fast ? { cheap: true } : {}),
+              };
         this.revealer.settle(
           model.block,
           () => this.write(item, model, text, false, bilingual),
-          instant || (bilingual && hadLine)
-            ? undefined
-            : { kind: revealKind(item), ...(added ? { added } : {}) },
+          motion,
         );
         return;
       } else if (!instant && this.shown.get(model.block) !== shownAs(text, bilingual)) {
@@ -2054,6 +2107,42 @@ export class PageSession {
       }
     }
     this.write(item, model, text, partial, bilingual);
+  }
+
+  /**
+   * Whether a page block is inside the viewport and can show text as it decodes. Below the
+   * fold sentence mode still writes one finished sentence at a time, so a scroll never
+   * reveals a half-written sentence.
+   */
+  private fastVisible(item: Live): boolean {
+    if (item.role !== 'page' || item.band !== 'visible' || item.kind !== 'prose') return false;
+    let ahead = 0;
+    for (const other of this.live.values()) {
+      if (other === item || other.role !== 'page' || other.band !== 'visible') continue;
+      if (other.kind !== 'prose' || other.index >= item.index) continue;
+      ahead += 1;
+      if (ahead >= FAST_VISIBLE_BLOCKS) return false;
+    }
+    return true;
+  }
+
+  /**
+   * Writes the tokens decoded so far into a visible block. The height was reserved when
+   * the request started, so the text under the block stays where it was. This is called
+   * from a paint frame, which is the same frame stream mode uses for its first write.
+   */
+  private paintVisibleTokens(
+    item: Live,
+    model: SegmentModel,
+    text: string,
+    bilingual: boolean,
+  ): void {
+    if (text.trim().length === 0) return;
+    if (!item.streamed) {
+      this.claim(item, model);
+      this.revealer.reserve(model.block);
+    }
+    this.write(item, model, text, true, bilingual);
   }
 
   /** Whether this is the first page paragraph on the screen at the moment. */
@@ -2292,6 +2381,10 @@ export class PageSession {
     partial: boolean,
     bilingual: boolean,
   ): void {
+    if (item.role === 'page' && this.firstDomWriteAt === null) {
+      this.firstDomWriteAt = performance.now();
+      this.writePerf();
+    }
     this.editDom(() => {
       model.block.setAttribute('data-sakutto-id', item.id);
       if (item.engine) model.block.setAttribute('data-sakutto-engine', item.engine);
@@ -2605,27 +2698,48 @@ export class PageSession {
       id: item.id,
       ms: Math.round(performance.now() - this.startedAt),
     });
-    if (!this.perf) {
-      this.perf = this.doc.createElement('sakutto-perf');
-      this.perf.hidden = true;
-      this.perf.setAttribute('translate', 'no');
-      this.doc.documentElement.append(this.perf);
-    }
+    this.ensurePerf();
     this.writePerf();
+  }
+
+  /** The perf hook is created once per session and reused across retranslations. */
+  private ensurePerf(): void {
+    if (this.perf) return;
+    this.perf = this.doc.createElement('sakutto-perf');
+    this.perf.hidden = true;
+    this.perf.setAttribute('translate', 'no');
+    this.doc.documentElement.append(this.perf);
   }
 
   /**
    * Rewrites the `sakutto-perf` payload. This also runs after a batch's engine time is
    * added, because `noteTiming` is reached from the last `complete()` inside the batch —
    * one statement before that time is counted — so the final batch of every page used to
-   * be missing from `engineMs`, which on a single-block page is the whole cost.
+   * be missing from `engineMs`, which on a single-block page is the whole cost. The three
+   * first-* timestamps are absolute (`performance.now`) so the bench can lay the request,
+   * token and paint milestones over the harness clock; the *Ms fields are already
+   * relative to `startedAt` and add up to the time to the first painted word.
    */
   private writePerf(): void {
     if (!this.perf) return;
     const rates = this.rates();
+    const { firstRequestAt, firstTokenAt, firstDomWriteAt } = this;
     this.perf.textContent = JSON.stringify({
       startedAt: this.startedAt,
       firstTextAt: this.firstTextAt,
+      firstRequestAt,
+      firstTokenAt,
+      firstDomWriteAt,
+      requestMs: firstRequestAt === null ? null : Math.round(firstRequestAt - this.startedAt),
+      ttfbMs:
+        firstTokenAt === null || firstRequestAt === null
+          ? null
+          : Math.round(firstTokenAt - firstRequestAt),
+      paintMs:
+        firstDomWriteAt === null || firstTokenAt === null
+          ? null
+          : Math.round(firstDomWriteAt - firstTokenAt),
+      domWriteMs: firstDomWriteAt === null ? null : Math.round(firstDomWriteAt - this.startedAt),
       tokensPerSecond: rates.tokensPerSecond,
       segmentsPerSecond: rates.segmentsPerSecond,
       segments: this.samples,

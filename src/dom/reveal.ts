@@ -562,7 +562,7 @@ export class Revealer {
   settle(
     block: Element,
     apply: () => void,
-    motion?: { kind: RevealKind; added?: () => Element | null },
+    motion?: { kind: RevealKind; added?: () => Element | null; cheap?: boolean },
   ): void {
     // A sentence that was still waiting for its frame is older than this final text. Letting
     // it through would write it back and reserve the height again after it was released.
@@ -580,12 +580,16 @@ export class Revealer {
     }
     this.keeps.delete(block);
     const shown = this.calm(this.host.now()) && this.onScreen(block) && this.moves();
-    const before = shown ? this.movers([block]) : null;
+    // A cheap settle only fades the text in place. It never measures or moves the
+    // elements under the block: the block has already painted many times by now.
+    const before = shown && motion?.cheap !== true ? this.movers([block]) : null;
     keep.cancel();
     try {
       apply();
     } finally {
-      if (shown && motion) {
+      if (shown && motion?.cheap === true) {
+        this.cheapArrive(block, motion);
+      } else if (shown && motion) {
         const plan = planFor(block, motion.kind);
         const timing = TIMING[motion.kind];
         const lifts =
@@ -1022,6 +1026,42 @@ export class Revealer {
     for (const entry of gliding) this.arrive(entry, plans.get(entry));
     this.noteScroll();
     if (failed) throw failure;
+  }
+
+  /**
+   * The final fade of an above-fold block that has been streaming its text. Only the
+   * text fades: no measurement, no blur, no lift, no glide of the elements below. A
+   * bilingual line that is already on the page never gets this fade — it would dim
+   * the line through the block while the reader is reading it.
+   */
+  private cheapArrive(
+    block: Element,
+    motion: { kind: RevealKind; added?: () => Element | null },
+  ): void {
+    if (motion.added) {
+      const line = motion.added();
+      if (line) {
+        this.start(line, [{ opacity: 0, offset: 0 }], {
+          duration: TIMING.body.in,
+          easing: EASE_IN_FOCUS,
+        });
+      }
+      return;
+    }
+    const timing = TIMING[motion.kind];
+    const options = { duration: timing.in, easing: EASE_IN_FOCUS };
+    const plan = planFor(block, motion.kind);
+    if (plan.mode === 'ink') {
+      for (const target of plan.targets) {
+        this.start(target, [{ opacity: timing.from, offset: 0 }], options);
+      }
+      return;
+    }
+    if (!canAnimate(block)) return;
+    const own = parseFloat(viewOf(block)?.getComputedStyle(block).opacity ?? '');
+    if (!(own <= timing.from)) {
+      this.start(block, [{ opacity: timing.from, offset: 0 }], options);
+    }
   }
 
   /** Brings the text that was just written into focus, by the elements that hold it. */

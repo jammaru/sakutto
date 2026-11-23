@@ -1395,6 +1395,47 @@ describe('Revealer', () => {
     expect(calls.some(([frames]) => frames.some((frame) => 'opacity' in frame))).toBe(true);
   });
 
+  it('fades only the text of a cheap settle, without moving what is under it', () => {
+    const target = stage();
+    const { element, motion } = block('A source paragraph');
+    computed((candidate) => (candidate === element ? { height: '80px' } : {}));
+    element.getBoundingClientRect = () => new DOMRect(0, 0, 300, 80);
+    const below = block('Below the paragraph', 200);
+    target.revealer.reserve(element);
+    target.revealer.offer({
+      block: element,
+      kind: 'body',
+      apply: () => {
+        element.textContent = 'One.';
+      },
+      keepHeight: true,
+      instant: true,
+    });
+    target.frame(16);
+    const before = motion.mock.calls.length;
+    const belowBefore = below.motion.mock.calls.length;
+
+    target.revealer.settle(
+      element,
+      () => {
+        element.textContent = 'One. Two.';
+      },
+      { kind: 'body', cheap: true },
+    );
+
+    const added = motion.mock.calls.slice(before) as [Keyframe[], KeyframeAnimationOptions][];
+    expect(added.some(([frames]) => frames.some((frame) => frame.opacity !== undefined))).toBe(
+      true,
+    );
+    // No blur, no lift, and no glide of the block or its neighbour.
+    expect(
+      added.some(([frames]) =>
+        frames.some((frame) => 'filter' in frame || frame.transform !== undefined),
+      ),
+    ).toBe(false);
+    expect(below.motion.mock.calls.length).toBe(belowBefore);
+  });
+
   it('drops a sentence that was still waiting when the final text is settled', () => {
     const target = stage();
     const { element } = block('A source paragraph');

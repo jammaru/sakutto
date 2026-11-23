@@ -36,6 +36,15 @@ export interface PerfPayload {
   batches?: number;
   pieces?: number;
   engineMs?: number;
+  /** Absolute `performance.now` milestones on the same clock as `startedAt`. */
+  firstRequestAt?: number | null;
+  firstTokenAt?: number | null;
+  firstDomWriteAt?: number | null;
+  /** Milestones relative to `startedAt`, in ms. They add up to `domWriteMs`. */
+  requestMs?: number | null;
+  ttfbMs?: number | null;
+  paintMs?: number | null;
+  domWriteMs?: number | null;
 }
 
 export interface RecordedPage {

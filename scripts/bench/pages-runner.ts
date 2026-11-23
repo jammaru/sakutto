@@ -429,6 +429,10 @@ async function measurePage(input: {
           batches: recorded.perf?.batches ?? null,
           pieces: recorded.perf?.pieces ?? null,
           engineMs: recorded.perf?.engineMs ?? null,
+          requestMs: recorded.perf?.requestMs ?? null,
+          ttfbMs: recorded.perf?.ttfbMs ?? null,
+          paintMs: recorded.perf?.paintMs ?? null,
+          domWriteMs: recorded.perf?.domWriteMs ?? null,
         },
         blocks: recorded.blocks,
         lateBlocks: recorded.lateBlocks,
@@ -455,8 +459,8 @@ async function measurePage(input: {
 
 function table(records: readonly BenchRecord[]): string {
   const header = [
-    '| Page | First visible text (ms) | Viewport done (ms) | Full page (ms) | Blocks/s | Output chars |',
-    '| --- | ---: | ---: | ---: | ---: | ---: |',
+    '| Page | First visible text (ms) | Request → token → paint (ms) | Viewport done (ms) | Full page (ms) | Blocks/s | Output chars |',
+    '| --- | ---: | --- | ---: | ---: | ---: | ---: |',
   ];
   const pages = [...new Set(records.map((record) => record.page))];
   const rows = pages.map((name) => {
@@ -465,9 +469,25 @@ function table(records: readonly BenchRecord[]): string {
       const value = medianMetric(samples, metric);
       return value === null ? '—' : String(value);
     };
-    return `| ${name} | ${cell('firstVisibleTextMs')} | ${cell('viewportDoneMs')} | ${cell(
-      'fullPageMs',
-    )} | ${cell('commitsPerSecond')} | ${String(samples[0]?.metrics.outputChars ?? 0)} |`;
+    // One sample carries the breakdown of the page's own first painted word: how long
+    // before the engine request, before its first token, and before that token reached
+    // the DOM. Older history (or another build) has no latency fields.
+    const latency = samples.find(
+      (sample) =>
+        sample.metrics.engineWork.requestMs !== null &&
+        sample.metrics.engineWork.ttfbMs !== null &&
+        sample.metrics.engineWork.paintMs !== null,
+    );
+    const breakdown = latency
+      ? `${String(latency.metrics.engineWork.requestMs)} / ${String(
+          latency.metrics.engineWork.ttfbMs,
+        )} / ${String(latency.metrics.engineWork.paintMs)}`
+      : '—';
+    return `| ${name} | ${cell('firstVisibleTextMs')} | ${breakdown} | ${cell(
+      'viewportDoneMs',
+    )} | ${cell('fullPageMs')} | ${cell('commitsPerSecond')} | ${String(
+      samples[0]?.metrics.outputChars ?? 0,
+    )} |`;
   });
   return [...header, ...rows].join('\n');
 }

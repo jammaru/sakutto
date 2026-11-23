@@ -581,6 +581,164 @@ describe('page session', () => {
     expect(document.querySelector('p')?.textContent).toBe('港の事務所は出発。到着。');
   });
 
+  it('streams unterminated tokens into a visible sentence-mode block at once', async () => {
+    document.documentElement.lang = 'en';
+    const source = 'First source sentence. Second source sentence.';
+    document.body.innerHTML = `<p id="lead">${source}</p>`;
+    const block = document.querySelector('p');
+    if (!block) throw new Error('missing paragraph');
+    block.getBoundingClientRect = () => new DOMRect(0, 0, 300, 40);
+    const reserve = vi.spyOn(Revealer.prototype, 'reserve');
+    const offer = vi.spyOn(Revealer.prototype, 'offer');
+    let afterUnterminated: string | null = null;
+    const session = start(
+      document,
+      engineOf(async function* (segments) {
+        for (const segment of segments) {
+          yield { id: segment.id, textDelta: 'Hel', engine: 'plamo' as const };
+          afterUnterminated = document.querySelector('p')?.textContent ?? null;
+          yield { id: segment.id, textDelta: 'lo. Tw', engine: 'plamo' as const };
+          yield { id: segment.id, final: 'Hello. Two.', engine: 'plamo' as const };
+        }
+      }),
+      { reveal: 'sentence' },
+    );
+
+    await session.translate();
+    await session.whenIdle();
+    // The first delta has no sentence terminator, yet it is already on the page: this is
+    // the above-fold fast path that brings first visible text back to stream-mode speed.
+    expect(afterUnterminated).toBe('Hel');
+    expect(reserve).toHaveBeenCalled();
+    // The write happens in the paint frame we are already in; no second reveal frame.
+    expect(offer).not.toHaveBeenCalled();
+    expect(document.querySelector('p')?.textContent).toBe('Hello. Two.');
+  });
+
+  it('keeps sentence discipline for a block below the fold', async () => {
+    document.documentElement.lang = 'en';
+    const source = 'First source sentence. Second source sentence.';
+    document.body.innerHTML = `<p id="tail">${source}</p>`;
+    const block = document.querySelector('p');
+    if (!block) throw new Error('missing paragraph');
+    block.getBoundingClientRect = () => new DOMRect(0, 2400, 300, 40);
+    let afterUnterminated: string | null = null;
+    const session = start(
+      document,
+      engineOf(async function* (segments) {
+        for (const segment of segments) {
+          yield { id: segment.id, textDelta: 'Hel', engine: 'plamo' as const };
+          afterUnterminated = document.querySelector('p')?.textContent ?? null;
+          yield { id: segment.id, textDelta: 'lo. Tw', engine: 'plamo' as const };
+          yield { id: segment.id, final: 'Hello. Two.', engine: 'plamo' as const };
+        }
+      }),
+      { reveal: 'sentence' },
+    );
+
+    await session.translate();
+    await session.whenIdle();
+    expect(afterUnterminated).toBe(source);
+    expect(document.querySelector('p')?.textContent).toBe('Hello. Two.');
+  });
+
+  it('reserves the source height of a visible block before the first token arrives', async () => {
+    document.documentElement.lang = 'en';
+    const source = 'First source sentence. Second source sentence.';
+    document.body.innerHTML = `<p id="lead">${source}</p>`;
+    const block = document.querySelector('p');
+    if (!block) throw new Error('missing paragraph');
+    block.getBoundingClientRect = () => new DOMRect(0, 0, 300, 40);
+    const seenAtReserve: (string | null)[] = [];
+    const reserve = vi.spyOn(Revealer.prototype, 'reserve').mockImplementation((el: Element) => {
+      seenAtReserve.push(el.textContent ?? null);
+    });
+    const session = start(
+      document,
+      engineOf(async function* (segments) {
+        for (const segment of segments) {
+          yield { id: segment.id, textDelta: 'Hel', engine: 'plamo' as const };
+          yield { id: segment.id, final: 'Hello. Two.', engine: 'plamo' as const };
+        }
+      }),
+      { reveal: 'sentence' },
+    );
+
+    await session.translate();
+    await session.whenIdle();
+    expect(reserve).toHaveBeenCalled();
+    // Measured while the source was still in the box, never after a token replaced it.
+    expect(seenAtReserve[0]).toBe(source);
+  });
+
+  it('gives a later visible block only a cheap fade at the final settle', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML =
+      '<p id="first">Opening source.</p><p id="second">First source. Second source.</p>';
+    const first = document.querySelector('#first');
+    const second = document.querySelector('#second');
+    if (!first || !second) throw new Error('missing paragraphs');
+    first.getBoundingClientRect = () => new DOMRect(0, 0, 300, 40);
+    second.getBoundingClientRect = () => new DOMRect(0, 60, 300, 40);
+    const settle = vi.spyOn(Revealer.prototype, 'settle');
+    const session = start(
+      document,
+      engineOf(async function* (segments) {
+        for (const segment of segments) {
+          yield { id: segment.id, textDelta: 'Hel', engine: 'plamo' as const };
+          yield { id: segment.id, final: 'Hello.', engine: 'plamo' as const };
+        }
+      }),
+      { reveal: 'sentence' },
+    );
+
+    await session.translate();
+    await session.whenIdle();
+    const onSecond = settle.mock.calls.filter(([block]) => block === second);
+    expect(onSecond.length).toBeGreaterThan(0);
+    expect(onSecond.some(([, , motion]) => motion?.cheap === true)).toBe(true);
+  });
+
+  it('reports request, token and paint milestones on sakutto-perf', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = '<p>Hello world from the article</p>';
+    const session = start(
+      document,
+      engineOf(async function* (segments) {
+        for (const segment of segments) {
+          yield { id: segment.id, textDelta: 'Hel', engine: 'plamo' as const };
+          yield { id: segment.id, final: 'Hello world.', engine: 'plamo' as const };
+        }
+      }),
+    );
+
+    await session.translate();
+    await session.whenIdle();
+    const raw = document.querySelector('sakutto-perf')?.textContent ?? '';
+    const perf = JSON.parse(raw) as {
+      startedAt: number;
+      firstRequestAt: number | null;
+      firstTokenAt: number | null;
+      firstDomWriteAt: number | null;
+      requestMs: number | null;
+      ttfbMs: number | null;
+      paintMs: number | null;
+      domWriteMs: number | null;
+    };
+    expect(perf.firstRequestAt).not.toBeNull();
+    expect(perf.firstTokenAt).not.toBeNull();
+    expect(perf.firstDomWriteAt).not.toBeNull();
+    expect(perf.firstRequestAt).toBeGreaterThanOrEqual(perf.startedAt);
+    expect(perf.firstTokenAt!).toBeGreaterThanOrEqual(perf.firstRequestAt!);
+    expect(perf.firstDomWriteAt!).toBeGreaterThanOrEqual(perf.firstTokenAt!);
+    // The three stages account for the time to the first painted word.
+    // Stages are rounded separately, so allow a millisecond of drift.
+    expect(
+      Math.abs(perf.requestMs! + perf.ttfbMs! + perf.paintMs! - perf.domWriteMs!),
+    ).toBeLessThanOrEqual(2);
+    expect(perf.domWriteMs).toBeGreaterThanOrEqual(0);
+  });
+
   it('tells the reveal which translations are the last of the page', async () => {
     document.documentElement.lang = 'en';
     const long = 'The harbour office logs every crossing and publishes the delays each month. ';

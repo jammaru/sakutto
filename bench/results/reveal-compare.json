@@ -66,33 +66,45 @@
   {
     "variant": "sentence",
     "page": "long-article",
-    "firstVisibleMs": 175,
+    "firstVisibleMs": 125,
     "fullPageMs": 1775,
     "cls": 0.0321,
-    "layoutShifts": 6
+    "layoutShifts": 6,
+    "requestMs": 12,
+    "ttfbMs": 19,
+    "paintMs": 2
   },
   {
     "variant": "sentence",
     "page": "first-paragraph-then-long-tail",
-    "firstVisibleMs": 150,
-    "fullPageMs": 1400,
+    "firstVisibleMs": 125,
+    "fullPageMs": 1425,
     "cls": 0.0318,
-    "layoutShifts": 4
+    "layoutShifts": 4,
+    "requestMs": 10,
+    "ttfbMs": 21,
+    "paintMs": 13
   },
   {
     "variant": "sentence",
     "page": "many-cards",
-    "firstVisibleMs": 150,
-    "fullPageMs": 1300,
-    "cls": 0.0324,
-    "layoutShifts": 6
+    "firstVisibleMs": 100,
+    "fullPageMs": 1325,
+    "cls": 0.0336,
+    "layoutShifts": 7,
+    "requestMs": 9,
+    "ttfbMs": 20,
+    "paintMs": 8
   },
   {
     "variant": "sentence",
     "page": "mixed-ui",
-    "firstVisibleMs": 150,
+    "firstVisibleMs": 125,
     "fullPageMs": 1050,
     "cls": 0.0318,
-    "layoutShifts": 6
+    "layoutShifts": 6,
+    "requestMs": 8,
+    "ttfbMs": 20,
+    "paintMs": 28
   }
 ]
