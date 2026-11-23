@@ -59,6 +59,28 @@ describe('latest DSH review blockers', () => {
     expect(layout.blocks.map((block) => block.column)).toEqual([0]);
   });
 
+  it('B2: keeps two full-width sentence rows whole on a single-column page', () => {
+    const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+    const row1 = [
+      region('This paper studies on-device machine translation of scanned', quad(45, 100, 250, 20)),
+      region('documents in the browser without sending text to a server.', quad(305, 100, 250, 20)),
+    ];
+    const row2 = [
+      region('We describe the layout reconstruction pipeline and evaluate', quad(45, 130, 250, 20)),
+      region('its reading order and overlay quality on real PDF pages.', quad(305, 130, 250, 20)),
+    ];
+    const result: OcrResult = {
+      regions: [...row1, ...row2],
+      lines: [readingLine(row1), readingLine(row2)],
+      text: '',
+    };
+    const lines = ocrResultToTextLines(result, options).map((line) => line.text);
+    expect(lines).toEqual([
+      'This paper studies on-device machine translation of scanned documents in the browser without sending text to a server.',
+      'We describe the layout reconstruction pipeline and evaluate its reading order and overlay quality on real PDF pages.',
+    ]);
+  });
+
   it('B2: keeps a long two-region title whole', () => {
     const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
     const items = [

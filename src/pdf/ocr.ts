@@ -291,9 +291,12 @@ function onePrintedTitleRow(pieces: readonly OcrTextPiece[], pageWidth: number):
   const cjk = /^[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u.test(text);
   if (!cjk && words.length < 3) return false;
   if (cjk && text.length < 8) return false;
-  // A title may carry a colon or a comma, but not the full stops of two sentences. Sentence
-  // punctuation is what distinguishes a title from a body row in the two-piece case.
-  if (/[.!?。！？]$/u.test(text) || (text.match(/[.!?。！？]/gu) ?? []).length > 1) return false;
+  // A title may carry a colon or a comma, but not the full stops of a sentence. A stop inside
+  // either piece means the row already contains a complete sentence: it is body prose from two
+  // printed columns, even when the merged row itself ends without punctuation. Decimals and
+  // common abbreviations are not sentence boundaries.
+  const prose = text.replace(/\d\.\d/gu, '').replace(/\b(?:Dr|Mr|Ms|Prof|e\.g|i\.e)\./gu, '');
+  if (/[.!?。！？]/u.test(prose)) return false;
   if (!/^(\p{Lu}|\d|[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}])/u.test(text)) {
     return false;
   }
@@ -700,6 +703,8 @@ function pageHasTwoColumns(
     }
     if (pieces.length < 2 || pieces.some((piece) => piece.displayed === 90)) continue;
     if (isCentredHeadingRow(pieces, resolved.pageWidth)) continue;
+    if (onePrintedTitleRow(pieces, resolved.pageWidth)) continue;
+    if (singleSentenceRow(pieces, resolved.pageWidth)) continue;
     const { left, right, leftEnd, rightStart } = splitAtGutter(pieces, resolved.pageWidth);
     if (left.length === 0 || right.length === 0) continue;
     const measure = (group: readonly OcrTextPiece[]): number =>
