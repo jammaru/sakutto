@@ -191,7 +191,10 @@ async function renderPage(
 
 async function main(): Promise<void> {
   await mkdir(OUT, { recursive: true });
-  const label = option('--label', '');
+  // The label is only a report filename; keep it inside the results directory.
+  const label = option('--label', '')
+    .replace(/[^A-Za-z0-9._-]/gu, '_')
+    .replace(/^\.\.+/u, '_');
   const pairing = option('--pairing', 'tiny_det+small_rec') as Pairing;
   const selectedIds = option('--variants', '').split(',').filter(Boolean);
   const variants = VARIANTS.filter(
@@ -415,8 +418,8 @@ async function main(): Promise<void> {
     await server.close();
   }
   const header = [
-    '| approach | pairing | CER | WER | line order | coverage | cross-column | ms/page | model bytes | lines | blocks | skipped |',
-    '| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |',
+    '| approach | pairing | CER | WER | line order | coverage | cross-column | ms/page | model bytes | lines | blocks | skipped | overflow |',
+    '| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |',
   ].join('\n');
   const markdown =
     [
@@ -454,6 +457,8 @@ async function main(): Promise<void> {
           r.blocks +
           ' | ' +
           r.skipped +
+          ' | ' +
+          r.overflow +
           ' |'
         );
       }),

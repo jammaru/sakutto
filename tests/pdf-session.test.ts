@@ -336,6 +336,56 @@ describe('PdfSession stream handling', () => {
     expect(calls).toBe(4);
   });
 
+  it('counts an empty final chunk against the retry cap across repeated sweeps', async () => {
+    let calls = 0;
+    const engine = engineOf(async function* (segments) {
+      calls += 1;
+      const id = segments[0]?.id ?? 'b1';
+      // A normal, non-error chunk whose final text is empty: the engine answered but gave
+      // nothing back. It must cost the same attempt as an explicit error chunk.
+      yield { id, final: '' };
+    });
+    const session = sessionOf(engine, { target: 'en' });
+    session.addPage(0, layoutOf('日本語の文章を訳してください'));
+    await waitFor(() => session.pageBlocks(0)[0]?.state === 'failed');
+
+    const state = session.pageBlocks(0)[0];
+    if (!state) throw new Error('expected a block');
+    // One initial call plus two retries is the whole budget, and the counter must be spent.
+    expect(calls).toBe(3);
+    expect(state.attempts).toBe(2);
+
+    // Four more coverage sweeps must not buy another call the way they did before the fix.
+    for (let pass = 0; pass < 4; pass += 1) {
+      expect(session.sweepIncompleteBlocks()).toBe(0);
+      expect(calls).toBe(3);
+    }
+    expect(state.state).toBe('failed');
+  });
+
+  it('spends the attempt of a failed block that a coverage sweep requeues', async () => {
+    const engine = engineOf(async function* (segments) {
+      const id = segments[0]?.id ?? 'b1';
+      yield { id, final: '訳' };
+    });
+    const session = sessionOf(engine);
+    // Whitespace produces no translation pieces, so failBlock runs without spending an attempt
+    // through retry(). The sweep still has to count that failure.
+    session.addPage(0, layoutOf('   '));
+    await waitFor(() => session.pageBlocks(0)[0]?.state === 'failed');
+    const state = session.pageBlocks(0)[0];
+    if (!state) throw new Error('expected a block');
+    expect(state.attempts).toBe(0);
+
+    expect(session.sweepIncompleteBlocks()).toBe(1);
+    await waitFor(() => state.state === 'failed');
+    expect(state.attempts).toBe(1);
+    expect(session.sweepIncompleteBlocks()).toBe(1);
+    await waitFor(() => state.state === 'failed');
+    expect(state.attempts).toBe(2);
+    expect(session.sweepIncompleteBlocks()).toBe(0);
+  });
+
   it('finishes a 24-page document when the focus moves to the last page', async () => {
     const engine = engineOf(async function* (segments) {
       const id = segments[0]?.id ?? 'b1';

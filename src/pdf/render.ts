@@ -329,7 +329,6 @@ export const READER_STYLE = `
   display: grid;
 }
 
-
 /*
  * Reflowed bilingual reading: the left pane keeps the page as drawn, the right pane reads as
  * ordinary text with the source shown above each translated block. The two panes share the
@@ -363,7 +362,6 @@ export const READER_STYLE = `
   background: none;
   padding: 16px 18px;
 }
-
 
 [data-bilingual="true"] .sakutto-bilingual {
   display: block;

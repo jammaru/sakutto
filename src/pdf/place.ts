@@ -454,8 +454,9 @@ function columnSideForCap(
   block: Pick<LayoutBlock, 'column' | 'box' | 'lines'>,
   x: number,
   pageWidth: number,
+  allowSpanning = true,
 ): number | null {
-  if (pageWidth <= 0 || blockSpansGutter(block, pageWidth)) return null;
+  if (pageWidth <= 0 || (allowSpanning && blockSpansGutter(block, pageWidth))) return null;
   const gutter = pageWidth * 0.49;
   const left =
     block.lines.length > 0 ? Math.min(...block.lines.map((line) => line.box.x)) : block.box.x;
@@ -531,9 +532,13 @@ export function paintIntegrityMetrics(
     ) {
       drawnPaintMismatches += 1;
     }
-    const side = blockSpansGutter(block, pageWidth)
-      ? null
-      : columnSideForCap(block, entry.drawn.x, pageWidth);
+    // Only a genuinely spanning source (a title/byline assigned to no body column) may paint
+    // across the gutter. A block assigned to a column but widened by a mis-grouped line must be
+    // checked against the gutter, otherwise its cover silently paints over the other column.
+    const side =
+      blockSpansGutter(block, pageWidth) && block.column < 0
+        ? null
+        : columnSideForCap(block, entry.drawn.x, pageWidth, false);
     if (side === 0 && paint.x + paint.width > gutter + 2) crossColumnCovers += 1;
     if (side !== null && side > 0 && paint.x < gutter - 2) crossColumnCovers += 1;
     // A merged two-column reading line also counts as a "spanning" source, so the old

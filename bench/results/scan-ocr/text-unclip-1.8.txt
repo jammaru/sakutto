@@ -1,0 +1,102 @@
+Sakutto: On-Device Page Translation with a Small Instruction-Tuned Model
+J. Ammaru
+reader sarlls. On a fourcoe laptop with a docrete GPU the model raches 34.8 toks per second and finshes a 1,900-wood artce in 41 seconds; on the same machie's CPU it reaches 9.1 tokem per second. We describe th scheuling rules
+dhat keep the first pargraph able whin o sends the cache ut maks a mted page te and the ta modes hat a page collector has t handle eoe a ade willaccpe the mulk.
+1. Introduction
+A reader who wants an English article in Japanese has thre choices: pate i ino a tanslation website, install a beowser
+extenslon that forwands the page to a server, or read the English. The first two send the page, and every selection the
+rader makes afterwards, to a thind party. For a research paper under revte, a prtvate lssue tracker or a medical mecoed
+this Is often unacceptable, and t is frequently prohibited by the tems the mader is hound by.
+Running the model in the browser removes that tranater. The page test never leaves the process, no account is needed,
+and the extension works offlne once the weights are downloaded. The cost is latency and memory: a transfoemer that a
+server would run on an accelerator has to flt in a tah, compete wtth the poge foe the GPU, and produce sokns one at a
+me in front of a reader who Is alread looking at the test.
+ing rules that decide what to translate finst, and Section 4 the messurements. Section 5 discusses the failure modes we This paper reports a working system ratber than a new model. Section 2 descrbes the runtime, Section 3 dthe schedul-
+could not design away, andl Section 6 lists the work that remains.
+2. System Design
+The extension is a Manifest V3 package with four processes A service worker owns the Betime of everything ehe. An
+offscreen document hosts the runtime, because a service worker cannot hold a wobssembly heap across a suspendon. A content scrtpe walks the page and wtes translations back into the document. Popup, optons and ooboarding pogrs 4. Measurements
+render the settings.
+2.1 Runtime
+The mdel is LaMo 3 Tanlat, an 0.8-bllion-paramete decoder taned for tanlatic in 3 anguges in eher drec- ton, quantsed to four bits per weight. The published WebAssembly bulld of Bamacpp cannot load its tokenler, so the 4.1 Throughput
+extenston ships ts own butld of the runtime at a pinned commit, patched in neo places sn that wockes and the
+WebAssembly module load from packaged files rather tan from bloh U/Rts, which Mantfest V3 forbads.
+The runime offrs two backnds. The webGU backend keeps two sequeces resdent and decodes a batch of up to
+eight short segments in a single completion. The CPU backend keeps one sequence and uses four to eight threads, de- pending on the machine. A probe runs at startup, and a failed GPU load falls back to the CPU path tather than failing the
+Preponition L. A bock whose tamlation does not fitits own box is left in the source tpesetting nather than shown cut
+3 for block in page: if ts_equatien(btack): continue
+2.2 Page model
+A page Is not a Ist of paragraphs. Th ollctor thereore walks the decument rther tn selectng a fised set of ugs
+and it treats four shapes differently: ordinary prose, an item of a grd or flex container, a cell of a repeating data row, and
+a container that owns text of its own beside its children. The distinction matters because a translation is wsten back into
+the text nodes the source already had. A row laid out as a grid becomes a vetical pile if its tramlation lands between the
+cells instead of inside them.
+in the documen untouced and become numbered placeholders in te test the modl ss The model as ad so keep Inltne elemenes that are not prose — code, keyboard keys, sample outpet, pronunctaton and ctuation markers — stay
+ench placeholder where the sentence had It, and a translation that moves or drops one is rejected and retrted wthout placoiders.
+3. Scheduling
+A reader does not reod à page In document onder, so the extension does not translate ln documene onder elher. Every
+block gets a priorty from Iits distance to the viewport, Its kind, and is postion in the decument. Biocks on semen are
+tanlated first, then blocks within about twe screens in the direction the reader is scrolling. Scrolling up re-ranks the
+queue, which is why a reader who jomps to the conclasion gets the conclasion rather than the inrodoction.
+Shot blocks a label,a able cel, a one-line list iem—are packed into one reques, up to eight per completion an
+160 source token in total. Packing is not applied to paragraphs. A paragraph is as long as the prompt template, so pack
+ing sve ost noing and it delas evey block in the pack behind the prlll of he whole pck. The rule is misure
+rher dun asumed Section 42 repors a run in which packing paragraphs made the medlan time to first text 18%6
+worse.
+Tade 1 Dealt pling cotan. The lan balp is e qa, so te twoue GPU path and te onue PU pth
+Cantant Vadue Meaning
+manSegmenTolens 48 Longst block that may share a completion
+All numbers come from one laptop: eght cores, 32 G of memory an integrated GPU, and a browser build that support webcPU. The fisture is a 1,900-word arucle with a sidebar, a code block and a navigation bar. Every run translates tht
+page from a cold cache, tee times, and the median is reported.
+the saes the o os  ra fls Tme to rs visble paragra is dminaed y prelll nd y oding the weighes: fll page tme ts dominated by decoding. The GPU path decodes 3.8 times faster than the fourthread CPU path
+bat  is only 24 umes faster on the fint paragraph, because the weght upload happens before ether backend can pro
+duce a token.
+4.2 Whet packing costs
+we packed puragaph as well as labels in an ealy buld The chung looked hamles, since evey reuest carted tex
+the mader had asked for. It was noc: a paragraph In a pack walted behind the prefill of every eaetller paragraph, and the
+median mme so first test mose by sans. esnrtcting packing so blocks under an tokens recovered the loss and reduced the
+toal number of requests by G1%.
+5. Failure Modes
+Three falures shaped the current design more than any feature did.
+Reperted completiom over untramlated prose. A page that skipped blocks it could not segrment still said it wa
+tanlated. The bar now counts blocks thut never got a job and reports the puge an purtial instead.
+Layout eallapse in slot cotainers. wtng a tronslaton between the cells of a grid row crented an anonymous ten and pushed every followtng cell one place along. Such a container is now descended into, and each ell is translate
+into its own tendt node.
+Stale text after a model relad. Block that failed while the model was loading kept their source text forever The are now quroed again when the model reots itselt loaded.
+Each of dhese was found by a mader, not hy a test, and each now has a fixture that fatls wlthout the ftx. We take this ar
+evsdence that page tanslation ts a systems peoblem: the model is the easy purt, and the document is the hard one.
+6. Remaining Werk
+whose tet ia lad out by a PO engine tater than by te DOM. The second is the saned document, where the only Twe shapes of document are sill out of reach The first is the PDr that a reader opens in the browser's own viewer
+tet is a bom. Bo need the same ting trom this sstm a tramlaton that krps the original geomty so that
+gus c stas ude te fgue and a tble's colmn wids survive We reort on the fist of these in a companic
+note.
+References
+IN A. Aortier and otes "rorseutng pamapes for open domuin quemone." In a workashp on weoral compotaton, 2020
+Inéepende mearcher
+skimgeunple.og
+ABSTRACT
+d mdel io a boe  o and hat i bys Te i  P  T do a b bd   l te m g i te ors pve e  d trane a ge bock by ock  the Machie nanldon of web pages Is uslly a cent of a remote setce. Ts pper desotbes Sakomo a browser esension dur tandaes a page endiely on the readers own muchne, nd repots whur moving a 0.8blion parameter lnserection-
+shrrk
+maBah/Tokms 100 Souce soks a ooe packd roquest
+manBudSegmes 8 Blocko in one pecknd reguest
+pikoCars 500 Longst rn of seotroms sst as oe prompe
+Thée 2. Median of dre coll rins on e fitae atice.
+translation. Backend taks First paragraph Full paps
+s,=θ-A}S,-1
+MEGFU, 2 segueces 368 1.5s 41s
+WeGPU, I seguence 2.1 211 50A
+short. CPU, 8 theeats 146 2.05 963
+CPU, d themads 91 14s 156s
+D emát(translate(block))
+8s
+96s
+155s
+WetCPU. 2 sng WBCPU, I seg CPU, 8:tmah CPI, 4 dmoh
+Fure L Te to aa de ole  ale y  Te   k   a p ane completon, so k lues sougly a had as maty qust.
+A Te d w  y P No de te PMo City Lie Te rime  a ute ol
+of lame go ceed win Emsrom Nener i affd w th vork.
+11A. Autor and onters. PLaMo 3 Tanta: a compect munstatlo modet." Techatat mpor, 202.
+[2]A. Anto. "llamac:iseoe ol lage langg mo ie C and C," Sulwas, 23-202s.
+[3]A. Astor. "wllam: WoAsmty Nntings fer lama.gp." Sware, 22-202.
+14] Wede de  Cotum "U pediicadon. Candide endadon, 2025.
+A. Audor and otes "Segemce sodals widh leared alignt." le a wocdalep on aeual compsttion, 2017.

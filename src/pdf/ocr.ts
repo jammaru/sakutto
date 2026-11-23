@@ -251,33 +251,43 @@ interface PieceSplit {
  * word-level piece on the left can have its centre past it too. Splitting by piece centre then
  * moves that tail into the right block. Looking at the actual gaps between neighbouring boxes
  * finds the printed gutter. Several gaps can pass the loose centred-band test (a word space in
- * either column qualifies as well), so pick the one whose own centre is nearest the page
- * midpoint — the printed gutter — and use the gap width only as a tie-break. Otherwise a wide
- * word space inside the right column can steal a right-column word into the left translation.
+ * either column qualifies as well), so score each gap by the two column measures it produces:
+ * the printed gutter leaves a usable measure on both sides, while a word gap merely trims one
+ * column and grows the other. Gap width breaks ties, then centre distance. Otherwise a word
+ * space nearer the page midpoint can steal a right-column word into the left translation.
  */
 function splitAtGutter(pieces: readonly OcrTextPiece[], pageWidth: number): PieceSplit {
   const middle = pageWidth / 2;
   const byX = [...pieces].sort((a, b) => a.box.x - b.box.x);
-  let best: { index: number; leftEnd: number; rightStart: number } | undefined;
+  let best:
+    | { index: number; leftEnd: number; rightStart: number; width: number; measure: number }
+    | undefined;
   for (let index = 1; index < byX.length; index += 1) {
     const leftEnd = Math.max(...byX.slice(0, index).map((piece) => piece.box.x + piece.box.width));
     const rightStart = Math.min(...byX.slice(index).map((piece) => piece.box.x));
-    if (rightStart - leftEnd < MIN_COLUMN_GUTTER) continue;
+    const width = rightStart - leftEnd;
+    if (width < MIN_COLUMN_GUTTER) continue;
     if (!gutterCentred(leftEnd, rightStart, pageWidth)) continue;
-    if (leftEnd < middle - pageWidth * 0.1) continue;
-    // The rightmost qualifying gap can be a word space inside the right column; taking it
-    // moves that column's first word into the left block. The gap nearest the page midpoint is
-    // the printed gutter. Prefer the wider gap only when two gaps are equally well centred.
+    // Centre distance alone is not enough: an ordinary right-column word space can sit closer
+    // to the page midpoint than a real gutter that is off-centre. The printed gutter separates
+    // two comparable column measures; a word gap inside a column leaves one side much shorter.
+    // Do not require the gutter's left edge to be right of 0.4 x page width: left-asymmetric
+    // columns put it further left.
+    const leftMeasure = leftEnd - Math.min(...byX.slice(0, index).map((piece) => piece.box.x));
+    const rightMeasure =
+      Math.max(...byX.slice(index).map((piece) => piece.box.x + piece.box.width)) - rightStart;
+    const measure = Math.min(leftMeasure, rightMeasure);
     const score = Math.abs((leftEnd + rightStart) / 2 - middle);
     const bestScore =
       best === undefined ? Infinity : Math.abs((best.leftEnd + best.rightStart) / 2 - middle);
     if (
       !best ||
-      score < bestScore - 0.001 ||
-      (Math.abs(score - bestScore) <= 0.001 &&
-        rightStart - leftEnd > best.rightStart - best.leftEnd)
+      measure > best.measure + 0.001 ||
+      (Math.abs(measure - best.measure) <= 0.001 &&
+        (width > best.width + 0.001 ||
+          (Math.abs(width - best.width) <= 0.001 && score < bestScore - 0.001)))
     ) {
-      best = { index, leftEnd, rightStart };
+      best = { index, leftEnd, rightStart, width, measure };
     }
   }
   if (!best) {
@@ -514,6 +524,11 @@ function verticalLine(line: OcrTextLine): boolean {
 /** Column of a line that spans the page: a title, abstract or byline, not a body column. */
 const SPANNING_COLUMN = -1;
 
+interface ColumnRange {
+  readonly left: number;
+  readonly right: number;
+}
+
 interface ColumnContext {
   /** The page has body lines in both columns on at least one shared horizontal band. */
   readonly twoColumn: boolean;
@@ -521,6 +536,8 @@ interface ColumnContext {
   readonly oppositeBand: ReadonlySet<OcrTextLine>;
   /** Median body line height, used to tell an oversized heading from body prose. */
   readonly bodySize: number;
+  /** X spans of the confident body columns, used to place lines whose midpoint is ambiguous. */
+  readonly ranges: readonly ColumnRange[];
 }
 
 /**
@@ -531,7 +548,12 @@ interface ColumnContext {
  */
 function columnContext(lines: readonly OcrTextLine[], pageWidth: number): ColumnContext {
   const bodySize = bodyFontSize(lines);
-  const single = { twoColumn: false, oppositeBand: new Set<OcrTextLine>(), bodySize };
+  const single = {
+    twoColumn: false,
+    oppositeBand: new Set<OcrTextLine>(),
+    bodySize,
+    ranges: [] as readonly ColumnRange[],
+  };
   if (pageWidth <= 0 || lines.length < 2 || lines.some(verticalLine)) return single;
   const centre = (line: OcrTextLine): number => line.box.x + line.box.width / 2;
   const bodies = lines.filter((line) => !verticalLine(line) && line.box.width <= pageWidth * 0.6);
@@ -545,23 +567,75 @@ function columnContext(lines: readonly OcrTextLine[], pageWidth: number): Column
     }),
   );
   if (!twoColumn) return single;
+  const span = (group: readonly OcrTextLine[]): ColumnRange | null =>
+    group.length === 0
+      ? null
+      : {
+          left: Math.min(...group.map((line) => line.box.x)),
+          right: Math.max(...group.map((line) => line.box.x + line.box.width)),
+        };
+  const ranges = [span(left), span(right)].filter((range): range is ColumnRange => range !== null);
+  // Use the same column evidence as lineColumn when deciding which lines sit opposite each
+  // other. A short left-column tail whose midpoint passes the page midpoint is still left of a
+  // right-column line on the same baseline.
+  const sideOf = (line: OcrTextLine): number => {
+    const mid = centre(line);
+    if (mid >= pageWidth * 0.4 && mid <= pageWidth * 0.6) {
+      const geometric = columnFromRanges(line, ranges);
+      if (geometric !== null) return geometric;
+    }
+    return mid < pageWidth / 2 ? 0 : 1;
+  };
   const oppositeBand = new Set<OcrTextLine>();
   for (const line of lines) {
     if (verticalLine(line)) continue;
-    const side = centre(line) < pageWidth / 2 ? 0 : 1;
+    const side = sideOf(line);
     if (
       lines.some(
         (other) =>
           other !== line &&
           !verticalLine(other) &&
-          (centre(other) < pageWidth / 2 ? 0 : 1) !== side &&
+          sideOf(other) !== side &&
           Math.abs(other.box.y - line.box.y) <= Math.max(1, line.box.height * 0.3),
       )
     ) {
       oppositeBand.add(line);
     }
   }
-  return { twoColumn: true, oppositeBand, bodySize };
+  return { twoColumn: true, oppositeBand, bodySize, ranges };
+}
+
+/**
+ * Assign a line using the measured body-column spans instead of the page midpoint.
+ *
+ * A short line printed at the right edge of the left column can have its midpoint past the page
+ * midpoint. A midpoint split moves it into the right block, whose room then expands to that
+ * line's minX and paints a cover over the left column. The nearest column span is stronger
+ * evidence: choose the span with the smaller horizontal gap to the line, breaking ties by the
+ * amount of overlap.
+ */
+function columnFromRanges(line: OcrTextLine, ranges: readonly ColumnRange[]): number | null {
+  if (ranges.length < 2) return null;
+  const lineLeft = line.box.x;
+  const lineRight = line.box.x + line.box.width;
+  const gaps = ranges.map((range) => Math.max(range.left - lineRight, lineLeft - range.right, 0));
+  const smallest = Math.min(...gaps);
+  const tied = ranges
+    .map((range, index) => ({ range, index }))
+    .filter(({ index }) => gaps[index] === smallest);
+  if (tied.length === 1) return tied[0]!.index;
+  const overlap = (range: ColumnRange): number =>
+    Math.max(0, Math.min(lineRight, range.right) - Math.max(lineLeft, range.left));
+  let bestIndex: number | null = null;
+  let bestOverlap = -1;
+  for (const { range, index } of tied) {
+    const value = overlap(range);
+    if (value > bestOverlap) {
+      bestOverlap = value;
+      bestIndex = index;
+    }
+  }
+  return bestOverlap > 0 ? bestIndex : null;
 }
 
 /** Geometric column of a line. Full-width lines get a group of their own. */
@@ -594,6 +668,26 @@ function lineColumn(
       !/[\d]/u.test(headingText) &&
       headingText.split(/\s+/u).filter(Boolean).length <= 4;
     if (nearCentre || leftAlignedSpanning) return SPANNING_COLUMN;
+  }
+  // A centred title or byline can be just under the full-width threshold while its word boxes
+  // cover the page gutter. Without this, it is assigned to a body column and its cover is
+  // wrongly reported as crossing into the neighbouring column. A short body line that happens
+  // to straddle the gutter has a partner in the opposite column on the same band, so it stays
+  // with its own column.
+  const gutter = pageWidth * 0.49;
+  if (
+    line.box.x + 4 < gutter &&
+    line.box.x + line.box.width > gutter + 4 &&
+    Math.abs(mid - pageWidth / 2) <= pageWidth * 0.06 &&
+    !context.oppositeBand.has(line)
+  ) {
+    return SPANNING_COLUMN;
+  }
+  // Only lines in the ambiguous middle band need page-wide evidence. Well-separated body lines
+  // keep the midpoint rule, which also covers the single-column case and vertical writing.
+  if (mid >= pageWidth * 0.4 && mid <= pageWidth * 0.6) {
+    const geometric = columnFromRanges(line, context.ranges);
+    if (geometric !== null) return geometric;
   }
   return mid < pageWidth / 2 ? 0 : 1;
 }
@@ -662,9 +756,11 @@ function hasHeadingEvidence(text: string, height: number, bodySize: number): boo
  * A listing line whose OCR lost its indentation but kept code punctuation.
  *
  * Treating leading `for`, `if`, `return`, ... as proof of code skips ordinary paper sentences
- * (`For each batch we compute the loss`), so the punctuation is required: colons, brackets,
- * semicolons and operators are what distinguish a bare statement from prose. Sentences that
- * end in a full stop are prose regardless of their first word.
+ * (`For each batch we compute the loss`), so code punctuation is required: brackets,
+ * semicolons, assignments and operators distinguish a bare statement from prose. A colon is
+ * only code evidence when it terminates the statement; a colon followed by a prose clause
+ * ("For each batch: we compute the loss") is an ordinary sentence. Sentences that end in a
+ * full stop are prose regardless of their first word.
  */
 function looksLikeBareCodeLine(text: string): boolean {
   const trimmed = text.trim();
@@ -673,9 +769,10 @@ function looksLikeBareCodeLine(text: string): boolean {
   if (!/^(?:for|foreach|if|while|emit|return|continue|def)\b/iu.test(statement)) return false;
   if (/^(?:for example|for instance|if so|if any)\b/iu.test(statement)) return false;
   // Parentheses on their own are ordinary prose ("For each layer (see Figure 2), we ...").
-  // Statements keep their assignment, block, continuation and colon punctuation; a bare
+  // Statements keep their assignment, block, continuation and operator punctuation; a bare
   // function call is code only when nothing follows its closing parenthesis.
-  if (/[;{}[\]=+*\x2f%<>_:]/u.test(statement)) return true;
+  if (/[;{}[\]=+*\x2f%<>_]/u.test(statement)) return true;
+  if (/:\s*$/u.test(statement)) return true;
   return /^(?:for|foreach|if|while|emit|return|continue|def)\s*[\p{L}_][\p{L}\p{N}_]*\([^()]*\)\s*;?$/iu.test(
     statement,
   );

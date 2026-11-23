@@ -161,16 +161,22 @@ export function isProseLike(text: string): boolean {
   if (words.length === 0) return false;
   const hasSectionMarker = /\b(?:section|figure|table)\b/iu.test(normalized);
   // A listing line is code regardless of how English its keywords look. The leading number is
-  // optional: "for block in page:" is as much a listing as "1 for block in page:". A prose
-  // sentence that merely quotes Section/Figure/Table is still prose.
-  if (
-    !hasSectionMarker &&
+  // optional: "for block in page:" is as much a listing as "1 for block in page:". A keyword
+  // followed by a colon clause of natural language is a prose sentence ("For each batch: we
+  // compute the loss"), not a listing; a bare clause ending in a colon stays a code statement.
+  // A prose sentence that merely quotes Section/Figure/Table is still prose.
+  const keywordStatement =
     /^(?:\d+[.)]?\s+)*(?:for|if|while|return|emit|continue|def|let|const|var|import|from|class|try|except|finally|switch|case|else|elif|do|break|pass|yield|raise|with|lambda|print|function|foreach)\b/iu.test(
       normalized,
-    )
-  ) {
-    return false;
-  }
+    );
+  const clause = normalized.match(/:[\s]+([\p{L}][\p{L}\s'’,.-]+)$/u)?.[1] ?? '';
+  const clauseWords = clause.split(/\s+/u).filter(Boolean);
+  const clauseFunctionWords =
+    clause.match(
+      /\b(?:the|and|of|is|are|we|this|that|these|those|which|with|for|from|by|as|in|on|to|it|its|be|was|were|has|have|can|then|when|where|section|figure|table|describes|shows|proposes|reports|uses|used)\b/giu,
+    ) ?? [];
+  const proseClause = clauseWords.length >= 3 && clauseFunctionWords.length >= 1;
+  if (!hasSectionMarker && keywordStatement && !proseClause) return false;
   // A bare lowercase clause ending in a colon is a code statement or a field label, not a
   // natural-language sentence.
   if (!hasSectionMarker && /^[a-z][\p{L}\s]*[:{]\s*$/u.test(normalized)) return false;

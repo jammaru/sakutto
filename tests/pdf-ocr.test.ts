@@ -1108,6 +1108,113 @@ describe('latest DSH review blockers', () => {
     ]);
   });
 
+  it('B1 (DSH): keeps a right-column word gap inside its own column', () => {
+    const items = [
+      region('left', quad(45, 340, 90, 20)),
+      region('column', quad(140, 340, 100, 20)),
+      region('right', quad(270, 340, 10, 20)),
+      region('wide', quad(290, 340, 40, 20)),
+      region('column', quad(335, 340, 50, 20)),
+      region('words', quad(390, 340, 45, 20)),
+      region('here', quad(440, 340, 35, 20)),
+    ];
+    const result = ocrResult(items, [readingLine('horizontal', items)]);
+    const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+
+    expect(ocrResultToTextLines(result, options).map((line) => line.text)).toEqual([
+      'left column',
+      'right wide column words here',
+    ]);
+    const layout = ocrResultToPageLayout(result, options);
+    expect(layout.blocks.map((block) => block.text)).toEqual(['right wide column words here']);
+    expect(layout.skipped.map((block) => block.text)).toEqual(['left column']);
+  });
+
+  it('B1 (DSH): uses a gutter whose left edge is left of 0.4 x pageWidth', () => {
+    const leftText = 'Left column body text that ends before the page midpoint';
+    const rightText = 'Right column body text begins just after the printed gutter';
+    const items = [
+      region('Left column body text that ends', quad(30, 100, 120, 20)),
+      region('before the page midpoint', quad(160, 100, 65, 20)),
+      region(rightText, quad(255, 100, 300, 20)),
+    ];
+    const result = ocrResult(items, [readingLine('horizontal', items)]);
+    const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+
+    expect(ocrResultToTextLines(result, options).map((line) => line.text)).toEqual([
+      leftText,
+      rightText,
+    ]);
+  });
+
+  it('B2 (DSH): keeps a short left-column tail out of the right column room', () => {
+    const items = [
+      region('left body line one', quad(45, 100, 300, 20)),
+      region('left body line two', quad(45, 125, 300, 20)),
+      region('short left tail', quad(260, 150, 80, 20)),
+      region('right body line one', quad(355, 100, 215, 20)),
+      region('right body line two', quad(355, 125, 215, 20)),
+      region('right body line three', quad(355, 150, 215, 20)),
+    ];
+    const result = ocrResult(
+      items,
+      items.map((item) => readingLine('horizontal', [item])),
+    );
+    const options = { pageIndex: 0, pageWidth: 595, pageHeight: 842 };
+    const layout = ocrResultToPageLayout(result, options);
+
+    expect(layout.blocks.map((block) => block.column)).toEqual([0, 1]);
+    expect(layout.blocks.map((block) => block.text)).toEqual([
+      'left body line one left body line two short left tail',
+      'right body line one right body line two right body line three',
+    ]);
+    const right = layout.blocks[1];
+    expect(right?.box.x).toBeCloseTo(355, 5);
+    expect(right?.room.x).toBeCloseTo(355, 5);
+  });
+
+  it('B3 (DSH): keeps prose that starts with a keyword and a colon clause', () => {
+    const texts = [
+      'For each batch: we compute the loss and update',
+      'If the input is empty: we return zero',
+      'While the model trains: the logs are written',
+    ];
+    for (const text of texts) {
+      const item = region(text, quad(45, 100, 300, 20));
+      const result = ocrResult([item], [readingLine('horizontal', [item])]);
+      const layout = ocrResultToPageLayout(result, {
+        pageIndex: 0,
+        pageWidth: 595,
+        pageHeight: 842,
+      });
+      expect(
+        layout.blocks.map((block) => block.text),
+        text,
+      ).toEqual([text]);
+      expect(layout.blocks[0]?.role, text).toBe('prose');
+      expect(layout.skipped, text).toEqual([]);
+    }
+  });
+
+  it('B3 (DSH): still skips a bare code statement with a trailing colon', () => {
+    const items = [
+      region('for block in page:', quad(45, 100, 160, 20)),
+      region('if is_equation(block):', quad(45, 125, 190, 20)),
+    ];
+    const result = ocrResult(
+      items,
+      items.map((item) => readingLine('horizontal', [item])),
+    );
+    const layout = ocrResultToPageLayout(result, {
+      pageIndex: 0,
+      pageWidth: 595,
+      pageHeight: 842,
+    });
+    expect(layout.skipped.map((block) => block.text)).toEqual([
+      'for block in page:',
+      'if is_equation(block):',
+    ]);
+  });
   it('B3: splits at the real off-centre gutter, not the page midpoint', () => {
     const leftText =
       'Left column words that end past the midpoint more left column words left tail word';

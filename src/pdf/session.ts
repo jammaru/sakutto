@@ -534,12 +534,17 @@ export class PdfSession {
         // A sweep is not a fresh translation run: it must not hand a permanently failing block
         // a new retry budget. Without this, the reader's three automatic sweeps multiply one
         // failed block's engine calls from three to nine.
-        if ((state.attempts ?? 0) >= MAX_PDF_ATTEMPTS) continue;
+        const spent = state.attempts ?? 0;
+        if (spent >= MAX_PDF_ATTEMPTS) continue;
+        // A failed block has already used the attempt recorded on its state. Spend it here so a
+        // failure path that called failBlock without retry() (for example an empty final chunk)
+        // cannot be requeued with the same untouched counter on every sweep.
+        const attempts = state.state === 'failed' ? spent + 1 : spent;
         // Keep the previous cover until the replacement arrives. Blanking it on every sweep
         // flashed the source through a box the reader was already reading.
         state.state = 'idle';
         state.intentionallyKept = false;
-        this.enqueue(state, page, true, state.attempts ?? 0);
+        this.enqueue(state, page, true, attempts);
         requeued += 1;
       }
     }
@@ -810,6 +815,9 @@ export class PdfSession {
       return;
     }
     if (state.translation.trim().length === 0) {
+      // A normal final chunk with no text is still a failure. Count it against the same retry
+      // budget as an error chunk so repeated coverage sweeps cannot buy unlimited engine calls.
+      if (this.retry(job)) return;
       this.failBlock(state);
       return;
     }

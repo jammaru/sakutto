@@ -333,6 +333,8 @@ export class PdfReader {
       translation: string;
       role: string;
       failed: boolean;
+      y: number;
+      x: number;
     }> = [
       ...states.map((state) => ({
         key: state,
@@ -340,6 +342,8 @@ export class PdfReader {
         translation: state.translation.trim(),
         role: state.block.role,
         failed: state.state === 'failed',
+        y: state.block.box.y,
+        x: state.block.box.x,
       })),
       ...skipped.map((block) => ({
         key: block,
@@ -347,8 +351,14 @@ export class PdfReader {
         translation: '',
         role: block.role,
         failed: false,
+        y: block.box.y,
+        x: block.box.x,
       })),
     ];
+    // Skipped equations, listings and labels must stay at their place on the page: appending
+    // them after every translated block breaks the reading order in the reflowed pane.
+    rows.sort((a, b) => a.y - b.y || a.x - b.x);
+
     for (const item of rows) {
       const translation = item.translation;
       const source = item.source;

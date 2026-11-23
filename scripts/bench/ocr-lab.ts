@@ -118,7 +118,10 @@ function option(name: string, fallback: string): string {
     ? (process.argv[index + 1] ?? fallback)
     : fallback;
 }
-const label = option('--label', 'run');
+// The label is only a report filename; keep it inside the results directory.
+const label = option('--label', 'run')
+  .replace(/[^A-Za-z0-9._-]/gu, '_')
+  .replace(/^\.\.+/u, '_');
 const pairing = option('--pairing', 'tiny_det+small_rec') as Pairing;
 const caseFilter = option('--cases', '').split(',').filter(Boolean);
 const experimentFilter = option('--experiments', '').split(',').filter(Boolean);

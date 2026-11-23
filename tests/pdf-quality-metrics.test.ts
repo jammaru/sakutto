@@ -114,6 +114,9 @@ describe('honest quality denominators', () => {
     expect(isProseLike('for block in page:')).toBe(false);
     expect(isProseLike('if is_equation(block):')).toBe(false);
     expect(isProseLike('Section 2 describes the runtime:')).toBe(true);
+    expect(isProseLike('For each batch: we compute the loss and update')).toBe(true);
+    expect(isProseLike('If the input is empty: we return zero')).toBe(true);
+    expect(isProseLike('While the model trains: the logs are written')).toBe(true);
   });
 
   it('does not call isolated identifiers a language switch', () => {

@@ -751,6 +751,48 @@ describe('placePage', () => {
     expect(metrics.crossColumnCovers).toBe(0);
   });
 
+  it('counts a cover starting in the left column for a mis-grouped right block', () => {
+    // The block's source lines sit on both sides of the gutter, but no single line crosses it.
+    // The spanning-source exemption must therefore not hide a cover painted over the left column.
+    const pageWidth = 595;
+    const gutter = pageWidth * 0.49;
+    const block: LayoutBlock = {
+      box: { x: 260, y: 100, width: 310, height: 62 },
+      room: { x: 260, y: 100, width: 310, height: 62 },
+      lines: [
+        groupLines([piece('short left tail', 260, 150, 80)])[0]!,
+        groupLines([piece('right body line', 355, 100, 215)])[0]!,
+      ],
+      text: 'short left tail right body line',
+      role: 'prose',
+      fontSize: 9,
+      lineHeight: 11,
+      align: 'left',
+      bold: false,
+      italic: false,
+      column: 1,
+      advance: 310,
+      writing: 0,
+    };
+    expect(blockSpansGutter(block, pageWidth)).toBe(true);
+    const fit = {
+      fits: true as const,
+      fontSize: 9,
+      lineHeight: 11,
+      lines: ['短い左脚と右本文'],
+      height: 22,
+      grown: false,
+      width: 300,
+    };
+    const drawn = drawnBox(block, fit, fit.width, pageWidth);
+    expect(drawn.x).toBeLessThan(gutter - 2);
+    const metrics = paintIntegrityMetrics(
+      [{ block, translation: '短い左脚と右本文', fit, paint: true, drawn, overflow: false }],
+      pageWidth,
+    );
+    expect(metrics.crossColumnCovers).toBe(1);
+  });
+
   it('ignores gutter slivers when two columns barely touch', () => {
     const left = { x: 48, y: 100, width: 248, height: 12 };
     const right = { x: 294, y: 100, width: 250, height: 12 };
