@@ -41,7 +41,7 @@ describe('AMO workflow', () => {
     expect(ci).toContain('target: [chrome, firefox]');
     expect(ci).toContain('target: ${{ matrix.target }}');
     expect(ci).toMatch(
-      /checks:\n {4}name: checks\n {4}needs: \[changes, checks-static, checks-unit, e2e\]\n/,
+      /checks:\n {4}name: checks\n {4}needs: \[changes, checks-static, checks-unit, e2e, caption-quality\]\n/,
     );
     expect(ci).not.toContain('package-firefox');
     expect(ci).not.toContain('web-ext sign');
