@@ -1835,19 +1835,17 @@ describe('93666bb review blockers: CJK two-column body rows', () => {
   });
 
   it.each([
-  {
-    name: 'full-measure right column',
-    right: 'Mice and rats',
-    rightWidth: 250,
-  },
-  {
-    name: 'short capitalised right fragment',
-    right: 'Mice',
-    rightWidth: 45,
-  },
-])(
-  'b4129df top row: splits English body above corroborated columns ($name)',
-  (scenario) => {
+    {
+      name: 'full-measure right column',
+      right: 'Mice and rats',
+      rightWidth: 250,
+    },
+    {
+      name: 'short capitalised right fragment',
+      right: 'Mice',
+      rightWidth: 45,
+    },
+  ])('b4129df top row: splits English body above corroborated columns ($name)', (scenario) => {
     const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
     const first = [
       region('Results show strong effects on', quad(45, 65, 250, 20)),
@@ -1865,19 +1863,30 @@ describe('93666bb review blockers: CJK two-column body rows', () => {
     const fused = `Results show strong effects on ${scenario.right}`;
 
     const lines = ocrResultToTextLines(result, options);
-    expect(lines.map((line) => line.text), scenario.name).not.toContain(fused);
+    expect(
+      lines.map((line) => line.text),
+      scenario.name,
+    ).not.toContain(fused);
     expect(
       lines.find((line) => line.text === 'Results show strong effects on')?.columnHint,
       scenario.name,
     ).toBe(0);
     expect(lines.find((line) => line.text === scenario.right)?.columnHint, scenario.name).toBe(1);
-    expect(lines.some((line) => line.titleRow === true), scenario.name).toBe(false);
+    expect(
+      lines.some((line) => line.titleRow === true),
+      scenario.name,
+    ).toBe(false);
 
     const layout = ocrResultToPageLayout(result, options);
-    expect(layout.blocks.map((block) => block.text), scenario.name).not.toContain(fused);
-    expect(layout.blocks.some((block) => block.titleRow === true), scenario.name).toBe(false);
-  },
-);
+    expect(
+      layout.blocks.map((block) => block.text),
+      scenario.name,
+    ).not.toContain(fused);
+    expect(
+      layout.blocks.some((block) => block.titleRow === true),
+      scenario.name,
+    ).toBe(false);
+  });
 
   it('308b786 blocker 1: splits a topmost full-measure English row above corroborated body', () => {
     const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
