@@ -1769,4 +1769,61 @@ describe('93666bb review blockers: CJK two-column body rows', () => {
       ocrResultToPageLayout(result, options).blocks.some((block) => block.titleRow === true),
     ).toBe(false);
   });
+
+  it('ed88d36: keeps a CJK title above four body rows whole', () => {
+    const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+    // A centred, two-piece Japanese title is not one of the corroborated two-column body rows:
+    // its row is above every body top, so its central gap is title whitespace, not a gutter.
+    const title = [
+      region('深層学習による分類', quad(140, 60, 150, 20)),
+      region('の性能評価', quad(310, 60, 150, 20)),
+    ];
+    const bodyRows = Array.from({ length: 4 }, (_, index) => [
+      region('左列の本文テキストです', quad(45, 100 + index * 25, 250, 20)),
+      region('右列の本文テキストです', quad(305, 100 + index * 25, 250, 20)),
+    ]);
+    const result: OcrResult = {
+      regions: [...title, ...bodyRows.flat()],
+      lines: [readingLine(title), ...bodyRows.map(readingLine)],
+      text: '',
+    };
+    const full = '深層学習による分類 の性能評価';
+
+    const lines = ocrResultToTextLines(result, options);
+    expect(lines.map((line) => line.text)).toContain(full);
+    expect(lines.find((line) => line.text === full)?.columnHint).toBeUndefined();
+    expect(lines.filter((line) => line.text === '左列の本文テキストです')).toHaveLength(4);
+    expect(lines.filter((line) => line.text === '右列の本文テキストです')).toHaveLength(4);
+
+    const layout = ocrResultToPageLayout(result, options);
+    expect(layout.blocks.some((block) => block.text === full)).toBe(true);
+  });
+
+  it('ed88d36: still splits a CJK body row with a short right fragment', () => {
+    const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+    // The row below every body top is ordinary column text: its short right piece still has a
+    // column-measure width, so CJK geometry must keep splitting it at the shared gutter.
+    const bodyRows = Array.from({ length: 4 }, (_, index) => [
+      region('左列の本文テキストです', quad(45, 100 + index * 25, 250, 20)),
+      region('右列の本文テキストです', quad(305, 100 + index * 25, 250, 20)),
+    ]);
+    const short = [
+      region('左列の続きの本文です', quad(45, 225, 250, 20)),
+      region('結果', quad(305, 225, 100, 20)),
+    ];
+    const result: OcrResult = {
+      regions: [...bodyRows.flat(), ...short],
+      lines: [...bodyRows.map(readingLine), readingLine(short)],
+      text: '',
+    };
+    const fused = '左列の続きの本文です 結果';
+
+    const lines = ocrResultToTextLines(result, options);
+    expect(lines.map((line) => line.text)).toContain('左列の続きの本文です');
+    expect(lines.map((line) => line.text)).toContain('結果');
+    expect(lines.map((line) => line.text)).not.toContain(fused);
+    expect(lines.find((line) => line.text === '左列の続きの本文です')?.columnHint).toBe(0);
+    expect(lines.find((line) => line.text === '結果')?.columnHint).toBe(1);
+    expect(lines.some((line) => line.titleRow === true)).toBe(false);
+  });
 });

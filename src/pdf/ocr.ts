@@ -441,14 +441,19 @@ function cjkTextRow(pieces: readonly OcrTextPiece[]): boolean {
 /**
  * A CJK row is body text when the page's other rows establish two columns and its own gutter
  * and measures match them. Without the page evidence a single CJK row stays a title: its text
- * shape alone cannot say either way.
+ * shape alone cannot say either way. A row above every body-row top is a title too: its middle
+ * gap belongs to the title, not to the page's columns.
  */
 function cjkTwoColumnBodyRow(
   pieces: readonly OcrTextPiece[],
   resolved: ResolvedConversion,
   pageTwoColumn: boolean,
+  titleAboveBody: boolean,
 ): boolean {
-  if (!pageTwoColumn || !cjkTextRow(pieces)) return false;
+  // The row sits above every corroborated body-row top: its central gap is title whitespace even
+  // though CJK glyphs and a centred gutter otherwise look exactly like a two-column body row.
+  // Don't let the page's body geometry split such a title (or deny its own title evidence).
+  if (titleAboveBody || !pageTwoColumn || !cjkTextRow(pieces)) return false;
   const { left, right, leftEnd, rightStart } = splitAtGutter(pieces, resolved.pageWidth);
   if (left.length === 0 || right.length === 0 || rightStart - leftEnd < MIN_COLUMN_GUTTER) {
     return false;
@@ -771,9 +776,14 @@ export function ocrResultToTextLines(
     const rowTop = Math.min(...pieces.map((piece) => piece.box.y));
     const rowsBelow = twoColumnTops.filter((top) => top > rowTop);
     const rowsAbove = twoColumnTops.filter((top) => top < rowTop);
+    // A row printed strictly above every corroborated body-row top is a title: the page's column
+    // evidence belongs to the body below it. Decide that from geometry before judging CJK body
+    // shape, so the title's own gutter cannot first mark it as body and then deny its title
+    // evidence. Rows among the body tops (including the topmost one) keep their gutter split.
+    const aboveAllBodyRows = twoColumnTops.length > 0 && twoColumnTops.every((top) => top > rowTop);
     // A CJK row sharing the page's corroborated gutter is body text, not a spanning title: its
     // glyphs cannot carry the casing evidence an English title check relies on.
-    const cjkBodyGeometry = cjkTwoColumnBodyRow(pieces, resolved, pageTwoColumn);
+    const cjkBodyGeometry = cjkTwoColumnBodyRow(pieces, resolved, pageTwoColumn, aboveAllBodyRows);
     // A real section heading can be printed between two-column body rows instead of above all
     // of them. Balanced page margins, a moderate (title-sized) span and a title-shaped tail
     // distinguish it from a near-full-measure colon body row, which has body text above and
@@ -796,7 +806,7 @@ export function ocrResultToTextLines(
       !cjkBodyGeometry &&
       (centredHeadingBetweenBody ||
         (twoColumnTops.length > 0 &&
-          (twoColumnTops.every((top) => top > rowTop) ||
+          (aboveAllBodyRows ||
             (rowsBelow.length >= 2 &&
               rowsBelow.length === twoColumnTops.length - 1 &&
               onePrintedTitleRow(pieces, resolved.pageWidth, true, true)))));

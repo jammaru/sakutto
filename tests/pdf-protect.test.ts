@@ -709,3 +709,157 @@ describe('9a60966 review blockers: two-letter sentence openers', () => {
     }
   });
 });
+
+describe('ed88d36 review blockers: positional rule for every two-letter token', () => {
+  // Position, not a vocabulary list, decides: another operand before the operator means the
+  // token is a sentence opener; the operator directly after it means a flattened identifier.
+  const openers = [
+    {
+      token: 'Et',
+      source: 'Et Q ∈ R d×d est orthogonal, le résultat suit.',
+      prompt: 'Et <i0> est orthogonal, le résultat suit.',
+      slot: 'Q ∈ R d×d',
+    },
+    {
+      token: 'Ou',
+      source: 'Ou Q ∈ R d×d est orthogonal, le résultat suit.',
+      prompt: 'Ou <i0> est orthogonal, le résultat suit.',
+      slot: 'Q ∈ R d×d',
+    },
+    {
+      token: 'Ni',
+      source: 'Ni Q ∈ R d×d es ortogonal, el resultado se sigue.',
+      prompt: 'Ni <i0> es ortogonal, el resultado se sigue.',
+      slot: 'Q ∈ R d×d',
+    },
+    {
+      token: 'El',
+      source: 'El Q ∈ R d×d es ortogonal, el resultado se sigue.',
+      prompt: 'El <i0> es ortogonal, el resultado se sigue.',
+      slot: 'Q ∈ R d×d',
+    },
+  ];
+
+  const identifiers = [
+    {
+      token: 'We',
+      source: 'We ∈ R n×d is the embedding matrix.',
+      prompt: '<i0> is the embedding matrix.',
+      slot: 'We ∈ R n×d',
+    },
+    {
+      token: 'In',
+      source: 'In ∈ R n×n is the identity matrix.',
+      prompt: '<i0> is the identity matrix.',
+      slot: 'In ∈ R n×n',
+    },
+    {
+      token: 'Si',
+      source: 'Si ∈ R d×d is a diagonal matrix.',
+      prompt: '<i0> is a diagonal matrix.',
+      slot: 'Si ∈ R d×d',
+    },
+  ];
+
+  it.each(openers)('peels $token before another operand', ({ source, prompt, slot }) => {
+    const block = layoutPage(groupLines([piece(source, 49, 100, 430)])).blocks[0];
+    if (!block) throw new Error('expected a block');
+    const protectedText = protectInlineMath(block);
+    expect(
+      protectedText.slots.map((entry) => entry.text),
+      source,
+    ).toEqual([slot]);
+    expect(protectedText.text, source).toBe(prompt);
+    expect(restoreInlineMath('訳文 <i0> です。', protectedText.slots)).toBe(`訳文 ${slot} です。`);
+  });
+
+  it.each(identifiers)(
+    'keeps $token directly before the operator in the slot',
+    ({ source, prompt, slot }) => {
+      const block = layoutPage(groupLines([piece(source, 49, 100, 430)])).blocks[0];
+      if (!block) throw new Error('expected a block');
+      const protectedText = protectInlineMath(block);
+      expect(
+        protectedText.slots.map((entry) => entry.text),
+        source,
+      ).toEqual([slot]);
+      expect(protectedText.text, source).toBe(prompt);
+      expectSourcePreserved(protectedText, source);
+    },
+  );
+
+  it('full combined suite: openers and identifiers keep their positions on one page', () => {
+    const cases = [
+      {
+        source: 'Et Q ∈ R d×d est orthogonal, le résultat suit.',
+        prompt: 'Et <i0> est orthogonal, le résultat suit.',
+        slot: 'Q ∈ R d×d',
+      },
+      {
+        source: 'Ou Q ∈ R d×d est orthogonal, le résultat suit.',
+        prompt: 'Ou <i0> est orthogonal, le résultat suit.',
+        slot: 'Q ∈ R d×d',
+      },
+      {
+        source: 'Ni Q ∈ R d×d es ortogonal, el resultado se sigue.',
+        prompt: 'Ni <i0> es ortogonal, el resultado se sigue.',
+        slot: 'Q ∈ R d×d',
+      },
+      {
+        source: 'El Q ∈ R d×d es ortogonal, el resultado se sigue.',
+        prompt: 'El <i0> es ortogonal, el resultado se sigue.',
+        slot: 'Q ∈ R d×d',
+      },
+      {
+        source: 'If Q ∈ R d×d is orthogonal.',
+        prompt: 'If <i0> is orthogonal.',
+        slot: 'Q ∈ R d×d',
+      },
+      {
+        source: 'Si Q ∈ R d×d es ortogonal, el resultado se sigue.',
+        prompt: 'Si <i0> es ortogonal, el resultado se sigue.',
+        slot: 'Q ∈ R d×d',
+      },
+      {
+        source: 'We ∈ R n×d is the embedding matrix.',
+        prompt: '<i0> is the embedding matrix.',
+        slot: 'We ∈ R n×d',
+      },
+      {
+        source: 'In ∈ R n×n is the identity matrix.',
+        prompt: '<i0> is the identity matrix.',
+        slot: 'In ∈ R n×n',
+      },
+      {
+        source: 'Si ∈ R d×d is a diagonal matrix.',
+        prompt: '<i0> is a diagonal matrix.',
+        slot: 'Si ∈ R d×d',
+      },
+      {
+        source: 'At ∈ R n×d is the attention matrix.',
+        prompt: '<i0> is the attention matrix.',
+        slot: 'At ∈ R n×d',
+      },
+      {
+        // Flattened W-subscript matrix names stay notation even with an operand before `∈`.
+        source: 'The projection Wi Q ∈ R d model ×d k is learned.',
+        prompt: 'The projection <i0> is learned.',
+        slot: 'Wi Q ∈ R d model ×d k',
+      },
+    ];
+    for (const { source, prompt, slot } of cases) {
+      const block = layoutPage(groupLines([piece(source, 49, 100, 430)])).blocks[0];
+      if (!block) throw new Error('expected a block');
+      const protectedText = protectInlineMath(block);
+      expect(
+        protectedText.slots.map((entry) => entry.text),
+        source,
+      ).toEqual([slot]);
+      expect(protectedText.text, source).toBe(prompt);
+      expectSourcePreserved(protectedText, source);
+      expect(restoreInlineMath('訳文 <i0> です。', protectedText.slots)).toBe(
+        `訳文 ${slot} です。`,
+      );
+    }
+  });
+});

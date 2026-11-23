@@ -73,9 +73,12 @@ const NOTATION_HEAD = /^(?:\p{L}[\p{N}_^]{0,3}|[\p{N}_^]+)$/u;
  * optional subscript marks; a prose adjective (`Small`, `Large`, `Deep`, ...) has a longer
  * lowercase tail and never matches. Shape alone is not enough for two-letter words such as
  * `In`, so the identifier only counts as notation when an operator follows its chain:
- * `Wi ∈ R ...`, `Wq Q ∈ R ...`, `Wk × d k`, or `We ∈ R ...` with the operator directly after it.
+ * `Wi ∈ R ...`, `Wk × d k`, or `We ∈ R ...` with the operator directly after it. An operand
+ * between the token and the operator makes it a prose opener, whatever the token's spelling.
  */
 const FLATTENED_IDENTIFIER = /^\p{Lu}\p{Ll}[\p{N}_^]{0,3}$/u;
+/** Flattened subscripted matrix names (`W_i`, `W_q`, `W_k`, `W_v`, `W_o`) are notation by shape. */
+const FLATTENED_MATRIX_NAME = /^W[iqkvo][\p{N}_^]{0,3}$/u;
 const IDENTIFIER_OPERATOR = /^\s*(?:\p{Lu}[\p{N}_^]{0,3}\s+)?[∈×÷]\s+\S/u;
 /**
  * Another operand between a two-letter token and the operator: `If Q ∈`, `As W ∈`, `Si Q ∈`.
@@ -84,14 +87,6 @@ const IDENTIFIER_OPERATOR = /^\s*(?:\p{Lu}[\p{N}_^]{0,3}\s+)?[∈×÷]\s+\S/u;
  * whole expression in one slot.
  */
 const OPENER_BEFORE_OPERAND = /^\p{Lu}[\p{N}_^]{0,3}\s+[∈×÷]\s+\S/u;
-/**
- * Two-letter words that can open a sentence. The ambiguous capital + lowercase shape alone
- * cannot distinguish an opener from a flattened matrix name, so this only helps when another
- * operand follows the token; the positional rule decides the direct-operator case. Common
- * Latin-language openers are included because scanned PDFs are translated from more than English.
- */
-const TWO_LETTER_PROSE_WORD =
-  /^(?:ah|am|an|as|at|be|by|do|go|he|hi|if|in|is|it|me|my|no|of|oh|on|or|so|to|up|us|we|yo|si|se|im|em|es|un|la|le|il)$/iu;
 const LEADING_NUMBER = /^[\p{N}]/u;
 
 function isNotationHead(token: string, following = ''): boolean {
@@ -100,9 +95,12 @@ function isNotationHead(token: string, following = ''): boolean {
     return !(/^[Aa]$/u.test(token) && LEADING_NUMBER.test(following));
   }
   if (!FLATTENED_IDENTIFIER.test(token) || !IDENTIFIER_OPERATOR.test(following)) return false;
-  // A two-letter prose word is peeled only when the expression has another operand before the
-  // operator; directly before `∈` it is the matrix name itself (`We ∈ R ...`).
-  return !TWO_LETTER_PROSE_WORD.test(token) || !OPENER_BEFORE_OPERAND.test(following);
+  // Position alone decides, for every two-letter token whatever language it came from: another
+  // operand before the operator makes it a sentence opener (`If Q ∈`, `Si Q ∈`, `Et Q ∈`, ...),
+  // while the operator directly after it makes it the flattened matrix name (`We ∈`, `In ∈`).
+  // The one shape exception is a flattened W-subscript matrix name (`Wi Q ∈`, `Wq Q ∈`): it is
+  // notation in either position, so the model never sees a matrix name rewritten as prose.
+  return !OPENER_BEFORE_OPERAND.test(following) || FLATTENED_MATRIX_NAME.test(token);
 }
 
 /**
