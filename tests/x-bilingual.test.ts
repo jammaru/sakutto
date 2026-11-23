@@ -4,6 +4,7 @@ import { buildSegment } from '@/dom/segment';
 import { applyTranslation, showBilingual } from '@/dom/render';
 import { isBodyCopy } from '@/dom/session';
 import { stripPlaceholderTokens } from '@/dom/placeholders';
+import { shouldPreserveNewlines } from '@/dom/x-post';
 
 const THREE_PARAGRAPHS =
   '<div data-testid="tweetText">' +
@@ -17,6 +18,31 @@ const TWO_EQUAL_PARAGRAPHS =
   '<span>A short first line.</span><br><br>' +
   '<span>Another short line.</span>' +
   '</div>';
+
+const PREWRAP_STACK =
+  '<div data-testid="tweetText" lang="ja" class="r-whitespace-pre-wrap">' +
+  [
+    '<span>ログイン済みのタイムラインでは本文が白折返しで描画されます。</span>',
+    '<span>短い行が続く場合でも、対訳の同じ位置に改行が残ることを確認します。</span>',
+    '<span>絵文字の画像が混ざる行も訳せます。<img alt="🌸" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" /></span>',
+    '<span>ハッシュタグやメンションを含む行も、一行ずつ要求として送られます。</span>',
+    '<span><a href="/hashtag/日本語">#日本語</a> と <a href="/user9">@user9</a> を含む行です。</span>',
+    '<span>空白行をはさんでも訳文が混ざらないことを確かめる六行目です。</span>',
+    '<span>七行目も同じ間隔で訳文が配置され、原文の改行が保たれます。</span>',
+    '<span>最後の行まで崩れずに表示されることを確認するための八行目です。</span>',
+  ].join('\n\n') +
+  '</div>';
+
+const PREWRAP_EN_LINES = [
+  'Welcome to Osaka!',
+  'This is the second sentence.',
+  'Come see me!',
+  'Hope you visit.',
+  'The fifth line continues this single paragraph.',
+  'The sixth line has no newline.',
+  'The seventh line stays glued to the next.',
+  'The eighth line ends the flat paragraph.',
+];
 
 function bilingual(html: string, translation: string): { chunks: string[]; breaks: number } {
   document.body.innerHTML = html;
@@ -203,5 +229,34 @@ describe('X bilingual rendering', () => {
     expect(line.textContent).toContain('#baseball');
     expect(line.textContent).toContain('Next paragraph.');
     expect(line.querySelectorAll('br')).toHaveLength(2);
+  });
+
+  it('recognizes logged-in tweetText bodies that paint raw newlines', () => {
+    document.body.innerHTML = [
+      '<article><div id="class" data-testid="tweetText" lang="ja" class="r-whitespace-pre-wrap"></div></article>',
+      '<article><div id="style" data-testid="tweetText" lang="ja" style="white-space: pre-line"></div></article>',
+      '<div id="no-lang" data-testid="tweetText" class="r-whitespace-pre-wrap"></div>',
+      '<div id="plain" data-testid="tweetText" lang="ja"></div>',
+    ].join('');
+    expect(shouldPreserveNewlines(document.getElementById('class') as Element)).toBe(true);
+    expect(shouldPreserveNewlines(document.getElementById('style') as Element)).toBe(true);
+    expect(shouldPreserveNewlines(document.getElementById('no-lang') as Element)).toBe(false);
+    expect(shouldPreserveNewlines(document.getElementById('plain') as Element)).toBe(false);
+  });
+
+  it('keeps raw pre-wrap gaps with real-engine-shaped flat output', () => {
+    const { chunks, breaks } = bilingual(PREWRAP_STACK, PREWRAP_EN_LINES.join('\n\n'));
+    expect(breaks).toBe(14);
+    expect(chunks).toHaveLength(15);
+    expect(chunks.filter((chunk) => chunk.trim().length === 0)).toHaveLength(7);
+    expect(chunks.filter((chunk) => chunk.trim().length > 0)).toEqual(PREWRAP_EN_LINES);
+    for (const chunk of chunks) expect(chunk).not.toContain('\n');
+    const block = document.querySelector('[data-testid="tweetText"]') as Element;
+    expect(
+      Array.from(block.children).filter(
+        (child) => child.localName !== 'sakutto-line' && child.localName === 'br',
+      ),
+    ).toHaveLength(0);
+    expect(block.querySelector('img[alt="🌸"]')).not.toBeNull();
   });
 });

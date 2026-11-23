@@ -312,6 +312,43 @@ test.describe('X timeline bilingual translation', () => {
     }
   });
 
+  // Logged-in X keeps the tweetText testid but paints paragraph gaps with raw newlines.
+  // The fake model answers each line with a flat English sentence (no newline), so this
+  // exercises the same rejoin path as a real per-line engine request.
+  test('keeps raw pre-wrap line gaps with flat English line answers', async () => {
+    await resetExtensionStorage(extension.worker, { targetLanguage: 'en' });
+    const page = await extension.context.newPage();
+    try {
+      await page.goto(`${FIXTURE_ORIGIN}/x-timeline.html?flatEn=1`);
+      await page.locator('#main-tweet').evaluate((element) => element.setAttribute('hidden', ''));
+      await page
+        .locator('#prewrap-stack-tweet')
+        .evaluate((element) => element.removeAttribute('hidden'));
+      await commandPage(extension.worker, page, 'bilingual');
+      await waitTranslated(page);
+
+      const line = page.locator('#prewrap-stack-text > sakutto-line');
+      await expect(line.locator('br')).toHaveCount(14);
+      const chunks = await line.evaluate((element) =>
+        Array.from(element.childNodes)
+          .filter((node) => node.nodeType === Node.TEXT_NODE)
+          .map((node) => node.nodeValue ?? ''),
+      );
+      expect(chunks).toHaveLength(15);
+      expect(chunks.filter((chunk) => chunk.trim().length === 0)).toHaveLength(7);
+      const translated = chunks.filter((chunk) => chunk.trim().length > 0);
+      expect(translated).toHaveLength(8);
+      expect(translated.join(' ')).toContain('Welcome to Osaka!');
+      expect(translated.join(' ')).toContain('The eighth line ends the flat paragraph.');
+      for (const chunk of chunks) expect(chunk).not.toMatch(/\n/u);
+      await expect(page.locator('#prewrap-stack-text')).toContainText('ログイン済みのタイムライン');
+      await expect(page.locator('#prewrap-stack-text a[href="/hashtag/日本語"]')).toHaveCount(1);
+      await expect(page.locator('#prewrap-stack-text img[alt="🌸"]')).toHaveCount(1);
+    } finally {
+      await page.close();
+    }
+  });
+
   test('retranslates a guest body when Show more swaps its span children', async () => {
     await resetExtensionStorage(extension.worker, { targetLanguage: 'en' });
     const page = await extension.context.newPage();

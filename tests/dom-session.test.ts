@@ -4399,3 +4399,96 @@ describe('X detail conversation', () => {
     );
   });
 });
+
+describe('X logged-in pre-wrap bodies', () => {
+  it('requests each raw line once and puts its answer back on that line', async () => {
+    document.documentElement.lang = 'ja';
+    const lines = [
+      'ログイン済みのタイムラインでは本文が白折返しで描画されます。',
+      '短い行が続く場合でも対訳の同じ位置に改行が残ることを確認します。',
+      '絵文字の画像が混ざる行も訳せます。',
+      'ハッシュタグやメンションを含む行も一行ずつ要求として送られます。',
+      'ハッシュタグとメンションを含む行です。',
+      '空白行をはさんでも訳文が混ざらないことを確かめる六行目です。',
+      '七行目も同じ間隔で訳文が配置され原文の改行が保たれます。',
+      '最後の行まで崩れずに表示されることを確認するための八行目です。',
+    ];
+    document.body.innerHTML =
+      '<article><div id="logged" data-testid="tweetText" lang="ja" class="r-whitespace-pre-wrap">' +
+      lines.map((line) => `<span>${line}</span>`).join('\n\n') +
+      '</div></article>';
+
+    const seen: string[] = [];
+    const engine = engineOf(async function* (segments) {
+      for (const segment of segments) {
+        seen.push(segment.text);
+        yield {
+          id: segment.id,
+          final: `§en§${segment.text}`,
+          engine: 'plamo' as const,
+        };
+      }
+    });
+    const session = start(document, engine, {
+      targetLanguage: 'en',
+      display: 'bilingual',
+      auto: 'always',
+    });
+    await session.translate();
+    await session.whenIdle();
+
+    expect(seen).toHaveLength(lines.length);
+    expect(seen.every((text) => !text.includes('\n'))).toBe(true);
+    expect(seen).not.toContain('');
+    const line = document.querySelector('#logged > sakutto-line');
+    expect(line?.querySelectorAll('br')).toHaveLength(14);
+    const chunks = Array.from(line?.childNodes ?? [])
+      .filter((node) => node.nodeType === Node.TEXT_NODE)
+      .map((node) => node.nodeValue ?? '');
+    expect(chunks).toHaveLength(15);
+    expect(chunks.filter((chunk) => chunk.trim().length === 0)).toHaveLength(7);
+    expect(chunks.filter((chunk) => chunk.trim().length > 0)).toEqual(
+      lines.map((line) => `§en§${line}`),
+    );
+  });
+
+  it('keeps line pieces aligned when a missing placeholder forces a flatten retry', async () => {
+    document.documentElement.lang = 'ja';
+    document.body.innerHTML =
+      '<article><div id="logged" data-testid="tweetText" lang="ja" class="r-whitespace-pre-wrap">' +
+      '<span>最初の行には長い日本語の本文が書かれています。続きの文章も十分に長く用意しています。</span>\n\n' +
+      '<span><a href="/hashtag/野球">#野球</a> を含む二行目も長い本文です。続きの文章をさらに足しています。</span>\n\n' +
+      '<span>最後の行には三分の本文を書いています。最後まで長さを保つための追加文章です。</span>' +
+      '</div></article>';
+    const seen: string[] = [];
+    const engine = engineOf(async function* (segments) {
+      for (const segment of segments) {
+        seen.push(segment.text);
+        // First round drops the placeholder tags, so the session retries flat.
+        const text =
+          seen.length <= segments.length ? segment.text.replace(/<\/?i\d+>/gu, '') : segment.text;
+        yield { id: segment.id, final: `§en§${text}`, engine: 'plamo' as const };
+      }
+    });
+    const session = start(document, engine, {
+      targetLanguage: 'en',
+      display: 'bilingual',
+      auto: 'always',
+    });
+    await session.translate();
+    await session.whenIdle();
+
+    expect(seen).toHaveLength(6);
+    expect(seen.every((text) => !text.includes('\n'))).toBe(true);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    await session.whenIdle();
+    const line = document.querySelector('#logged > sakutto-line');
+    expect(line?.querySelectorAll('br')).toHaveLength(4);
+    const chunks = Array.from(line?.childNodes ?? [])
+      .filter((node) => node.nodeType === Node.TEXT_NODE)
+      .map((node) => node.nodeValue ?? '');
+    expect(chunks).toHaveLength(5);
+    expect(chunks.filter((chunk) => chunk.trim().length === 0)).toHaveLength(2);
+    expect(line?.textContent).not.toContain('<i');
+  });
+});

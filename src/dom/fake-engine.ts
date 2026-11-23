@@ -87,6 +87,11 @@ const FLAT_EN_ATTRIBUTE = 'data-bench-flat-en';
 const FLAT_EN_THREE_LINES =
   'Welcome to Osaka!This is the second sentence.Come see me!Hope you visit.';
 const FLAT_EN_TWO_LINES = 'Welcome to Osaka!This is the second line.';
+/** The same flat paragraph, sharded across the per-line requests of a pre-wrap post. */
+const FLAT_EN_PREWRAP_LINES =
+  'Welcome to Osaka!This is the second sentence.Come see me!Hope you visit.' +
+  'The fifth line continues this single paragraph.The sixth line has no newline.' +
+  'The seventh line stays glued to the next.The eighth line ends the flat paragraph.';
 
 /**
  * An X fixture can ask for the model's flattened-English failure shape. Only multi-line
@@ -98,6 +103,31 @@ function flatEnglish(text: string, target: string): string | null {
   const enabled = globalThis.document?.documentElement?.getAttribute(FLAT_EN_ATTRIBUTE);
   if (enabled !== '1' || !text.includes('\n')) return null;
   return text.includes('\n\n') ? FLAT_EN_THREE_LINES : FLAT_EN_TWO_LINES;
+}
+
+/**
+ * A line-by-line X body sends one request per non-empty source line, so no single request
+ * contains the newlines `flatEnglish` looks for. Use the same flat paragraph in that shape
+ * too: one sentence per request, with no newline in any answer.
+ */
+function flatEnglishPieces(segments: readonly TranslateSegment[], target: string): string[] | null {
+  if (!/^en(?:-|$)/iu.test(target)) return null;
+  const enabled = globalThis.document?.documentElement?.getAttribute(FLAT_EN_ATTRIBUTE);
+  if (enabled !== '1' || segments.length <= 1) return null;
+  if (segments.some((segment) => segment.text.includes('\n') || !segment.id.includes('#'))) {
+    return null;
+  }
+  const short = FLAT_EN_THREE_LINES.split(/(?<=[.!?])(?=[A-Z])/u);
+  const sentences =
+    segments.length <= short.length ? short : FLAT_EN_PREWRAP_LINES.split(/(?<=[.!?])(?=[A-Z])/u);
+  const parts: string[] = Array.from({ length: segments.length }, () => '');
+  let cursor = 0;
+  for (let index = 0; index < parts.length; index += 1) {
+    const end = Math.round(((index + 1) * sentences.length) / parts.length);
+    parts[index] = sentences.slice(cursor, end).join('');
+    cursor = end;
+  }
+  return parts;
 }
 
 let warmedUp = false;
@@ -148,6 +178,7 @@ export async function* fakeTranslate(
 ): AsyncGenerator<TranslationChunk> {
   const pace = readPace();
   const echoMarkers = readEchoMarkers();
+  const flatPieces = flatEnglishPieces(segments, options.tgt);
   // A serial queue models an on-device engine that decodes one request at a time.
   // Only feel-test scenarios set concurrent=1; the legacy harness stays parallel.
   const release = await claim(pace?.concurrent ?? 0, options.signal);
@@ -156,12 +187,13 @@ export async function* fakeTranslate(
       warmedUp = true;
       await sleep(pace.warmupMs);
     }
-    for (const segment of segments) {
+    for (const [index, segment] of segments.entries()) {
       if (options.signal.aborted) return;
       countSoundTag(segment.text);
       const withMarker = !(pace?.markerFirstOnly === true && markerUsed);
       if (withMarker) markerUsed = true;
       const text =
+        flatPieces?.[index] ??
         flatEnglish(segment.text, options.tgt) ??
         fakeTranslateText(segment.text, options.tgt, echoMarkers, withMarker);
       if (!pace) {

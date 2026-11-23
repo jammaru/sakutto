@@ -21,6 +21,7 @@ import {
 } from '@/engine/errors';
 import type { EngineKind, GlossaryEntry, TranslateOptions, TranslationChunk } from '@/engine/types';
 import { glossaryKey, mergeGlossary } from '@/shared/glossary';
+import { segmentSourceText } from '@/shared/source-break-marks';
 import {
   chooseTargetLanguage,
   effectivePageTarget,
@@ -87,7 +88,7 @@ import {
   type SegmentModel,
 } from './segment';
 import type { SiteAuto, SiteRule } from './sites';
-import { isXPostBody } from './x-post';
+import { shouldPreserveNewlines } from './x-post';
 
 /** The engine packs by the same rule, so a request the page packs is not split up again. */
 const PACK_TOKEN_LIMIT = DEFAULT_BATCHING.maxBatchTokens;
@@ -210,6 +211,8 @@ interface Live {
   /** Selection only: normalized source, its model input, and the break map. */
   plainSource?: string;
   plainBreakMap?: PlainTextBreakMap;
+  /** Page only: line-by-line X bodies. One entry per request piece, in part order. */
+  linePieces?: { lineBreak: string }[];
 }
 
 interface InflightBatch {
@@ -1725,11 +1728,18 @@ export class PageSession {
 
   private complete(item: Live): void {
     if (item.role === 'page' && !this.active) return;
-    const joined = joinTranslatedSentences(
-      item.partText.map((part) => part.trim()).filter((part) => part.length > 0),
-      this.prefs.targetLanguage,
-    );
-    let translated = joined.length > 0 ? joined : item.partText.join('');
+    let translated: string;
+    if (item.linePieces && item.partText.length > 0) {
+      // One request per source line: put the original breaks back rather than gluing
+      // the answers into one paragraph. Blank lines live in `lineBreak`, not in a part.
+      translated = joinLinePieces(item, item.partText);
+    } else {
+      const joined = joinTranslatedSentences(
+        item.partText.map((part) => part.trim()).filter((part) => part.length > 0),
+        this.prefs.targetLanguage,
+      );
+      translated = joined.length > 0 ? joined : item.partText.join('');
+    }
     if (item.role === 'selection' && item.plainBreakMap) {
       translated = applyPlainTextLineBreaks(
         item.plainBreakMap.modelText,
@@ -2720,7 +2730,7 @@ function nextAfterSubtree(node: Node, root: Node): Node | null {
 export function isBodyCopy(block: Element): boolean {
   return (
     block.matches('p, li, blockquote, dd, figcaption, [data-testid="tweetText"]') ||
-    isXPostBody(block)
+    shouldPreserveNewlines(block)
   );
 }
 
@@ -2776,9 +2786,45 @@ function openPlaceholderCount(source: string): number {
 
 function expandSource(item: Live): { id: string; text: string }[] {
   const source = item.flatten ? stripPlaceholderTokens(item.source) : item.source;
+  if (item.model && shouldPreserveNewlines(item.model.block) && source.includes('\n')) {
+    // X paints paragraph breaks as raw newlines under pre-wrap. Ask for one answer per
+    // line so the model cannot glue the lines into a single paragraph. A blank line is
+    // not a request: its bytes stay with the break of the line before it.
+    const lines = segmentSourceText(source);
+    const pieces: { id: string; text: string }[] = [];
+    const breaks: { lineBreak: string }[] = [];
+    let blank = '';
+    for (const line of lines) {
+      if (line.text.trim().length === 0) {
+        blank += line.lineBreak;
+        continue;
+      }
+      breaks.push({ lineBreak: line.lineBreak + blank });
+      blank = '';
+      pieces.push({ id: `${item.id}#${String(pieces.length)}`, text: line.text });
+    }
+    if (breaks.length > 0 && blank.length > 0) {
+      const last = breaks.at(-1);
+      if (last) last.lineBreak += blank;
+    }
+    item.linePieces = breaks;
+    return pieces;
+  }
+  delete item.linePieces;
   const pieces = chunkForTranslation(source);
   if (pieces.length <= 1) return [{ id: item.id, text: source }];
   return pieces.map((text, index) => ({ id: `${item.id}#${String(index)}`, text }));
+}
+
+/** Rebuilds one translated line per request, with the source's own break bytes. */
+function joinLinePieces(item: Live, parts: readonly string[]): string {
+  let output = '';
+  for (let index = 0; index < parts.length; index += 1) {
+    const part = parts[index] ?? '';
+    output += part.trim().replace(/\r\n?|\n/gu, ' ');
+    if (index < parts.length - 1) output += item.linePieces?.[index]?.lineBreak ?? '';
+  }
+  return output;
 }
 
 function placeholderGlossary(
@@ -2813,6 +2859,13 @@ function partIndex(id: string): number {
 }
 
 function partialText(item: Live, target: string): string {
+  if (item.linePieces && item.partText.length > 0) {
+    let last = -1;
+    for (let index = 0; index < item.partText.length; index += 1) {
+      if ((item.partText[index] ?? '').trim().length > 0) last = index;
+    }
+    return last < 0 ? '' : joinLinePieces(item, item.partText.slice(0, last + 1));
+  }
   const parts = item.partText.filter((part) => part.trim().length > 0);
   if (parts.length === 0) return '';
   return joinTranslatedSentences(parts, target);

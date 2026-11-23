@@ -14,7 +14,7 @@ import {
   scriptPositionOf,
   type ScriptPosition,
 } from './blocks';
-import { isXPostBody } from './x-post';
+import { shouldPreserveNewlines } from './x-post';
 
 export interface TextSlot {
   node: Text;
@@ -98,10 +98,11 @@ export function buildSegment(block: Element): SegmentModel | null {
   if (isOwnUi(block)) return null;
   let nextId = 0;
   const frozen = isDataRowCell(block);
-  // An X guest body puts paragraph breaks in the text nodes themselves: `white-space:
-  // pre-wrap` paints them without any `<br>`. Treat those newlines like the marker a real
-  // `<br>` produces so the model and the bilingual line both see the source paragraphs.
-  const preserveNewlines = isXPostBody(block);
+  // X bodies (guest and logged-in) put paragraph breaks in the text nodes themselves:
+  // `white-space: pre-wrap` paints them without any `<br>`. Treat those newlines like
+  // the marker a real `<br>` produces so the model and the bilingual line both see the
+  // source paragraphs.
+  const preserveNewlines = shouldPreserveNewlines(block);
   const built = buildFrame(
     block,
     () => {

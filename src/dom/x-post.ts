@@ -19,3 +19,20 @@ export function isXPostBody(element: Element): boolean {
   }
   return false;
 }
+
+/**
+ * A logged-in post still ships the old `data-testid="tweetText"` and a language tag, but
+ * paints its paragraph breaks the same way the guest body does: raw newlines in the text
+ * nodes and `white-space: pre-wrap`. X renames the utility class (`r-whitespace-pre-wrap`,
+ * generated `css-*` names), so the computed style is the primary signal and the class is
+ * the fallback for documents that do not resolve X's styles (fixtures, snapshot HTML).
+ */
+export function shouldPreserveNewlines(element: Element): boolean {
+  if (isXPostBody(element)) return true;
+  if (!element.matches('[data-testid="tweetText"]') || !element.hasAttribute('lang')) {
+    return false;
+  }
+  const whitespace = element.ownerDocument.defaultView?.getComputedStyle(element).whiteSpace;
+  if (whitespace === 'pre-wrap' || whitespace === 'pre-line') return true;
+  return /pre-wrap|pre-line/iu.test(element.className);
+}
