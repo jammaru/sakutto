@@ -1596,4 +1596,82 @@ describe('current DSH review blockers', () => {
     const layout = ocrResultToPageLayout(result, options);
     expect(layout.blocks.map((block) => block.text)).toEqual([texts.join(' ')]);
   });
+
+  it('B1: keeps a full-width three-piece body line whole at a 10pt word gap', () => {
+    const texts = ['This is a single column', 'full width printed', 'line of text.'];
+    const items = [
+      region(texts[0]!, quad(45, 100, 200, 20)),
+      region(texts[1]!, quad(255, 100, 180, 20)),
+      region(texts[2]!, quad(445, 100, 110, 20)),
+    ];
+    const result = ocrResult(items, [readingLine('horizontal', items)]);
+    const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+
+    expect(ocrResultToTextLines(result, options).map((line) => line.text)).toEqual([
+      texts.join(' '),
+    ]);
+    const layout = ocrResultToPageLayout(result, options);
+    expect(layout.blocks.map((block) => block.text)).toEqual([texts.join(' ')]);
+    expect(layout.blocks.map((block) => block.column)).toEqual([0]);
+  });
+
+  it('B2: treats 1.5pt OCR jitter as one printed row, not two source rows', () => {
+    const words = [
+      'Translation',
+      'attention',
+      'mechanism',
+      'described',
+      'ordinary',
+      'prose',
+      'line',
+      'continues.',
+    ];
+    const items = words.map((text, index) =>
+      region(text, quad(35 + index * 63, index < 4 ? 100 : 101.5, 56, 12)),
+    );
+    const result = ocrResult(items, [readingLine('horizontal', items)]);
+    const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+
+    expect(ocrResultToTextLines(result, options).map((line) => line.text)).toEqual([
+      words.join(' '),
+    ]);
+    const layout = ocrResultToPageLayout(result, options);
+    expect(layout.blocks.map((block) => block.text)).toEqual([words.join(' ')]);
+    expect(layout.blocks.map((block) => block.column)).toEqual([0]);
+  });
+
+  it('B3: two centred title rows do not make a body word gap a column gutter', () => {
+    const title = [
+      region('A Short', quad(200, 70, 90, 20)),
+      region('Paper Title', quad(302, 70, 120, 20)),
+    ];
+    const subtitle = [
+      region('For Every', quad(200, 100, 90, 20)),
+      region('Reader Here', quad(302, 100, 120, 20)),
+    ];
+    const bodyTexts = ['This sentence has', 'three pieces', 'and a period.'];
+    const body = [
+      region(bodyTexts[0]!, quad(100, 160, 140, 20)),
+      region(bodyTexts[1]!, quad(247, 160, 110, 20)),
+      region(bodyTexts[2]!, quad(364, 160, 120, 20)),
+    ];
+    const result = ocrResult(
+      [...title, ...subtitle, ...body],
+      [
+        readingLine('horizontal', title),
+        readingLine('horizontal', subtitle),
+        readingLine('horizontal', body),
+      ],
+    );
+    const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+
+    expect(ocrResultToTextLines(result, options).map((line) => line.text)).toEqual([
+      'A Short Paper Title',
+      'For Every Reader Here',
+      bodyTexts.join(' '),
+    ]);
+    const layout = ocrResultToPageLayout(result, options);
+    expect(layout.blocks.at(-1)?.text).toBe(bodyTexts.join(' '));
+    expect(layout.skipped).toEqual([]);
+  });
 });

@@ -36,7 +36,7 @@ export const MODEL_STATUS_PROGRESS_ID = 'sakutto:model-status';
 /**
  * OCR is the only host operation with no streaming progress. A recognition that never posts a
  * result (stalled WASM init, a lost port, a wedged session) must not leave the reader pending
- * forever. Standard tier measures ~43 s/page on the committed real scan (2x render, maxSide 1600), so a
+ * forever. Standard tier measures ~35.5 s/page on the committed real scan (2x render, maxSide 1600), so a
  * bound below that aborts a healthy recognition before it can produce an overlay. Leave
  * headroom for slower devices but keep a hard stop for a wedged WASM session.
  */

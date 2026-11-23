@@ -247,6 +247,50 @@ interface PieceSplit {
 }
 
 /**
+ * Whether a candidate gutter is just one of several equal word spaces on a single row.
+ *
+ * A word-level detector emits a quad per word, so an ordinary one-column line can have several
+ * 6-12pt gaps near the page midpoint. If the chosen gap is no wider than the other gaps on the
+ * row, it is ordinary justification/OCR spacing, not a printed gutter. A real gutter stands out
+ * from the word spaces (or is the row's only gap, in which case there is nothing to compare).
+ */
+function wordSpaceGutter(pieces: readonly OcrTextPiece[], gutterGap: number): boolean {
+  if (pieces.length < 3) return false;
+  const byX = [...pieces].sort((a, b) => a.box.x - b.box.x);
+  const gaps: number[] = [];
+  for (let index = 1; index < byX.length; index += 1) {
+    const previous = byX[index - 1]!;
+    const current = byX[index]!;
+    gaps.push(current.box.x - (previous.box.x + previous.box.width));
+  }
+  if (gaps.length < 2 || gaps.some((gap) => gap < 0 || gap > WIDE_COLUMN_GUTTER + 2)) {
+    return false;
+  }
+  const chosen = gaps.findIndex((gap) => Math.abs(gap - gutterGap) < 0.01);
+  if (chosen < 0) return false;
+  const others = gaps.filter((_, index) => index !== chosen);
+  return gutterGap <= Math.max(...others) + 2;
+}
+
+/**
+ * A short row centred on the page is a title, byline or subtitle, not two body columns.
+ * Body columns fill most of the measure even on a partially filled row; counting a centred
+ * heading as gutter evidence makes later single-column lines split at ordinary word spaces.
+ */
+function isCentredHeadingRow(pieces: readonly OcrTextPiece[], pageWidth: number): boolean {
+  const text = pieces
+    .map((piece) => piece.text)
+    .join(' ')
+    .trim();
+  if (text.length === 0 || text.length > 100 || /[.!?。]$/u.test(text)) return false;
+  const words = text.split(/\s+/u).filter(Boolean);
+  if (words.length === 0 || words.length > 12) return false;
+  const left = Math.min(...pieces.map((piece) => piece.box.x));
+  const right = Math.max(...pieces.map((piece) => piece.box.x + piece.box.width));
+  return right - left < pageWidth * 0.6;
+}
+
+/**
  * Partition a merged line at the widest white gap in the gutter band, not at the page midpoint.
  *
  * A two-column page can be asymmetric: the left measure may end past the midpoint, so a
@@ -349,6 +393,11 @@ function splitMergedBodyLine(
   const upper = pieces.filter((piece) => piece.box.y < splitAt);
   const lower = pieces.filter((piece) => piece.box.y >= splitAt);
   if (upper.length < 2 || lower.length < 2) return null;
+  // Two source rows must actually be separate: overlapping boxes differing by ~1.5pt in y
+  // are one wavy printed row, even when a word-level detector reports a gutter-sized x gap.
+  const upperBottom = Math.max(...upper.map((piece) => piece.box.y + piece.box.height));
+  const lowerTop = Math.min(...lower.map((piece) => piece.box.y));
+  if (upperBottom - lowerTop > height * 0.25) return null;
   const span = (group: readonly OcrTextPiece[]): { left: number; right: number } => ({
     left: Math.min(...group.map((piece) => piece.box.x)),
     right: Math.max(...group.map((piece) => piece.box.x + piece.box.width)),
@@ -365,7 +414,7 @@ function splitMergedBodyLine(
   // of the page midpoint. Without the gutter test, adjacent word boxes on a sloped line
   // looked like a left and a right column and got split into two translation blocks.
   const gutter = Math.max(first.left, second.left) - Math.min(first.right, second.right);
-  if (gutter < MIN_COLUMN_GUTTER) return null;
+  if (gutter < MIN_COLUMN_GUTTER || wordSpaceGutter(pieces, gutter)) return null;
   const middle = pageWidth / 2;
   const straddlesMiddle = first.right <= middle + 4 && second.left >= middle - 4;
   if (
@@ -489,7 +538,9 @@ export function ocrResultToTextLines(
     // Capitalisation alone cannot tell them apart: a merged body row routinely starts with a
     // proper noun and has no terminal punctuation at a line break. Only a word-gap-sized
     // centre gap suppresses the split, not the title-like casing of the whole row.
-    const titleWordGap = (titleWholeLine || wordSpacedLine) && gutterGap <= WIDE_COLUMN_GUTTER + 2;
+    const titleWordGap =
+      (titleWholeLine || wordSpacedLine || wordSpaceGutter(pieces, gutterGap)) &&
+      gutterGap <= WIDE_COLUMN_GUTTER + 2;
     const wideTwoColumnLine =
       lineWidth >= resolved.pageWidth * 0.82 &&
       leftWidth > resolved.pageWidth * 0.18 &&
@@ -589,6 +640,7 @@ function pageHasTwoColumns(
       pieces.push(regionPiece(region, region.vertical, id, resolved.scaleX, resolved.scaleY));
     }
     if (pieces.length < 2 || pieces.some((piece) => piece.displayed === 90)) continue;
+    if (isCentredHeadingRow(pieces, resolved.pageWidth)) continue;
     const { left, right, leftEnd, rightStart } = splitAtGutter(pieces, resolved.pageWidth);
     if (left.length === 0 || right.length === 0) continue;
     const measure = (group: readonly OcrTextPiece[]): number =>

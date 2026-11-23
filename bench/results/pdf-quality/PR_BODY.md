@@ -28,13 +28,13 @@ PDF 翻訳を「動く」から「読める」に変えるため、抽出・段�
 - src/pdf/extract.ts: グリフ run の Unicode 正規化。
 - src/pdf/layout.ts: 行・段落の復元と列をまたぐブロック分割を改善。
 - src/pdf/protect.ts, src/pdf/session.ts: 数式 protection の拡張（単語境界付き演算子パターン、先行散文の除外）、プレースホルダ正規化、最終チャンクでタグが欠けた時だけの自動リトライ（最大 2 回）。ストリーム途中の欠落で再リクエストして良い訳を捨てる問題を修正し、すべての散文ブロックが翻訳されるかマーカーで読めるようにした。
-- src/pdf/ocr.ts: OCR 行を列・段落へグループ化し、`References` / `Abstract` のような短い見出しは翻訳対象の `heading` として保持。2 カラムが 1 行に合体した場合は両側の段幅を保つ 10pt 以上の実ガターと行レジオン幅で分割し、右列内の単語間隙間、単一段の通常語間や 2pt の傾きだけでは分割しない。短い章見出しの横では最も広い白い隙間をガターとして選び、分割した行は元の列を保持する。大文字で始まる行もタイトル文字列だけで例外にせず、中央の語間幅で見分ける。短い中央見出しは span 列として先に出力し、room がガターを越えないようにした。日本語の短い章見出しは heading として保持し、label としてスキップしない。コード判定は `for` / `if` 等の先頭語だけではなく文末の `;` / `:` やブロック記号などの構文証拠を要求し、`If the loss < 0.1 ...` のような比較を含む散文は訳対象に残す。小さな Figure キャプションは figure label から除外。ブロックごとの統一サイズと読み順を実現。
+- src/pdf/ocr.ts: OCR 行を列・段落へグループ化し、`References` / `Abstract` のような短い見出しは翻訳対象の `heading` として保持。2 カラムが 1 行に合体した場合は両側の段幅を保つ 10pt 以上の実ガターと行レジオン幅で分割し、右列内の単語間隙間、単一段の通常語間や 2pt の傾きだけでは分割しない。短い章見出しの横では最も広い白い隙間をガターとして選び、分割した行は元の列を保持する。大文字で始まる行もタイトル文字列だけで例外にせず、中央の語間幅で見分ける。短い中央見出しは span 列として先に出力し、room がガターを越えないようにした。日本語の短い章見出しは heading として保持し、label としてスキップしない。コード判定は `for` / `if` 等の先頭語だけではなく文末の `;` / `:` やブロック記号などの構文証拠を要求し、`If the loss < 0.1 ...` のような比較を含む散文は訳対象に残す。小さな Figure キャプションは figure label から除外。1 行の全語間が同程度なら実ガターではなく語間空白とみなし、上下ボックスが重なる 1.5pt 程度のジッタを別行とせず、中央の短い見出し 2 行を二段組の根拠にしない。ブロックごとの統一サイズと読み順を実現。
 - src/pdf/place.ts: ガター越えカバーの計測から span ブロックの例外を外し、2 カラムが合体した行のカバーを検出できるようにした（通常の全幅タイトル/著者行は誤検知しない）。実スキャンの cross-column は 0。
 - src/pdf/reader.ts, src/pdf/render.ts, src/entrypoints/reader/App.svelte: 二言語表示モード（原文左・訳文右、同一スクロール）、並べて比較の維持、青いマーカー点を控えめなニュートラルなチップに変更。失敗ブロックのマーカー、二言語モードの空ページ通知、skipped 原文行の表示を追加。src/pdf/session.ts はスクロール時と自動 coverage sweep の再キューで attempts を保持し、リトライ上限（最大 2 回）を越えないようにした。
 
 ## 計測（iteration 6 / `final`）
 
-`pnpm bench:pdf:quality --label final --shots --no-download` と `pnpm bench:pdf:scan:ocr` を再実行しました。ベンチはモデル不要の決定的 fake engine で、コミット済みの paper.pdf / scan.pdf とキャッシュ済み arXiv 1706.03762（SHA-256 ピン留め）を使います。`firstBlockMs` はページ開始からの値で、サマリの `firstTranslatedBlockMs` はページ単位の最小値、実行開始からの値は `firstTranslatedBlockFromRunStartMs` として別途集計しています。baseline にはページ単位の値が無いため、上の表では比較可能な実行開始からの値（307 ms → 327 ms）を並べています。ページ処理からの 7 ms は fake engine の TTFB だけを測る参考値です。
+`pnpm bench:pdf:quality --label final --shots --no-download` と `pnpm bench:pdf:scan:ocr` を再実行しました。ベンチはモデル不要の決定的 fake engine で、コミット済みの paper.pdf / scan.pdf とキャッシュ済み arXiv 1706.03762（SHA-256 ピン留め）を使います。`firstBlockMs` はページ開始からの値で、サマリの `firstTranslatedBlockMs` はページ単位の最小値、実行開始からの値は `firstTranslatedBlockFromRunStartMs` として別途集計しています。baseline にはページ単位の値が無いため、上の表では比較可能な実行開始からの値（307 ms → 290 ms）を並べています。ページ処理からの 6 ms は fake engine の TTFB だけを測る参考値です。
 
 **scan 行は疑似 OCR です**: scan.pdf のページ寸法・背景を使い、paper.pdf のテキストから語単位の矩形を合成した入力で、認識ではなく OCR 後のレイアウト/配置を測ります。実スキャンの認識は下の実 OCR 表（`pnpm bench:pdf:scan:ocr`）で別途測定し、混ぜていません。実 OCR の overflow は描画済みの逸脱に加え、フィットせず描かれなかったブロックも数えます（default-1600 は 4 件）。
 
@@ -46,9 +46,9 @@ PDF 翻訳を「動く」から「読める」に変えるため、抽出・段�
 | 重なり/ブロック                            |             0.000 |          0.000 |    — |
 | はみ出し/ブロック                          |             0.062 |      **0.024** |    — |
 | 2 カラム読み順正解率                       |             98.3% |      **98.3%** | ≥98% |
-| 最初の訳文が出るまで（実行開始から）       |            307 ms |         327 ms |    — |
-| 最初の訳文が出るまで（ページ処理から）     |                 — |           7 ms |    — |
-| 全文処理時間（fake engine）                |            909 ms |         878 ms |    — |
+| 最初の訳文が出るまで（実行開始から）       |            307 ms |         290 ms |    — |
+| 最初の訳文が出るまで（ページ処理から）     |                 — |           6 ms |    — |
+| 全文処理時間（fake engine）                |            909 ms |         909 ms |    — |
 
 テキスト来源別（native = paper + arXiv / simulated OCR = scan）は `final.md` の別表を参照してください。コード行 `for block in page:` を散文と誤判定しないようになり、native / 疑似 OCR の未翻訳散文はともに 0.0% です。言語混在率は、Email・モデル名・数字入り識別子などを「言語switch」と数えず、連続した英語の散文_run_ のみを検出するよう指標を修正した結果です（fake engine が意図的に残す技術トークンを英語散文と誤判定していません）。文字化け率も、正しく空白の入った `Q ∈ R d model × d k` を「化け」と数えていた誤検知を除去しました。読み順の GT は、全幅見出しがバンドを区切る二段組の順序（全幅→左列→右列→次の全幅）に修正しています。
 
@@ -99,18 +99,18 @@ PDF 翻訳を「動く」から「読める」に変えるため、抽出・段�
 
 | variant             |   CER |   WER | cross-column | lines | ms/page | model bytes |
 | ------------------- | ----: | ----: | -----------: | ----: | ------: | ----------: |
-| baseline-1x         | 66.7% | 94.8% |            1 |   100 |  24.9 s |    21.9 MiB |
-| shipped-baseline    | 11.6% | 16.8% |            1 |   105 |  27.5 s |    21.9 MiB |
-| default-1600        |  3.0% |  5.5% |            0 |   117 |  34.0 s |    21.9 MiB |
-| gray+contrast-1600  |  3.0% |  5.4% |            0 |   117 |  35.1 s |    21.9 MiB |
-| dpi300              |  3.0% |  5.5% |            0 |   116 |  36.3 s |    21.9 MiB |
-| sauvola             | 82.5% | 97.2% |            2 |    97 |  21.6 s |    21.9 MiB |
+| baseline-1x         | 66.7% | 94.8% |            1 |   100 |  25.7 s |    21.9 MiB |
+| shipped-baseline    | 11.6% | 16.8% |            1 |   105 |  27.1 s |    21.9 MiB |
+| default-1600        |  3.0% |  5.5% |            0 |   117 |  35.5 s |    21.9 MiB |
+| gray+contrast-1600  |  3.0% |  5.4% |            0 |   117 |  37.1 s |    21.9 MiB |
+| dpi300              |  3.0% |  5.5% |            0 |   116 |  36.5 s |    21.9 MiB |
+| sauvola             | 82.5% | 97.2% |            2 |    97 |  21.8 s |    21.9 MiB |
 | default-1600 (High) |  3.6% |  6.4% |            0 |   117 | 213.7 s |   132.2 MiB |
 
 **採用**: 2x 描画 + detection maxSide 1600 の Standard（tiny_det + small_rec）。実スキャン p1 で **CER 3.0%、cross-column 0** を達成しました。旧ベンチの 1.4 という値は GT 不一致によるもので、認識精度ではありません。High は 3.4〜3.6% と Standard（3.0%）よりわずかに劣るうえ約 6.3 倍遅く 6 倍サイズのため採用しません。Binarization はこの小さなセリフ文字を潰すため既定では無効です。17 バリアントの全表は `bench/results/scan-ocr/report.md`。
 
 ## 確認
 
-- `pnpm lint`, `pnpm typecheck` (0 errors / 1 warning), `pnpm test` (203 files, 2,632 passed, 1 skipped), `pnpm format:check`, `pnpm i18n:check` がすべて成功。
+- `pnpm lint`, `pnpm typecheck` (0 errors / 1 warning), `pnpm test` (203 files, 2,635 passed, 1 skipped), `pnpm format:check`, `pnpm i18n:check` がすべて成功。
 - `pnpm bench:pdf:quality --label final --shots --no-download` を再実行し、レポートとスクリーンショットを更新。`baseline.json` は現行指標の参照用で、履歴のlegacy行のみ旧指標のcontext。
 - 権限モデル・シークレット・ Manifest に変更なし。

@@ -11,7 +11,7 @@ extenslon that forwands the page to a server, or read the English. The first two
 reader makes aftereards, to a third party. For a research paper under revtew, a prtvate Issue tracker ar a medical mecned
 this Is often unacceptahle, and it is frequently prohihted hy the tems the mader is hound hy.
 Running the model in the beowser removes that transfer. The page text never leaves the proces, no account is needed,
-and the extension works offline once the weights are downloaded. The cost is latency and memory: a transfomer that a
+and the extension works offline once the weights are downloaded. The cost is latency and memory: a transfomer that a Tabde &. Culaole ple tanns. The skan lolpt is per aequnoe, so ihe teo-seguonce GPU path and the ome seguece CPU puth
 server would run on an accelerator has so ft in a tah, compete wtth the page foe the GPt, and produce sokrns one at a
 tme in front of a reader who is already looking at the test.
 This paper reports a working system rather than a new model. Section 2 descnibes the runtime, Section 3 the schedul-
@@ -47,7 +47,6 @@ Short blocks —a label, a table cell, a one-line list item —are packed into o
 160 source token in total. Packing is not applied to paragraphs. A paragraph is as long as the prompt template, so pack
 ing saves almost nothing, and it delays every block in the pack behind the prefill of the whole pack. The rule is measured
 rather han assumed: Section 4.2 reports a run in which packing paragraphs made the median time to first text 18%
-Tabde &. Culaole ple tanns. The skan lolpt is per aequnoe, so ihe teo-seguonce GPU path and the ome seguece CPU puth
 share i.
 Camntant Vadue Meaning
 masSegmenTokens 48 Longst block thar may share a completion

@@ -1,6 +1,6 @@
 {
   "label": "final",
-  "generatedAt": "2026-11-23T05:17:12.465Z",
+  "generatedAt": "2026-11-23T06:04:50.895Z",
   "engine": "deterministic local fake",
   "pace": {
     "ttfbMs": 6,
@@ -27,9 +27,9 @@
         "overflowRate": 0,
         "readingOrderAccuracy": 0.9895833333333334,
         "twoColumnPages": 1,
-        "firstTranslatedBlockMs": 7,
-        "firstTranslatedBlockFromRunStartMs": 327,
-        "fullDocumentMs": 229,
+        "firstTranslatedBlockMs": 6,
+        "firstTranslatedBlockFromRunStartMs": 290,
+        "fullDocumentMs": 205,
         "meanScale": 0.9846128195131897
       }
     },
@@ -46,9 +46,9 @@
         "overflowRate": 0.08,
         "readingOrderAccuracy": 0.9583333333333334,
         "twoColumnPages": 1,
-        "firstTranslatedBlockMs": 7,
-        "firstTranslatedBlockFromRunStartMs": 821,
-        "fullDocumentMs": 64,
+        "firstTranslatedBlockMs": 13,
+        "firstTranslatedBlockFromRunStartMs": 824,
+        "fullDocumentMs": 97,
         "meanScale": 0.9885424892343686
       }
     }
@@ -61,7 +61,7 @@
       {
         "variant": "baseline-1x",
         "pairing": "tiny_det+small_rec",
-        "ms": 24856.155191,
+        "ms": 25674.396904,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.6671721767263169,
@@ -79,7 +79,7 @@
       {
         "variant": "dpi200",
         "pairing": "tiny_det+small_rec",
-        "ms": 30911.289223999993,
+        "ms": 31086.277283999996,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.20230512587200486,
@@ -97,7 +97,7 @@
       {
         "variant": "shipped-baseline",
         "pairing": "tiny_det+small_rec",
-        "ms": 27499.22779199999,
+        "ms": 27139.481491000013,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.11606510969568294,
@@ -115,7 +115,7 @@
       {
         "variant": "default-1600",
         "pairing": "tiny_det+small_rec",
-        "ms": 34035.93699900003,
+        "ms": 35492.80357700001,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.030330603579011222,
@@ -133,7 +133,7 @@
       {
         "variant": "dpi300",
         "pairing": "tiny_det+small_rec",
-        "ms": 36291.62566800002,
+        "ms": 36532.97774500004,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.030330603579011222,
@@ -151,7 +151,7 @@
       {
         "variant": "sauvola",
         "pairing": "tiny_det+small_rec",
-        "ms": 21561.601743999985,
+        "ms": 21755.17998299998,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.8252957233848953,
@@ -169,7 +169,7 @@
       {
         "variant": "dpi200+sauvola",
         "pairing": "tiny_det+small_rec",
-        "ms": 28567.26621999999,
+        "ms": 28688.12651900004,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.6859771509453038,
@@ -187,7 +187,7 @@
       {
         "variant": "dpi200+gray",
         "pairing": "tiny_det+small_rec",
-        "ms": 30259.030056999996,
+        "ms": 30645.54998499999,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.2227277322818724,
@@ -205,7 +205,7 @@
       {
         "variant": "gray+contrast",
         "pairing": "tiny_det+small_rec",
-        "ms": 30792.37421800004,
+        "ms": 31115.812442000024,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.21170761298149834,
@@ -223,7 +223,7 @@
       {
         "variant": "gray+contrast-1600",
         "pairing": "tiny_det+small_rec",
-        "ms": 35139.132109,
+        "ms": 37080.32446100004,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.030128399555151147,
@@ -241,7 +241,7 @@
       {
         "variant": "contrast",
         "pairing": "tiny_det+small_rec",
-        "ms": 31112.951773999957,
+        "ms": 30640.257592000067,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.20816904256394703,
@@ -259,7 +259,7 @@
       {
         "variant": "otsu",
         "pairing": "tiny_det+small_rec",
-        "ms": 28047.60896600003,
+        "ms": 27889.462942000013,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.689111313315135,
@@ -277,7 +277,7 @@
       {
         "variant": "denoise",
         "pairing": "tiny_det+small_rec",
-        "ms": 27932.765850000083,
+        "ms": 28210.697664000094,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.7235870993832777,
@@ -295,25 +295,25 @@
       {
         "variant": "trim",
         "pairing": "tiny_det+small_rec",
-        "ms": 30007.353566000005,
+        "ms": 30499.312040999997,
         "warmups": 1,
         "modelBytes": 22939968,
-        "cer": 0.1991709635021737,
-        "wer": 0.36808009422850413,
-        "order": 0.5245478036175711,
-        "covered": 0.7037691401648999,
-        "lines": 110,
-        "blocks": 55,
-        "skipped": 4,
+        "cer": 0.22030128399555152,
+        "wer": 0.38574793875147234,
+        "order": 0.5059523809523809,
+        "covered": 0.6984687868080094,
+        "lines": 109,
+        "blocks": 56,
+        "skipped": 5,
         "crossColumnCovers": 0,
         "overlapPairs": 0,
-        "overflow": 15,
+        "overflow": 17,
         "text": "Sakutto: On-Device Page Translation with a Small Instruction-Tuned Model\nJ. Ammaru\nIndependen researcher\nMachine nandation of web pages Is esally a cllent of a memote servtce. Tis puper descotbes Saku"
       },
       {
         "variant": "box-0.35",
         "pairing": "tiny_det+small_rec",
-        "ms": 30775.431874,
+        "ms": 30540.34600400005,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.20230512587200486,
@@ -331,7 +331,7 @@
       {
         "variant": "box-0.55",
         "pairing": "tiny_det+small_rec",
-        "ms": 30937.54545700003,
+        "ms": 30454.41887599998,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.20210292184814477,
@@ -349,7 +349,7 @@
       {
         "variant": "unclip-1.8",
         "pairing": "tiny_det+small_rec",
-        "ms": 26737.72900199995,
+        "ms": 26120.19704999996,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.3609341825902335,
@@ -377,9 +377,9 @@
     "overflowRate": 0.024390243902439025,
     "readingOrderAccuracy": 0.9833333333333334,
     "twoColumnPages": 2,
-    "firstTranslatedBlockMs": 7,
-    "firstTranslatedBlockFromRunStartMs": 327,
-    "fullDocumentMs": 878,
+    "firstTranslatedBlockMs": 6,
+    "firstTranslatedBlockFromRunStartMs": 290,
+    "fullDocumentMs": 909,
     "meanScale": 0.9857425995580282
   },
   "pages": [
@@ -897,9 +897,9 @@
       "skippedProse": 0,
       "readingOrder": 0.9583333333333334,
       "twoColumn": true,
-      "firstBlockMs": 13,
-      "firstBlockFromRunStartMs": 327,
-      "pageMs": 81
+      "firstBlockMs": 12,
+      "firstBlockFromRunStartMs": 290,
+      "pageMs": 83
     },
     {
       "fixture": "arxiv",
@@ -1095,9 +1095,9 @@
       "skippedProse": 0,
       "readingOrder": 1,
       "twoColumn": false,
-      "firstBlockMs": 7,
-      "firstBlockFromRunStartMs": 452,
-      "pageMs": 39
+      "firstBlockMs": 6,
+      "firstBlockFromRunStartMs": 431,
+      "pageMs": 37
     },
     {
       "fixture": "arxiv",
@@ -1293,9 +1293,9 @@
       "skippedProse": 0,
       "readingOrder": 1,
       "twoColumn": false,
-      "firstBlockMs": 7,
-      "firstBlockFromRunStartMs": 515,
-      "pageMs": 27
+      "firstBlockMs": 10,
+      "firstBlockFromRunStartMs": 496,
+      "pageMs": 32
     },
     {
       "fixture": "arxiv",
@@ -1591,9 +1591,9 @@
       "skippedProse": 0,
       "readingOrder": 1,
       "twoColumn": false,
-      "firstBlockMs": 8,
-      "firstBlockFromRunStartMs": 565,
-      "pageMs": 82
+      "firstBlockMs": 14,
+      "firstBlockFromRunStartMs": 562,
+      "pageMs": 53
     },
     {
       "fixture": "scan",
@@ -2109,9 +2109,9 @@
       "skippedProse": 0,
       "readingOrder": 0.9583333333333334,
       "twoColumn": true,
-      "firstBlockMs": 7,
-      "firstBlockFromRunStartMs": 821,
-      "pageMs": 64
+      "firstBlockMs": 13,
+      "firstBlockFromRunStartMs": 824,
+      "pageMs": 97
     }
   ]
 }
