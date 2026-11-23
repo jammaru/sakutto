@@ -1536,6 +1536,9 @@
   "translationRevealSmooth": {
     "message": "段落の訳ができてから入れ替える"
   },
+  "translationRevealSentence": {
+    "message": "訳された文ごとにすぐ表示する"
+  },
   "translationRevealStream": {
     "message": "できた分から表示する（従来どおり）"
   },

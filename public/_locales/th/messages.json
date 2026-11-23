@@ -1532,6 +1532,9 @@
   "translationRevealSmooth": {
     "message": "สลับแต่ละย่อหน้าเมื่อแปลเสร็จ"
   },
+  "translationRevealSentence": {
+    "message": "แสดงแต่ละประโยคทันทีที่แปลเสร็จ"
+  },
   "translationRevealStream": {
     "message": "แสดงข้อความขณะแปล (แบบเดิม)"
   },

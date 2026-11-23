@@ -1532,6 +1532,9 @@
   "translationRevealSmooth": {
     "message": "Thay từng đoạn khi dịch xong"
   },
+  "translationRevealSentence": {
+    "message": "Hiển thị từng câu ngay sau khi được dịch"
+  },
   "translationRevealStream": {
     "message": "Hiển thị văn bản trong khi dịch (như trước)"
   },

@@ -1532,6 +1532,9 @@
   "translationRevealSmooth": {
     "message": "Заменять абзац, когда перевод готов"
   },
+  "translationRevealSentence": {
+    "message": "Показывать каждое предложение сразу после перевода"
+  },
   "translationRevealStream": {
     "message": "Показывать текст по мере перевода (как раньше)"
   },

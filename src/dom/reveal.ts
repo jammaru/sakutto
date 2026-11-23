@@ -136,6 +136,11 @@ export interface RevealOffer {
    */
   keepHeight?: boolean;
   /**
+   * Write this text without a reveal. Sentences of one block are written as they finish;
+   * only the last one, in `settle`, comes into focus.
+   */
+  instant?: boolean;
+  /**
    * Nothing else is being translated. Off the screen, the translation then has nothing to
    * wait for (see `UNSEEN_EVERY_MS`), and the page is finished no later than it was.
    */
@@ -538,10 +543,36 @@ export class Revealer {
   }
 
   /**
-   * Writes the finished text of a block that was streamed. If the block kept its height for
-   * the stream, it lets go here and what sits under it glides to its place.
+   * Reserves a block's current height while its text is filled in a sentence at a time.
+   * Each sentence is written as soon as it is finished, but nothing under the block moves
+   * until the reservation is let go by `settle` or `release`.
    */
-  settle(block: Element, apply: () => void): void {
+  reserve(block: Element): void {
+    if (!this.motionPossible() || !canAnimate(block) || this.keeps.has(block)) return;
+    const height = heightOf(block);
+    if (height === null) return;
+    this.keep(block, height);
+  }
+
+  /**
+   * Writes the finished text of a block that was streamed. If the block kept its height for
+   * the stream, it lets go here and what sits under it glides to its place. With `motion`,
+   * that final text also comes into focus once, as the one short reveal of the whole block.
+   */
+  settle(
+    block: Element,
+    apply: () => void,
+    motion?: { kind: RevealKind; added?: () => Element | null },
+  ): void {
+    // A sentence that was still waiting for its frame is older than this final text. Letting
+    // it through would write it back and reserve the height again after it was released.
+    const waiting = this.entries.filter(
+      (entry) => entry.offer.block === block && entry.offer.instant === true,
+    );
+    if (waiting.length > 0) {
+      this.entries = this.entries.filter((entry) => !waiting.includes(entry));
+      if (this.entries.length === 0) this.idle();
+    }
     const keep = this.keeps.get(block);
     if (!keep) {
       apply();
@@ -554,7 +585,20 @@ export class Revealer {
     try {
       apply();
     } finally {
-      if (before) this.glide(before);
+      if (shown && motion) {
+        const plan = planFor(block, motion.kind);
+        const timing = TIMING[motion.kind];
+        const lifts =
+          plan.mode === 'whole' && timing.rise > 0
+            ? new Map<Element, Timing>([[block, timing]])
+            : new Map<Element, Timing>();
+        if (before) this.glide(before, lifts, new Set([block]));
+        const offer: RevealOffer = { block, kind: motion.kind, apply };
+        if (motion.added) offer.added = motion.added;
+        this.arrive({ offer, readyAt: this.host.now() }, plan);
+      } else if (before) {
+        this.glide(before);
+      }
       this.noteScroll();
       if (this.entries.length === 0 && this.keeps.size === 0) this.unlisten();
     }
@@ -959,7 +1003,7 @@ export class Revealer {
     // Where the new text is, now that it is written.
     const plans = new Map<Entry, Plan>();
     for (const entry of gliding) {
-      if (entry.offer.added) continue;
+      if (entry.offer.added || entry.offer.instant === true) continue;
       plans.set(entry, planFor(entry.offer.block, entry.offer.kind));
     }
     if (before) {
@@ -982,6 +1026,7 @@ export class Revealer {
 
   /** Brings the text that was just written into focus, by the elements that hold it. */
   private arrive(entry: Entry, plan: Plan | undefined): void {
+    if (entry.offer.instant === true) return;
     if (entry.offer.added) {
       const line = entry.offer.added();
       if (line) {

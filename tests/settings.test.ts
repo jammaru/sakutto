@@ -449,6 +449,7 @@ describe('settings defaults', () => {
     expect(DEFAULT_SETTINGS.translationReveal).toBe('smooth');
     expect(normalizeTranslationReveal(undefined)).toBe('smooth');
     expect(normalizeTranslationReveal('stream')).toBe('stream');
+    expect(normalizeTranslationReveal('sentence')).toBe('sentence');
     expect(normalizeTranslationReveal('typewriter')).toBe('smooth');
     expect(
       normalizeSettings(

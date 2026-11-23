@@ -46,14 +46,16 @@ export function normalizePlainTextLineBreaks(value: unknown): PlainTextLineBreak
 
 /**
  * How a finished page translation appears. `smooth` keeps a block's source until its
- * translation is finished and swaps it once; `stream` writes the text as it is decoded.
+ * translation is finished and swaps it once; `stream` writes the text as it is decoded;
+ * `sentence` writes each finished sentence as it is decoded and settles the block once at
+ * the end.
  */
-export const TRANSLATION_REVEALS = ['smooth', 'stream'] as const;
+export const TRANSLATION_REVEALS = ['smooth', 'stream', 'sentence'] as const;
 export type TranslationReveal = (typeof TRANSLATION_REVEALS)[number];
 
 /** Normalizes a stored value; anything unrecognised gets the default. */
 export function normalizeTranslationReveal(value: unknown): TranslationReveal {
-  return value === 'stream' ? 'stream' : 'smooth';
+  return value === 'stream' || value === 'sentence' ? value : 'smooth';
 }
 
 export const VIDEO_CAPTION_SIZE_MIN = 50;

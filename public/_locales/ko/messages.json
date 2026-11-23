@@ -1532,6 +1532,9 @@
   "translationRevealSmooth": {
     "message": "문단 번역이 끝나면 한 번에 바꾸기"
   },
+  "translationRevealSentence": {
+    "message": "문장이 번역되는 대로 표시"
+  },
   "translationRevealStream": {
     "message": "번역되는 대로 표시(기존 방식)"
   },

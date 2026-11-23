@@ -1361,6 +1361,59 @@ describe('Revealer', () => {
     expect(glide[0][0]?.transform).toBe('translate(0.00px, 40.00px)');
   });
 
+  it('holds a block height for its sentences and gives only the final text a reveal', () => {
+    const target = stage();
+    const { element, motion } = block('A long source paragraph');
+    computed((candidate) => (candidate === element ? { height: '80px' } : {}));
+    element.getBoundingClientRect = () => new DOMRect(0, 0, 300, 80);
+    target.revealer.reserve(element);
+    const first = vi.fn(() => {
+      element.textContent = 'One.';
+    });
+    target.revealer.offer({
+      block: element,
+      kind: 'body',
+      apply: first,
+      keepHeight: true,
+      instant: true,
+    });
+    target.frame(16);
+
+    expect(first).toHaveBeenCalledTimes(1);
+    const calls = motion.mock.calls as [Keyframe[], KeyframeAnimationOptions][];
+    const kept = calls.findIndex(([frames]) => frames.some((frame) => 'minHeight' in frame));
+    expect(kept).toBeGreaterThanOrEqual(0);
+    expect(calls[kept]?.[0][0]?.minHeight).toBe('80.00px');
+    // A sentence is written as it is, with no fade or rise of its own.
+    expect(calls.some(([frames]) => frames.some((frame) => 'opacity' in frame))).toBe(false);
+
+    const final = vi.fn(() => {
+      element.textContent = 'One. Two.';
+    });
+    target.revealer.settle(element, final, { kind: 'body' });
+    expect(final).toHaveBeenCalledTimes(1);
+    expect(calls.some(([frames]) => frames.some((frame) => 'opacity' in frame))).toBe(true);
+  });
+
+  it('drops a sentence that was still waiting when the final text is settled', () => {
+    const target = stage();
+    const { element } = block('A source paragraph');
+    const stale = vi.fn();
+    target.revealer.offer({
+      block: element,
+      kind: 'body',
+      apply: stale,
+      keepHeight: true,
+      instant: true,
+    });
+    const final = vi.fn();
+    target.revealer.settle(element, final);
+    target.frame(16);
+    target.frame(16);
+    expect(stale).not.toHaveBeenCalled();
+    expect(final).toHaveBeenCalledTimes(1);
+  });
+
   it('writes the finished text of a block that kept no height at once', () => {
     const target = stage();
     const { element } = block('Source');

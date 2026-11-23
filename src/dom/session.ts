@@ -11,7 +11,12 @@ import {
   type ThroughputSample,
 } from './throughput';
 import { DEFAULT_BATCHING } from '@/engine/text/plan';
-import { chunkForTranslation, joinTranslatedSentences } from '@/engine/text/sentences';
+import {
+  chunkForTranslation,
+  hasSentenceTerminator,
+  joinTranslatedSentences,
+  sentenceSpans,
+} from '@/engine/text/sentences';
 import { PriorityQueue } from '@/engine/queue/priority-queue';
 import {
   isAbortError,
@@ -214,6 +219,8 @@ interface Live {
   firstPieceAt: number | null;
   /** Unfinished text of this block has been written to the page. */
   streamed: boolean;
+  /** Sentences already written in sentence reveal mode, joined as they appear on the page. */
+  sentenceShown?: string;
   /** When the text of this block last grew. */
   lastPieceAt: number;
   /** How many characters of source each piece of the running request has. */
@@ -1979,7 +1986,25 @@ export class PageSession {
     }
 
     const bilingual = this.prefs.display === 'bilingual' && this.keepsOriginalVisible(item);
-    if (!direct && this.prefs.reveal === 'smooth') {
+    if (!direct && this.prefs.reveal === 'sentence') {
+      const instant = this.firstOnScreen(item);
+      if (partial) {
+        if (this.paintSentences(item, model, text, bilingual)) return;
+      } else if (item.streamed) {
+        const added = bilingual
+          ? () => model.block.querySelector(':scope > sakutto-line')
+          : undefined;
+        this.revealer.settle(
+          model.block,
+          () => this.write(item, model, text, false, bilingual),
+          instant ? undefined : { kind: revealKind(item), ...(added ? { added } : {}) },
+        );
+        return;
+      } else if (!instant && this.shown.get(model.block) !== shownAs(text, bilingual)) {
+        this.offerReveal(item, model, text, bilingual);
+        return;
+      }
+    } else if (!direct && this.prefs.reveal === 'smooth') {
       if (partial) {
         if (!item.streamed) {
           // The block keeps its source until its translation is finished, unless that takes
@@ -2003,6 +2028,68 @@ export class PageSession {
       }
     }
     this.write(item, model, text, partial, bilingual);
+  }
+
+  /** Whether this is the first page paragraph on the screen at the moment. */
+  private firstOnScreen(item: Live): boolean {
+    if (item.role !== 'page' || item.band !== 'visible') return false;
+    for (const other of this.live.values()) {
+      if (
+        other !== item &&
+        other.role === 'page' &&
+        other.band === 'visible' &&
+        other.index < item.index
+      ) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
+   * Sentence mode: writes the sentences of `text` that are finished, one frame at a time.
+   * The block keeps its height from the first sentence until the final settle, so nothing
+   * under it moves while the reader watches the translation arrive. Returns true when this
+   * chunk has been dealt with.
+   */
+  private paintSentences(
+    item: Live,
+    model: SegmentModel,
+    text: string,
+    bilingual: boolean,
+  ): boolean {
+    const ready = finishedSentenceText(text, this.prefs.targetLanguage);
+    // Once a sentence is on the page, an unfinished tail must not be written over it.
+    if (item.sentenceShown !== undefined && (ready.length === 0 || ready === item.sentenceShown)) {
+      return true;
+    }
+    if (ready.length === 0) return false;
+    if (item.sentenceShown === undefined) {
+      this.claim(item, model);
+      this.revealer.reserve(model.block);
+    }
+    item.sentenceShown = ready;
+    const generation = this.paintGeneration;
+    const write = (): void => {
+      if (generation !== this.paintGeneration || !this.active) return;
+      if (item.model !== model || !model.block.isConnected) return;
+      if (item.state !== 'running' && item.state !== 'queued') return;
+      if (text.trim().length === 0) return;
+      this.write(item, model, text, true, bilingual);
+    };
+    // The paragraph the reader is looking at first is written at once. The rest share the
+    // next frame, as the other page writes do.
+    if (this.firstOnScreen(item)) write();
+    else {
+      this.revealer.offer({
+        block: model.block,
+        kind: revealKind(item),
+        keepHeight: true,
+        instant: true,
+        apply: write,
+      });
+    }
+    return true;
   }
 
   /** Whether an unfinished translation of this block stays unseen for now. */
@@ -2038,7 +2125,10 @@ export class PageSession {
    * where the text came line by line.
    */
   private endLineBefore(batch: readonly Live[], item: Live, token: number): void {
-    if (this.prefs.reveal !== 'smooth' || item.partAlone[0] === true) return;
+    if (this.prefs.reveal !== 'smooth' && this.prefs.reveal !== 'sentence') {
+      return;
+    }
+    if (item.partAlone[0] === true) return;
     const line = batch[batch.indexOf(item) - 1];
     if (!line || line.role !== 'page' || line.state !== 'running' || line.batchToken !== token) {
       return;
@@ -2222,6 +2312,7 @@ export class PageSession {
     this.revealer.forget(block);
     this.shown.delete(block);
     item.streamed = false;
+    delete item.sentenceShown;
     this.editDom(() => {
       restoreSegment(model, item.created);
       removeTranslationUi(block);
@@ -3093,6 +3184,17 @@ function partialText(item: Live, target: string): string {
   const parts = item.partText.filter((part) => part.trim().length > 0);
   if (parts.length === 0) return '';
   return joinTranslatedSentences(parts, target);
+}
+
+/**
+ * The sentences of a decoded translation that are finished. The last span of a stream is
+ * still being decoded unless it ends on a sentence boundary, so it stays behind.
+ */
+function finishedSentenceText(text: string, target: string): string {
+  const done = sentenceSpans(text)
+    .filter((span) => hasSentenceTerminator(span.text))
+    .map((span) => span.text);
+  return joinTranslatedSentences(done, target);
 }
 
 /**

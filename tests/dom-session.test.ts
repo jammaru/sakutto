@@ -373,6 +373,83 @@ describe('page session', () => {
     expect(document.body.textContent).toBe('完了');
   });
 
+  it('writes each finished sentence in sentence mode and settles the block once', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = '<p>First source sentence. Second source sentence.</p>';
+    const reserve = vi.spyOn(Revealer.prototype, 'reserve');
+    const settle = vi.spyOn(Revealer.prototype, 'settle');
+    let afterFirst: string | null = null;
+    const session = start(
+      document,
+      engineOf(async function* (segments) {
+        for (const segment of segments) {
+          yield { id: segment.id, textDelta: 'One. ', engine: 'plamo' as const };
+          afterFirst = (document.body.textContent ?? '').trim();
+          await new Promise((resolve) => setTimeout(resolve, 0));
+          yield { id: segment.id, textDelta: 'Two.', engine: 'plamo' as const };
+          yield { id: segment.id, final: 'One. Two.', engine: 'plamo' as const };
+        }
+      }),
+      { reveal: 'sentence' },
+    );
+
+    await session.translate();
+    await session.whenIdle();
+    expect(afterFirst).toBe('One.');
+    expect(document.body.textContent?.trim()).toBe('One. Two.');
+    expect(reserve).toHaveBeenCalledTimes(1);
+    // The final paint settles the block; `complete` releases any leftover reservation.
+    expect(settle).toHaveBeenCalledTimes(2);
+  });
+
+  it('writes the first paragraph on screen at once without a reveal frame', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = '<p>First source. Second source.</p>';
+    const paragraph = document.querySelector('p');
+    if (!paragraph) throw new Error('missing paragraph');
+    paragraph.getBoundingClientRect = () => new DOMRect(0, 0, 300, 40);
+    const offer = vi.spyOn(Revealer.prototype, 'offer');
+    let afterFirst: string | null = null;
+    const session = start(
+      document,
+      engineOf(async function* (segments) {
+        for (const segment of segments) {
+          yield { id: segment.id, textDelta: 'One. ', engine: 'plamo' as const };
+          afterFirst = (document.body.textContent ?? '').trim();
+          yield { id: segment.id, final: 'One. Two.', engine: 'plamo' as const };
+        }
+      }),
+      { reveal: 'sentence' },
+    );
+
+    await session.translate();
+    await session.whenIdle();
+    expect(afterFirst).toBe('One.');
+    expect(offer).not.toHaveBeenCalled();
+    expect(document.body.textContent?.trim()).toBe('One. Two.');
+  });
+
+  it('keeps a bilingual line growing as sentences arrive in sentence mode', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = '<p>First source. Second source.</p>';
+    const session = start(
+      document,
+      engineOf(async function* (segments) {
+        for (const segment of segments) {
+          yield { id: segment.id, textDelta: 'One. ', engine: 'plamo' as const };
+          await new Promise((resolve) => setTimeout(resolve, 0));
+          yield { id: segment.id, final: 'One. Two.', engine: 'plamo' as const };
+        }
+      }),
+      { reveal: 'sentence', display: 'bilingual' },
+    );
+
+    await session.translate();
+    await session.whenIdle();
+    expect(document.querySelector('p')?.textContent).toContain('First source.');
+    expect(document.querySelector('sakutto-line')?.textContent?.trim()).toBe('One. Two.');
+  });
+
   it('tells the reveal which translations are the last of the page', async () => {
     document.documentElement.lang = 'en';
     const long = 'The harbour office logs every crossing and publishes the delays each month. ';

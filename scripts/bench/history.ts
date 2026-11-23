@@ -102,6 +102,10 @@ export interface BenchMetrics {
     visibleProse: number;
     finished: number;
   };
+  /** Cumulative layout shift during the run, when the browser supported observing it. */
+  cls?: number | null;
+  /** Number of layout-shift entries behind `cls`. */
+  layoutShifts?: number | null;
   /** Marked blocks the extension never finished. Present only when the run was partial. */
   unfinished?: string[];
   lateBlocks: number;

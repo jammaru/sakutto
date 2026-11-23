@@ -1532,6 +1532,9 @@
   "translationRevealSmooth": {
     "message": "Ganti setiap paragraf setelah selesai"
   },
+  "translationRevealSentence": {
+    "message": "Tampilkan setiap kalimat segera setelah diterjemahkan"
+  },
   "translationRevealStream": {
     "message": "Tampilkan teks saat diterjemahkan (seperti sebelumnya)"
   },

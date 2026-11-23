@@ -112,6 +112,8 @@ export interface RunPageBenchOptions {
   localServer?: BenchLocalServer | undefined;
   /** Called after every fixture so a caller can stream progress. */
   onRecord?: ((record: BenchRecord) => void) | undefined;
+  /** Which page-reveal mode the mock harness stores before translating. */
+  reveal?: 'smooth' | 'stream' | 'sentence' | undefined;
 }
 
 export interface RunPageBenchResult {
@@ -214,7 +216,10 @@ async function openHarness(
   extension: string,
   modelPath: string,
   tier: BenchTier,
-  extras: { localServer?: BenchLocalServer } = {},
+  extras: {
+    localServer?: BenchLocalServer;
+    reveal?: 'smooth' | 'stream' | 'sentence';
+  } = {},
 ): Promise<ExtensionHarness> {
   await readFile(resolve(extension, 'manifest.json'));
 
@@ -285,10 +290,13 @@ async function openHarness(
         ...acceleratorFor({ mode: 'live', backend: prepared.status.backend }),
       };
     } else {
-      await options.evaluate(async (stored) => {
-        const chrome = (globalThis as unknown as { chrome: ChromeApi }).chrome;
-        await chrome.storage.local.set({ settings: stored, siteRules: {} });
-      }, settings());
+      await options.evaluate(
+        async (stored) => {
+          const chrome = (globalThis as unknown as { chrome: ChromeApi }).chrome;
+          await chrome.storage.local.set({ settings: stored, siteRules: {} });
+        },
+        settings('auto', extras.reveal === undefined ? {} : { reveal: extras.reveal }),
+      );
       const status = await readStatus(options).catch(() => null);
       engine = {
         label: 'mock',
@@ -424,6 +432,8 @@ async function measurePage(input: {
         },
         blocks: recorded.blocks,
         lateBlocks: recorded.lateBlocks,
+        cls: recorded.cls,
+        layoutShifts: recorded.layoutShifts,
         engines: recorded.engines,
         codeUntouched: recorded.codeUntouched,
         state: recorded.state,
@@ -537,6 +547,7 @@ export async function runPageBench(options: RunPageBenchOptions): Promise<RunPag
   try {
     harness = await openHarness(mode, extension, modelPath, options.tier ?? 'auto', {
       ...(localServer === undefined ? {} : { localServer }),
+      ...(options.reveal === undefined ? {} : { reveal: options.reveal }),
     });
   } catch (error) {
     // A rejected build must not leave the static server holding the process open.

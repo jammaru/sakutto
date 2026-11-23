@@ -1532,6 +1532,9 @@
   "translationRevealSmooth": {
     "message": "Jeden Absatz ersetzen, sobald er fertig ist"
   },
+  "translationRevealSentence": {
+    "message": "Jeden Satz anzeigen, sobald er übersetzt ist"
+  },
   "translationRevealStream": {
     "message": "Text während der Übersetzung anzeigen (wie bisher)"
   },

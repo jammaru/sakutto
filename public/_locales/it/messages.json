@@ -1532,6 +1532,9 @@
   "translationRevealSmooth": {
     "message": "Sostituisci ogni paragrafo quando è pronto"
   },
+  "translationRevealSentence": {
+    "message": "Mostra ogni frase non appena è tradotta"
+  },
   "translationRevealStream": {
     "message": "Mostra il testo mentre viene tradotto (come prima)"
   },

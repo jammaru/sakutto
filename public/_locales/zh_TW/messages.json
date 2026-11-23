@@ -1532,6 +1532,9 @@
   "translationRevealSmooth": {
     "message": "段落翻譯完成後一次替換"
   },
+  "translationRevealSentence": {
+    "message": "每句翻譯完成後立即顯示"
+  },
   "translationRevealStream": {
     "message": "邊翻譯邊顯示（與以往相同）"
   },
