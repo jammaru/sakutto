@@ -75,6 +75,45 @@ export function verticalWriting(block: Pick<LayoutBlock, 'writing'>): boolean {
   return block.writing === 90 || block.writing === 270;
 }
 
+/**
+ * Reading order for two layout blocks.
+ *
+ * Layout emits blocks in reading order already, so this is only used where translated and
+ * deliberately skipped blocks have to be merged back into one stream (the bilingual pane),
+ * and where existing rows have to be put back into that order. A horizontal page runs down
+ * the left column and then down the right; a vertical page runs right to left. Full-width
+ * blocks (`column < 0`) fall back to their own top edge.
+ */
+export function compareReadingOrder(
+  left: Pick<LayoutBlock, 'box' | 'column' | 'writing'>,
+  right: Pick<LayoutBlock, 'box' | 'column' | 'writing'>,
+): number {
+  const vertical = verticalWriting(left) && verticalWriting(right);
+  if (left.column >= 0 && right.column >= 0) {
+    if (left.column !== right.column) {
+      return vertical ? right.column - left.column : left.column - right.column;
+    }
+    // Same reported column. Large horizontal separation still means two distinct vertical
+    // columns when the caller had no column evidence and assigned both the same number;
+    // vertical Japanese reads those right to left. Small x differences are just OCR jitter
+    // inside one column, so those lines still run top to bottom.
+    if (vertical) {
+      const measure = Math.max(left.box.width, right.box.width, 1);
+      if (Math.abs(right.box.x - left.box.x) > measure * 1.5) {
+        return right.box.x - left.box.x;
+      }
+    }
+    return left.box.y - right.box.y || left.box.x - right.box.x;
+  }
+  if (vertical && Math.abs(right.box.x - left.box.x) > 0.5) {
+    return right.box.x - left.box.x;
+  }
+  if (!vertical && Math.abs(left.box.y - right.box.y) > 0.5) {
+    return left.box.y - right.box.y;
+  }
+  return left.box.y - right.box.y || left.box.x - right.box.x;
+}
+
 export interface PageLayout {
   blocks: LayoutBlock[];
   /** Most common font size on the page, which decides what counts as a heading. */

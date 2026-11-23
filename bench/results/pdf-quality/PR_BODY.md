@@ -46,9 +46,9 @@ PDF 翻訳を「動く」から「読める」に変えるため、抽出・段�
 | 重なり/ブロック                            |             0.000 |          0.000 |    — |
 | はみ出し/ブロック                          |             0.062 |      **0.024** |    — |
 | 2 カラム読み順正解率                       |             98.3% |      **98.3%** | ≥98% |
-| 最初の訳文が出るまで（実行開始から）       |            307 ms |         300 ms |    — |
-| 最初の訳文が出るまで（ページ処理から）     |                 — |           5 ms |    — |
-| 全文処理時間（fake engine）                |            909 ms |         920 ms |    — |
+| 最初の訳文が出るまで（実行開始から）       |            307 ms |         350 ms |    — |
+| 最初の訳文が出るまで（ページ処理から）     |                 — |           6 ms |    — |
+| 全文処理時間（fake engine）                |            909 ms |         988 ms |    — |
 
 テキスト来源別（native = paper + arXiv / simulated OCR = scan）は `final.md` の別表を参照してください。コード行 `for block in page:` を散文と誤判定しないようになり、native / 疑似 OCR の未翻訳散文はともに 0.0% です。言語混在率は、Email・モデル名・数字入り識別子などを「言語switch」と数えず、連続した英語の散文_run_ のみを検出するよう指標を修正した結果です（fake engine が意図的に残す技術トークンを英語散文と誤判定していません）。文字化け率も、正しく空白の入った `Q ∈ R d model × d k` を「化け」と数えていた誤検知を除去しました。読み順の GT は、全幅見出しがバンドを区切る二段組の順序（全幅→左列→右列→次の全幅）に修正しています。
 
@@ -99,18 +99,18 @@ PDF 翻訳を「動く」から「読める」に変えるため、抽出・段�
 
 | variant             |   CER |   WER | cross-column | lines | ms/page | model bytes |
 | ------------------- | ----: | ----: | -----------: | ----: | ------: | ----------: |
-| baseline-1x         | 66.7% | 94.8% |            1 |   100 |  24.1 s |    21.9 MiB |
-| shipped-baseline    | 11.6% | 16.8% |            2 |   105 |  32.6 s |    21.9 MiB |
-| default-1600        |  3.0% |  5.5% |            0 |   117 |  42.5 s |    21.9 MiB |
-| gray+contrast-1600  |  3.0% |  5.4% |            0 |   117 |  35.8 s |    21.9 MiB |
-| dpi300              |  3.0% |  5.5% |            0 |   116 |  41.6 s |    21.9 MiB |
-| sauvola             | 82.5% | 97.2% |            1 |    98 |  22.5 s |    21.9 MiB |
+| baseline-1x         | 66.7% | 94.8% |            1 |   100 |  27.1 s |    21.9 MiB |
+| shipped-baseline    | 11.6% | 16.8% |            1 |   105 |  30.5 s |    21.9 MiB |
+| default-1600        |  3.0% |  5.5% |            0 |   117 |  39.0 s |    21.9 MiB |
+| gray+contrast-1600  |  3.0% |  5.4% |            0 |   117 |  35.9 s |    21.9 MiB |
+| dpi300              |  3.0% |  5.5% |            0 |   116 |  41.0 s |    21.9 MiB |
+| sauvola             | 82.5% | 97.2% |            1 |    98 |  23.6 s |    21.9 MiB |
 | default-1600 (High) |  3.6% |  6.4% |            0 |   117 | 213.7 s |   132.2 MiB |
 
 **採用**: 2x 描画 + detection maxSide 1600 の Standard（tiny_det + small_rec）。実スキャン p1 で **CER 3.0%、cross-column 0** を達成しました。旧ベンチの 1.4 という値は GT 不一致によるもので、認識精度ではありません。High は 3.4〜3.6% と Standard（3.0%）よりわずかに劣るうえ約 5.0 倍遅く 6 倍サイズのため採用しません。Binarization はこの小さなセリフ文字を潰すため既定では無効です。17 バリアントの全表は `bench/results/scan-ocr/report.md`。
 
 ## 確認
 
-- `pnpm lint`, `pnpm typecheck` (0 errors / 1 warning), `pnpm test` (202 files, 2,617 passed, 1 skipped), `pnpm format:check`, `pnpm i18n:check` がすべて成功。
+- `pnpm lint`, `pnpm typecheck` (0 errors / 1 warning), `pnpm test` (203 files, 2,626 passed, 1 skipped), `pnpm format:check`, `pnpm i18n:check` がすべて成功。
 - `pnpm bench:pdf:quality --label final --shots --no-download` を再実行し、レポートとスクリーンショットを更新。`baseline.json` は現行指標の参照用で、履歴のlegacy行のみ旧指標のcontext。
 - 権限モデル・シークレット・ Manifest に変更なし。

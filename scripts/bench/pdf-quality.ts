@@ -41,6 +41,13 @@ const require = createRequire(import.meta.url);
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const OUT = join(ROOT, 'bench/results/pdf-quality');
 const SHOTS = join(ROOT, 'bench/results/screenshots');
+const HISTORY_HEADER =
+  '| label | pages | skipped prose | untranslated prose | mixed language | garbled tokens | ' +
+  'overlap/box | overflow/box | reading order | first block from page ms | ' +
+  'first block from run ms | full ms |';
+const HISTORY_SEPARATOR =
+  '| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |';
+const HISTORY_COLUMNS = 12;
 const ARXIV_URL = 'https://arxiv.org/pdf/1706.03762';
 const ARXIV_URL_V7 = 'https://arxiv.org/pdf/1706.03762v7';
 /** Pinned digest of the cached arXiv payload; an upstream change must not move the baseline. */
@@ -434,6 +441,48 @@ async function refreshPrBody(summary: ReturnType<typeof summarize>): Promise<voi
   await writeFile(path, updated);
 }
 
+/**
+ * Rewrites an older history table into the current schema before appending a row.
+ *
+ * The 11-column table recorded one first-block latency; the current table records both the
+ * page-level and the run-start value. Duplicating the old number leaves the historical row
+ * readable without inventing a measurement that was never taken. Rows already in the current
+ * schema are kept verbatim, so repeated runs never widen the table again.
+ */
+function normalizeHistory(text: string): string {
+  if (text.trim().length === 0) return HISTORY_HEADER + '\n' + HISTORY_SEPARATOR + '\n';
+  const lines = text.replace(/\n+$/u, '').split('\n');
+  const header = lines.findIndex((line) => /^\|\s*label\s*\|/u.test(line));
+  if (header < 0) {
+    return [...lines, HISTORY_HEADER, HISTORY_SEPARATOR].join('\n') + '\n';
+  }
+  // Keep an already-correct (and possibly Prettier-padded) header verbatim; only a mismatched
+  // schema is replaced.
+  const headerCells = (lines[header] ?? '').slice(1, -1).split('|').length;
+  if (headerCells !== HISTORY_COLUMNS) lines[header] = HISTORY_HEADER;
+  const separatorCells = (lines[header + 1] ?? '').slice(1, -1).split('|').length;
+  if (/^\|\s*-/u.test(lines[header + 1] ?? '') && separatorCells !== HISTORY_COLUMNS) {
+    lines[header + 1] = HISTORY_SEPARATOR;
+  }
+  for (let index = header + 2; index < lines.length; index += 1) {
+    const line = lines[index] ?? '';
+    if (!line.startsWith('|') || !line.endsWith('|')) continue;
+    const cells = line
+      .slice(1, -1)
+      .split('|')
+      .map((cell) => cell.trim());
+    if (cells.length === HISTORY_COLUMNS) continue;
+    if (cells.length === HISTORY_COLUMNS - 1 && cells[9] !== undefined) {
+      const oldTiming = cells[9];
+      cells.splice(9, 1, oldTiming, oldTiming);
+    } else {
+      while (cells.length < HISTORY_COLUMNS) cells.push('—');
+    }
+    lines[index] = '| ' + cells.join(' | ') + ' |';
+  }
+  return lines.join('\n') + '\n';
+}
+
 async function main(): Promise<void> {
   const started = Date.now();
   await mkdir(OUT, { recursive: true });
@@ -735,8 +784,8 @@ async function main(): Promise<void> {
     s.overflowRate.toFixed(3) +
     ' |';
   const markdown = [
-    '| label | pages | skipped prose | untranslated prose | mixed language | garbled tokens | overlap/box | overflow/box | reading order | first block from page ms | first block from run ms | full ms |',
-    '| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |',
+    HISTORY_HEADER,
+    HISTORY_SEPARATOR,
     '| ' +
       label +
       ' | ' +
@@ -809,14 +858,11 @@ async function main(): Promise<void> {
   ].join('\n');
   const historyPath = join(OUT, 'history.md');
   const previousHistory = await readFile(historyPath, 'utf8').catch(() => '');
-  // Prettier pads markdown table columns, so an exact header string is not a reliable test.
-  // Detect the header structurally; otherwise a run with this table appends a second header
-  // and separator, leaving unlabelled rows under the wrong table.
-  const hasTable = /^\|\s*label\s*\|\s*pages\s*\|/mu.test(previousHistory);
-  await appendFile(
-    historyPath,
-    hasTable ? markdown.split('\n').slice(2).join('\n') + '\n' : markdown + '\n',
-  );
+  // Checking only that a header exists let an 11-column history keep collecting 12-column
+  // rows, so no cell lined up with its label. Normalise first, then append the new row under
+  // the current header.
+  await writeFile(historyPath, normalizeHistory(previousHistory));
+  await appendFile(historyPath, markdown.split('\n').slice(2).join('\n') + '\n');
   await writeFile(join(OUT, label + '.md'), fullMarkdown + '\n');
   if (label === 'final') await refreshPrBody(summary);
 

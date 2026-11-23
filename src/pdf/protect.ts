@@ -73,15 +73,28 @@ const PROSE_LEAD =
  */
 const TRAILING_PROSE_DIMENSION = /(?:\s+(?:model|hd|out|in|dim|size))+$/iu;
 
-function trimProseDimensionSuffix(match: string): string {
-  if (/[×÷]/u.test(match)) return match;
-  return match.replace(TRAILING_PROSE_DIMENSION, '');
+/** An ordinary lowercase word after the match: a preposition, not more notation. */
+const PROSE_CONTINUATION = /^\s+\p{Ll}{2,}/u;
+
+/**
+ * Trims a trailing prose word that the dimension pattern mistook for a dimension name.
+ *
+ * `Q ∈ R in` is notation plus a preposition and so is `3 × 3 in`. With a multiplication sign
+ * the word is kept only when the expression continues as notation (`d model × d k`): the
+ * following text then starts with another operator or a slot, never with a lowercase English
+ * word such as `this` or `the`.
+ */
+function trimProseDimensionSuffix(match: string, following: string): string {
+  const prose = TRAILING_PROSE_DIMENSION.exec(match);
+  if (!prose) return match;
+  if (/[×÷]/u.test(match) && !PROSE_CONTINUATION.test(following)) return match;
+  return match.slice(0, prose.index);
 }
 
-function protectSpan(match: string, slots: ProtectedSlot[]): string {
+function protectSpan(match: string, slots: ProtectedSlot[], following: string): string {
   {
     const raw = match.trim();
-    const trimmed = trimProseDimensionSuffix(raw);
+    const trimmed = trimProseDimensionSuffix(raw, following);
     // The trimmed preposition stays in the prompt outside the placeholder.
     const tail = raw.slice(trimmed.length);
     let value = trimmed;
@@ -101,8 +114,10 @@ function protectSpan(match: string, slots: ProtectedSlot[]): string {
 
 function protectTextNotation(text: string, slots: ProtectedSlot[]): string {
   return text
-    .replace(DIMENSION_CHAIN, (match) => protectSpan(match, slots))
-    .replace(TEXT_NOTATION, (match) => protectSpan(match, slots));
+    .replace(DIMENSION_CHAIN, (match, offset: number, whole: string) =>
+      protectSpan(match, slots, whole.slice(offset + match.length)),
+    )
+    .replace(TEXT_NOTATION, (match) => protectSpan(match, slots, ''));
 }
 
 export type ScriptRole = 'super' | 'sub' | 'none';

@@ -1,6 +1,6 @@
 {
   "label": "final",
-  "generatedAt": "2026-11-23T03:19:45.732Z",
+  "generatedAt": "2026-11-23T04:17:25.446Z",
   "engine": "deterministic local fake",
   "pace": {
     "ttfbMs": 6,
@@ -27,9 +27,9 @@
         "overflowRate": 0,
         "readingOrderAccuracy": 0.9895833333333334,
         "twoColumnPages": 1,
-        "firstTranslatedBlockMs": 5,
-        "firstTranslatedBlockFromRunStartMs": 300,
-        "fullDocumentMs": 228,
+        "firstTranslatedBlockMs": 7,
+        "firstTranslatedBlockFromRunStartMs": 350,
+        "fullDocumentMs": 245,
         "meanScale": 0.9846128195131897
       }
     },
@@ -46,9 +46,9 @@
         "overflowRate": 0.08,
         "readingOrderAccuracy": 0.9583333333333334,
         "twoColumnPages": 1,
-        "firstTranslatedBlockMs": 7,
-        "firstTranslatedBlockFromRunStartMs": 862,
-        "fullDocumentMs": 65,
+        "firstTranslatedBlockMs": 6,
+        "firstTranslatedBlockFromRunStartMs": 930,
+        "fullDocumentMs": 63,
         "meanScale": 0.9885424892343686
       }
     }
@@ -61,7 +61,7 @@
       {
         "variant": "baseline-1x",
         "pairing": "tiny_det+small_rec",
-        "ms": 24068.772209,
+        "ms": 27064.190258000002,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.6671721767263169,
@@ -79,7 +79,7 @@
       {
         "variant": "dpi200",
         "pairing": "tiny_det+small_rec",
-        "ms": 32518.525821999996,
+        "ms": 35004.193623,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.20230512587200486,
@@ -89,7 +89,7 @@
         "lines": 111,
         "blocks": 56,
         "skipped": 4,
-        "crossColumnCovers": 1,
+        "crossColumnCovers": 0,
         "overlapPairs": 0,
         "overflow": 15,
         "text": "Sakutto: On-Device Page Translation with a Small Instruction-Tuned Model\nJ. Ammara\nMachine nandation of web pages Is esally a cllent of a memote servtce. Tis puper descotbes Sakumo, a browser extenson"
@@ -97,7 +97,7 @@
       {
         "variant": "shipped-baseline",
         "pairing": "tiny_det+small_rec",
-        "ms": 32604.18638900001,
+        "ms": 30525.402927999996,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.11606510969568294,
@@ -107,7 +107,7 @@
         "lines": 105,
         "blocks": 57,
         "skipped": 7,
-        "crossColumnCovers": 2,
+        "crossColumnCovers": 1,
         "overlapPairs": 0,
         "overflow": 22,
         "text": "Sakutto: On-Device Page Translation with a Small Instruction-Tuned Model\nJ. Ammaru\nIndependent researcher\nsakutto@example.org\ntuned model into a browser tab costs and what it buys. The extension runs "
@@ -115,7 +115,7 @@
       {
         "variant": "default-1600",
         "pairing": "tiny_det+small_rec",
-        "ms": 42492.78654,
+        "ms": 39035.22086999999,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.030330603579011222,
@@ -133,7 +133,7 @@
       {
         "variant": "dpi300",
         "pairing": "tiny_det+small_rec",
-        "ms": 41568.33762800001,
+        "ms": 40957.78547900001,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.030330603579011222,
@@ -151,7 +151,7 @@
       {
         "variant": "sauvola",
         "pairing": "tiny_det+small_rec",
-        "ms": 22534.82436800003,
+        "ms": 23622.678862,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.8252957233848953,
@@ -169,7 +169,7 @@
       {
         "variant": "dpi200+sauvola",
         "pairing": "tiny_det+small_rec",
-        "ms": 30483.743868999998,
+        "ms": 31291.26775,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.6860782529572339,
@@ -179,7 +179,7 @@
         "lines": 104,
         "blocks": 60,
         "skipped": 6,
-        "crossColumnCovers": 1,
+        "crossColumnCovers": 0,
         "overlapPairs": 0,
         "overflow": 27,
         "text": "Sakutto: On-Device Page Translation with a Small Instruction-Tuned Model\n1. Amnurs\ndme in bront nt a rearet who is alnendy looking a de srm.\n2.1 Jume\nS\nanlasti 60 S\n2.2 Page wode?\n3. Schedaling\n4. MNN"
@@ -187,7 +187,7 @@
       {
         "variant": "dpi200+gray",
         "pairing": "tiny_det+small_rec",
-        "ms": 32097.062716999964,
+        "ms": 32083.000691000023,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.2227277322818724,
@@ -197,7 +197,7 @@
         "lines": 110,
         "blocks": 51,
         "skipped": 4,
-        "crossColumnCovers": 1,
+        "crossColumnCovers": 0,
         "overlapPairs": 0,
         "overflow": 12,
         "text": "Sakutto: On-Device Page Translation with a Small Instruction-Tuned Model\nJ. Ammara\nIndependent researcher\nMachine sanslaton of web pages Is essally a cient of a remote servtce. Tis puper desothes Saku"
@@ -205,7 +205,7 @@
       {
         "variant": "gray+contrast",
         "pairing": "tiny_det+small_rec",
-        "ms": 32420.429743999965,
+        "ms": 31528.545014000032,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.21170761298149834,
@@ -215,7 +215,7 @@
         "lines": 112,
         "blocks": 53,
         "skipped": 8,
-        "crossColumnCovers": 1,
+        "crossColumnCovers": 0,
         "overlapPairs": 0,
         "overflow": 12,
         "text": "Sakutto: On-Device Page Translation with a Small Instruction-Tuned Model\nJ. Ammaru\nIndependent researcher\nMachine tanslation of web pages Is esually a client of a remote service. This puper descotbes "
@@ -223,7 +223,7 @@
       {
         "variant": "gray+contrast-1600",
         "pairing": "tiny_det+small_rec",
-        "ms": 35803.23160900001,
+        "ms": 35876.18053599994,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.030128399555151147,
@@ -241,7 +241,7 @@
       {
         "variant": "contrast",
         "pairing": "tiny_det+small_rec",
-        "ms": 30517.55066200008,
+        "ms": 31079.590501000057,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.20816904256394703,
@@ -251,7 +251,7 @@
         "lines": 112,
         "blocks": 53,
         "skipped": 8,
-        "crossColumnCovers": 1,
+        "crossColumnCovers": 0,
         "overlapPairs": 0,
         "overflow": 12,
         "text": "Sakutto: On-Device Page Translation with a Small Instruction-Tuned Model\nJ. Ammaru\nIndependent researcher\nMachine tanslation of web pages Is esually a client of a remote service. This puper descothes "
@@ -259,7 +259,7 @@
       {
         "variant": "otsu",
         "pairing": "tiny_det+small_rec",
-        "ms": 27470.915986999986,
+        "ms": 28171.706196999992,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.689111313315135,
@@ -267,9 +267,9 @@
         "order": 0.0980392156862745,
         "covered": 0.07538280329799764,
         "lines": 104,
-        "blocks": 38,
-        "skipped": 15,
-        "crossColumnCovers": 1,
+        "blocks": 39,
+        "skipped": 14,
+        "crossColumnCovers": 0,
         "overlapPairs": 0,
         "overflow": 13,
         "text": "Sakutto: Oa-Device Page Translation with a Saall Instruction-Tuned Model\nJ. Anmuaru\nS\n2.2 Prage mode?\n4 fr\n3. Scheduling\nblock gets a prirty fren ts distance io the riewport, ln kind, and is poshio l "
@@ -277,7 +277,7 @@
       {
         "variant": "denoise",
         "pairing": "tiny_det+small_rec",
-        "ms": 27795.586503,
+        "ms": 29150.914188999915,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.7235870993832777,
@@ -295,7 +295,7 @@
       {
         "variant": "trim",
         "pairing": "tiny_det+small_rec",
-        "ms": 30260.425930999918,
+        "ms": 32670.018277999945,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.1991709635021737,
@@ -305,7 +305,7 @@
         "lines": 110,
         "blocks": 55,
         "skipped": 4,
-        "crossColumnCovers": 1,
+        "crossColumnCovers": 0,
         "overlapPairs": 0,
         "overflow": 15,
         "text": "Sakutto: On-Device Page Translation with a Small Instruction-Tuned Model\nJ. Ammaru\nIndependen researcher\nMachine nandation of web pages Is esally a cllent of a memote servtce. Tis puper descotbes Saku"
@@ -313,7 +313,7 @@
       {
         "variant": "box-0.35",
         "pairing": "tiny_det+small_rec",
-        "ms": 30543.560167999938,
+        "ms": 30668.520979000023,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.20230512587200486,
@@ -323,7 +323,7 @@
         "lines": 111,
         "blocks": 56,
         "skipped": 4,
-        "crossColumnCovers": 1,
+        "crossColumnCovers": 0,
         "overlapPairs": 0,
         "overflow": 15,
         "text": "Sakutto: On-Device Page Translation with a Small Instruction-Tuned Model\nJ. Ammara\nMachine nandation of web pages Is esally a cllent of a memote servtce. Tis puper descotbes Sakumo, a browser extenson"
@@ -331,7 +331,7 @@
       {
         "variant": "box-0.55",
         "pairing": "tiny_det+small_rec",
-        "ms": 30262.819643999916,
+        "ms": 30988.98054099991,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.20210292184814477,
@@ -341,7 +341,7 @@
         "lines": 111,
         "blocks": 56,
         "skipped": 4,
-        "crossColumnCovers": 1,
+        "crossColumnCovers": 0,
         "overlapPairs": 0,
         "overflow": 15,
         "text": "Sakutto: On-Device Page Translation with a Small Instruction-Tuned Model\nJ. Ammara\nMachine nandation of web pages Is esally a cllent of a memote servtce. Tis puper descotbes Sakumo, a browser extenson"
@@ -349,7 +349,7 @@
       {
         "variant": "unclip-1.8",
         "pairing": "tiny_det+small_rec",
-        "ms": 26036.336085000075,
+        "ms": 26786.755607000086,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.3609341825902335,
@@ -359,7 +359,7 @@
         "lines": 102,
         "blocks": 54,
         "skipped": 5,
-        "crossColumnCovers": 2,
+        "crossColumnCovers": 0,
         "overlapPairs": 0,
         "overflow": 28,
         "text": "Sakutto: On-Device Page Translation with a Small Instruction-Tuned Model\nJ. Ammaru\nreader sarlls. On a fourcoe laptop with a docrete GPU the model raches 34.8 toks per second and finshes a 1,900-wood "
@@ -377,9 +377,9 @@
     "overflowRate": 0.024390243902439025,
     "readingOrderAccuracy": 0.9833333333333334,
     "twoColumnPages": 2,
-    "firstTranslatedBlockMs": 5,
-    "firstTranslatedBlockFromRunStartMs": 300,
-    "fullDocumentMs": 920,
+    "firstTranslatedBlockMs": 6,
+    "firstTranslatedBlockFromRunStartMs": 350,
+    "fullDocumentMs": 988,
     "meanScale": 0.9857425995580282
   },
   "pages": [
@@ -897,9 +897,9 @@
       "skippedProse": 0,
       "readingOrder": 0.9583333333333334,
       "twoColumn": true,
-      "firstBlockMs": 13,
-      "firstBlockFromRunStartMs": 300,
-      "pageMs": 87
+      "firstBlockMs": 12,
+      "firstBlockFromRunStartMs": 350,
+      "pageMs": 82
     },
     {
       "fixture": "arxiv",
@@ -1095,9 +1095,9 @@
       "skippedProse": 0,
       "readingOrder": 1,
       "twoColumn": false,
-      "firstBlockMs": 5,
-      "firstBlockFromRunStartMs": 440,
-      "pageMs": 38
+      "firstBlockMs": 7,
+      "firstBlockFromRunStartMs": 484,
+      "pageMs": 48
     },
     {
       "fixture": "arxiv",
@@ -1294,7 +1294,7 @@
       "readingOrder": 1,
       "twoColumn": false,
       "firstBlockMs": 7,
-      "firstBlockFromRunStartMs": 504,
+      "firstBlockFromRunStartMs": 565,
       "pageMs": 26
     },
     {
@@ -1592,8 +1592,8 @@
       "readingOrder": 1,
       "twoColumn": false,
       "firstBlockMs": 8,
-      "firstBlockFromRunStartMs": 556,
-      "pageMs": 77
+      "firstBlockFromRunStartMs": 620,
+      "pageMs": 89
     },
     {
       "fixture": "scan",
@@ -2109,9 +2109,9 @@
       "skippedProse": 0,
       "readingOrder": 0.9583333333333334,
       "twoColumn": true,
-      "firstBlockMs": 7,
-      "firstBlockFromRunStartMs": 862,
-      "pageMs": 65
+      "firstBlockMs": 6,
+      "firstBlockFromRunStartMs": 930,
+      "pageMs": 63
     }
   ]
 }

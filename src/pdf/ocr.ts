@@ -840,8 +840,9 @@ function hasHeadingEvidence(text: string, height: number, bodySize: number): boo
  * A listing line whose OCR lost its indentation but kept code punctuation.
  *
  * Treating leading `for`, `if`, `return`, ... as proof of code skips ordinary paper sentences
- * (`For each batch we compute the loss`), so statement structure is required: block brackets
- * or a terminating `;` / `:` distinguish a listing from prose. A bare operator, an assignment
+ * (`For each batch we compute the loss`), so statement structure is required: block braces,
+ * an array index, or a terminating `;` / `:` distinguish a listing from prose. A bracketed
+ * citation (`the result [12] is positive`) is not an index. A bare operator, an assignment
  * sign, or a mid-sentence semicolon is not enough: `If the loss < 0.1 we stop training after`
  * is a wrapped sentence. A colon followed by a prose clause ("For each batch: we compute the
  * loss") is ordinary prose unless it ends the line. Sentences that end in a full stop are prose
@@ -861,7 +862,12 @@ function looksLikeBareCodeLine(text: string): boolean {
   // underscore or a URL. Only statement structure distinguishes a listing line:
   // a terminating `;` / `:`, block delimiters, or a complete call/loop header.
   if (/[;:]\s*$/u.test(statement)) return true;
-  if (/[{}[\]]/u.test(statement)) return true;
+  // Curly braces are listing blocks. Square brackets are code only as an index attached to
+  // an identifier (`row[i]`, `values[0]`): a spaced bracket is a citation or a parenthetical
+  // inside a wrapped sentence (`If the result [12] is positive we accept`, `For each layer
+  // [see Figure 2] we compute the loss`), which must stay prose and be translated.
+  if (/[{}]/u.test(statement)) return true;
+  if (/[\p{L}\p{N}_)\]]\[[^\]]*\]/u.test(statement)) return true;
   return /^(?:for|foreach|if|while|emit|return|continue|def)\s+[\p{L}_][\p{L}\p{N}_]*\([^()]*\)\s*;?$/iu.test(
     statement,
   );

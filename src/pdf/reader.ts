@@ -9,7 +9,7 @@ import {
   type PdfPageOcr,
   type PdfOcrRecognize,
 } from './ocr';
-import { verticalWriting, type LayoutBlock, type PageLayout } from './layout';
+import { compareReadingOrder, verticalWriting, type LayoutBlock, type PageLayout } from './layout';
 import { layoutPage } from './layout';
 import { COVER_PAD_TOP_EM, HINTING_PAD_PX, coverPaintLayout, drawnBox } from './place';
 import { coverStyle, READER_STYLE, TextMeasurer } from './render';
@@ -333,8 +333,7 @@ export class PdfReader {
       translation: string;
       role: string;
       failed: boolean;
-      y: number;
-      x: number;
+      block: LayoutBlock;
     }> = [
       ...states.map((state) => ({
         key: state,
@@ -342,8 +341,7 @@ export class PdfReader {
         translation: state.translation.trim(),
         role: state.block.role,
         failed: state.state === 'failed',
-        y: state.block.box.y,
-        x: state.block.box.x,
+        block: state.block,
       })),
       ...skipped.map((block) => ({
         key: block,
@@ -351,13 +349,15 @@ export class PdfReader {
         translation: '',
         role: block.role,
         failed: false,
-        y: block.box.y,
-        x: block.box.x,
+        block,
       })),
     ];
-    // Skipped equations, listings and labels must stay at their place on the page: appending
-    // them after every translated block breaks the reading order in the reflowed pane.
-    rows.sort((a, b) => a.y - b.y || a.x - b.x);
+    // Skipped equations, listings and labels belong at their place in the page's reading
+    // order, not after every translated block. The layout's `column` and `writing` metadata
+    // decide that order: down the left column then the right for horizontal text, and right
+    // to left for vertical Japanese. Sorting by y/x alone alternated the two columns and
+    // reversed vertical pages.
+    rows.sort((a, b) => compareReadingOrder(a.block, b.block));
 
     for (const item of rows) {
       const translation = item.translation;
@@ -373,6 +373,8 @@ export class PdfReader {
         original.className = 'sakutto-bilingual__source';
         const translated = document.createElement('p');
         translated.className = 'sakutto-bilingual__translation';
+        translated.setAttribute('lang', this.target);
+        translated.dir = 'auto';
         row.append(original, translated);
         element.bilingual.append(row);
         element.bilingualRows.set(item.key, row);
@@ -388,6 +390,17 @@ export class PdfReader {
       if (live.has(key)) continue;
       row.remove();
       element.bilingualRows.delete(key);
+    }
+    // Existing rows keep their element across paints, so a late-arriving translation must not
+    // leave the row where it was first created. Move each live row into its sorted position.
+    let position = 0;
+    for (const item of rows) {
+      const row = element.bilingualRows.get(item.key);
+      if (!row) continue;
+      if (element.bilingual.children[position] !== row) {
+        element.bilingual.insertBefore(row, element.bilingual.children[position] ?? null);
+      }
+      position += 1;
     }
   }
   /**

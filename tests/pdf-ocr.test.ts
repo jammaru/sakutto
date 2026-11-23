@@ -1455,3 +1455,48 @@ describe('latest DSH review blockers', () => {
     ]);
   });
 });
+
+describe('bracketed citations in OCR prose', () => {
+  it('B2: keeps wrapped prose with a bracketed citation out of the skipped code list', () => {
+    const texts = [
+      'If the result [12] is positive we accept',
+      'For each layer [see Figure 2] we compute the loss',
+    ];
+    for (const text of texts) {
+      const item = region(text, quad(45, 100, 320, 20));
+      const result = ocrResult([item], [readingLine('horizontal', [item])]);
+      const layout = ocrResultToPageLayout(result, {
+        pageIndex: 0,
+        pageWidth: 600,
+        pageHeight: 800,
+      });
+      expect(
+        layout.blocks.map((block) => block.text),
+        text,
+      ).toEqual([text]);
+      expect(layout.blocks[0]?.role, text).toBe('prose');
+      expect(layout.skipped, text).toEqual([]);
+    }
+  });
+
+  it('B2: still skips a listing whose brackets are an index or a block', () => {
+    const texts = ['if (x) {', 'for row[i] in rows:', 'if values[0] > 1 then'];
+    for (const text of texts) {
+      const item = region(text, quad(45, 100, 220, 20));
+      const result = ocrResult([item], [readingLine('horizontal', [item])]);
+      const layout = ocrResultToPageLayout(result, {
+        pageIndex: 0,
+        pageWidth: 600,
+        pageHeight: 800,
+      });
+      expect(
+        [...layout.skipped.map((block) => block.text), ...layout.blocks.map((block) => block.text)],
+        text,
+      ).toContain(text);
+      expect(
+        layout.skipped.some((block) => block.role === 'code'),
+        text,
+      ).toBe(true);
+    }
+  });
+});

@@ -352,3 +352,29 @@ describe('review 5 notation and typography', () => {
     ).toBe('モデル（注意）は Q ∈ R です。① と ㍻ と ｶﾀｶﾅ。');
   });
 });
+
+describe('prepositions after a multiplied dimension', () => {
+  it('B3: leaves the following preposition outside the protected slot', () => {
+    const cases = [
+      { source: 'The model is 3 × 3 in this paper.', slot: '3 × 3' },
+      { source: 'The projection is Q ∈ R model × d k in this paper.', slot: 'Q ∈ R model × d k' },
+      { source: 'A × B in this paper.', slot: 'A × B' },
+    ];
+    for (const { source, slot } of cases) {
+      const lines = groupLines([piece(source, 49, 100, 430)]);
+      const block = layoutPage(lines).blocks[0];
+      if (!block) throw new Error('expected a block');
+      const protectedText = protectInlineMath(block);
+      expect(
+        protectedText.slots.map((entry) => entry.text),
+        source,
+      ).toContain(slot);
+      expect(
+        protectedText.slots.some((entry) => /\bin$/u.test(entry.text)),
+        source,
+      ).toBe(false);
+      expect(protectedText.text, source).toContain('<i0> in ');
+      expectSourcePreserved(protectedText, source);
+    }
+  });
+});

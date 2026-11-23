@@ -882,6 +882,51 @@ describe('placePage', () => {
     expect(metrics.crossColumnCovers).toBe(1);
   });
 
+  it('does not flag a centred two-piece title whose word gap is left of the gutter', () => {
+    // B5: a 10pt word gap at x=280..290 is not a merged two-column row on a 595pt page;
+    // the page gutter is at 291.55 and falls inside the second title piece.
+    const pageWidth = 595;
+    const block: LayoutBlock = {
+      box: { x: 100, y: 100, width: 370, height: 24 },
+      room: { x: 100, y: 100, width: 370, height: 24 },
+      lines: [lineFrom([piece('Short Paper', 100, 112, 180), piece('Title Here', 290, 112, 180)])],
+      text: 'Short Paper Title Here',
+      role: 'heading',
+      fontSize: 12,
+      lineHeight: 1.2,
+      align: 'center',
+      bold: false,
+      italic: false,
+      column: -1,
+      advance: 370,
+      writing: 0,
+    };
+    expect(blockSpansGutter(block, pageWidth)).toBe(true);
+    const fit = {
+      fits: true as const,
+      fontSize: 12,
+      lineHeight: 14,
+      lines: ['短い論文タイトル'],
+      height: 14,
+      grown: false,
+      width: 370,
+    };
+    const metrics = paintIntegrityMetrics(
+      [
+        {
+          block,
+          translation: '短い論文タイトル',
+          fit,
+          paint: true,
+          drawn: { x: 100, y: 100, width: 370, height: 24 },
+          overflow: false,
+        },
+      ],
+      pageWidth,
+    );
+    expect(metrics.crossColumnCovers).toBe(0);
+  });
+
   it('ignores gutter slivers when two columns barely touch', () => {
     const left = { x: 48, y: 100, width: 248, height: 12 };
     const right = { x: 294, y: 100, width: 250, height: 12 };

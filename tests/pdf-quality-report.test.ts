@@ -157,3 +157,29 @@ describe('committed quality report matches its raw data', () => {
     ]);
   });
 });
+
+describe('committed bench history', () => {
+  it('B4: has one 12-column schema for the header and every row', () => {
+    const lines = read('bench/results/pdf-quality/history.md').split('\n');
+    const table = lines.filter((line) => line.startsWith('|'));
+    expect(table.length).toBeGreaterThan(2);
+    for (const line of table) {
+      const cells = line
+        .slice(1, -1)
+        .split('|')
+        .map((cell) => cell.trim());
+      expect(cells, line).toHaveLength(12);
+    }
+    expect(table[0]).toContain('first block from page ms');
+    expect(table[0]).toContain('first block from run ms');
+    // The last final row is the committed final.json result.
+    const final = json<{ summary: Summary }>('bench/results/pdf-quality/final.json').summary;
+    const last = table
+      .at(-1)!
+      .slice(1, -1)
+      .split('|')
+      .map((cell) => cell.trim());
+    expect(last[10]).toBe(String(final.firstTranslatedBlockFromRunStartMs));
+    expect(last[11]).toBe(String(final.fullDocumentMs));
+  });
+});
