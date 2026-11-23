@@ -1,6 +1,12 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest';
-import { compareReadingOrder, type LayoutBlock } from '@/pdf/layout';
+import {
+  bilingualReadingRanks,
+  compareReadingOrder,
+  layoutPage,
+  type LayoutBlock,
+} from '@/pdf/layout';
+import { groupLines } from '@/pdf/lines';
 import { PdfReader } from '@/pdf/reader';
 import type { BlockState } from '@/pdf/session';
 
@@ -132,5 +138,58 @@ describe('bilingual reading order', () => {
     states[1]!.block = { ...right, column: 0 };
     paint(element, states);
     expect(rowSources(element)).toEqual(['right', 'left']);
+  });
+
+  it('reads a native full-width crossing block between the two columns', () => {
+    const body = (label: string) =>
+      `${label} column prose continues across the printed measure of this paper with enough words to be body text.`;
+    // Two real body columns on every row, with a single full-width line crossing their gutter.
+    // The lines are long enough that the region is prose rather than a table of short cells.
+    const rows = [
+      [body('LeftA'), 45, 100, 240],
+      [body('RightA'), 320, 100, 240],
+      [body('LeftB'), 45, 115, 240],
+      [body('RightB'), 320, 115, 240],
+      [body('LeftC'), 45, 130, 240],
+      [body('RightC'), 320, 130, 240],
+      [body('LeftD'), 45, 145, 240],
+      [body('RightD'), 320, 145, 240],
+      ['Crossing full-width heading printed across both body columns of the page', 45, 175, 510],
+      [body('LeftBelow'), 45, 215, 240],
+      [body('RightBelow'), 320, 215, 240],
+      [body('LeftLast'), 45, 230, 240],
+      [body('RightLast'), 320, 230, 240],
+    ] as const;
+    const lines = groupLines(
+      rows.map(([text, x, baseline, width]) => ({
+        text,
+        box: { x, y: baseline - 10, width, height: 10 },
+        baseline,
+        fontName: 'regular',
+        family: 'serif',
+        bold: false,
+        italic: false,
+        math: false,
+        orientation: 0,
+        size: 10,
+        displayed: 0,
+      })),
+    );
+    const layout = layoutPage(lines, { images: [] }, { width: 600, height: 800 });
+    const spanning = layout.blocks.find((block) => block.text.startsWith('Crossing'));
+    // The cut reads a crossing band at its printed height, but its block is full-width like an
+    // OCR span: column 0 would order the translation as another left-column row.
+    expect(spanning?.column).toBe(-1);
+    const ranks = bilingualReadingRanks(layout.blocks);
+    const order = [...layout.blocks]
+      .sort((left, right) => (ranks.get(left) ?? 0) - (ranks.get(right) ?? 0))
+      .map((block) => block.text.split(' ', 1)[0]);
+    expect(order).toEqual(['LeftA', 'RightA', 'Crossing', 'LeftBelow', 'RightBelow']);
+    const element: BilingualElement = {
+      bilingual: document.createElement('div'),
+      bilingualRows: new Map(),
+    };
+    painter()(element, layout.blocks.map(state));
+    expect(rowSources(element).map((text) => text.split(' ', 1)[0])).toEqual(order);
   });
 });

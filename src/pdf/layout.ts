@@ -598,6 +598,12 @@ export interface Region {
   column: number;
   /** The gutter this region was cut at, when it came from a column split. */
   gutter?: number | undefined;
+  /**
+   * True for the band of lines that crossed a column gutter. It keeps its parent column so the
+   * cut reads it at its printed height, but its blocks report the spanning column (-1), as OCR
+   * does, so the bilingual pane reads the columns around it in bands.
+   */
+  spanning?: boolean | undefined;
 }
 
 /** Recursive XY-cut, emitting regions in reading order. */
@@ -622,12 +628,16 @@ function cut(lines: readonly TextLine[], unit: number, room: Box, column: number
       const leftRoom = boxTo(room, gutter.at, lines);
       const rightRoom = boxFrom(room, gutter.at, lines);
       // A line that crosses the gutter is a full-width title, caption or formula. It is cut
-      // as its own region and read between the two columns at the height it occupies.
+      // as its own region and read between the two columns at the height it occupies. Its
+      // blocks report the spanning column, as OCR full-width lines do, so the bilingual pane
+      // reads the columns around it as bands.
       return orderRegions(
         [
           ...cut(left, unit, leftRoom, column),
           ...cut(right, unit, rightRoom, column + 1),
-          ...(crossing.length > 0 ? cut(crossing, unit, room, column) : []),
+          ...(crossing.length > 0
+            ? cut(crossing, unit, room, column).map((region) => ({ ...region, spanning: true }))
+            : []),
         ],
         gutter.at,
       );
@@ -1046,6 +1056,10 @@ function appendRegionBlocks(
 ): void {
   const rows = groupBaselineRows(region.lines);
   if (rows.length === 0) return;
+  // A gutter-crossing band keeps its parent column for the XY-cut's reading order, but its
+  // blocks are full-width: report the spanning column, like OCR, so the bilingual pane reads
+  // the columns around them in bands.
+  const blockColumn = region.spanning === true ? -1 : region.column;
 
   const emit = (
     lines: readonly TextLine[],
@@ -1074,7 +1088,7 @@ function appendRegionBlocks(
   // the region is read as rows of values, otherwise `Figure 1: …` joins the first header.
   const { captions, rest } = peelLeadingCaptions(rows);
   for (const caption of captions) {
-    emit(caption, region.room, region.column, minLeft(caption));
+    emit(caption, region.room, blockColumn, minLeft(caption));
   }
 
   // A region the cut recognised as a table keeps every cell apart; a region of prose only
@@ -1127,7 +1141,7 @@ function appendRegionBlocks(
       for (;;) {
         const split = overlongProseSplit(current);
         if (!split) return;
-        emit(split.head, room, region.column, columnLeft, currentFragments);
+        emit(split.head, room, blockColumn, columnLeft, currentFragments);
         current = split.tail;
       }
     };
@@ -1161,7 +1175,7 @@ function appendRegionBlocks(
           );
       if (previous && next && starts) {
         splitLongProse();
-        emit(current, room, region.column, columnLeft, currentFragments);
+        emit(current, room, blockColumn, columnLeft, currentFragments);
         current = [];
         currentFragments = false;
       }
@@ -1170,7 +1184,7 @@ function appendRegionBlocks(
     }
 
     splitLongProse();
-    emit(current, room, region.column, columnLeft, currentFragments);
+    emit(current, room, blockColumn, columnLeft, currentFragments);
   }
 }
 
