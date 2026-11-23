@@ -1980,7 +1980,11 @@ export class PageSession {
     this.running = Math.max(0, this.running - 1);
   }
 
-  private abortBatches(match: (batch: InflightBatch) => boolean, requeue: boolean): void {
+  private abortBatches(
+    match: (batch: InflightBatch) => boolean,
+    requeue: boolean,
+    except?: Live,
+  ): void {
     let released = false;
     for (const batch of [...this.inflightBatches]) {
       if (!match(batch)) continue;
@@ -1988,6 +1992,17 @@ export class PageSession {
       this.releaseBatch(batch);
       released = true;
       for (const item of batch.items) {
+        if (item === except) {
+          // The caller drops this item because its source changed mid-flight. Clearing it
+          // here stops `pump()` from starting a second request for the old source before
+          // the caller can forget it.
+          item.state = 'idle';
+          item.partText = [];
+          item.partFinal = [];
+          item.partError = [];
+          item.model?.block.removeAttribute('data-sakutto-pending');
+          continue;
+        }
         if (item.role === 'selection') {
           item.state = 'idle';
           if (this.selection === item) this.selection = null;
@@ -2295,6 +2310,12 @@ export class PageSession {
 
   private blockOf(node: Node): Element | null {
     const element = node instanceof Element ? node : node.parentElement;
+    // A block only gets `data-sakutto-id` when it is first painted. A request that is still
+    // running can already have its source replaced, so live blocks are the authoritative
+    // index here; the attribute stays the fallback for blocks painted by another session.
+    for (let current: Element | null = element; current; current = current.parentElement) {
+      if (this.liveByBlock.has(current)) return current;
+    }
     return element?.closest('[data-sakutto-id]') ?? null;
   }
 
@@ -2344,8 +2365,20 @@ export class PageSession {
 
   private refreshBlock(block: Element): void {
     const existing = this.liveByBlock.get(block);
-    if (!existing || existing.state === 'running') return;
+    if (!existing) return;
     const model = buildSegment(block);
+    if (existing.state === 'running') {
+      if (model && model.source === existing.source) return;
+      // X swapped this tweet's text while its request was in flight — show-more expanded
+      // it or the virtual list recycled the cell. The in-flight output belongs to the old
+      // source. Abort only that batch, requeue its other items, then enqueue the changed
+      // text from a fresh segment so the old translation cannot land on the new block.
+      this.abortBatches((batch) => batch.items.includes(existing), true, existing);
+      this.forgetLive(existing, false);
+      this.addBlock(block, existing.index);
+      this.pump();
+      return;
+    }
     if (model && model.source === existing.source) {
       // React can replace the children while keeping this block mounted. Rebind the live
       // segment to those new nodes, then put back cached output the reconciliation removed.

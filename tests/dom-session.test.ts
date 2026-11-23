@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { buildSegment } from '@/dom/segment';
-import { applyTranslation, restoreSegment } from '@/dom/render';
+import { applyTranslation, restoreSegment, showBilingual } from '@/dom/render';
 import {
   POPUP_TEXT_SCALE_VAR,
   popupCardMetrics,
@@ -214,6 +214,29 @@ describe('segment restore', () => {
     restoreSegment(model, created);
     expect(snapshot(block)).toEqual(before);
     expect(block.querySelector('a')).toBe(link);
+  });
+
+  it('distributes flattened CJK output across bilingual source paragraphs', () => {
+    document.body.innerHTML =
+      '<div data-testid="tweetText"><span>一つ目の短い段落</span><br /><br />' +
+      '<span>二つ目の少し長めの段落です</span><br /><br /><span>三つ目の段落</span></div>';
+    const block = document.querySelector('[data-testid="tweetText"]');
+    if (!block) throw new Error('missing tweet');
+    const model = buildSegment(block);
+    if (!model) throw new Error('missing segment');
+
+    showBilingual(model, '最初の訳文二番目の訳文です最後の訳文', []);
+
+    const line = block.querySelector('sakutto-line');
+    const chunks = Array.from(line?.childNodes ?? [])
+      .filter((node) => node.nodeType === Node.TEXT_NODE)
+      .map((node) => node.nodeValue ?? '');
+    expect(line?.querySelectorAll('br')).toHaveLength(4);
+    expect(chunks).toHaveLength(5);
+    expect(chunks[0]?.trim()).not.toBe('');
+    expect(chunks[2]?.trim()).not.toBe('');
+    expect(chunks[4]?.trim()).not.toBe('');
+    expect(chunks.join('')).toBe('最初の訳文二番目の訳文です最後の訳文');
   });
 });
 

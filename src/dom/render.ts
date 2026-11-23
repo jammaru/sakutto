@@ -403,8 +403,9 @@ function groupUnits(units: readonly string[], sources: readonly string[]): strin
  * split only at sentence ends; when there are fewer sentences than lines, several source
  * lines stay empty instead of receiving a fragment. Space-delimited text may fall back to
  * word boundaries only when there are not enough sentence boundaries to fill the lines.
- * There is deliberately no per-code-point fallback: that put `あ` / `り` / `がとう` on the
- * whitespace-only lines between Gmail's `<br>`s.
+ * There is deliberately no per-code-point fallback in this replacement path: that put
+ * `あ` / `り` / `がとう` on the whitespace-only lines between Gmail's `<br>`s. The bilingual
+ * line has its own fallback below, because its gaps are painted without source `<br>`s.
  */
 function splitByWeights(text: string, sources: readonly string[]): string[] {
   const count = sources.length;
@@ -431,7 +432,7 @@ function splitByWeights(text: string, sources: readonly string[]): string[] {
   return chunks.map((chunk) => chunk.trim());
 }
 
-function lineChunks(text: string, groups: readonly LineGroup[]): string[] {
+function lineChunks(text: string, groups: readonly LineGroup[], bilingual = false): string[] {
   if (groups.length <= 1) return [text];
 
   const leading = /^\s*/u.exec(text)?.[0] ?? '';
@@ -442,10 +443,19 @@ function lineChunks(text: string, groups: readonly LineGroup[]): string[] {
   if (nonEmpty.length === groups.length) {
     chunks = nonEmpty;
   } else {
-    chunks = splitByWeights(
-      text,
-      groups.map((group) => group.source),
-    );
+    const sources = groups.map((group) => group.source);
+    chunks = splitByWeights(text, sources);
+    // The replacement renderer deliberately leaves blank lines empty when a CJK output has
+    // fewer sentence ends than the source has lines. A bilingual line has no real `<br>`s
+    // of its own, so flattening every paragraph into its first chunk would read as one
+    // run-on block. This last resort is bilingual-only; the replacement path is unchanged.
+    if (
+      bilingual &&
+      CJK_TEXT.test(text) &&
+      chunks.filter((chunk) => chunk.trim().length > 0).length < groups.length
+    ) {
+      chunks = distributeCjkParagraphs(text.trim(), sources);
+    }
   }
 
   // Spaces at the edges of a gap sit beside an inline placeholder, not a line break. Keep
@@ -458,13 +468,40 @@ function lineChunks(text: string, groups: readonly LineGroup[]): string[] {
   return chunks;
 }
 
+/**
+ * Last-resort split for a flattened CJK translation that has fewer sentence boundaries than
+ * the source has paragraphs. Cuts land on code-point boundaries in proportion to each source
+ * paragraph, and every character stays in exactly one chunk. The source text is still right
+ * above the bilingual line, so a cut inside a word is less harmful than one run-on block.
+ */
+function distributeCjkParagraphs(text: string, sources: readonly string[]): string[] {
+  const points = Array.from(text);
+  const weights = sources.map((source) => Math.max(1, Array.from(source.trim()).length));
+  const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
+  const chunks: string[] = [];
+  let cursor = 0;
+
+  for (let index = 0; index < sources.length - 1; index += 1) {
+    const remainingPoints = points.length - cursor;
+    const remainingGroups = sources.length - index - 1;
+    const preferred = Math.round((points.length * (weights[index] ?? 1)) / totalWeight);
+    // Leave enough characters for the paragraphs that follow. A translation shorter than
+    // the paragraph count simply leaves the trailing paragraphs empty.
+    const take = Math.min(Math.max(0, preferred), Math.max(0, remainingPoints - remainingGroups));
+    chunks.push(points.slice(cursor, cursor + take).join(''));
+    cursor += take;
+  }
+  chunks.push(points.slice(cursor).join(''));
+  return chunks;
+}
+
 /** Mirror the source's real line breaks without rewriting its React-owned text nodes. */
 function bilingualChunks(model: SegmentModel, translation: string): string[] {
   const sources = model.source.split('\n');
   const groups = sources
     .filter((source) => source.trim().length > 0)
     .map((source) => ({ slots: [], source }));
-  const chunks = lineChunks(visibleTranslation(translation), groups);
+  const chunks = lineChunks(visibleTranslation(translation), groups, true);
   let index = 0;
   return sources.map((source) => {
     if (source.trim().length === 0) return '';

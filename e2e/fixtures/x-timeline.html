@@ -5,13 +5,54 @@
     <title>X timeline bilingual reconciliation</title>
   </head>
   <body>
-    <article data-testid="tweet">
+    <article id="main-tweet" data-testid="tweet">
       <div id="tweet" data-testid="tweetText">
         <span>A short preview of a longer post.</span>
       </div>
       <button id="show-more" type="button">Show more</button>
       <button id="force-rerender" type="button">Refresh timeline state</button>
     </article>
+
+    <article id="three-paragraph-tweet" data-testid="tweet" hidden>
+      <div id="three-paragraph-text" data-testid="tweetText">
+        <span
+          >最初の段落には、対訳でも独立した段落として残したい日本語の本文が十分な長さで書かれています。</span
+        >
+        <br />
+        <br />
+        <span
+          >二番目の段落にも、空白行をまたいでも内容が混ざらないことを確認するための文章を用意しています。</span
+        >
+        <br />
+        <br />
+        <span
+          >最後の段落では、翻訳完了後にも三段階の構造が失われず、それぞれの訳文が正しい位置に表示されることを確認します。</span
+        >
+      </div>
+    </article>
+
+    <section id="recommendations" aria-label="もっと見つける" hidden>
+      <div data-testid="cellInnerDiv">
+        <article data-testid="tweet">
+          <div id="recommendation-text" data-testid="tweetText">
+            <span>おすすめ欄に表示されている日本語の長い投稿は、最初は短縮版の末尾です。</span>
+          </div>
+          <button id="recommendation-more" type="button">さらに表示</button>
+        </article>
+      </div>
+    </section>
+
+    <article id="recycled-tweet" data-testid="tweet" hidden>
+      <div data-testid="cellInnerDiv">
+        <div id="recycled-text" data-testid="tweetText">
+          <span
+            >仮想リストの古いセルに表示されていた日本語の投稿です。この古い本文は、セルが再利用された後には残ってはいけません。古い要求が完了する前に別の投稿へ差し替わる場面を再現するための長い本文で、古い訳文が新しいセルに残らないことを確認します。</span
+          >
+        </div>
+      </div>
+      <button id="recycle-cell" type="button">次の投稿を表示</button>
+    </article>
+
     <script>
       const tweet = document.getElementById('tweet');
       const expandedHtml = [
@@ -50,6 +91,21 @@
         });
       });
       document.getElementById('force-rerender').addEventListener('click', render);
+
+      document.getElementById('recommendation-more').addEventListener('click', (event) => {
+        document.getElementById('recommendation-text').innerHTML = [
+          '<span>おすすめ欄に表示されている日本語の長い投稿は、展開前の本文よりも十分に長くなります。</span>',
+          '<br />',
+          '<br />',
+          '<span>さらに表示を押すと現れる追加の段落です。翻訳中の古い要求ではなく、この新しい本文が英語に翻訳される必要があります。</span>',
+        ].join('');
+        event.currentTarget.hidden = true;
+      });
+
+      document.getElementById('recycle-cell').addEventListener('click', () => {
+        document.getElementById('recycled-text').innerHTML =
+          '<span>再利用された同じセルにマウントされた新しい日本語の投稿です。古い訳文を破棄し、この新しい本文を翻訳し直します。新しい本文だけが対訳として表示され、以前の投稿の断片が一行にも残らないことを確かめるための追加の文章です。</span>';
+      });
     </script>
   </body>
 </html>

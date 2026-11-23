@@ -58,4 +58,103 @@ test.describe('X timeline bilingual translation', () => {
       await page.close();
     }
   });
+
+  test('keeps blank-line gaps between all three translated paragraphs', async () => {
+    await resetExtensionStorage(extension.worker, { targetLanguage: 'en' });
+    const page = await extension.context.newPage();
+    try {
+      await page.goto(`${FIXTURE_ORIGIN}/x-timeline.html`);
+      await page.locator('#main-tweet').evaluate((element) => element.setAttribute('hidden', ''));
+      await page
+        .locator('#three-paragraph-tweet')
+        .evaluate((element) => element.removeAttribute('hidden'));
+      await commandPage(extension.worker, page, 'bilingual');
+      await waitTranslated(page);
+
+      const line = page.locator('#three-paragraph-text > sakutto-line');
+      await expect(line.locator('br')).toHaveCount(4);
+      const lines = await line.evaluate((element) =>
+        Array.from(element.childNodes)
+          .filter((node) => node.nodeType === Node.TEXT_NODE)
+          .map((node) => node.nodeValue ?? ''),
+      );
+      expect(lines).toHaveLength(5);
+      expect(lines[0]).toContain('§en§最初の段落');
+      expect(lines[1]).toBe('');
+      expect(lines[2]).toContain('§en§二番目の段落');
+      expect(lines[3]).toBe('');
+      expect(lines[4]).toContain('§en§最後の段落');
+    } finally {
+      await page.close();
+    }
+  });
+
+  test('translates expanded recommendation text instead of finishing the truncated request', async () => {
+    await resetExtensionStorage(extension.worker, { targetLanguage: 'en' });
+    const page = await extension.context.newPage();
+    try {
+      await page.goto(`${FIXTURE_ORIGIN}/x-timeline.html`);
+      await page.locator('#main-tweet').evaluate((element) => element.setAttribute('hidden', ''));
+      await page
+        .locator('#recommendations')
+        .evaluate((element) => element.removeAttribute('hidden'));
+      await page.evaluate(() => {
+        document.documentElement.dataset.benchPace = JSON.stringify({
+          ttfbMs: 300,
+          msPerChar: 2,
+          deltas: 1,
+        });
+      });
+      await commandPage(extension.worker, page, 'bilingual');
+      await expect(page.locator('#recommendation-text')).toHaveAttribute(
+        'data-sakutto-pending',
+        '1',
+      );
+      await page.locator('#recommendation-more').click();
+
+      const line = page.locator('#recommendation-text > sakutto-line');
+      await expect(line).toContainText('§en§さらに表示を押すと現れる追加の段落です');
+      await expect(line).not.toContainText('短縮版の末尾です');
+      await expect(page.locator('#recommendation-text')).toContainText(
+        'さらに表示を押すと現れる追加の段落です',
+      );
+      await waitTranslated(page);
+    } finally {
+      await page.close();
+    }
+  });
+
+  test('drops the old translation when a running cell is recycled with new content', async () => {
+    await resetExtensionStorage(extension.worker, { targetLanguage: 'en' });
+    const page = await extension.context.newPage();
+    try {
+      await page.goto(`${FIXTURE_ORIGIN}/x-timeline.html`);
+      await page.locator('#main-tweet').evaluate((element) => element.setAttribute('hidden', ''));
+      await page
+        .locator('#recycled-tweet')
+        .evaluate((element) => element.removeAttribute('hidden'));
+      await page.evaluate(() => {
+        document.documentElement.dataset.benchPace = JSON.stringify({
+          ttfbMs: 300,
+          msPerChar: 2,
+          deltas: 1,
+        });
+      });
+      await commandPage(extension.worker, page, 'bilingual');
+      await expect(page.locator('#recycled-text')).toHaveAttribute('data-sakutto-pending', '1');
+      await page.locator('#recycle-cell').click();
+
+      const line = page.locator('#recycled-text > sakutto-line');
+      await expect(line).toContainText(
+        '§en§再利用された同じセルにマウントされた新しい日本語の投稿です',
+      );
+      await expect(line).not.toContainText('古いセルに表示されていた');
+      await expect(page.locator('#recycled-text')).toContainText(
+        '再利用された同じセルにマウントされた新しい日本語の投稿です',
+      );
+      await waitTranslated(page);
+    } finally {
+      await page.close();
+    }
+  });
 });
