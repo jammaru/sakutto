@@ -297,12 +297,21 @@ function scientificShortTitleFirstPiece(first: string): boolean {
     return false;
   }
   if (/:/u.test(first)) return false;
-  return first.split(/\s+/u).filter(Boolean).length <= 4;
+  if (first.split(/\s+/u).filter(Boolean).length > 4) return false;
+  const afterPrefix = first.replace(
+    /^(?:mRNA|iOS|eBay|DNA|RNA|eDNA|CRISPR|Node\.js|U\.S\.)\s+/iu,
+    '',
+  );
+  // Titles keep title case after the token; body prose does not.
+  if (/\b[a-z]{2,}/u.test(afterPrefix)) return false;
+  return true;
 }
 
 /** Colon rows that are inline notation (\": x\") belong in body columns, not merged titles. */
-function colonNotationBodyRow(wholeText: string): boolean {
-  return /:\s*[a-z]\b/u.test(wholeText) || /:\s*\d/u.test(wholeText);
+function colonNotationBodyRow(wholeText: string, firstPiece: string): boolean {
+  if (/\bnotation\s*:/iu.test(wholeText)) return true;
+  if (/:\s*[a-z]\b/u.test(wholeText) || /:\s*\d/u.test(wholeText)) return true;
+  return /:\s*[A-Z]\s*$/u.test(firstPiece.trim());
 }
 
 function onePrintedTitleRow(pieces: readonly OcrTextPiece[], pageWidth: number): boolean {
@@ -638,7 +647,8 @@ export function ocrResultToTextLines(
       (printedTitleRow && scientificTitleRow) ||
       (colonTitleRow &&
         (!pageTwoColumn ||
-          (!colonNotationBodyRow(wholeText) && wholeText.split(/\s+/u).length <= 14)));
+          (!colonNotationBodyRow(wholeText, orderedPieces[0]?.text ?? '') &&
+            wholeText.split(/\s+/u).length <= 14)));
     const singleRowWordGap =
       twoPieceTitleMerge || (!pageTwoColumn && singleSentenceRow(pieces, resolved.pageWidth));
     const titleWordGap =

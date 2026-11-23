@@ -418,9 +418,6 @@ export function blockSpansGutter(
  */
 function blockMergesColumns(block: LayoutBlock, pageWidth: number): boolean {
   if (pageWidth <= 0) return false;
-  // Spanning lines already have their own column geometry; treating them as merged body
-  // columns made genuine full-width prose covers look like gutter violations.
-  if (block.column < 0) return false;
   // A heading or caption that spans the page is usually a full-width title, not a row of
   // two columns fused together. OCR splits such titles into two text regions with a word
   // gap near the gutter, so they need a wider gap than prose before counting as a merge.

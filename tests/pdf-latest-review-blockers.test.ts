@@ -99,8 +99,12 @@ describe('latest DSH review blockers', () => {
     const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
     const bodyRows = [
       [
-        region('mRNA expression levels are high in', quad(45, 100, 250, 20)),
+        region('mRNA expression levels are', quad(45, 100, 250, 20)),
         region('The model is trained on this data', quad(305, 100, 250, 20)),
+      ],
+      [
+        region('mRNA expression levels are high in', quad(45, 120, 250, 20)),
+        region('The model is trained on this data', quad(305, 120, 250, 20)),
       ],
       [
         region('eDNA samples were collected from', quad(45, 130, 250, 20)),
@@ -143,6 +147,33 @@ describe('latest DSH review blockers', () => {
     expect(lines).toContain('mRNA expression levels: x');
     expect(lines).toContain('The model is trained on this data');
     expect(lines).not.toContain('mRNA expression levels: x The model is trained on this data');
+  });
+
+  it('B2: splits notation-with-colon body rows on a two-column page', () => {
+    const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+    const bodyRows = [
+      [
+        region('Left column prose for the first printed row.', quad(45, 140, 250, 20)),
+        region('Right column prose on that same printed row.', quad(305, 140, 250, 20)),
+      ],
+      [
+        region('A second left column line proving two columns.', quad(45, 170, 250, 20)),
+        region('A second right column line proving two columns.', quad(305, 170, 250, 20)),
+      ],
+    ];
+    const colonBody = [
+      region('we use the notation: X', quad(45, 200, 250, 20)),
+      region('The model is trained on this data', quad(305, 200, 250, 20)),
+    ];
+    const result: OcrResult = {
+      regions: [...bodyRows.flat(), ...colonBody],
+      lines: [...bodyRows.map(readingLine), readingLine(colonBody)],
+      text: '',
+    };
+    const lines = ocrResultToTextLines(result, options).map((line) => line.text);
+    expect(lines).toContain('we use the notation: X');
+    expect(lines).toContain('The model is trained on this data');
+    expect(lines).not.toContain('we use the notation: X The model is trained on this data');
   });
 
   it('B2: splits a colon body row on a two-column page', () => {
