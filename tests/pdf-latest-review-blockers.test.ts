@@ -288,34 +288,6 @@ describe('latest DSH review blockers', () => {
     }
   });
 
-  it('B4: places a full-width footer after the right column in bilingual mode', () => {
-    const reader = Object.create(PdfReader.prototype) as PdfReader;
-    (reader as unknown as { target: string }).target = 'ja';
-    const paint = (
-      reader as unknown as {
-        paintBilingual: (e: BilingualElement, s: readonly BlockState[]) => void;
-      }
-    ).paintBilingual.bind(reader);
-    const leftTop = block('left-top', 45, 100, 0);
-    const leftBottom = block('left-bottom', 45, 300, 0);
-    const rightTop = block('right-top', 315, 100, 1);
-    const footer = block('footer', 45, 700, -1);
-    const element: BilingualElement = {
-      bilingual: document.createElement('div'),
-      bilingualRows: new Map(),
-    };
-    paint(
-      element,
-      [footer, leftBottom, rightTop, leftTop].map((b) => ({
-        block: b,
-        state: 'done',
-        translation: '訳',
-      })) as unknown as readonly BlockState[],
-    );
-    expect(
-      [...element.bilingual.children].map((row) => row.firstElementChild?.textContent),
-    ).toEqual(['left-top', 'left-bottom', 'right-top', 'footer']);
-  });
 
   it('B4: paints bilingual rows with a spanning block at its reading position', () => {
     const reader = Object.create(PdfReader.prototype) as PdfReader;

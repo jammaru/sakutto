@@ -171,7 +171,7 @@ export class PdfReader {
   private readonly geometryByIndex: ReadonlyMap<number, PageGeometry>;
   private readonly pageLimit: number | null;
   private readonly ops: Record<string, number> | null;
-  private readonly ocr: { recognize: PdfOcrRecognize } | null;
+  private readonly ocr: { recognize: PdfOcrRecognize; tier?: OcrTier } | null;
   private pageOcr: PdfPageOcr | null = null;
   private readonly parsed = new Set<number>();
   private readonly retryableOcr = new Set<number>();
@@ -891,7 +891,7 @@ export class PdfReader {
             pageWidth: extracted.width,
             pageHeight: extracted.height,
             recognize: this.ocr.recognize,
-            tier: this.ocr.tier,
+            ...(this.ocr.tier !== undefined ? { tier: this.ocr.tier } : {}),
             timeoutMessage: this.labels.ocrFailed,
           });
           this.pageOcr = pageOcr;

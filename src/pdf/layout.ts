@@ -112,19 +112,8 @@ export function compareReadingOrder(
   // position between the left-column rows and the comparator stays transitive.
   const leftColumn = left.column < 0 ? 0 : left.column;
   const rightColumn = right.column < 0 ? 0 : right.column;
-  if (left.column < 0 !== right.column < 0) {
-    const span = left.column < 0 ? left : right;
-    const numbered = left.column < 0 ? right : left;
-    // A full-width footer printed below both columns belongs after the right column, not
-    // interleaved with the left column's rank.
-    if (
-      numbered.column === 1 &&
-      span.box.width > numbered.box.width * 1.5 &&
-      span.box.y > numbered.box.y + Math.max(numbered.box.height, 12) + 8
-    ) {
-      return left.column < 0 ? 1 : -1;
-    }
-  }
+  // Do not special-case footers by width here: a wide mid-page span plus a lower left line
+  // reintroduces comparator cycles (span after right-top, left-bottom before right-top).
   if (leftColumn !== rightColumn) return leftColumn - rightColumn;
   return left.box.y - right.box.y || left.box.x - right.box.x;
 }

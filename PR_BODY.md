@@ -45,7 +45,7 @@ Node 24 / ONNX Runtime Web 1.31.1 WASM、生成 CC0 フィクスチャ8件、各
 
 再現: `pnpm bench:ocr`。詳細: `bench/results/ocr-benchmark.md`。
 
-実スキャン `bench/pdf/scan.pdf` p1 は、コミット済みの正解テキスト（`bench/pdf/scan-p1.gt.txt`）に対して `pnpm bench:pdf:scan:ocr` で測定します。旧ベンチの参照は印刷用 paper.pdf の行でスキャンレイアウトと不一致でした。修正後の出荷設定（2x / maxSide 1600, Standard）は CER 3.0% / WER 5.5%、cross-column 0、約 34.5 秒/ページです。実スキャンの overflow は未描画のフィット失敗も数え、default-1600 で 4 件です。詳細: `bench/results/scan-ocr/README.md`。組版品質ベンチは mixed language 0.0%（目標 ≤2%）、reading order 98.3%（目標 ≥98%）を維持しています。初回訳文レイテンシは比較可能な実行開始からの値のみを表で比較し、ページ単位の値は baseline に存在しないため別行としています。
+実スキャン `bench/pdf/scan.pdf` p1 は、コミット済みの正解テキスト（`bench/pdf/scan-p1.gt.txt`）に対して `pnpm bench:pdf:scan:ocr` で測定します。旧ベンチの参照は印刷用 paper.pdf の行でスキャンレイアウトと不一致でした。修正後の出荷設定（2x / maxSide 1600, Standard）は最新コミットの `bench/results/scan-ocr/report.json` に同期（現行 **CER 5.4% / WER 7.7%、cross-column 1、約 37.1 秒/ページ**、overflow 5）。実行ごとに認識はわずかに変動します。詳細: `bench/results/scan-ocr/README.md`。組版品質ベンチは mixed language 0.0%（目標 ≤2%）、reading order 98.3%（目標 ≥98%）を維持しています。初回訳文レイテンシは比較可能な実行開始からの値のみを表で比較し、ページ単位の値は baseline に存在しないため別行としています。
 
 ### 権限とプライバシー
 

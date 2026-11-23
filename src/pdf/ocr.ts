@@ -585,8 +585,7 @@ export function ocrResultToTextLines(
     // own text structure decides. Page-wide column evidence still wins over that text guess.
     const printedTitleRow = onePrintedTitleRow(pieces, resolved.pageWidth);
     const twoPieceTitleMerge =
-      printedTitleRow &&
-      (!pageTwoColumn || /:/u.test(wholeText) || isCentredHeadingRow(pieces, resolved.pageWidth));
+      printedTitleRow && (!pageTwoColumn || /:/u.test(wholeText));
     const singleRowWordGap =
       twoPieceTitleMerge || (!pageTwoColumn && singleSentenceRow(pieces, resolved.pageWidth));
     const titleWordGap =
