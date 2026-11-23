@@ -133,7 +133,7 @@ function splitProseLead(value: string, preceding = ''): { lead: string; value: s
     if (!match?.[1] || !match[2]) break;
     const token = match[1];
     const following = rest.slice(match[0].length);
-    if (isNotationHead(token, following, preceding)) break;
+    if (isNotationHead(token, following, preceding + lead)) break;
     lead += match[0];
     rest = following;
   }

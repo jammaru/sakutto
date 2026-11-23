@@ -810,10 +810,16 @@ export function ocrResultToTextLines(
       pageColumns,
       resolved.pageWidth,
     );
+    const topRowSharesBodyColumns =
+      sharesColumns &&
+      !twoColumnRows.includes(lineIndex) &&
+      otherColumnRows.length >= 2 &&
+      !onePrintedTitleRow(pieces, resolved.pageWidth, true, true);
     const aboveAllBodyRows =
       otherBodyTops.length > 0 &&
       otherBodyTops.every((top) => top > rowTop) &&
-      !(twoColumnRows.includes(lineIndex) && sharesColumns);
+      !(twoColumnRows.includes(lineIndex) && sharesColumns) &&
+      !topRowSharesBodyColumns;
     // A CJK row sharing the page's corroborated gutter is body text, not a spanning title: its
     // glyphs cannot carry the casing evidence an English title check relies on.
     const cjkBodyGeometry = cjkTwoColumnBodyRow(
@@ -823,13 +829,14 @@ export function ocrResultToTextLines(
       aboveAllBodyRows,
       pageColumns,
     );
+    const corroboratedBodyGeometry = cjkBodyGeometry || topRowSharesBodyColumns;
     // A real section heading can be printed between two-column body rows instead of above all
     // of them. Balanced page margins, a moderate (title-sized) span and a title-shaped tail
     // distinguish it from a near-full-measure colon body row, which has body text above and
     // below too, but must be split at the gutter. The width ceiling is deliberately well below
     // the 75-90% measure of ordinary two-column body rows.
     const centredHeadingBetweenBody =
-      !cjkBodyGeometry &&
+      !corroboratedBodyGeometry &&
       rowsAbove.length >= 2 &&
       rowsBelow.length >= 2 &&
       lineWidth >= resolved.pageWidth * 0.6 &&
@@ -845,7 +852,7 @@ export function ocrResultToTextLines(
     // guards, a narrow body row between one full row above and two below satisfies the count by
     // accident and is promoted to a spanning title (review blockers 2a/2b).
     const titleAboveBody =
-      !cjkBodyGeometry &&
+      !corroboratedBodyGeometry &&
       (centredHeadingBetweenBody ||
         (twoColumnTops.length > 0 &&
           (aboveAllBodyRows ||
@@ -921,7 +928,7 @@ export function ocrResultToTextLines(
       resolved.pageWidth,
       titleAboveBody,
       titleAboveBody,
-      cjkBodyGeometry,
+      corroboratedBodyGeometry,
     );
     const colonTitleRow =
       titleCentreEvidence && twoPieceColonTitle(pieces, resolved.pageWidth, wholeText);
@@ -936,7 +943,7 @@ export function ocrResultToTextLines(
       (lineWidth < resolved.pageWidth * 0.6 || titleAboveBody) &&
       (!pageTwoColumn || titleAboveBody || rowCentredOnPage(pieces, resolved.pageWidth));
     const twoPieceTitleMerge =
-      !cjkBodyGeometry &&
+      !corroboratedBodyGeometry &&
       ((printedTitleRow && !pageTwoColumn && !scientificBodyRow) ||
         wideGapTitleRow ||
         (printedTitleRow && scientificTitleRow) ||

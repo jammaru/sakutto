@@ -773,6 +773,24 @@ describe('ed88d36 review blockers: positional rule for every two-letter token', 
       prompt: 'The projection <i0> is learned.',
       slot: 'Wo Q ∈ R d model ×d k',
     },
+    {
+      token: 'Wo',
+      source: 'For Wo Q ∈ R d model × d k we use a projection.',
+      prompt: 'For <i0> we use a projection.',
+      slot: 'Wo Q ∈ R d model × d k',
+    },
+    {
+      token: 'Wo',
+      source: 'Given Wo Q ∈ R d model × d k we use a projection.',
+      prompt: 'Given <i0> we use a projection.',
+      slot: 'Wo Q ∈ R d model × d k',
+    },
+    {
+      token: 'Wo',
+      source: 'The Wo Q ∈ R d model × d k matrix is learned.',
+      prompt: 'The <i0> matrix is learned.',
+      slot: 'Wo Q ∈ R d model × d k',
+    },
   ];
 
   it.each(openers)('peels $token before another operand', ({ source, prompt, slot }) => {
@@ -870,6 +888,11 @@ describe('ed88d36 review blockers: positional rule for every two-letter token', 
         source: 'Wo Q ∈ R d×d gilt, ist die Matrix symmetrisch.',
         prompt: 'Wo <i0> gilt, ist die Matrix symmetrisch.',
         slot: 'Q ∈ R d×d',
+      },
+      {
+        source: 'For Wo Q ∈ R d model × d k we use a projection.',
+        prompt: 'For <i0> we use a projection.',
+        slot: 'Wo Q ∈ R d model × d k',
       },
     ];
     for (const { source, prompt, slot } of cases) {

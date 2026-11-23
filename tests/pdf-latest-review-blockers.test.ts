@@ -1834,6 +1834,34 @@ describe('93666bb review blockers: CJK two-column body rows', () => {
     expect(layout.blocks.some((block) => block.titleRow === true)).toBe(false);
   });
 
+  it('308b786 blocker 1: splits a topmost full-measure English row above corroborated body', () => {
+    const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+    const first = [
+      region('Results show strong effects on', quad(45, 65, 250, 20)),
+      region('Mice and rats', quad(305, 65, 250, 20)),
+    ];
+    const body = [95, 155, 185].map((y) => [
+      region('Left column prose for the first printed row.', quad(45, y, 250, 20)),
+      region('Right column prose on the same printed row.', quad(305, y, 250, 20)),
+    ]);
+    const result: OcrResult = {
+      regions: [...first, ...body.flat()],
+      lines: [readingLine(first), ...body.map(readingLine)],
+      text: '',
+    };
+    const fused = 'Results show strong effects on Mice and rats';
+
+    const lines = ocrResultToTextLines(result, options);
+    expect(lines.map((line) => line.text)).not.toContain(fused);
+    expect(lines.find((line) => line.text === 'Results show strong effects on')?.columnHint).toBe(0);
+    expect(lines.find((line) => line.text === 'Mice and rats')?.columnHint).toBe(1);
+    expect(lines.some((line) => line.titleRow === true)).toBe(false);
+
+    const layout = ocrResultToPageLayout(result, options);
+    expect(layout.blocks.map((block) => block.text)).not.toContain(fused);
+    expect(layout.blocks.some((block) => block.titleRow === true)).toBe(false);
+  });
+
   it('8118c86 blocker 1: splits a topmost short CJK right fragment above three full rows', () => {
     const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
     // The short row is the first body row: every corroborated row is below it, but its right
