@@ -117,6 +117,10 @@ describe('honest quality denominators', () => {
     expect(isProseLike('For each batch: we compute the loss and update')).toBe(true);
     expect(isProseLike('If the input is empty: we return zero')).toBe(true);
     expect(isProseLike('While the model trains: the logs are written')).toBe(true);
+    expect(isProseLike('概要')).toBe(true);
+    expect(isProseLike('参考文献')).toBe(true);
+    expect(isProseLike('1. はじめに')).toBe(true);
+    expect(isProseLike('図 1')).toBe(false);
   });
 
   it('does not call isolated identifiers a language switch', () => {

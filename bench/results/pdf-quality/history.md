@@ -4,9 +4,9 @@ Rows without a skipped-prose column predate that metric. The two legacy rows als
 current garbling and mixed-language definitions, so they are context only, not a like-for-like
 baseline; `baseline.json` / `baseline.md` retain the old scoring.
 
-The `final (pre-review)` row is the previous review round's committed result. Each
-`pnpm bench:pdf:quality --label final` appends a new `final` row to the end of this table; the
-last row is the committed `final.json` / `final.md` result. Iteration JSON/MD files
+The `final (pre-review)` and `final (rN)` rows are previous review rounds' committed results.
+Each `pnpm bench:pdf:quality --label final` appends a new `final` row to the end of this table;
+the last `final` row is the committed `final.json` / `final.md` result. Iteration JSON/MD files
 (iter1, iter2, ...) are kept separately.
 
 | label                    | pages | skipped prose | untranslated prose | mixed language | garbled tokens | overlap/box | overflow/box | reading order | first block ms | full ms |
@@ -22,5 +22,6 @@ last row is the committed `final.json` / `final.md` result. Iteration JSON/MD fi
 | final (pre-v6)           |     5 |             1 |               1.3% |           8.8% |          0.25% |       0.000 |        0.082 |         96.5% |            284 |     866 |
 | final (v6)               |     5 |             0 |               1.2% |           0.0% |          0.04% |       0.000 |        0.000 |         98.3% |            248 |     779 |
 | final (pre-review)       |     5 |             1 |               1.3% |           0.0% |          0.04% |       0.000 |        0.099 |         98.3% |            342 |    1029 |
-| final                    |     5 |             0 |               0.0% |           0.0% |          0.04% |       0.000 |        0.100 |         98.3% |            332 |     998 |
-| final                    |     5 |             0 |               0.0% |           0.0% |          0.04% |       0.000 |        0.024 |         98.3% |            366 |    1107 |
+| final (r5)               |     5 |             0 |               0.0% |           0.0% |          0.04% |       0.000 |        0.100 |         98.3% |            332 |     998 |
+| final (r6)               |     5 |             0 |               0.0% |           0.0% |          0.04% |       0.000 |        0.024 |         98.3% |            366 |    1107 |
+| final                    |     5 |             0 |               0.0% |           0.0% |          0.04% |       0.000 |        0.024 |         98.3% |            313 |     917 |

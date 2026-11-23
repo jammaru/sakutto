@@ -390,6 +390,9 @@ export function ocrResultToTextLines(
   const resolved = conversion(options);
   const output: OcrTextLine[] = [];
   const lines = readingLines(result);
+  // A dense scan can put a real column gutter only 6pt from a word space. Decide from the rest
+  // of the page whether two body columns exist before judging a single row's centre gap.
+  const pageTwoColumn = pageHasTwoColumns(lines, resolved);
   for (const [lineIndex, readingLine] of lines.entries()) {
     const lineId = `ocr:p${String(resolved.pageIndex)}:l${String(lineIndex)}`;
     const pieces: OcrTextPiece[] = [];
@@ -453,13 +456,25 @@ export function ocrResultToTextLines(
     const gutterNearMiddle = gutterCentred(leftEnd, rightStart, resolved.pageWidth);
     const straddlesMiddle = leftEnd <= middle + 4 && rightStart >= middle - 4;
     const gutterEvidence = gutterNearMiddle || straddlesMiddle;
+    // A title's central whitespace is an ordinary word gap; a two-column gutter is wider.
+    // Capitalisation alone cannot tell them apart: a merged body row routinely starts with a
+    // proper noun and has no terminal punctuation at a line break. Only a word-gap-sized
+    // centre gap suppresses the split, not the title-like casing of the whole row.
+    const titleWordGap = titleWholeLine && gutterGap <= WIDE_COLUMN_GUTTER;
     const wideTwoColumnLine =
       lineWidth >= resolved.pageWidth * 0.82 &&
       leftWidth > resolved.pageWidth * 0.18 &&
       rightWidth > resolved.pageWidth * 0.18 &&
       gutterEvidence &&
       gutterGap >= WIDE_COLUMN_GUTTER &&
-      !titleWholeLine;
+      !titleWordGap;
+    // The narrow-line arm previously accepted any 6pt gap near the midpoint, which is just an
+    // ordinary word gap on a single-column line (and split centred titles the same way). A
+    // printed gutter between two columns is at least WIDE_COLUMN_GUTTER wide.
+    const narrowTwoColumnLine =
+      lineWidth < resolved.pageWidth * 0.82 &&
+      (gutterGap >= WIDE_COLUMN_GUTTER || (pageTwoColumn && gutterGap >= MIN_COLUMN_GUTTER)) &&
+      !titleWordGap;
     // A short left heading beside a normal body line is a two-column row too: the 18% width
     // floor for `wideTwoColumnLine` cannot see it, but the gutter and shared baseline can.
     const shortHeadingBesideBody =
@@ -474,19 +489,20 @@ export function ocrResultToTextLines(
     // just two wide pieces, one of them a short fragment that fails the 18% width floor.
     // A line-region wide enough to be a column measure on either side is still firm evidence
     // of two columns; word-level boxes on a wavy single line are far narrower than this.
+    // A single printed line region wide enough to be a column measure is strong evidence only
+    // when the merged row really spans the page; on a narrow single-column line a wide phrase
+    // quad beside an ordinary 6pt word gap is not a gutter.
     const wideLineRegionMerge =
       lineWidth >= resolved.pageWidth * 0.6 &&
+      (pageTwoColumn || lineWidth >= resolved.pageWidth * 0.82) &&
       pieces.some((piece) => piece.box.width >= resolved.pageWidth * 0.3) &&
-      !headingWholeLine;
+      !titleWordGap;
     const crossesGutter =
       resolved.pageWidth > 0 &&
       !pieceVertical &&
       gutterGap >= MIN_COLUMN_GUTTER &&
       gutterEvidence &&
-      (lineWidth < resolved.pageWidth * 0.82 ||
-        wideTwoColumnLine ||
-        shortHeadingBesideBody ||
-        wideLineRegionMerge);
+      (narrowTwoColumnLine || wideTwoColumnLine || shortHeadingBesideBody || wideLineRegionMerge);
     const pushLine = (selected: OcrTextPiece[], id: string): void => {
       if (selected.length === 0) return;
       const line = lineFrom(selected);
@@ -509,6 +525,55 @@ export function ocrResultToTextLines(
     pushLine(pieces, lineId);
   }
   return twoColumnOrder(output, resolved.pageWidth, columnContext(output, resolved.pageWidth));
+}
+
+/**
+ * Page-wide column evidence from the raw reading lines. A dense scan can place a real gutter only
+ * 6pt from an ordinary word space, so the width of one gap is not enough on its own: two or more
+ * rows with comparable measures on both sides of a centred gap prove the page has body columns.
+ * A lone single-column row (including a centred title or a merged two-column row) has no such
+ * corroboration and keeps its ordinary word gaps.
+ */
+function pageHasTwoColumns(
+  lines: readonly ReadingLine<OcrRegion>[],
+  resolved: ResolvedConversion,
+): boolean {
+  let gutterRows = 0;
+  for (const [lineIndex, readingLine] of lines.entries()) {
+    const pieces: OcrTextPiece[] = [];
+    for (const [itemIndex, region] of readingLine.items.entries()) {
+      if (region.text.trim().length === 0) continue;
+      const detectorIndex = readingLine.indices[itemIndex];
+      const regionIndex =
+        detectorIndex !== undefined && Number.isSafeInteger(detectorIndex) && detectorIndex >= 0
+          ? detectorIndex
+          : itemIndex;
+      const id =
+        'ocr:p' +
+        String(resolved.pageIndex) +
+        ':l' +
+        String(lineIndex) +
+        ':r' +
+        String(regionIndex);
+      pieces.push(regionPiece(region, region.vertical, id, resolved.scaleX, resolved.scaleY));
+    }
+    if (pieces.length < 2 || pieces.some((piece) => piece.displayed === 90)) continue;
+    const { left, right, leftEnd, rightStart } = splitAtGutter(pieces, resolved.pageWidth);
+    if (left.length === 0 || right.length === 0) continue;
+    const measure = (group: readonly OcrTextPiece[]): number =>
+      Math.max(...group.map((piece) => piece.box.x + piece.box.width)) -
+      Math.min(...group.map((piece) => piece.box.x));
+    if (
+      rightStart - leftEnd >= WIDE_COLUMN_GUTTER &&
+      measure(left) >= resolved.pageWidth * 0.15 &&
+      measure(right) >= resolved.pageWidth * 0.15 &&
+      gutterCentred(leftEnd, rightStart, resolved.pageWidth)
+    ) {
+      gutterRows += 1;
+      if (gutterRows >= 2) return true;
+    }
+  }
+  return false;
 }
 
 interface OcrBlockGroup {
@@ -733,10 +798,12 @@ function twoColumnOrder(
 }
 
 const CAPTION_LINE = /^(?:Fig(?:ure)?|Tab(?:le)?|Alg(?:orithm)?)\.?\s*\d/iu;
-const SECTION_LINE = /^\d+(?:\.\d+)*\.?\s+\p{Lu}/u;
+// Japanese numbered headings use a CJK letter after the number, not a Latin capital.
+const SECTION_LINE =
+  /^\d+(?:\.\d+)*\.?\s+(?:\p{Lu}|\p{Script=Han}|\p{Script=Hiragana}|\p{Script=Katakana})/u;
 /** Unambiguous section labels, sized like body text when OCR sees them on their own. */
 const HEADING_LABEL =
-  /^(?:abstract|references?|introduction|conclusions?|acknowledge?ments?|bibliography|appendi(?:x|ces)|summary|overview|related work|background|methods?|results?|discussion)[.:]?$/iu;
+  /^(?:abstract|references?|introduction|conclusions?|acknowledge?ments?|bibliography|appendi(?:x|ces)|summary|overview|related work|background|methods?|results?|discussion|概要|要旨|抄録|参考文献|はじめに|序論|結論|まとめ|謝辞|付録|目次|関連研究)[.:：]?$/iu;
 
 /**
  * A short line is a heading only with independent evidence: a section number, a known section
@@ -802,7 +869,10 @@ function groupText(lines: readonly OcrTextLine[]): string {
  * engine instead of being skipped as a label.
  */
 function hasCjkProse(text: string): boolean {
-  return cjkRatio(text) >= CJK_MAJORITY && text.replace(/\s+/gu, '').length >= 8;
+  const compact = text.replace(/\s+/gu, '');
+  // A two-character CJK section label such as "概要" is a translatable heading, not furniture.
+  // Numeric-only labels are rejected separately by groupRole before this point.
+  return cjkRatio(text) >= CJK_MAJORITY && compact.length >= 2 && /\p{L}/u.test(compact);
 }
 function groupRole(group: readonly OcrTextLine[], bodySize: number): AnyBlockRole {
   const text = groupText(group);
@@ -818,7 +888,8 @@ function groupRole(group: readonly OcrTextLine[], bodySize: number): AnyBlockRol
   if (
     /^[\p{L}][\p{L}\s'’&.,:-]*$/u.test(text) &&
     !/[\d]/u.test(text) &&
-    (text.match(/\p{L}{3,}/gu)?.length ?? 0) >= 1 &&
+    ((text.match(/\p{L}{3,}/gu)?.length ?? 0) >= 1 ||
+      (cjkRatio(text) >= CJK_MAJORITY && text.replace(/\s+/gu, '').length >= 2)) &&
     text.split(/\s+/u).filter(Boolean).length <= 4 &&
     text.length <= 40 &&
     !/[.!?]$/u.test(text) &&

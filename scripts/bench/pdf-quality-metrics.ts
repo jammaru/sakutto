@@ -158,7 +158,12 @@ export const PROSE_ROLE = /^(prose|heading|caption|cell)$/u;
 export function isProseLike(text: string): boolean {
   const normalized = normalizeText(text);
   const words = normalized.match(LATIN_WORD) ?? [];
-  if (words.length === 0) return false;
+  // A skipped CJK heading ("概要", "参考文献") has no Latin words. Without this, the quality
+  // bench silently drops it from the untranslated-prose denominator and cannot catch a heading
+  // that the OCR layout left in Japanese. Single glyphs remain furniture, not prose.
+  const cjk = normalized.match(/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/gu) ?? [];
+  const cjkProse = cjk.length >= 2 && cjk.length >= normalized.replace(/\s+/gu, '').length * 0.4;
+  if (words.length === 0) return cjkProse;
   const hasSectionMarker = /\b(?:section|figure|table)\b/iu.test(normalized);
   // A listing line is code regardless of how English its keywords look. The leading number is
   // optional: "for block in page:" is as much a listing as "1 for block in page:". A keyword

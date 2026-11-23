@@ -2,7 +2,7 @@
   {
     "variant": "default-1600",
     "pairing": "medium_det+medium_rec",
-    "ms": 229023.87573,
+    "ms": 213734.506764,
     "modelBytes": 138587816,
     "cer": 0.03579011222323324,
     "wer": 0.0636042402826855,
@@ -19,7 +19,7 @@
   {
     "variant": "gray+contrast-1600",
     "pairing": "medium_det+medium_rec",
-    "ms": 239854.76879000003,
+    "ms": 181029.882264,
     "modelBytes": 138587816,
     "cer": 0.0337680719846325,
     "wer": 0.05594817432273263,

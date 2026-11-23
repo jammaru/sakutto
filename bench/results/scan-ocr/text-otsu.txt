@@ -3,7 +3,7 @@ J. Anmuaru
 S Hィ
 2.2 Prage mode?
 4 fr
-3. IFalturt Mode
+3. Scheduling
 block gets a prirty fren ts distance io the riewport, ln kind, and is poshio l se deca hhacm
 4. Mrr
 6. Rrioloing wert
@@ -41,20 +41,22 @@ d u h t re,   e   d e wb   v
 A cn csp wks te pg and wrons ro bl  du  u , a ad ronder sho somings
 7.1 Jkmdie
 The r  PL 3Trae  -oa  ed k e 5  d , gnl  Pr hn  wrgh Thw puhh wwbly bak  ap s ad   e
-Alls  m  a ag es. 1  o momry  d U and A hwser lud dd appor
-w     twnl aac w a   o wock and   b. vry run bs t
-Pae tro  cld cec, dew ws, and the mediam  nepoe.
-n shp  dep hd n te nw  + pil rom, pd  e ph e t wr T    y
+n shp  dep hd n te nw  + pil rom, pd  e ph e t wr
 Wehuomhly module lod Iron pkgd he rde d lron s L. wr du s lor
 Ihe rmu afers wo bceds Te w u leclend leeps pwo c  adl dcade  beh ol
 or H   e coplon. Te  becd e   d  r   . d peing o th achiw A probe uu o ankap d  tnd C l  beh o  Lr p   e r
+Alls  m  a ag es. 1  o momry  d U and A hwser lud dd appor
+w     twnl aac w a   o wock and   b. vry run bs t
+Pae tro  cld cec, dew ws, and the mediam  nepoe.
+T    y
 ay dd cm taw o d tw paapk. bec d wd plad happes beone cide bacend san per wog  p   l by  1 U  ddes   mow tar th he lour cad U p
 doct + vhm
 Ft do hom owle
 dilun s 4 Pirst pauroph FrHe
 ーんッ，
+P 3  w t
 WCRU.7 F 2VA E5: 41s
-P 3  w t wsh -tr m： 21 24
+wsh -tr m： 21 24
 shert. -àn d 7ks 9
 for bloch in pagd: if 14_rquarion[blochp: coatsnue
 maat(cransiatetbloch))
@@ -66,33 +68,35 @@ Wwe peckl peagaph an wrlt on Lbrls in an marly botid Thie sfungr lokel huemina, 
 d  e  w we a pa a  wnd hend dhe ell my rarlier pah l thr
 dta e i tet erd mor g si Rrancg packing se hincés mnde h nns oevhel de le el reducrdl thr
 ool frot ol gaha ly G1
+3. IFalturt Mode
 de w rde the rr stredy l At leri ou   grd boe  rete p   reto  brto
 Wee IN In shw
 Inile rkmmes lhal arr n pm — cndr, luybnund lunys, le mu okt  ce uren —
 t tke dcurt unnuckd and bsr unbed plenrktdnt iw de ird   w te o i ankrd t lup
 enchs piacthoider wtere she seatice led t and a inatsiatiot ser mornes of dege ote is aejecael and wnsned wa placrboide
+A4
+N.
+la9
+AOGPIU. 2 54 WWC.PU1mL CKC. # twol ckc. adra
 we Lk ihel d caret dgs mone dudh oy becne d.
 W cka e med e  e tht u blod  o no e s ad
 wd Te e c h e s Rr  r nd setr c  niel .
 L  e      s the c   p row c a nmus u
 r ty lolkowo oll e puave ako se  conu i hot dcrded s, snd rsch o is ontulae
 u ie omk krnt orilc.
-A4 M tnd e d r B  d w de  e hu  l u lek tevel Th
-N.
-la9
-AOGPIU. 2 54 WWC.PU1mL CKC. # twol ckc. adra
+M tnd e d r B  d w de  e hu  l u lek tevel Th
 me qwd me wera  mrdd reproa liuell kueied
 Eaxh a d w t   ad, t by a irt nd w hun sture thu fas wv tr lix. W tukc this
 eklr   wraao th a ste probkdr te arode a te  pe, and the docattee is the led che
 purs L. Tew lu awiae de vlatr luua udukie. ly lhasur Thw C uah h nt wih Laat por a a e hah km beh
 u c L k  ruh
-ZTwu h yos of lkea arr sll nt of moch. The ttrst ls the pir shat a zeader opeua ko tve browset's own virwec
-vhor led a lel oat by a irut ogoe ndar dba lby tie bu. tlie xecond u tbe kcanend dkxunebl, uikre lbe ool)
-led a a p tiod d ie se og troe tha ptn:  tralon that laps the tpn geomely,  thuat.
-3. Scheduling frs cae As wda  figee d  ub some ddo rute. We repet on ur Tst  roe ad uonk
 A mradr dors not read a pge In dooenm odin, n she nsmvio dns  wade le run onins rn Ewy
 Adomn
 [1] A. Mele aad odens. Tabo 3 Taciawe: à compact cransbadec radit." Tededicat mper. a.
+ZTwu h yos of lkea arr sll nt of moch. The ttrst ls the pir shat a zeader opeua ko tve browset's own virwec
+vhor led a lel oat by a irut ogoe ndar dba lby tie bu. tlie xecond u tbe kcanend dkxunebl, uikre lbe ool)
+led a a p tiod d ie se og troe tha ptn:  tralon that laps the tpn geomely,  thuat.
+frs cae As wda  figee d  ub some ddo rute. We repet on ur Tst  roe ad uonk
 1 n hl eL
 w Fw eke v we von
 14 Wdwa wa Casventm HCPU speiafen" Caolme nKcoammdaden. 2Z%.

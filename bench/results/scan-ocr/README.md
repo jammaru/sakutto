@@ -30,12 +30,12 @@ captured from and orders title, abstract, left body column, right body column an
 
 | approach           | pairing            |   CER |   WER | cross-column | ms/page | model bytes | coverage |
 | ------------------ | ------------------ | ----: | ----: | -----------: | ------: | ----------: | -------: |
-| baseline-1x        | tiny_det+small_rec | 68.0% | 94.6% |            1 |  32.8 s |    21.9 MiB |    0.106 |
-| shipped-baseline   | tiny_det+small_rec | 11.6% | 16.8% |            1 |  37.4 s |    21.9 MiB |    0.885 |
-| default-1600       | tiny_det+small_rec |  3.0% |  5.5% |            0 |  44.0 s |    21.9 MiB |    0.963 |
-| gray+contrast-1600 | tiny_det+small_rec |  3.0% |  5.4% |            0 |  45.1 s |    21.9 MiB |    0.964 |
-| dpi300             | tiny_det+small_rec |  3.0% |  5.5% |            0 |  44.5 s |    21.9 MiB |    0.964 |
-| sauvola            | tiny_det+small_rec | 82.5% | 97.2% |            7 |  26.6 s |    21.9 MiB |    0.029 |
+| baseline-1x        | tiny_det+small_rec | 68.2% | 94.7% |            1 |  26.0 s |    21.9 MiB |    0.106 |
+| shipped-baseline   | tiny_det+small_rec | 11.6% | 16.8% |            1 |  29.7 s |    21.9 MiB |    0.885 |
+| default-1600       | tiny_det+small_rec |  3.0% |  5.5% |            0 |  35.2 s |    21.9 MiB |    0.963 |
+| gray+contrast-1600 | tiny_det+small_rec |  3.0% |  5.4% |            0 |  36.9 s |    21.9 MiB |    0.964 |
+| dpi300             | tiny_det+small_rec |  3.0% |  5.5% |            0 |  36.8 s |    21.9 MiB |    0.964 |
+| sauvola            | tiny_det+small_rec | 82.5% | 97.2% |            4 |  22.0 s |    21.9 MiB |    0.030 |
 
 The rows below are the current `report.md` / `report.json` run; `iteration6.md` / `iteration6.json` record the earlier iteration-6 run with different timings and cross-column counts. Default 2x / maxSide 1600
 reaches **3.0% CER, 0 cross-column covers**; the higher-resolution `dpi300` variant gives no CER gain and costs a little more time.
@@ -47,9 +47,9 @@ on a real gutter were the two layout fixes that removed cross-column covers.
 
 | approach               | pairing               |  CER | cross-column | ms/page | model bytes |
 | ---------------------- | --------------------- | ---: | -----------: | ------: | ----------: |
-| default-1600 (shipped) | tiny_det+small_rec    | 3.0% |            0 |  44.0 s |    21.9 MiB |
-| default-1600 (high)    | medium_det+medium_rec | 3.6% |            0 | 229.0 s |   132.2 MiB |
+| default-1600 (shipped) | tiny_det+small_rec    | 3.0% |            0 |  35.2 s |    21.9 MiB |
+| default-1600 (high)    | medium_det+medium_rec | 3.6% |            0 | 213.7 s |   132.2 MiB |
 
-High tier is slightly worse on this page (3.4-3.6% CER versus 3.0% for Standard) and ~5.2x slower
+High tier is slightly worse on this page (3.4-3.6% CER versus 3.0% for Standard) and ~6.1x slower
 and 6x larger; the shipped Standard tier stays the default. No English-specific recognizer is in the
 catalog, so none was used.

@@ -1215,6 +1215,141 @@ describe('latest DSH review blockers', () => {
       'if is_equation(block):',
     ]);
   });
+  describe('latest DSH report blockers', () => {
+    it('B1: keeps a single-column word gap as one line and one paragraph', () => {
+      const texts = ['This sentence has', 'a wide middle', 'gap in it.'];
+      const items = [
+        region(texts[0]!, quad(50, 100, 230, 20)),
+        region(texts[1]!, quad(286, 100, 120, 20)),
+        region(texts[2]!, quad(412, 100, 80, 20)),
+      ];
+      const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+      const result = ocrResult(items, [readingLine('horizontal', items)]);
+
+      expect(ocrResultToTextLines(result, options).map((line) => line.text)).toEqual([
+        texts.join(' '),
+      ]);
+      const layout = ocrResultToPageLayout(result, options);
+      expect(layout.blocks.map((block) => block.text)).toEqual([texts.join(' ')]);
+      expect(layout.blocks.map((block) => block.role)).toEqual(['prose']);
+    });
+
+    it('B1: keeps a short centred title whole and ahead of both body columns', () => {
+      const titleParts = [
+        region('Short Paper', quad(100, 100, 180, 20)),
+        region('Title Here', quad(290, 100, 180, 20)),
+      ];
+      const left1 = region(
+        'Left column prose with enough words to translate',
+        quad(45, 150, 240, 20),
+      );
+      const left2 = region('More left column prose with enough words', quad(45, 175, 240, 20));
+      const right1 = region(
+        'Right column prose with enough words to translate',
+        quad(315, 150, 240, 20),
+      );
+      const right2 = region('Other right column prose with enough words', quad(315, 175, 240, 20));
+      const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+      const result = ocrResult(
+        [...titleParts, left1, left2, right1, right2],
+        [
+          readingLine('horizontal', titleParts),
+          readingLine('horizontal', [left1]),
+          readingLine('horizontal', [left2]),
+          readingLine('horizontal', [right1]),
+          readingLine('horizontal', [right2]),
+        ],
+      );
+
+      expect(ocrResultToTextLines(result, options).map((line) => line.text)).toEqual([
+        'Short Paper Title Here',
+        left1.text,
+        left2.text,
+        right1.text,
+        right2.text,
+      ]);
+      const layout = ocrResultToPageLayout(result, options);
+      expect(layout.blocks[0]?.text).toBe('Short Paper Title Here');
+      expect(layout.blocks[0]?.column).toBe(-1);
+      expect(layout.blocks.slice(1).map((block) => block.column)).toEqual([0, 1]);
+    });
+
+    it('B1: still splits dense scan gutters when other rows prove two columns', () => {
+      const options = { pageIndex: 0, pageWidth: 595, pageHeight: 842 };
+      const leftWide = region('left column body words for the scan', quad(45, 100, 240, 20));
+      const rightWide = region('right column body words for the scan', quad(300, 100, 240, 20));
+      const leftWide2 = region('more left column body words for the scan', quad(45, 125, 240, 20));
+      const rightWide2 = region(
+        'more right column body words for the scan',
+        quad(300, 125, 240, 20),
+      );
+      const denseLeft = region('dense scan row left words here', quad(45, 150, 230, 20));
+      const denseRight = region('dense scan row right words here.', quad(281, 150, 240, 20));
+      const result = ocrResult(
+        [leftWide, rightWide, leftWide2, rightWide2, denseLeft, denseRight],
+        [
+          readingLine('horizontal', [leftWide, rightWide]),
+          readingLine('horizontal', [leftWide2, rightWide2]),
+          readingLine('horizontal', [denseLeft, denseRight]),
+        ],
+      );
+      expect(ocrResultToTextLines(result, options).map((line) => line.text)).toEqual([
+        leftWide.text,
+        leftWide2.text,
+        denseLeft.text,
+        rightWide.text,
+        rightWide2.text,
+        denseRight.text,
+      ]);
+    });
+
+    it('B2: splits a merged body row by geometry, not by capitalisation', () => {
+      const options = { pageIndex: 0, pageWidth: 595, pageHeight: 800 };
+      for (const words of [
+        ['Left column words here', 'Right column words here'],
+        ['left column words here', 'right column words here'],
+      ]) {
+        const items = [
+          region(words[0]!, quad(45, 100, 240, 20)),
+          region(words[1]!, quad(300, 100, 240, 20)),
+        ];
+        const result = ocrResult(items, [readingLine('horizontal', items)]);
+        expect(
+          ocrResultToTextLines(result, options).map((line) => line.text),
+          words.join(' '),
+        ).toEqual(words);
+        const layout = ocrResultToPageLayout(result, options);
+        expect(
+          layout.blocks.map((block) => block.column),
+          words.join(' '),
+        ).toEqual([0, 1]);
+        expect(
+          layout.blocks.map((block) => block.text),
+          words.join(' '),
+        ).toEqual(words);
+      }
+    });
+
+    it('B3: translates short Japanese section headings instead of skipping them', () => {
+      const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+      for (const heading of ['概要', '参考文献', '1. はじめに']) {
+        const title = region(heading, quad(45, 100, 120, 20));
+        const body = region('本文の段落がここに続きます。', quad(45, 130, 400, 20));
+        const result = ocrResult(
+          [title, body],
+          [readingLine('horizontal', [title]), readingLine('horizontal', [body])],
+        );
+        const layout = ocrResultToPageLayout(result, options);
+        expect(
+          layout.blocks.map((block) => block.text),
+          heading,
+        ).toEqual([heading, body.text]);
+        expect(layout.blocks[0]?.role, heading).toBe('heading');
+        expect(layout.skipped, heading).toEqual([]);
+      }
+    });
+  });
+
   it('B3: splits at the real off-centre gutter, not the page midpoint', () => {
     const leftText =
       'Left column words that end past the midpoint more left column words left tail word';
