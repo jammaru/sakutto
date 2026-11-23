@@ -975,4 +975,196 @@ describe('latest DSH review blockers', () => {
       [...element.bilingual.children].map((row) => row.firstElementChild?.textContent),
     ).toEqual(['left-top', 'right-top', 'spanning', 'left-bottom']);
   });
+
+  it('B1: merges a scientific noun-phrase title above body without skipping its tail', () => {
+    const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+    const title = [
+      region('mRNA expression levels in older adults', quad(45, 60, 250, 20)),
+      region('A Systematic Review', quad(305, 60, 250, 20)),
+    ];
+    const bodyRows = [
+      [
+        region('Left column prose for the first printed row.', quad(45, 140, 250, 20)),
+        region('Right column prose on the same printed row.', quad(305, 140, 250, 20)),
+      ],
+      [
+        region('A second left column line proving two columns.', quad(45, 170, 250, 20)),
+        region('A second right column line proving columns.', quad(305, 170, 250, 20)),
+      ],
+    ];
+    const result: OcrResult = {
+      regions: [...title, ...bodyRows.flat()],
+      lines: [readingLine(title), ...bodyRows.map(readingLine)],
+      text: '',
+    };
+    const full = 'mRNA expression levels in older adults A Systematic Review';
+
+    const lines = ocrResultToTextLines(result, options);
+    expect(lines[0]?.text).toBe(full);
+    expect(lines[0]?.columnHint).toBeUndefined();
+    expect(lines.map((line) => line.text)).not.toContain('A Systematic Review');
+
+    const layout = ocrResultToPageLayout(result, options);
+    expect(layout.blocks[0]?.text).toBe(full);
+    expect(layout.blocks.map((block) => block.text)).not.toContain('A Systematic Review');
+    expect(layout.skipped).toEqual([]);
+  });
+
+  it('B1: merges a scientific verb title above body without skipping its tail', () => {
+    const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+    const title = [
+      region('mRNA vaccines reduce mortality', quad(45, 60, 250, 20)),
+      region('In Older Adults', quad(305, 60, 250, 20)),
+    ];
+    const bodyRows = [
+      [
+        region('Left column prose for the first printed row.', quad(45, 140, 250, 20)),
+        region('Right column prose on the same printed row.', quad(305, 140, 250, 20)),
+      ],
+      [
+        region('A second left column line proving two columns.', quad(45, 170, 250, 20)),
+        region('A second right column line proving columns.', quad(305, 170, 250, 20)),
+      ],
+    ];
+    const result: OcrResult = {
+      regions: [...title, ...bodyRows.flat()],
+      lines: [readingLine(title), ...bodyRows.map(readingLine)],
+      text: '',
+    };
+    const full = 'mRNA vaccines reduce mortality In Older Adults';
+
+    const lines = ocrResultToTextLines(result, options);
+    expect(lines[0]?.text).toBe(full);
+    expect(lines[0]?.columnHint).toBeUndefined();
+    expect(lines.map((line) => line.text)).not.toContain('In Older Adults');
+
+    const layout = ocrResultToPageLayout(result, options);
+    expect(layout.blocks[0]?.text).toBe(full);
+    expect(layout.blocks.map((block) => block.text)).not.toContain('In Older Adults');
+    expect(layout.skipped).toEqual([]);
+  });
+
+  it('B1: keeps a scientific body row in its column instead of merging it as a title', () => {
+    const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+    const firstRow = [
+      region('mRNA vaccines reduce', quad(45, 100, 250, 20)),
+      region('Severe disease in older adults', quad(305, 100, 250, 20)),
+    ];
+    const bodyRows = [
+      [
+        region('Left column prose for the first printed row.', quad(45, 140, 250, 20)),
+        region('Right column prose on the same printed row.', quad(305, 140, 250, 20)),
+      ],
+      [
+        region('A second left column line proving two columns.', quad(45, 170, 250, 20)),
+        region('A second right column line proving columns.', quad(305, 170, 250, 20)),
+      ],
+    ];
+    const result: OcrResult = {
+      regions: [...firstRow, ...bodyRows.flat()],
+      lines: [readingLine(firstRow), ...bodyRows.map(readingLine)],
+      text: '',
+    };
+
+    const lines = ocrResultToTextLines(result, options);
+    expect(lines).toHaveLength(6);
+    expect(lines.find((line) => line.text === 'mRNA vaccines reduce')?.columnHint).toBe(0);
+    expect(lines.find((line) => line.text === 'Severe disease in older adults')?.columnHint).toBe(
+      1,
+    );
+    expect(lines.some((line) => line.titleRow === true)).toBe(false);
+
+    const layout = ocrResultToPageLayout(result, options);
+    expect(layout.blocks.every((block) => block.box.width < 500)).toBe(true);
+  });
+
+  it('B2: splits short capitalised two-column body rows at a 10pt gutter', () => {
+    const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+    const rows = [
+      [
+        region('Results show strong effects on', quad(45, 100, 250, 20)),
+        region('mrna in treated mice', quad(305, 100, 250, 20)),
+      ],
+      [
+        region('Further analysis confirms these findings', quad(45, 130, 250, 20)),
+        region('across all measured groups', quad(305, 130, 250, 20)),
+      ],
+      [
+        region('the treated cohort showed a', quad(45, 160, 250, 20)),
+        region('clear response in every assay.', quad(305, 160, 250, 20)),
+      ],
+    ];
+    const result: OcrResult = {
+      regions: rows.flat(),
+      lines: rows.map(readingLine),
+      text: '',
+    };
+
+    const lines = ocrResultToTextLines(result, options);
+    expect(lines.map((line) => line.text)).toEqual([
+      'Results show strong effects on',
+      'Further analysis confirms these findings',
+      'the treated cohort showed a',
+      'mrna in treated mice',
+      'across all measured groups',
+      'clear response in every assay.',
+    ]);
+    expect(lines.filter((line) => line.columnHint === 0)).toHaveLength(3);
+    expect(lines.filter((line) => line.columnHint === 1)).toHaveLength(3);
+    expect(lines.some((line) => line.titleRow === true)).toBe(false);
+
+    const layout = ocrResultToPageLayout(result, options);
+    expect(layout.blocks.some((block) => block.titleRow === true)).toBe(false);
+    expect(layout.blocks.every((block) => block.box.width < 500)).toBe(true);
+  });
+
+  it('B2: a fused body block marked titleRow is still a cross-column cover', () => {
+    const pageWidth = 600;
+    const fusedRow = (y: number) =>
+      lineFrom([
+        piece('Results show strong effects on', 45, y + 12, 250),
+        piece('mrna in treated mice', 305, y + 12, 250),
+      ]);
+    const block: LayoutBlock = {
+      box: { x: 45, y: 100, width: 510, height: 52 },
+      room: { x: 45, y: 100, width: 510, height: 52 },
+      lines: [fusedRow(100), fusedRow(130)],
+      text: 'Results show strong effects on mrna in treated mice Further analysis confirms these findings across all measured groups',
+      role: 'prose',
+      fontSize: 10,
+      lineHeight: 1.2,
+      align: 'left',
+      bold: false,
+      italic: false,
+      column: -1,
+      advance: 510,
+      writing: 0,
+      titleRow: true,
+    };
+    const placed = [
+      {
+        block,
+        translation: '訳',
+        fit: {
+          fits: true as const,
+          fontSize: 10,
+          lineHeight: 12,
+          lines: ['訳'],
+          height: 24,
+          grown: false,
+          width: 510,
+        },
+        paint: true,
+        drawn: { x: 45, y: 100, width: 510, height: 24 },
+        overflow: false,
+      },
+    ];
+    const metrics = pageMetrics(
+      { blocks: [block], skipped: [] } as unknown as Parameters<typeof pageMetrics>[0],
+      placed as unknown as Parameters<typeof pageMetrics>[1],
+      { x: 0, y: 0, width: pageWidth, height: 800 },
+    );
+    expect(metrics.crossColumnCovers).toBeGreaterThanOrEqual(1);
+    expect(metricsPass(metrics)).toBe(false);
+  });
 });

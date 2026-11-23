@@ -441,6 +441,23 @@ function spanningTitleRow(block: LayoutBlock, pageWidth: number): boolean {
 }
 
 /**
+ * A `titleRow` marker alone is not enough to excuse a gutter-wide gap: the OCR title heuristic
+ * can keep a short capitalised body row whole. Only a single printed line whose second fragment
+ * starts a title-like piece is unambiguous title whitespace.
+ */
+function markedTitleRow(block: LayoutBlock): boolean {
+  if (block.titleRow !== true || block.lines.length !== 1) return false;
+  const pieces = [...(block.lines[0]?.pieces ?? [])].sort((a, b) => a.box.x - b.box.x);
+  if (pieces.length < 2) return false;
+  const second =
+    pieces
+      .slice(1)
+      .find((piece) => piece.text.trim().length > 0)
+      ?.text.trim() ?? '';
+  return /^(\p{Lu}|\d|[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}])/u.test(second);
+}
+
+/**
  * True when one source line holds text from both columns.
  *
  * A title or byline also spans the page, but its word gaps are ordinary spacing and its pieces
@@ -450,13 +467,14 @@ function spanningTitleRow(block: LayoutBlock, pageWidth: number): boolean {
  */
 function blockMergesColumns(block: LayoutBlock, pageWidth: number): boolean {
   if (pageWidth <= 0) return false;
-  // OCR already merged a title above the body into one spanning line: its centre gap is title
-  // whitespace, so it must never be re-read as a fused pair of body columns here.
-  if (block.titleRow || spanningTitleRow(block, pageWidth)) return false;
+  // A narrow centred title's middle gap is title whitespace, not a fused body row.
+  if (spanningTitleRow(block, pageWidth)) return false;
   // A heading or caption that spans the page is usually a full-width title, not a row of
   // two columns fused together. OCR splits such titles into two text regions with a word
   // gap near the gutter, so they need a wider gap than prose before counting as a merge.
-  const spanningTitle = block.column <= 0 && (block.role === 'heading' || block.role === 'caption');
+  const spanningTitle =
+    block.column <= 0 &&
+    (block.role === 'heading' || block.role === 'caption' || markedTitleRow(block));
   const minimumGutter = spanningTitle ? MERGED_HEADING_GUTTER : MERGED_COLUMN_GUTTER;
   const gutter = pageWidth * 0.49;
   const gapAtPrintedGutter = (leftEnd: number, rightStart: number): boolean => {

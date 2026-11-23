@@ -325,10 +325,14 @@ function scientificShortTitleFirstPiece(
   first: string,
   second: string,
   relaxedWordCaps = false,
+  pageTitleEvidence = false,
 ): boolean {
   if (!SCIENTIFIC_TITLE_PREFIX.test(first)) {
     return false;
   }
+  // The page proves the row sits above every two-column body row, so its halves are title text
+  // even when they contain body-like words or verbs. No text-only guard may overrule that.
+  if (pageTitleEvidence) return true;
   if (/:/u.test(first)) return false;
   const tail = second.split(/\s+/u).filter(Boolean);
   const firstWords = first.split(/\s+/u).filter(Boolean).length;
@@ -370,9 +374,34 @@ function onePrintedTitleRow(
   pieces: readonly OcrTextPiece[],
   pageWidth: number,
   relaxedTitleCaps = false,
+  pageTitleEvidence = false,
 ): boolean {
   if (pieces.length !== 2 || !pieces.some((piece) => piece.box.width >= pageWidth * 0.12)) {
     return false;
+  }
+  if (pageTitleEvidence) {
+    // Page evidence overrules the body-word and body-verb guards: a scientific title such as
+    // "mRNA expression levels in older adults" is still a title. The lowercase right half is
+    // kept as the one shape that distinguishes a fused body row from a title's second fragment.
+    const ordered = [...pieces].sort((a, b) => a.box.x - b.box.x);
+    const first = ordered[0]?.text.trim() ?? '';
+    const second = ordered[1]?.text.trim() ?? '';
+    const secondWords = second.split(/\s+/u).filter(Boolean);
+    const tail = secondWords[0] ?? '';
+    if (
+      !/^(\p{Lu}|\d|[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}])/u.test(tail) ||
+      secondWords
+        .slice(1)
+        .some(
+          (word) => /^[a-z]{3,}$/u.test(word) && !TITLE_TAIL_FUNCTION_WORD.test(word.toLowerCase()),
+        )
+    ) {
+      return false;
+    }
+    return (
+      /^(\p{Lu}|\d|[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}])/u.test(first) ||
+      SCIENTIFIC_TITLE_PREFIX.test(first)
+    );
   }
   const text = pieces
     .map((piece) => piece.text)
@@ -672,12 +701,23 @@ export function ocrResultToTextLines(
     // A two-piece title printed above every corroborated two-column body row keeps its middle
     // whitespace: the page's gutter evidence belongs to the body below it, not to the title.
     const rowTop = Math.min(...pieces.map((piece) => piece.box.y));
-    const titleAboveBody = twoColumnTops.length > 0 && twoColumnTops.every((top) => top > rowTop);
+    const rowsBelow = twoColumnTops.filter((top) => top > rowTop);
+    // A title whose words trip a body-word guard can be counted as two-column evidence itself,
+    // so it never appears to sit above the body. When this row is the topmost such row and at
+    // least two corroborated rows sit below it, the page still proves it is a title: the only
+    // shape that survives the relaxed check is a title, not a lowercase right-column fragment.
+    const titleAboveBody =
+      twoColumnTops.length > 0 &&
+      (twoColumnTops.every((top) => top > rowTop) ||
+        (rowsBelow.length >= 2 &&
+          rowsBelow.length === twoColumnTops.length - 1 &&
+          onePrintedTitleRow(pieces, resolved.pageWidth, true, true)));
     const orderedPieces = [...pieces].sort((a, b) => a.box.x - b.box.x);
     const firstPieceText = orderedPieces[0]?.text.trim() ?? '';
     const scientificTitleRow = scientificShortTitleFirstPiece(
       firstPieceText,
       orderedPieces[1]?.text.trim() ?? '',
+      titleAboveBody,
       titleAboveBody,
     );
     // A scientific prefix that fails the title check is body prose even when OCR capitalised the
@@ -722,7 +762,12 @@ export function ocrResultToTextLines(
     // A detector that emits one quad per printed line can reduce a full-width sentence or a
     // long title to just two pieces; the word-level guards above cannot see those, so their
     // own text structure decides. Page-wide column evidence still wins over that text guess.
-    const printedTitleRow = onePrintedTitleRow(pieces, resolved.pageWidth, titleAboveBody);
+    const printedTitleRow = onePrintedTitleRow(
+      pieces,
+      resolved.pageWidth,
+      titleAboveBody,
+      titleAboveBody,
+    );
     const colonTitleRow = twoPieceColonTitle(pieces, resolved.pageWidth, wholeText);
     const titleLikeRow = printedTitleRow && headingWholeLine && !scientificBodyRow;
     // A short centred title can have a word gap far wider than a normal word space. A long
@@ -740,12 +785,18 @@ export function ocrResultToTextLines(
             wholeText.split(/\s+/u).length <= 14)));
     const singleRowWordGap =
       twoPieceTitleMerge || (!pageTwoColumn && singleSentenceRow(pieces, resolved.pageWidth));
+    // A narrow centred row, a row above every body row, or a printed title row is genuine title
+    // evidence. Capitalisation plus a short word-sized gap is not: a short two-column body row
+    // at a line break looks exactly like that, and must not suppress the gutter split.
+    const centredTitleRow =
+      isCentredHeadingRow(pieces, resolved.pageWidth) && lineWidth < resolved.pageWidth * 0.6;
+    const positiveTitleEvidence = titleAboveBody || twoPieceTitleMerge || centredTitleRow;
+    const wordGapTitleGuess =
+      titleWholeLine || wordSpacedLine || wordSpaceGutter(pieces, gutterGap) || singleRowWordGap;
     const titleWordGap =
-      (titleWholeLine ||
-        wordSpacedLine ||
-        wordSpaceGutter(pieces, gutterGap) ||
-        singleRowWordGap) &&
-      (gutterGap <= WIDE_COLUMN_GUTTER + 2 || wideGapTitleRow);
+      wordGapTitleGuess &&
+      (gutterGap <= WIDE_COLUMN_GUTTER + 2 || wideGapTitleRow) &&
+      (!pageTwoColumn || positiveTitleEvidence);
     const wideTwoColumnLine =
       lineWidth >= resolved.pageWidth * 0.82 &&
       leftWidth > resolved.pageWidth * 0.18 &&
@@ -821,9 +872,14 @@ export function ocrResultToTextLines(
       pushLine(rightPieces, lineId + ':right', 1);
       continue;
     }
-    // Mark rows the title heuristics kept whole. Their centre gap is title whitespace, so the
-    // paint-integrity metric must not re-read one as a fused pair of body columns later.
-    pushLine(pieces, lineId, undefined, twoPieceTitleMerge || titleWordGap);
+    // Only mark rows with real title evidence. A capitalised body row kept whole by the word-gap
+    // heuristic on a two-column page is a fused row, and the metric must still see its cover.
+    pushLine(
+      pieces,
+      lineId,
+      undefined,
+      positiveTitleEvidence || (!pageTwoColumn && wordGapTitleGuess),
+    );
   }
   return twoColumnOrder(output, resolved.pageWidth, columnContext(output, resolved.pageWidth));
 }
