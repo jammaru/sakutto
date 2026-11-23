@@ -45,7 +45,7 @@ Node 24 / ONNX Runtime Web 1.31.1 WASM、生成 CC0 フィクスチャ8件、各
 
 再現: `pnpm bench:ocr`。詳細: `bench/results/ocr-benchmark.md`。
 
-実スキャン `bench/pdf/scan.pdf` p1 は、コミット済みの正解テキスト（`bench/pdf/scan-p1.gt.txt`）に対して `pnpm bench:pdf:scan:ocr` で測定します。旧ベンチの参照は印刷用 paper.pdf の行でスキャンレイアウトと不一致でした。修正後の出荷設定（2x / maxSide 1600, Standard）は最新コミットの `bench/results/scan-ocr/report.json` に同期（現行 **CER 5.4% / WER 7.7%、cross-column 0、約 36.4 秒/ページ**、overflow 5）。認識出力は決定的ですが、レイアウト指標はベンチ再実行で ms がわずかに変動します。詳細: `bench/results/scan-ocr/README.md`。組版品質ベンチは mixed language 0.0%（目標 ≤2%）、reading order 98.3%（目標 ≥98%）を維持しています。初回訳文レイテンシは比較可能な実行開始からの値のみを表で比較し、ページ単位の値は baseline に存在しないため別行としています。
+実スキャン `bench/pdf/scan.pdf` p1 は、コミット済みの正解テキスト（`bench/pdf/scan-p1.gt.txt`）に対して `pnpm bench:pdf:scan:ocr` で測定します。旧ベンチの参照は印刷用 paper.pdf の行でスキャンレイアウトと不一致でした。修正後の出荷設定（2x / maxSide 1600, Standard）は最新コミットの `bench/results/scan-ocr/report.json` に同期（現行 **CER 3.0% / WER 5.5%、cross-column 0、約 34.2 秒/ページ**、overflow 4）。認識出力は決定的ですが、レイアウト指標はベンチ再実行で ms がわずかに変動します。詳細: `bench/results/scan-ocr/README.md`。組版品質ベンチは mixed language 0.0%（目標 ≤2%）、reading order 98.3%（目標 ≥98%）を維持しています。初回訳文レイテンシは比較可能な実行開始からの値のみを表で比較し、ページ単位の値は baseline に存在しないため別行としています。
 
 ### 権限とプライバシー
 
@@ -98,7 +98,7 @@ The default is latency-first; the high tier uses the same weights with a larger 
 
 The standard pairing was practical on every default-tier case: English scan, Japanese horizontal and vertical text, slides, low-resolution/skew, two columns, mixed Japanese/English, and small text. These generated-fixture results do not establish broad real-world superiority. English and Japanese OCR output also passed through a deterministic local translation stub as a plumbing sanity check, not as translation-quality evidence.
 
-Reproduce with `pnpm bench:ocr`; see `bench/results/ocr-benchmark.md`. For real scan page 1 (`bench/pdf/scan.pdf`), run `pnpm bench:pdf:scan:ocr`; the shipped Standard row (`default-1600`) is synced in `bench/results/scan-ocr/report.json` (currently **CER 5.4% / WER 7.7%, cross-column 0, ~36.4 s/page, overflow 5**). See `bench/results/scan-ocr/README.md`. The PDF quality bench keeps mixed-language at 0.0% (target ≤2%) and reading order at 98.3% (target ≥98%); see `bench/results/pdf-quality/final.md`. Its PR table compares only the run-start first-block latency, which both the baseline and final artifacts record; the page-level figure is a separate row because the baseline predates it.
+Reproduce with `pnpm bench:ocr`; see `bench/results/ocr-benchmark.md`. For real scan page 1 (`bench/pdf/scan.pdf`), run `pnpm bench:pdf:scan:ocr`; the shipped Standard row (`default-1600`) is synced in `bench/results/scan-ocr/report.json` (currently **CER 3.0% / WER 5.5%, cross-column 0, ~35.6 s/page, overflow 4**). See `bench/results/scan-ocr/README.md`. The PDF quality bench keeps mixed-language at 0.0% (target ≤2%) and reading order at 98.3% (target ≥98%); see `bench/results/pdf-quality/final.md`. Its PR table compares only the run-start first-block latency, which both the baseline and final artifacts record; the page-level figure is a separate row because the baseline predates it.
 
 ### Permissions and privacy
 

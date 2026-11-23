@@ -1,6 +1,6 @@
 {
   "label": "final",
-  "generatedAt": "2026-11-23T07:42:30.234Z",
+  "generatedAt": "2026-11-23T11:19:01.523Z",
   "engine": "deterministic local fake",
   "pace": {
     "ttfbMs": 6,
@@ -28,8 +28,8 @@
         "readingOrderAccuracy": 0.9895833333333334,
         "twoColumnPages": 1,
         "firstTranslatedBlockMs": 5,
-        "firstTranslatedBlockFromRunStartMs": 378,
-        "fullDocumentMs": 199,
+        "firstTranslatedBlockFromRunStartMs": 287,
+        "fullDocumentMs": 202,
         "meanScale": 0.9846128195131897
       }
     },
@@ -46,9 +46,9 @@
         "overflowRate": 0.08,
         "readingOrderAccuracy": 0.9583333333333334,
         "twoColumnPages": 1,
-        "firstTranslatedBlockMs": 38,
-        "firstTranslatedBlockFromRunStartMs": 912,
-        "fullDocumentMs": 93,
+        "firstTranslatedBlockMs": 5,
+        "firstTranslatedBlockFromRunStartMs": 832,
+        "fullDocumentMs": 82,
         "meanScale": 0.9885424892343686
       }
     }
@@ -115,19 +115,19 @@
       {
         "variant": "default-1600",
         "pairing": "tiny_det+small_rec",
-        "ms": 36394.44768900002,
+        "ms": 35626.090791999995,
         "warmups": 1,
         "modelBytes": 22939968,
-        "cer": 0.0537862703467799,
-        "wer": 0.07656065959952886,
-        "order": 0.6109876543209877,
-        "covered": 0.9522968197879859,
-        "lines": 116,
-        "blocks": 49,
-        "skipped": 7,
+        "cer": 0.030330603579011222,
+        "wer": 0.05535924617196702,
+        "order": 0.6295691115952554,
+        "covered": 0.9628975265017667,
+        "lines": 117,
+        "blocks": 48,
+        "skipped": 6,
         "crossColumnCovers": 0,
         "overlapPairs": 0,
-        "overflow": 5,
+        "overflow": 4,
         "text": "Sakutto: On-Device Page Translation with a Small Instruction-Tuned Model\nJ. Ammaru\nIndependent researcher\nsakutto@example.org\nMachine translation of web pages is usually a client of a remote service. "
       },
       {
@@ -378,8 +378,8 @@
     "readingOrderAccuracy": 0.9833333333333334,
     "twoColumnPages": 2,
     "firstTranslatedBlockMs": 5,
-    "firstTranslatedBlockFromRunStartMs": 378,
-    "fullDocumentMs": 968,
+    "firstTranslatedBlockFromRunStartMs": 287,
+    "fullDocumentMs": 909,
     "meanScale": 0.9857425995580282
   },
   "pages": [
@@ -897,9 +897,9 @@
       "skippedProse": 0,
       "readingOrder": 0.9583333333333334,
       "twoColumn": true,
-      "firstBlockMs": 15,
-      "firstBlockFromRunStartMs": 378,
-      "pageMs": 82
+      "firstBlockMs": 11,
+      "firstBlockFromRunStartMs": 287,
+      "pageMs": 81
     },
     {
       "fixture": "arxiv",
@@ -1096,8 +1096,8 @@
       "readingOrder": 1,
       "twoColumn": false,
       "firstBlockMs": 5,
-      "firstBlockFromRunStartMs": 507,
-      "pageMs": 42
+      "firstBlockFromRunStartMs": 424,
+      "pageMs": 39
     },
     {
       "fixture": "arxiv",
@@ -1293,9 +1293,9 @@
       "skippedProse": 0,
       "readingOrder": 1,
       "twoColumn": false,
-      "firstBlockMs": 7,
-      "firstBlockFromRunStartMs": 587,
-      "pageMs": 26
+      "firstBlockMs": 13,
+      "firstBlockFromRunStartMs": 503,
+      "pageMs": 31
     },
     {
       "fixture": "arxiv",
@@ -1591,9 +1591,9 @@
       "skippedProse": 0,
       "readingOrder": 1,
       "twoColumn": false,
-      "firstBlockMs": 7,
-      "firstBlockFromRunStartMs": 638,
-      "pageMs": 49
+      "firstBlockMs": 8,
+      "firstBlockFromRunStartMs": 552,
+      "pageMs": 51
     },
     {
       "fixture": "scan",
@@ -2109,9 +2109,9 @@
       "skippedProse": 0,
       "readingOrder": 0.9583333333333334,
       "twoColumn": true,
-      "firstBlockMs": 38,
-      "firstBlockFromRunStartMs": 912,
-      "pageMs": 93
+      "firstBlockMs": 5,
+      "firstBlockFromRunStartMs": 832,
+      "pageMs": 82
     }
   ]
 }
