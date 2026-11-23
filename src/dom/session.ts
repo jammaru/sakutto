@@ -1956,6 +1956,30 @@ export class PageSession {
   }
 
   /**
+   * Undo only the text this session's partial paint wrote, before a changed source is
+   * rebuilt. A full `resetLive` would also overwrite a slot the page changed while the
+   * request was running, so those edits are kept. `expected` records the value left by our
+   * last paint: a slot still holding it is ours to restore, a different value belongs to
+   * the page and must survive into the new segment. The bilingual path already restores
+   * its slots before adding the line, so this is a no-op there.
+   */
+  private restorePaintedSource(item: Live): void {
+    const model = item.model;
+    if (!model) return;
+    this.editDom(() => {
+      removeTranslationUi(model.block);
+      for (const node of item.created) node.remove();
+      item.created.length = 0;
+      for (const slot of allSlots(model)) {
+        const value = slot.node.nodeValue ?? '';
+        if (value !== slot.original && this.expected.get(slot.node) === value) {
+          slot.node.nodeValue = slot.original;
+        }
+      }
+    });
+  }
+
+  /**
    * A page translated by an older build keeps its badge in the DOM. Blocks that already
    * read as the target language are skipped by the scan, so the per-block cleanup never
    * reaches them: this clears the whole page before the first paint instead.
@@ -2368,12 +2392,22 @@ export class PageSession {
     if (!existing) return;
     const model = buildSegment(block);
     if (existing.state === 'running') {
-      if (model && model.source === existing.source) return;
+      if (model && model.source === existing.source) {
+        // React can replace the children while the request is in flight, before there is
+        // any cached translation to repaint. Rebind now so the final paint writes to the
+        // live nodes instead of the detached ones the request started with.
+        existing.model = model;
+        existing.originalChildren = model.order.filter(
+          (node) => !(node instanceof Element && isOwnUi(node)),
+        );
+        return;
+      }
       // X swapped this tweet's text while its request was in flight — show-more expanded
       // it or the virtual list recycled the cell. The in-flight output belongs to the old
-      // source. Abort only that batch, requeue its other items, then enqueue the changed
-      // text from a fresh segment so the old translation cannot land on the new block.
+      // source. Abort only that batch, requeue its other items, restore whatever a partial
+      // replace paint overwrote, then enqueue the changed source from a clean segment.
       this.abortBatches((batch) => batch.items.includes(existing), true, existing);
+      this.restorePaintedSource(existing);
       this.forgetLive(existing, false);
       this.addBlock(block, existing.index);
       this.pump();

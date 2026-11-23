@@ -721,6 +721,101 @@ describe('page session', () => {
     expect(lead.textContent).toBe('Hello world');
   });
 
+  it('rebinds a same-source child replacement while the request is still running', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = '<p id="lead"><span>Hello world</span></p>';
+    const lead = document.querySelector('#lead');
+    if (!lead) throw new Error('missing lead');
+
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let calls = 0;
+    const session = start(
+      document,
+      engineOf(async function* (segments, options) {
+        calls += 1;
+        const first = calls === 1;
+        for (const segment of segments) {
+          if (first) {
+            yield { id: segment.id, textDelta: '…', engine: 'plamo' as const };
+            await gate;
+            if (options.signal.aborted) return;
+          }
+          yield { id: segment.id, final: `訳:${segment.text}`, engine: 'plamo' as const };
+        }
+      }),
+    );
+
+    await session.translate();
+    await vi.waitFor(() => expect(lead.textContent).toContain('…'));
+
+    // React replaces the child with the same source while the first request is in flight.
+    lead.replaceChildren(document.createElement('span'));
+    const fresh = lead.firstElementChild;
+    if (!fresh) throw new Error('missing replacement');
+    fresh.textContent = 'Hello world';
+    // Let the mutation observer rebind the segment before the request finishes.
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    release();
+    await session.whenIdle();
+
+    expect(calls).toBe(1);
+    expect(lead.textContent).toBe('訳:Hello world');
+    // The paint has to reach the live block; the old span was detached by the replacement.
+    expect(
+      [...lead.childNodes].some(
+        (node) => node.nodeType === Node.TEXT_NODE && (node.nodeValue ?? '').includes('訳:'),
+      ),
+    ).toBe(true);
+    expect(fresh.textContent).toBe('Hello world');
+  });
+
+  it('rebuilds from original source after a partial replace paint and a source change', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = '<p id="lead"><span>Hello</span> <span>world</span></p>';
+    const lead = document.querySelector('#lead');
+    if (!lead) throw new Error('missing lead');
+
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let calls = 0;
+    const session = start(
+      document,
+      engineOf(async function* (segments, options) {
+        calls += 1;
+        for (const segment of segments) {
+          if (calls === 1) {
+            yield { id: segment.id, textDelta: '…', engine: 'plamo' as const };
+            await gate;
+            if (options.signal.aborted) return;
+          }
+          yield { id: segment.id, final: `訳:${segment.text}`, engine: 'plamo' as const };
+        }
+      }),
+    );
+
+    await session.translate();
+    await vi.waitFor(() => expect(lead.querySelector('span')?.textContent).toBe(''));
+
+    // The page edits the second span after our partial paint cleared both source slots.
+    const second = lead.querySelectorAll('span')[1];
+    if (!second) throw new Error('missing second span');
+    second.textContent = 'WORLD';
+    await new Promise((resolve) => setTimeout(resolve, 40));
+
+    release();
+    await session.whenIdle();
+
+    expect(calls).toBe(2);
+    expect(lead.textContent).toContain('Hello');
+    expect(lead.textContent).toContain('WORLD');
+    expect(lead.textContent).not.toContain('…');
+  });
+
   it('keeps source line breaks in a bilingual translation', async () => {
     document.documentElement.lang = 'en';
     document.body.innerHTML =
