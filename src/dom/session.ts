@@ -242,6 +242,12 @@ interface Live {
    * Indexed by piece, so a restart of one piece cannot erase sentences from another.
    */
   sentenceShownParts?: string[];
+  /**
+   * Paint generation that wrote this block's first decoded chunk. A display switch
+   * invalidates that generation, so a later queued paint cannot write another partial
+   * first chunk after resetLive() cleared the shown mark.
+   */
+  firstChunkGeneration?: number;
   /** When the fast path last flushed partial text of this block. */
   fastFlushAt?: number;
   /** Length of the partial text at that flush, for the character budget. */
@@ -1656,6 +1662,7 @@ export class PageSession {
         }
       }
       item.firstPieceAt = null;
+      delete item.firstChunkGeneration;
       delete item.fastFlushAt;
       delete item.fastFlushLength;
       const pieces = expandSource(item);
@@ -2433,6 +2440,25 @@ export class PageSession {
    * grows out of the same text, replaces them. Returns false when there is no text yet.
    */
   private writeFirstChunk(item: Live, model: SegmentModel, bilingual: boolean): boolean {
+    // A paint queued under an earlier display mode can reach here after resetLive()
+    // dropped the shown mark. The first-chunk exception belongs to the generation that
+    // decoded that chunk: once the generation changed, the block keeps its source until
+    // a whole sentence is written, instead of regrowing the stale raw prefix. Keep the
+    // ownership and state checks the other deferred writes use as well.
+    if (
+      !this.active ||
+      item.model !== model ||
+      !this.ownsBlock(item) ||
+      (item.state !== 'running' && item.state !== 'queued')
+    ) {
+      return false;
+    }
+    if (
+      item.firstChunkGeneration !== undefined &&
+      item.firstChunkGeneration !== this.paintGeneration
+    ) {
+      return false;
+    }
     const parts = visiblePartialParts(item);
     const advanced = extendShownParts(parts, item.sentenceShownParts);
     if (advanced === null) return false;
@@ -2443,6 +2469,7 @@ export class PageSession {
       this.revealer.reserve(model.block);
     }
     item.sentenceShownParts = advanced.shown;
+    item.firstChunkGeneration = this.paintGeneration;
     this.write(item, model, text, true, bilingual);
     return true;
   }
@@ -2653,6 +2680,11 @@ export class PageSession {
 
   private repaintAll(): void {
     this.changingReveal(() => {
+      // A display switch retires every paint queued under the old mode. Otherwise a
+      // frame already queued by a decode turn runs after resetLive() cleared the shown
+      // mark, and paintSentences() -> writeFirstChunk() regrows the stale raw prefix
+      // as a bilingual line instead of holding the source until a whole sentence ends.
+      this.invalidatePaints();
       this.revealer.clear();
       for (const item of this.live.values()) {
         if (!item.translation) {

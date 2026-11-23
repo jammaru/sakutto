@@ -2546,6 +2546,108 @@ describe('page session', () => {
     }
   });
 
+  it('does not regrow a partial bilingual line after a display switch during sentence streaming', async () => {
+    document.documentElement.lang = 'en';
+    const first =
+      'The harbour office logs every crossing and publishes the delays each month. '.repeat(2);
+    const second =
+      'The railway station posts every arrival and updates the departures each morning. '.repeat(2);
+    const third =
+      'The market beside the river records every delivery and shares the totals each week. '.repeat(
+        2,
+      );
+    document.body.innerHTML = `<p id="p1">${first}</p><p id="p2">${second}</p><p id="p3">${third}</p>`;
+    for (const block of document.querySelectorAll('p')) {
+      block.getBoundingClientRect = () => new DOMRect(0, 0, 300, 40);
+    }
+    const target = document.querySelector('#p3');
+    if (!target) throw new Error('missing third paragraph');
+    const frames: (() => void)[] = [];
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let secondDeltaSeen!: () => void;
+    const stalled = new Promise<void>((resolve) => {
+      secondDeltaSeen = resolve;
+    });
+    let continued!: () => void;
+    const continuedGate = new Promise<void>((resolve) => {
+      continued = resolve;
+    });
+    let finish!: () => void;
+    const finalGate = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    const session = new PageSession(document, {
+      engine: engineOf(async function* (segments, options: TranslateOptions) {
+        for (const segment of segments) {
+          if (!segment.text.includes('market beside the river')) {
+            yield { id: segment.id, final: '完了', engine: 'plamo' as const };
+            continue;
+          }
+          // The third visible body block has no fast-path slot: its first chunk takes
+          // paintSentences() -> writeFirstChunk(), the next delta only queues a frame.
+          yield { id: segment.id, textDelta: '最初の部分', engine: 'plamo' as const };
+          yield { id: segment.id, textDelta: 'と続き', engine: 'plamo' as const };
+          secondDeltaSeen();
+          await gate;
+          if (options.signal.aborted) return;
+          yield { id: segment.id, textDelta: 'が続く', engine: 'plamo' as const };
+          continued();
+          await finalGate;
+          if (options.signal.aborted) return;
+          yield { id: segment.id, final: '最初の部分と続き。次の文。', engine: 'plamo' as const };
+        }
+      }),
+      labels,
+      preferences: preferences({ reveal: 'sentence' }),
+      scheduleFrame: (callback) => {
+        frames.push(callback);
+      },
+      debounceMs: 20,
+    });
+    sessions.push(session);
+
+    await session.translate();
+    await stalled;
+    expect(target.textContent).toBe('最初の部分');
+    expect(target.querySelector('sakutto-line')).toBeNull();
+
+    // Switch display while the second delta's paint frame is still queued.
+    session.setPreferences({ ...preferences(), display: 'bilingual', reveal: 'sentence' });
+    expect(target.textContent).toBe(third);
+    expect(target.querySelector('sakutto-line')).toBeNull();
+
+    while (frames.length > 0) frames.shift()?.();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    // The stale frame must not write the raw prefix as a bilingual line: the block
+    // keeps its source until a whole sentence is finished.
+    expect(target.textContent).toBe(third);
+    expect(target.querySelector('sakutto-line')).toBeNull();
+
+    release();
+    await continuedGate;
+    while (frames.length > 0) frames.shift()?.();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    // A delta decoded after the switch queues a fresh frame, but the first-chunk
+    // exception belonged to the invalidated generation: it must not regrow either.
+    expect(target.textContent).toBe(third);
+    expect(target.querySelector('sakutto-line')).toBeNull();
+
+    finish();
+    let idle = false;
+    const done = session.whenIdle().then(() => {
+      idle = true;
+    });
+    for (let attempt = 0; attempt < 40 && !idle; attempt += 1) {
+      while (frames.length > 0) frames.shift()?.();
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    await done;
+    expect(target.querySelector('sakutto-line')?.textContent).toBe('最初の部分と続き。次の文。');
+  });
+
   it('translates a block again when the page changes it before its translation is shown', async () => {
     document.documentElement.lang = 'en';
     document.body.innerHTML = '<p>Hello</p>';
