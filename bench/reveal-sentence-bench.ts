@@ -1,12 +1,14 @@
 /**
  * Re-measures only the sentence rows of the mock-tier reveal comparison. The main and
  * smooth builds are unchanged by the viewport fast path, so their rows in
- * bench/results/reveal-compare.{json,md} are kept verbatim; the sentence rows are
- * rebuilt from a fresh run against the current .output/chrome-mv3 build.
+ * bench/results/reveal-compare.{json,md} are kept verbatim when that file exists;
+ * the sentence rows are rebuilt from a fresh run against the current
+ * .output/chrome-mv3 build. A fresh checkout has no committed baseline, so a
+ * missing file starts with empty main/smooth rows and writes only the new rows.
  *
  *   PLAYWRIGHT_BROWSERS_PATH=... node --import ./scripts/bench/register-ts.mjs bench/reveal-sentence-bench.ts
  */
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { runPageBench } from '../scripts/bench/pages-runner.ts';
@@ -46,9 +48,11 @@ interface Row {
   paintMs?: number | null;
 }
 
-const previous = JSON.parse(
-  readFileSync(resolve(ROOT, 'bench/results/reveal-compare.json'), 'utf8'),
-) as Row[];
+const BASELINE = resolve(ROOT, 'bench/results/reveal-compare.json');
+/** A fresh checkout has no generated baseline; start with empty main/smooth rows then. */
+const previous: Row[] = existsSync(BASELINE)
+  ? (JSON.parse(readFileSync(BASELINE, 'utf8')) as Row[])
+  : [];
 const rows: Row[] = previous.filter((row) => row.variant !== 'sentence');
 
 /** The mock harness still has a few milliseconds of jitter; each row is a median. */
@@ -105,11 +109,7 @@ const lines = [
   '',
 ];
 
-writeFileSync(
-  resolve(ROOT, 'bench/results/reveal-compare.json'),
-  `${JSON.stringify(rows, null, 2)}
-`,
-);
+writeFileSync(BASELINE, `${JSON.stringify(rows, null, 2)}\n`);
 const report = await formatMarkdown(lines.join('\n'));
 writeFileSync(resolve(ROOT, 'bench/results/reveal-compare.md'), report);
 console.log(report);
