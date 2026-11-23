@@ -19,16 +19,28 @@ const OUT = resolve(ROOT, 'bench/results/videos');
 const VIEWPORT = { width: 1280, height: 800 };
 /** Roughly the pace of the small on-device model at a human-readable speed. */
 const PACE = { ttfbMs: 120, msPerChar: 3.5, deltas: 6 };
-const MODES = [
+const ALL_MODES = [
   { label: 'stream', reveal: 'stream' as const },
   { label: 'smooth', reveal: 'smooth' as const },
   { label: 'sentence', reveal: 'sentence' as const },
 ];
-const PAGES = [
+const ALL_PAGES = [
   { label: 'long-article', file: 'long-article.html' },
   { label: 'hn-like', file: 'many-cards.html' },
   { label: 'single-long-paragraph', file: 'single-long-paragraph.html' },
+  { label: 'model-card-sidebar', file: 'model-card-sidebar.html' },
 ];
+/** Env filters let an artifact refresh re-record only the clips that changed. */
+const wanted = (value: string | undefined): string[] =>
+  value === undefined || value.length === 0 ? [] : value.split(',').map((part) => part.trim());
+const modeFilter = wanted(process.env.REVEAL_RECORD_MODES);
+const pageFilter = wanted(process.env.REVEAL_RECORD_PAGES);
+const MODES = ALL_MODES.filter(
+  (mode) => modeFilter.length === 0 || modeFilter.includes(mode.label),
+);
+const PAGES = ALL_PAGES.filter(
+  (page) => pageFilter.length === 0 || pageFilter.includes(page.label),
+);
 
 function launchArgs(extension: string): string[] {
   return [

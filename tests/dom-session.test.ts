@@ -708,6 +708,133 @@ describe('page session', () => {
     expect(document.querySelector('p')?.textContent).toBe('Hello. Two.');
   });
 
+  it('writes the first fast-path token without waiting for a paint frame', async () => {
+    document.documentElement.lang = 'en';
+    const source =
+      'The harbour office logs every crossing and publishes the delays each month. '.repeat(6);
+    document.body.innerHTML = `<p id="lead">${source}</p>`;
+    const lead = document.querySelector('#lead');
+    if (!lead) throw new Error('missing lead paragraph');
+    lead.getBoundingClientRect = () => new DOMRect(0, 0, 300, 40);
+    const frames: (() => void)[] = [];
+    let afterFirst: string | null = null;
+    const session = new PageSession(document, {
+      engine: engineOf(async function* (segments) {
+        for (const segment of segments) {
+          yield { id: segment.id, textDelta: '最初の節', engine: 'plamo' as const };
+          afterFirst = lead.textContent ?? '';
+          yield { id: segment.id, final: '最初の節。次の節。', engine: 'plamo' as const };
+        }
+      }),
+      labels,
+      preferences: preferences({ reveal: 'sentence' }),
+      scheduleFrame: (callback) => {
+        frames.push(callback);
+      },
+      debounceMs: 20,
+    });
+    sessions.push(session);
+
+    await session.translate();
+    await vi.waitFor(() => {
+      expect(afterFirst).not.toBeNull();
+    });
+    // The prefix has no clause or sentence terminator. It is on the page in the same
+    // turn as the decoded chunk, with no paint frame having run for this block.
+    expect(afterFirst).toBe('最初の節');
+
+    let idle = false;
+    const done = session.whenIdle().then(() => {
+      idle = true;
+    });
+    for (let attempt = 0; attempt < 30 && !idle; attempt += 1) {
+      while (frames.length > 0) frames.shift()?.();
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    await done;
+    expect(lead.textContent).toBe('最初の節。次の節。');
+  });
+
+  it('requests and paints the main paragraph before model-card tags and chrome', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML =
+      '<header><p id="logo">Meridian Hub</p>' +
+      '<nav><ul><li id="nav-1">Models</li><li id="nav-2">Datasets</li></ul></nav></header>' +
+      '<div class="tabs"><p id="tab-1">Model card</p><p id="tab-2">Files and versions</p></div>' +
+      '<div class="layout"><div class="column">' +
+      '<h1 id="title">riverlight / plamo-diffusion-1b</h1>' +
+      '<p id="subtitle">A masked diffusion language model fine-tuned for short document translation and released for research.</p>' +
+      '<ul class="tags"><li id="tag-1">diffusion</li><li id="tag-2">translation</li><li id="tag-3">multilingual</li></ul>' +
+      '<p id="lead">This model converts an autoregressive checkpoint into a masked diffusion decoder and drops the causal mask before sampling.</p>' +
+      '</div><aside><h2 id="aside-title">Model details</h2><dl><dt id="dt-size">Model size</dt><dd id="dd-size">0.8B params</dd></dl></aside></div>';
+    for (const element of document.querySelectorAll('p, li, dt, dd, h1, h2')) {
+      element.getBoundingClientRect = () => new DOMRect(0, 0, 300, 40);
+    }
+    const lead = document.querySelector('#lead');
+    if (!lead) throw new Error('missing lead paragraph');
+    const tag = document.querySelector('#tag-1');
+    if (!tag) throw new Error('missing tag');
+    const frames: (() => void)[] = [];
+    const batches: string[][] = [];
+    let leadAfterFirst: string | null = null;
+    let tagAfterFirst: string | null = null;
+    const session = new PageSession(document, {
+      engine: engineOf(async function* (segments) {
+        batches.push(segments.map((segment) => segment.text));
+        for (const segment of segments) {
+          if (segment.text.includes('autoregressive')) {
+            yield { id: segment.id, textDelta: '最初の節', engine: 'plamo' as const };
+            leadAfterFirst = lead.textContent ?? '';
+            tagAfterFirst = tag.textContent ?? '';
+            yield { id: segment.id, final: '最初の節。次の節。', engine: 'plamo' as const };
+          } else {
+            yield {
+              id: segment.id,
+              final: `訳:${segment.text.slice(0, 4)}`,
+              engine: 'plamo' as const,
+            };
+          }
+        }
+      }),
+      labels,
+      preferences: preferences({ reveal: 'sentence' }),
+      scheduleFrame: (callback) => {
+        frames.push(callback);
+      },
+      debounceMs: 20,
+    });
+    sessions.push(session);
+
+    await session.translate();
+    await vi.waitFor(() => {
+      expect(leadAfterFirst).not.toBeNull();
+    });
+    // The tag cloud and the row of tabs sit before the lead in document order, but
+    // they are labels, not body copy: they neither take an early model slot nor a
+    // fast-path slot. The lead decodes with the subtitle and paints its first prefix.
+    const leadBatch = batches.findIndex((texts) =>
+      texts.some((text) => text.includes('autoregressive')),
+    );
+    const tagBatch = batches.findIndex((texts) => texts.includes('diffusion'));
+    const tabBatch = batches.findIndex((texts) => texts.includes('Model card'));
+    expect(leadBatch).toBeGreaterThanOrEqual(0);
+    expect(tagBatch).toBeGreaterThan(leadBatch);
+    expect(tabBatch).toBeGreaterThan(leadBatch);
+    expect(leadAfterFirst).toBe('最初の節');
+    expect(tagAfterFirst).toBe('diffusion');
+
+    let idle = false;
+    const done = session.whenIdle().then(() => {
+      idle = true;
+    });
+    for (let attempt = 0; attempt < 30 && !idle; attempt += 1) {
+      while (frames.length > 0) frames.shift()?.();
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    await done;
+    expect(lead.textContent).toBe('最初の節。次の節。');
+  });
+
   it('flushes a long first sentence of the lead paragraph past a visible heading and byline', async () => {
     document.documentElement.lang = 'en';
     const long =

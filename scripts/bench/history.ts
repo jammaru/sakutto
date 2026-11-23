@@ -24,6 +24,30 @@ export interface BenchRecord {
   machine: BenchMachine;
   metrics: BenchMetrics;
   notes?: string;
+  /** Raw per-block trace for a tooling run; never written to the JSONL history. */
+  trace?: {
+    perf: {
+      id: string;
+      benchId: string | null;
+      tag: string;
+      index: number;
+      kind: 'prose' | 'chrome';
+      band: 'visible' | 'near' | 'far';
+      heading: boolean;
+      fast: boolean;
+      priority: number;
+      requestMs: number | null;
+      tokenMs: number | null;
+      writeMs: number | null;
+    }[];
+    dom: {
+      id: string;
+      kind: string;
+      visible: boolean;
+      firstChangeMs: number | null;
+      doneMs: number | null;
+    }[];
+  };
 }
 
 export interface BenchEngine {

@@ -70,6 +70,7 @@ import { assessTranslation, stripPlaceholderTokens } from './placeholders';
 import {
   bandForRect,
   contentKind,
+  isBodyProse,
   lookaheadScreens,
   translationConcurrencyFor,
   translationPriority,
@@ -217,6 +218,8 @@ interface Live {
   /** The block is too large or too structured to share a completion with another block. */
   solo: boolean;
   kind: ContentKind;
+  /** Body copy (or a heading) when the block was first seen, before any paint. */
+  bodyProse: boolean;
   lang: string | null;
   index: number;
   band: VisibilityBand;
@@ -245,6 +248,10 @@ interface Live {
   fastFlushLength?: number;
   /** Timer that re-paints a held fast-path write when its time budget expires. */
   fastFlushTimer?: ReturnType<typeof setTimeout> | undefined;
+  /** Per-block milestones for the bench's request-order trace (absolute `performance.now`). */
+  traceRequestedAt?: number;
+  traceTokenAt?: number;
+  traceWriteAt?: number;
   /** When the text of this block last grew. */
   lastPieceAt: number;
   /** How many characters of source each piece of the running request has. */
@@ -271,6 +278,26 @@ interface InflightBatch {
 export interface PageSelectionSnapshot {
   text: string;
   rect: DOMRect;
+}
+
+/**
+ * One line of the `sakutto-perf` per-block timeline. `benchId` is only present on
+ * fixtures that carry `data-bench-id`; it lets the page bench line up the engine's
+ * request order with the block the recorder watched. Times are relative to `startedAt`.
+ */
+export interface BlockPerfEntry {
+  id: string;
+  benchId: string | null;
+  tag: string;
+  index: number;
+  kind: ContentKind;
+  band: VisibilityBand;
+  heading: boolean;
+  fast: boolean;
+  priority: number;
+  requestMs: number | null;
+  tokenMs: number | null;
+  writeMs: number | null;
 }
 
 type PageSelection = PageSelectionSnapshot & { range: Range | null };
@@ -1294,6 +1321,7 @@ export class PageSession {
       heading: /^H[1-6]$/u.test(block.tagName),
       solo: model.source.includes('\n'),
       kind: contentKind(block),
+      bodyProse: isBodyProse(block),
       lang: languageOf(block, this.detectedLanguage, model.source),
       index,
       band: bandForRect(block.getBoundingClientRect(), viewportHeight(block)),
@@ -1341,6 +1369,7 @@ export class PageSession {
       heading: false,
       solo: true,
       kind: 'prose',
+      bodyProse: false,
       lang: this.detectedLanguage,
       index: 0,
       band: 'visible',
@@ -1436,7 +1465,18 @@ export class PageSession {
 
   private priorityOf(item: Live): number {
     if (item.role === 'selection') return translationPriority('selection', 0, 'prose');
-    return translationPriority(item.band, item.index, item.kind);
+    // Sentence mode keeps the lead of the main column ahead of label-like prose. A tag
+    // cloud, a row of tabs or a byline is `prose` to the segment builder, but on a GPU
+    // tier it can fill the first wave of slots and leave the paragraph the reader came
+    // to read waiting for the next one. Those labels take chrome's later queue position.
+    const kind =
+      this.prefs.reveal === 'sentence' &&
+      item.role === 'page' &&
+      item.kind === 'prose' &&
+      !item.bodyProse
+        ? 'chrome'
+        : item.kind;
+    return translationPriority(item.band, item.index, kind);
   }
 
   private hasVisibleProse(): boolean {
@@ -1654,6 +1694,7 @@ export class PageSession {
     this.work.batches += 1;
     this.work.pieces += requests.length;
     const engineStarted = performance.now();
+    for (const item of owners.values()) item.traceRequestedAt ??= engineStarted;
     if (this.firstRequestAt === null) {
       this.firstRequestAt = engineStarted;
       this.writePerf();
@@ -1687,6 +1728,7 @@ export class PageSession {
           }
           item.firstPieceAt ??= performance.now();
           if (chunk.textDelta.length > 0) {
+            item.traceTokenAt ??= performance.now();
             if (this.firstTokenAt === null) {
               this.firstTokenAt = performance.now();
               this.writePerf();
@@ -1700,7 +1742,16 @@ export class PageSession {
           }
           // Text that is kept back needs no frame.
           if (this.holdsBack(item)) this.noteLiveRate();
-          else this.queuePaint(item);
+          else if (this.prefs.reveal === 'sentence' && this.fastVisible(item)) {
+            // The first visible word must not wait for a paint frame: on a busy page the
+            // frame can be far behind the 40 ms decode budget. Write into the reserved box
+            // in this turn. paintVisibleTokens still holds every later partial to a clause
+            // or budget, and arms the flush timer from the write it just made, so the timer
+            // fires at the deadline rather than one frame after it.
+            this.paint(item, true);
+            this.noteTiming();
+            this.noteLiveRate();
+          } else this.queuePaint(item);
         }
         if (chunk.final !== undefined) {
           item.partText[index] = chunk.final;
@@ -2202,10 +2253,14 @@ export class PageSession {
     if (item.role !== 'page' || item.band !== 'visible' || item.kind !== 'prose' || item.heading) {
       return false;
     }
+    if (!item.bodyProse) return false;
     let ahead = 0;
     for (const other of this.live.values()) {
       if (other === item || other.role !== 'page' || other.band !== 'visible') continue;
       if (other.kind !== 'prose' || other.heading || other.index >= item.index) continue;
+      // A tag, tab or short label is not a paragraph the reader waits for: on a model
+      // card five of them before the lead used to spend the whole two-block budget.
+      if (!other.bodyProse) continue;
       ahead += 1;
       if (ahead >= FAST_VISIBLE_BLOCKS) return false;
     }
@@ -2502,6 +2557,7 @@ export class PageSession {
       this.firstDomWriteAt = performance.now();
       this.writePerf();
     }
+    item.traceWriteAt ??= performance.now();
     this.editDom(() => {
       model.block.setAttribute('data-sakutto-id', item.id);
       if (item.engine) model.block.setAttribute('data-sakutto-engine', item.engine);
@@ -2869,6 +2925,43 @@ export class PageSession {
       batches: this.work.batches,
       pieces: this.work.pieces,
       engineMs: this.work.engineMs,
+      blocks: this.blockTrace(),
+    });
+  }
+
+  /**
+   * Request order and first write of every job, so a bench can tell a block that never
+   * got a slot from one that decoded but held its text back. The trace is read from the
+   * same clock as the page's own first-* milestones.
+   */
+  private blockTrace(): BlockPerfEntry[] {
+    const relative = (at: number | undefined): number | null =>
+      at === undefined ? null : Math.round(at - this.startedAt);
+    const items = [...this.live.values()]
+      .filter((item) => item.role === 'page')
+      .sort((a, b) => a.index - b.index);
+    // The same rule as fastVisible, counted once in document order: an eligible block
+    // gets a slot while fewer than FAST_VISIBLE_BLOCKS eligible ones came before it.
+    let ahead = 0;
+    return items.map((item) => {
+      const eligible =
+        item.band === 'visible' && item.kind === 'prose' && !item.heading && item.bodyProse;
+      const fast = eligible && ahead < FAST_VISIBLE_BLOCKS;
+      if (eligible) ahead += 1;
+      return {
+        id: item.id,
+        benchId: item.model?.block.getAttribute('data-bench-id') ?? null,
+        tag: item.model?.block.localName ?? '',
+        index: item.index,
+        kind: item.kind,
+        band: item.band,
+        heading: item.heading,
+        fast,
+        priority: this.priorityOf(item),
+        requestMs: relative(item.traceRequestedAt),
+        tokenMs: relative(item.traceTokenAt),
+        writeMs: relative(item.traceWriteAt),
+      };
     });
   }
 

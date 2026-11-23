@@ -114,6 +114,8 @@ export interface RunPageBenchOptions {
   onRecord?: ((record: BenchRecord) => void) | undefined;
   /** Which page-reveal mode the mock harness stores before translating. */
   reveal?: 'smooth' | 'stream' | 'sentence' | undefined;
+  /** Keep the raw per-block request/write trace on the returned records. */
+  captureTrace?: boolean | undefined;
 }
 
 export interface RunPageBenchResult {
@@ -361,6 +363,7 @@ async function measurePage(input: {
   sample: number;
   samples: number;
   tree: { commit: string; dirty: boolean };
+  captureTrace: boolean;
 }): Promise<BenchRecord> {
   const { harness, fixture } = input;
   if (input.mode === 'live') await clearCache(harness.options);
@@ -445,6 +448,14 @@ async function measurePage(input: {
         timedOut: recorded.timedOut,
         ...(recorded.unfinished.length > 0 ? { unfinished: recorded.unfinished } : {}),
       },
+      ...(input.captureTrace
+        ? {
+            trace: {
+              perf: recorded.perf?.blocks ?? [],
+              dom: recorded.blockTimeline,
+            },
+          }
+        : {}),
       ...(input.mode === 'mock'
         ? {
             notes:
@@ -589,6 +600,7 @@ export async function runPageBench(options: RunPageBenchOptions): Promise<RunPag
           sample: index + 1,
           samples,
           tree,
+          captureTrace: options.captureTrace === true,
         });
         records.push(record);
         if (mode === 'live' && localServer) {
@@ -658,7 +670,16 @@ export async function runPageBench(options: RunPageBenchOptions): Promise<RunPag
   }
   if (writeHistory) {
     await mkdir(resolve(historyPath, '..'), { recursive: true });
-    await appendHistory(historyPath, measured);
+    // A trace is a tooling detail of one run, not a history row: drop it so the JSONL
+    // stays small and comparable across commits.
+    await appendHistory(
+      historyPath,
+      measured.map((record) => {
+        const stored = { ...record };
+        delete stored.trace;
+        return stored;
+      }),
+    );
   }
 
   const comparisons: { metric: BenchMetricKey; text: string }[] = [];

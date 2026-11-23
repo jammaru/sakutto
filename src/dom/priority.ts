@@ -1,3 +1,5 @@
+import { hasSentenceTerminator } from '@/engine/text/sentences';
+
 export type VisibilityBand = 'visible' | 'near' | 'far';
 
 export type ContentKind = 'prose' | 'chrome';
@@ -92,6 +94,23 @@ export function contentKind(block: Element): ContentKind {
     return 'prose';
   }
   return 'chrome';
+}
+
+/**
+ * Prose a reader actually waits for: a heading, or body copy that reads like a
+ * paragraph. Short tags, tabs, bylines and list labels are `prose` to the segment
+ * builder, but they are not what a first visible paint measures. Counting them
+ * spends the sentence-mode fast-path slots on chrome, and queuing them ahead of
+ * the main column lets a row of tags take the model slots the lead needs.
+ */
+export function isBodyProse(block: Element | undefined): boolean {
+  if (!block || isChromeBlock(block) || isMetadataBlock(block)) return false;
+  const tag = block.localName;
+  if (!PROSE_TAGS.has(tag)) return false;
+  const text = (block.textContent ?? '').trim();
+  if (HEADING.test(tag)) return text.length > 0;
+  if (text.length >= PARAGRAPH_CHARS) return true;
+  return hasSentenceTerminator(text);
 }
 
 export function bandForRect(

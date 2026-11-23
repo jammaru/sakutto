@@ -70,74 +70,74 @@
     "fullPageMs": 1775,
     "cls": 0.0321,
     "layoutShifts": 6,
-    "requestMs": 13,
-    "ttfbMs": 20,
-    "paintMs": 27
+    "requestMs": 12,
+    "ttfbMs": 22,
+    "paintMs": 14
   },
   {
     "variant": "sentence",
     "page": "first-paragraph-then-long-tail",
-    "firstVisibleMs": 125,
+    "firstVisibleMs": 100,
     "fullPageMs": 1400,
     "cls": 0.0318,
     "layoutShifts": 4,
     "requestMs": 9,
-    "ttfbMs": 21,
-    "paintMs": 11
+    "ttfbMs": 22,
+    "paintMs": 4
   },
   {
     "variant": "sentence",
     "page": "many-cards",
-    "firstVisibleMs": 125,
-    "fullPageMs": 1325,
+    "firstVisibleMs": 100,
+    "fullPageMs": 1225,
     "cls": 0.0336,
     "layoutShifts": 7,
     "requestMs": 9,
-    "ttfbMs": 19,
-    "paintMs": 16
+    "ttfbMs": 20,
+    "paintMs": 11
   },
   {
     "variant": "sentence",
     "page": "mixed-ui",
     "firstVisibleMs": 100,
-    "fullPageMs": 1050,
+    "fullPageMs": 975,
     "cls": 0.0318,
     "layoutShifts": 6,
-    "requestMs": 7,
-    "ttfbMs": 18,
-    "paintMs": 18
+    "requestMs": 9,
+    "ttfbMs": 20,
+    "paintMs": 12
   },
   {
     "variant": "sentence",
     "page": "single-long-paragraph",
-    "firstVisibleMs": 175,
-    "fullPageMs": 1150,
+    "firstVisibleMs": 150,
+    "fullPageMs": 1125,
     "cls": 0.0316,
     "layoutShifts": 1,
     "requestMs": 6,
-    "ttfbMs": 16,
-    "paintMs": 7
+    "ttfbMs": 18,
+    "paintMs": 11
   },
   {
     "variant": "sentence",
     "page": "model-card-sidebar",
-    "firstVisibleMs": 200,
-    "fullPageMs": 1050,
-    "cls": 0.0327,
-    "layoutShifts": 9,
-    "requestMs": 10,
-    "ttfbMs": 19,
-    "paintMs": 47
+    "firstVisibleMs": 100,
+    "fullPageMs": 1125,
+    "cls": 0.0325,
+    "layoutShifts": 11,
+    "requestMs": 11,
+    "ttfbMs": 20,
+    "paintMs": 11
   },
   {
     "variant": "sentence",
     "page": "headline-in-header",
     "firstVisibleMs": 150,
-    "fullPageMs": 1100,
+    "fullPageMs": 1101,
     "cls": 0.0322,
     "layoutShifts": 6,
-    "requestMs": 11,
+    "requestMs": 12,
     "ttfbMs": 17,
-    "paintMs": 49
+    "paintMs": 41
   }
 ]
