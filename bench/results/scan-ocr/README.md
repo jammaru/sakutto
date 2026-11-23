@@ -53,5 +53,5 @@ on a real gutter were the two layout fixes that removed cross-column covers.
 
 High tier can be slightly better on CER for this page but is ~6x slower
 and 6x larger; the shipped Standard tier stays the default. Its 240 s recognition bound covers this
-213.7 s measurement; Standard's 60 s bound covers the 34.5 s measurement. No English-specific recognizer is in the
+213.7 s measurement; Standard's 60 s bound covers the committed ~36.4 s measurement. No English-specific recognizer is in the
 catalog, so none was used.
