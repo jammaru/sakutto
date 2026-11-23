@@ -449,6 +449,7 @@ function cjkTwoColumnBodyRow(
   resolved: ResolvedConversion,
   pageTwoColumn: boolean,
   titleAboveBody: boolean,
+  pageColumns: PageColumnGeometry | null,
 ): boolean {
   // The row sits above every corroborated body-row top: its central gap is title whitespace even
   // though CJK glyphs and a centred gutter otherwise look exactly like a two-column body row.
@@ -461,11 +462,21 @@ function cjkTwoColumnBodyRow(
   const measure = (group: readonly OcrTextPiece[]): number =>
     Math.max(...group.map((piece) => piece.box.x + piece.box.width)) -
     Math.min(...group.map((piece) => piece.box.x));
-  return (
+  // A full measure on both sides proves a body row on its own. A short right fragment cannot:
+  // the page's corroborated column edges decide instead, so an 80pt right-column line splits
+  // exactly like a 250pt one when it starts in the same column and shares the same gutter.
+  const ownGeometry =
     measure(left) >= resolved.pageWidth * 0.15 &&
     measure(right) >= resolved.pageWidth * 0.15 &&
-    gutterCentred(leftEnd, rightStart, resolved.pageWidth)
+    gutterCentred(leftEnd, rightStart, resolved.pageWidth);
+  const sharesPageColumns = sharesCorroboratedColumns(
+    left,
+    leftEnd,
+    rightStart,
+    pageColumns,
+    resolved.pageWidth,
   );
+  return ownGeometry || sharesPageColumns;
 }
 
 /** A row whose two line-region pieces are one sentence split at an ordinary word space. */
@@ -779,11 +790,36 @@ export function ocrResultToTextLines(
     // A row printed strictly above every corroborated body-row top is a title: the page's column
     // evidence belongs to the body below it. Decide that from geometry before judging CJK body
     // shape, so the title's own gutter cannot first mark it as body and then deny its title
-    // evidence. Rows among the body tops (including the topmost one) keep their gutter split.
-    const aboveAllBodyRows = twoColumnTops.length > 0 && twoColumnTops.every((top) => top > rowTop);
+    // evidence. A wide CJK title satisfies the body-row geometry itself, so it is among the
+    // corroborated tops: exclude the current row by line index, otherwise it would count as body
+    // evidence against itself and stay split. Rows among the (other) body tops keep their split.
+    const otherColumnRows = twoColumnRows.filter((index) => index !== lineIndex);
+    const otherBodyTops = twoColumnTops.filter((_, index) => twoColumnRows[index] !== lineIndex);
+    // A corroborated row that shares the page's column edges is itself a body row (including the
+    // topmost one): it must not promote itself to a title just because it was excluded from the
+    // evidence. A wide CJK title above the body does not share those edges, so it can be lifted
+    // out of the corroborated set and keep its own whitespace.
+    const pageColumns = corroboratedPageColumns(lines, otherColumnRows, resolved);
+    const sharesColumns = sharesCorroboratedColumns(
+      leftPieces,
+      leftEnd,
+      rightStart,
+      pageColumns,
+      resolved.pageWidth,
+    );
+    const aboveAllBodyRows =
+      otherBodyTops.length > 0 &&
+      otherBodyTops.every((top) => top > rowTop) &&
+      !(twoColumnRows.includes(lineIndex) && sharesColumns);
     // A CJK row sharing the page's corroborated gutter is body text, not a spanning title: its
     // glyphs cannot carry the casing evidence an English title check relies on.
-    const cjkBodyGeometry = cjkTwoColumnBodyRow(pieces, resolved, pageTwoColumn, aboveAllBodyRows);
+    const cjkBodyGeometry = cjkTwoColumnBodyRow(
+      pieces,
+      resolved,
+      pageTwoColumn,
+      aboveAllBodyRows,
+      pageColumns,
+    );
     // A real section heading can be printed between two-column body rows instead of above all
     // of them. Balanced page margins, a moderate (title-sized) span and a title-shaped tail
     // distinguish it from a near-full-measure colon body row, which has body text above and
@@ -1055,6 +1091,78 @@ function twoColumnBodyRows(
     }
   }
   return rows;
+}
+
+/**
+ * Gutter and column edges shared by the page's corroborated two-column rows. A short CJK line
+ * cannot prove its column by its own width, but starting where every other right-column line
+ * starts and sharing their gutter is page-level evidence of the same body column.
+ */
+interface PageColumnGeometry {
+  readonly leftStart: number;
+  readonly leftEnd: number;
+  readonly rightStart: number;
+}
+
+function corroboratedPageColumns(
+  lines: readonly ReadingLine<OcrRegion>[],
+  rowIndices: readonly number[],
+  resolved: ResolvedConversion,
+): PageColumnGeometry | null {
+  const edges: PageColumnGeometry[] = [];
+  for (const lineIndex of rowIndices) {
+    const readingLine = lines[lineIndex];
+    if (!readingLine) continue;
+    const pieces: OcrTextPiece[] = [];
+    for (const [itemIndex, region] of readingLine.items.entries()) {
+      if (region.text.trim().length === 0) continue;
+      const detectorIndex = readingLine.indices[itemIndex];
+      const regionIndex =
+        detectorIndex !== undefined && Number.isSafeInteger(detectorIndex) && detectorIndex >= 0
+          ? detectorIndex
+          : itemIndex;
+      const id =
+        'ocr:p' +
+        String(resolved.pageIndex) +
+        ':l' +
+        String(lineIndex) +
+        ':r' +
+        String(regionIndex);
+      pieces.push(regionPiece(region, region.vertical, id, resolved.scaleX, resolved.scaleY));
+    }
+    if (pieces.length < 2) continue;
+    const { left, right, leftEnd, rightStart } = splitAtGutter(pieces, resolved.pageWidth);
+    if (left.length === 0 || right.length === 0) continue;
+    edges.push({
+      leftStart: Math.min(...left.map((piece) => piece.box.x)),
+      leftEnd,
+      rightStart,
+    });
+  }
+  if (edges.length === 0) return null;
+  // Medians keep one jittered row from moving the shared gutter.
+  return {
+    leftStart: median(edges.map((edge) => edge.leftStart)),
+    leftEnd: median(edges.map((edge) => edge.leftEnd)),
+    rightStart: median(edges.map((edge) => edge.rightStart)),
+  };
+}
+
+/** Whether a row starts where the corroborated columns start and splits at their gutter. */
+function sharesCorroboratedColumns(
+  left: readonly OcrTextPiece[],
+  leftEnd: number,
+  rightStart: number,
+  pageColumns: PageColumnGeometry | null,
+  pageWidth: number,
+): boolean {
+  if (pageColumns === null || left.length === 0) return false;
+  const tolerance = Math.max(6, pageWidth * 0.03);
+  return (
+    Math.abs(Math.min(...left.map((piece) => piece.box.x)) - pageColumns.leftStart) <= tolerance &&
+    Math.abs(leftEnd - pageColumns.leftEnd) <= tolerance &&
+    Math.abs(rightStart - pageColumns.rightStart) <= tolerance
+  );
 }
 
 interface OcrBlockGroup {

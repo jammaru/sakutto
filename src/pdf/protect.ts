@@ -77,8 +77,9 @@ const NOTATION_HEAD = /^(?:\p{L}[\p{N}_^]{0,3}|[\p{N}_^]+)$/u;
  * between the token and the operator makes it a prose opener, whatever the token's spelling.
  */
 const FLATTENED_IDENTIFIER = /^\p{Lu}\p{Ll}[\p{N}_^]{0,3}$/u;
-/** Flattened subscripted matrix names (`W_i`, `W_q`, `W_k`, `W_v`, `W_o`) are notation by shape. */
-const FLATTENED_MATRIX_NAME = /^W[iqkvo][\p{N}_^]{0,3}$/u;
+/** Flattened subscripted matrix names (`W_i`, `W_q`, `W_k`, `W_v`) are notation by shape. `Wo` is
+ * the German opener in `Wo Q ∈`, not a subscript name, so it keeps its positional rule. */
+const FLATTENED_MATRIX_NAME = /^W[iqkv][\p{N}_^]{0,3}$/u;
 const IDENTIFIER_OPERATOR = /^\s*(?:\p{Lu}[\p{N}_^]{0,3}\s+)?[∈×÷]\s+\S/u;
 /**
  * Another operand between a two-letter token and the operator: `If Q ∈`, `As W ∈`, `Si Q ∈`.
