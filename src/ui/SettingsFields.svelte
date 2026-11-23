@@ -301,8 +301,8 @@
   <label class="field" data-sakutto="translation-reveal">
     <span>{t('translationRevealLabel')}</span>
     <select value={settings.translationReveal} onchange={updateTranslationReveal}>
-      <option value="smooth">{t('translationRevealSmooth')}</option>
       <option value="sentence">{t('translationRevealSentence')}</option>
+      <option value="smooth">{t('translationRevealSmooth')}</option>
       <option value="stream">{t('translationRevealStream')}</option>
     </select>
   </label>

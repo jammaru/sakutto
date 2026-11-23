@@ -45,17 +45,17 @@ export function normalizePlainTextLineBreaks(value: unknown): PlainTextLineBreak
 }
 
 /**
- * How a finished page translation appears. `smooth` keeps a block's source until its
- * translation is finished and swaps it once; `stream` writes the text as it is decoded;
- * `sentence` writes each finished sentence as it is decoded and settles the block once at
- * the end.
+ * How a finished page translation appears. `sentence` (the default) writes each finished
+ * sentence as it is decoded and settles the block once at the end; `smooth` keeps a block's
+ * source until its translation is finished and swaps it once; `stream` writes the text as it
+ * is decoded.
  */
-export const TRANSLATION_REVEALS = ['smooth', 'stream', 'sentence'] as const;
+export const TRANSLATION_REVEALS = ['sentence', 'smooth', 'stream'] as const;
 export type TranslationReveal = (typeof TRANSLATION_REVEALS)[number];
 
 /** Normalizes a stored value; anything unrecognised gets the default. */
 export function normalizeTranslationReveal(value: unknown): TranslationReveal {
-  return value === 'stream' || value === 'sentence' ? value : 'smooth';
+  return value === 'smooth' || value === 'stream' || value === 'sentence' ? value : 'sentence';
 }
 
 export const VIDEO_CAPTION_SIZE_MIN = 50;
@@ -424,7 +424,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
   translationPopupSize: TRANSLATION_POPUP_SIZE_DEFAULT,
   translationPopupWidth: TRANSLATION_POPUP_WIDTH_AUTO,
   plainTextLineBreaks: 'none',
-  translationReveal: 'smooth',
+  translationReveal: 'sentence',
   consent: null,
   highQualityDismissed: false,
   sharedFolderOfferDismissed: false,

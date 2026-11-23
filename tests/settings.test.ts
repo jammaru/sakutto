@@ -38,7 +38,7 @@ function stored(overrides: Partial<Settings> = {}): Settings {
     translationPopupSize: 100,
     translationPopupWidth: 0,
     plainTextLineBreaks: 'none',
-    translationReveal: 'smooth',
+    translationReveal: 'sentence',
     consent: null,
     highQualityDismissed: false,
     sharedFolderOfferDismissed: false,
@@ -445,12 +445,22 @@ describe('settings defaults', () => {
     ).toBe('none');
   });
 
-  it('swaps finished paragraphs by default and keeps streaming only when it was chosen', () => {
-    expect(DEFAULT_SETTINGS.translationReveal).toBe('smooth');
-    expect(normalizeTranslationReveal(undefined)).toBe('smooth');
+  it('reveals sentences by default and keeps every explicit choice', () => {
+    expect(DEFAULT_SETTINGS.translationReveal).toBe('sentence');
+    expect(normalizeTranslationReveal(undefined)).toBe('sentence');
+    expect(normalizeTranslationReveal('smooth')).toBe('smooth');
     expect(normalizeTranslationReveal('stream')).toBe('stream');
     expect(normalizeTranslationReveal('sentence')).toBe('sentence');
-    expect(normalizeTranslationReveal('typewriter')).toBe('smooth');
+    expect(normalizeTranslationReveal('typewriter')).toBe('sentence');
+    expect(
+      normalizeSettings(
+        {
+          schemaVersion: SETTINGS_SCHEMA_VERSION,
+          targetLanguage: 'en',
+        },
+        'en-US',
+      ).translationReveal,
+    ).toBe('sentence');
     expect(
       normalizeSettings(
         {

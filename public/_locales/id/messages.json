@@ -1527,7 +1527,7 @@
     "message": "Cara terjemahan halaman ditampilkan"
   },
   "translationRevealHelp": {
-    "message": "Opsi pertama mempertahankan teks asli paragraf sampai terjemahannya selesai, lalu menggantinya dengan satu gerakan singkat, sehingga halaman tidak melompat saat diterjemahkan. Opsi per kalimat menampilkan setiap kalimat segera setelah diterjemahkan, sambil menjaga tinggi blok sampai akhir. Paragraf yang memakan waktu lama ditampilkan saat diterjemahkan. Tampilan bilingual tidak berubah."
+    "message": "Opsi per kalimat adalah bawaan: menampilkan setiap kalimat segera setelah diterjemahkan sambil menjaga tinggi blok sampai akhir. Paragraf yang memakan waktu lama ditampilkan saat diterjemahkan, dan pada tampilan bilingual baris terjemahan bertambah kalimat demi kalimat. Opsi penggantian mempertahankan teks asli paragraf sampai terjemahannya selesai, lalu menggantinya dengan satu gerakan singkat, sehingga halaman tidak melompat saat diterjemahkan."
   },
   "translationRevealSmooth": {
     "message": "Ganti setiap paragraf setelah selesai"
