@@ -7,11 +7,7 @@
     "msPerChar": 0.04,
     "concurrency": 8
   },
-  "fixtures": [
-    "paper",
-    "arxiv",
-    "scan"
-  ],
+  "fixtures": ["paper", "arxiv", "scan"],
   "textSources": {
     "native": "paper.pdf and arXiv 1706.03762 use their own PDF text layer.",
     "simulated-ocr": "scan.pdf page geometry and background, word boxes synthesized from paper.pdf text (not OCR).",
@@ -1027,9 +1023,7 @@
           "untranslated": false,
           "prose": true,
           "mixedLanguage": false,
-          "garbled": [
-            "h- t"
-          ],
+          "garbled": ["h- t"],
           "scale": 1
         },
         {

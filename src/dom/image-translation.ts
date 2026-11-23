@@ -427,7 +427,11 @@ export class ImageTranslationController {
       if (!text) throw new Error('Translation failed');
       this.paintText(text, false, result.text);
     } catch (error) {
-      if (generation !== this.generation || controller.signal.aborted) return;
+      if (generation !== this.generation) return;
+      if (controller.signal.aborted) {
+        this.paintText(this.options.labels.failed, true);
+        return;
+      }
       this.paintText(
         error instanceof ImageCapturePermissionError
           ? this.options.labels.permission

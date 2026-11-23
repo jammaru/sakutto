@@ -14,10 +14,10 @@ PP-OCRv6 と ONNX Runtime Web により、スキャン PDF・画像の文字認�
 - 画像の右クリックメニューから OCR→翻訳パネル
 - 14 ロケール、プライバシー・CWS 資料を更新
 
-| 区分 | モデル | ダウンロードサイズ |
-| --- | --- | ---: |
-| 標準（既定） | tiny_det + small_rec | 約 22.9 MB |
-| 高精度 | medium_det + medium_rec | 約 138.6 MB |
+| 区分         | モデル                  | ダウンロードサイズ |
+| ------------ | ----------------------- | -----------------: |
+| 標準（既定） | tiny_det + small_rec    |         約 22.9 MB |
+| 高精度       | medium_det + medium_rec |        約 138.6 MB |
 
 ---
 
@@ -27,20 +27,20 @@ PP-OCRv6 と ONNX Runtime Web により、スキャン PDF・画像の文字認�
 
 ### 品質指標（`pnpm bench:pdf:quality --label final`、fake engine）
 
-| 指標 | baseline | final |
-| --- | ---: | ---: |
-| 未翻訳散文 | 13.8% | **0.0%** |
-| 言語混在 | 20.9% | **0.0%** |
-| 文字化け | 0.84% | **0.04%** |
-| 読み順 | 98.3% | **98.3%** |
+| 指標       | baseline |     final |
+| ---------- | -------: | --------: |
+| 未翻訳散文 |    13.8% |  **0.0%** |
+| 言語混在   |    20.9% |  **0.0%** |
+| 文字化け   |    0.84% | **0.04%** |
+| 読み順     |    98.3% | **98.3%** |
 
 **scan 行は疑似 OCR**（レイアウト計測）。**実 OCR** は別表（`pnpm bench:pdf:scan:ocr`）。
 
 ### 実スキャン scan.pdf p1（real OCR、既定 default-1600）
 
-| CER | WER | cross-column | ms/page |
-| ---: | ---: | ---: | ---: |
-| **0.054** | 0.077 | 1 | ~37s |
+|       CER |   WER | cross-column | ms/page |
+| --------: | ----: | -----------: | ------: |
+| **0.054** | 0.077 |            1 |    ~37s |
 
 スクリーンショット: `bench/results/screenshots/baseline/` → `final/`（arXiv p1/p3/p5、scan 疑似・実 OCR `scan-p1-real-ocr.png`）
 

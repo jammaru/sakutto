@@ -259,6 +259,7 @@
         progress = state;
       },
       ocr: {
+        tier: settings?.selectedOcrTier ?? DEFAULT_OCR_TIER,
         recognize: async (image, signal) => {
           const tier = settings?.selectedOcrTier ?? DEFAULT_OCR_TIER;
           const outcome = await requestOcrRecognizeDetailed(tier, encodeOcrImage(image), signal);

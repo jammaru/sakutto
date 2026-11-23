@@ -288,11 +288,13 @@ function onePrintedTitleRow(pieces: readonly OcrTextPiece[], pageWidth: number):
     .join(' ')
     .trim();
   const words = text.split(/\s+/u).filter(Boolean);
-  if (words.length < 3) return false;
+  const cjk = /^[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u.test(text);
+  if (!cjk && words.length < 3) return false;
+  if (cjk && text.length < 8) return false;
   // A title may carry a colon or a comma, but not the full stops of two sentences. Sentence
   // punctuation is what distinguishes a title from a body row in the two-piece case.
   if (/[.!?。！？]$/u.test(text) || (text.match(/[.!?。！？]/gu) ?? []).length > 1) return false;
-  return /^\p{Lu}/u.test(text);
+  return /^(\p{Lu}|\d|[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}])/u.test(text);
 }
 
 /** A row whose two line-region pieces are one sentence split at an ordinary word space. */
@@ -582,11 +584,11 @@ export function ocrResultToTextLines(
     // long title to just two pieces; the word-level guards above cannot see those, so their
     // own text structure decides. Page-wide column evidence still wins over that text guess.
     const printedTitleRow = onePrintedTitleRow(pieces, resolved.pageWidth);
+    const twoPieceTitleMerge =
+      printedTitleRow &&
+      (!pageTwoColumn || /:/u.test(wholeText) || isCentredHeadingRow(pieces, resolved.pageWidth));
     const singleRowWordGap =
-      (printedTitleRow &&
-        (!pageTwoColumn ||
-          (lineWidth >= resolved.pageWidth * 0.82 && sharesBaseline(leftPieces, rightPieces)))) ||
-      (!pageTwoColumn && singleSentenceRow(pieces, resolved.pageWidth));
+      twoPieceTitleMerge || (!pageTwoColumn && singleSentenceRow(pieces, resolved.pageWidth));
     const titleWordGap =
       (titleWholeLine ||
         wordSpacedLine ||

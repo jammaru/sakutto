@@ -99,15 +99,15 @@ PDF 翻訳を「動く」から「読める」に変えるため、抽出・段�
 
 | variant             |   CER |   WER | cross-column | lines | ms/page | model bytes |
 | ------------------- | ----: | ----: | -----------: | ----: | ------: | ----------: |
-| baseline-1x         | 66.7% | 94.8% |            1 |   100 |  24.1 s |    21.9 MiB |
-| shipped-baseline    | 11.6% | 16.8% |            1 |   105 |  33.7 s |    21.9 MiB |
+| baseline-1x         | 66.7% | 94.8% |            1 |   100 |  24.5 s |    21.9 MiB |
+| shipped-baseline    | 11.6% | 16.8% |            2 |   105 |  29.1 s |    21.9 MiB |
 | default-1600        |  5.4% |  7.7% |            1 |   116 |  37.1 s |    21.9 MiB |
 | gray+contrast-1600  |  5.4% |  7.5% |            1 |   116 |  37.7 s |    21.9 MiB |
 | dpi300              |  5.4% |  7.6% |            0 |   115 |  39.2 s |    21.9 MiB |
-| sauvola             | 82.5% | 97.2% |            2 |    97 |  22.2 s |    21.9 MiB |
+| sauvola             | 82.5% | 97.2% |            2 |    97 |  26.3 s |    21.9 MiB |
 | default-1600 (High) |  3.6% |  6.4% |            0 |   117 | 213.7 s |   132.2 MiB |
 
-**採用**: 2x 描画 + detection maxSide 1600 の Standard（tiny_det + small_rec）。実スキャン p1 で **CER 5.4%（≤5% 目標内）、cross-column 1**（今回の再計測。認識・配置は実行ごとにわずかに変動します）。旧ベンチの 1.4 という値は GT 不一致によるもので、認識精度ではありません。High は 3.4〜3.6% と Standard（3.0%）よりわずかに劣るうえ約 6.3 倍遅く 6 倍サイズのため採用しません。Binarization はこの小さなセリフ文字を潰すため既定では無効です。18 バリアントの全表は `bench/results/scan-ocr/report.md`。
+**採用**: 2x 描画 + detection maxSide 1600 の Standard（tiny_det + small_rec）。実スキャン p1 の最新コミット値は **CER 5.4%、cross-column 1**（`report.json` と同期）。旧ベンチの 1.4 という値は GT 不一致によるもので、認識精度ではありません。High tier は CER 面で有利な場合がある一方、約 6 倍遅く 6 倍サイズのため既定は Standard のままです。Binarization はこの小さなセリフ文字を潰すため既定では無効です。17 バリアントの全表は `bench/results/scan-ocr/report.md`。
 
 ## 確認
 

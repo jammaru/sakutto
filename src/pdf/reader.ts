@@ -1,3 +1,4 @@
+import type { OcrTier } from '@/engine/ocr/catalog';
 import type { Formality } from '@/shared/settings';
 import { isAbortError } from '@/engine/errors';
 import { MAX_OCR_DIMENSION, MAX_OCR_PIXELS } from '@/engine/offscreen/protocol';
@@ -86,7 +87,7 @@ export interface ReaderOptions {
   /** Reports progress to the page's toolbar. */
   onProgress: (state: ReaderProgress) => void;
   /** Optional scanned-page fallback. Construction does not load or download OCR models. */
-  ocr?: { recognize: PdfOcrRecognize } | undefined;
+  ocr?: { recognize: PdfOcrRecognize; tier?: OcrTier } | undefined;
 }
 
 export interface ReaderProgress {
@@ -890,6 +891,7 @@ export class PdfReader {
             pageWidth: extracted.width,
             pageHeight: extracted.height,
             recognize: this.ocr.recognize,
+            tier: this.ocr.tier,
             timeoutMessage: this.labels.ocrFailed,
           });
           this.pageOcr = pageOcr;

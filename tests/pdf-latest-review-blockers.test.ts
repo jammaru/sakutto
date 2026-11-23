@@ -223,15 +223,62 @@ describe('latest DSH review blockers', () => {
     bilingualRows: Map<object, HTMLElement>;
   };
 
-  function block(text: string, x: number, y: number, column: number): LayoutBlock {
-    return { text, box: { x, y, width: 100, height: 20 }, column, writing: 0 } as LayoutBlock;
+  function block(
+    text: string,
+    x: number,
+    y: number,
+    column: number,
+    width = column < 0 ? 510 : 100,
+  ): LayoutBlock {
+    return { text, box: { x, y, width, height: 20 }, column, writing: 0 } as LayoutBlock;
   }
+
+  it('B1: splits two-piece rows on a two-column page at the gutter', () => {
+    const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+    const bodyRows = [
+      [
+        region('machine translation of web pages is usually a', quad(45, 100, 250, 20)),
+        region('client of a remote service in this browser', quad(305, 100, 250, 20)),
+      ],
+      [
+        region('the extension runs the model on the local device', quad(45, 130, 250, 20)),
+        region('and keeps the page text inside the browser', quad(305, 130, 250, 20)),
+      ],
+      [
+        region('this paper describes a browser extension that', quad(45, 160, 250, 20)),
+        region('translates pages without sending them to a server', quad(305, 160, 250, 20)),
+      ],
+    ];
+    const result: OcrResult = {
+      regions: bodyRows.flat(),
+      lines: bodyRows.map(readingLine),
+      text: '',
+    };
+    const lines = ocrResultToTextLines(result, options);
+    expect(lines.length).toBeGreaterThanOrEqual(6);
+    expect(lines.filter((line) => line.columnHint === 0).length).toBeGreaterThanOrEqual(3);
+    expect(lines.filter((line) => line.columnHint === 1).length).toBeGreaterThanOrEqual(3);
+    const layout = ocrResultToPageLayout(result, options);
+    expect(layout.blocks.some((block) => block.box.width >= 500)).toBe(false);
+  });
+
+  it('B2: keeps a Japanese two-region title whole on one line', () => {
+    const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+    const items = [
+      region('スキャンしたPDFの翻訳品質を改善する', quad(45, 100, 250, 20)),
+      region('ための端末内OCRパイプライン', quad(305, 100, 250, 20)),
+    ];
+    const full = 'スキャンしたPDFの翻訳品質を改善する ための端末内OCRパイプライン';
+    expect(ocrResultToTextLines(ocrResult(items), options).map((line) => line.text)).toEqual([
+      full,
+    ]);
+  });
 
   it('B4: compareReadingOrder is a total order with a spanning block', () => {
     const leftTop = block('left-top', 45, 100, 0);
     const leftBottom = block('left-bottom', 45, 300, 0);
     const rightTop = block('right-top', 315, 100, 1);
-    const spanning = block('spanning', 45, 200, -1);
+    const spanning = block('spanning', 45, 200, -1, 100);
     const blocks = [leftBottom, rightTop, spanning, leftTop];
     const expected = ['left-top', 'spanning', 'left-bottom', 'right-top'];
     // A non-transitive comparator gives different results for different input orders.
@@ -239,6 +286,35 @@ describe('latest DSH review blockers', () => {
       const actual = [...permutation].sort(compareReadingOrder).map((b) => b.text);
       expect(actual, permutation.map((b) => b.text).join(',')).toEqual(expected);
     }
+  });
+
+  it('B4: places a full-width footer after the right column in bilingual mode', () => {
+    const reader = Object.create(PdfReader.prototype) as PdfReader;
+    (reader as unknown as { target: string }).target = 'ja';
+    const paint = (
+      reader as unknown as {
+        paintBilingual: (e: BilingualElement, s: readonly BlockState[]) => void;
+      }
+    ).paintBilingual.bind(reader);
+    const leftTop = block('left-top', 45, 100, 0);
+    const leftBottom = block('left-bottom', 45, 300, 0);
+    const rightTop = block('right-top', 315, 100, 1);
+    const footer = block('footer', 45, 700, -1);
+    const element: BilingualElement = {
+      bilingual: document.createElement('div'),
+      bilingualRows: new Map(),
+    };
+    paint(
+      element,
+      [footer, leftBottom, rightTop, leftTop].map((b) => ({
+        block: b,
+        state: 'done',
+        translation: '訳',
+      })) as unknown as readonly BlockState[],
+    );
+    expect(
+      [...element.bilingual.children].map((row) => row.firstElementChild?.textContent),
+    ).toEqual(['left-top', 'left-bottom', 'right-top', 'footer']);
   });
 
   it('B4: paints bilingual rows with a spanning block at its reading position', () => {
@@ -252,7 +328,7 @@ describe('latest DSH review blockers', () => {
     const leftTop = block('left-top', 45, 100, 0);
     const leftBottom = block('left-bottom', 45, 300, 0);
     const rightTop = block('right-top', 315, 100, 1);
-    const spanning = block('spanning', 45, 200, -1);
+    const spanning = block('spanning', 45, 200, -1, 100);
     const element: BilingualElement = {
       bilingual: document.createElement('div'),
       bilingualRows: new Map(),
