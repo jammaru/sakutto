@@ -10,6 +10,12 @@ const THREE_PARAGRAPHS =
   '<span>最後の段落にも十分な長さの文章を書いています。</span>' +
   '</div>';
 
+const TWO_EQUAL_PARAGRAPHS =
+  '<div data-testid="tweetText">' +
+  '<span>A short first line.</span><br><br>' +
+  '<span>Another short line.</span>' +
+  '</div>';
+
 function bilingual(html: string, translation: string): { chunks: string[]; breaks: number } {
   document.body.innerHTML = html;
   const block = document.querySelector('[data-testid="tweetText"]');
@@ -83,5 +89,56 @@ describe('X bilingual rendering', () => {
     applyTranslation(model, 'Welcome to Osaka!This is the second sentence.', []);
     expect(block.textContent).toBe('Welcome to Osaka!This is the second sentence.');
     expect(block.querySelector('sakutto-line')).toBeNull();
+  });
+
+  it('keeps bare domains, filenames and abbreviations intact when restoring glued sentences', () => {
+    const { chunks } = bilingual(
+      TWO_EQUAL_PARAGRAPHS,
+      'See example.com and node.js for details. Visit second.example.org today!Thanks. ' +
+        'Read README.md about U.S.A. policy!Then continue. Open https://example.com/a.B or ' +
+        'mail foo.bar@example.com now!Done.',
+    );
+    for (const token of [
+      'example.com',
+      'node.js',
+      'second.example.org',
+      'README.md',
+      'U.S.A.',
+      'https://example.com/a.B',
+      'foo.bar@example.com',
+    ]) {
+      expect(
+        chunks.some((chunk) => chunk.includes(token)),
+        token,
+      ).toBe(true);
+    }
+    const joined = chunks.join('');
+    expect(joined).toContain('today! Thanks.');
+    expect(joined).toContain('policy! Then');
+    expect(joined).toContain('now! Done.');
+    expect(joined).not.toMatch(/\b(?:example|README|node)\.\s+/u);
+  });
+
+  it('splits glued non-ASCII Latin sentences without touching their letters', () => {
+    const { chunks } = bilingual(TWO_EQUAL_PARAGRAPHS, 'Bonjour!Ça va?Oui. Привет!Как дела?');
+    const joined = chunks.join('');
+    expect(joined).toContain('Bonjour! Ça');
+    expect(joined).toContain('Привет! Как');
+  });
+
+  it('keeps emoji grapheme clusters intact across CJK paragraph gaps', () => {
+    const family = '👨‍👩‍👧‍👦';
+    const translation = `最初の文です${family}二番目の文です`;
+    const { chunks } = bilingual(TWO_EQUAL_PARAGRAPHS, translation);
+    expect(chunks.join('')).toBe(translation);
+    expect(chunks.some((chunk) => chunk.includes(family))).toBe(true);
+    expect(chunks.filter((chunk) => chunk.length > 0)).toHaveLength(2);
+  });
+
+  it('keeps combining marks with their base letter across CJK paragraph gaps', () => {
+    const translation = '最初の文ですe\u0301二番目の文です';
+    const { chunks } = bilingual(TWO_EQUAL_PARAGRAPHS, translation);
+    expect(chunks.join('')).toBe(translation);
+    expect(chunks.some((chunk) => chunk.includes('e\u0301'))).toBe(true);
   });
 });

@@ -308,13 +308,20 @@ function joinUnits(units: readonly string[], bilingual: boolean): string {
 /**
  * A flattened model output can run two Latin sentences together (\`Welcome to Osaka!This is\`).
  * The sentence splitter only accepts a terminator followed by whitespace, so give it one.
- * URLs and email addresses keep their dots; unchanged text is returned as-is.
+ * Dots inside URLs, email addresses, bare host names, file names and dotted abbreviations
+ * are not sentence ends and keep their place; unchanged text is returned as-is.
  */
 function separateGluedSentences(text: string): string {
   const ranges: Array<[number, number]> = [];
   for (const pattern of [
     /(?:https?:\/\/|www\.)[^\s<>"'）)】」』]+/giu,
     /(?<=^|[\s<>()"'])[^\s<>()"']+@[^\s<>()"']+\.[a-z]{2,}/giu,
+    // Dot-separated labels with a lowercase suffix: example.com, second.example.org,
+    // node.js, README.md. A capitalized word after the dot starts a new sentence
+    // (sentence.Come), so an uppercase suffix is deliberately not treated as a token.
+    /(?<![\p{L}\p{N}])(?:[\p{L}\p{N}](?:[\p{L}\p{N}-]*[\p{L}\p{N}])?\.)+[a-z]{2,}(?![\p{L}\p{N}])/gu,
+    // Repeated single letters with dots: U.S.A., e.g., Ph.D.
+    /(?<!\p{L})(?:\p{L}\.){2,}/gu,
   ]) {
     for (const match of text.matchAll(pattern)) {
       if (match.index === undefined) continue;
@@ -326,8 +333,12 @@ function separateGluedSentences(text: string): string {
   for (let index = 0; index < text.length; index += 1) {
     const character = text[index] ?? '';
     output += character;
-    if (!/[.!?]/u.test(character) || !/[A-Za-z]/u.test(text[index + 1] ?? '')) continue;
-    if (!/[A-Za-z0-9]/u.test(text[index - 1] ?? '')) continue;
+    const next = text[index + 1] ?? '';
+    const previous = text[index - 1] ?? '';
+    if (!/[.!?]/u.test(character) || !/\p{L}/u.test(next)) continue;
+    if (!/[\p{L}\p{N}]/u.test(previous)) continue;
+    // A dot after a digit is a version or list separator (1.2.Next), not a sentence end.
+    if (character === '.' && !/\p{L}/u.test(previous)) continue;
     if (ranges.some(([start, end]) => index >= start && index < end)) continue;
     output += ' ';
   }
@@ -527,17 +538,38 @@ function lineChunks(text: string, groups: readonly LineGroup[], bilingual = fals
 }
 
 /**
+ * Splits into grapheme clusters so a ZWJ emoji, flag pair or combining sequence is never
+ * cut in half by a paragraph gap. Older runtimes without Intl.Segmenter fall back to code
+ * points, which at least keeps surrogate pairs together.
+ */
+function graphemeUnits(text: string): string[] {
+  const Segmenter = (
+    Intl as unknown as {
+      Segmenter?: new (
+        locales?: string | string[],
+        options?: { granularity: 'grapheme' },
+      ) => { segment(input: string): Iterable<{ segment: string }> };
+    }
+  ).Segmenter;
+  if (!Segmenter) return Array.from(text);
+  return Array.from(
+    new Segmenter(undefined, { granularity: 'grapheme' }).segment(text),
+    (part) => part.segment,
+  );
+}
+
+/**
  * Last-resort split for a flattened translation, in any target language, that has fewer
- * sentence boundaries than the source has paragraphs. CJK cuts land on code points; Latin
- * cuts land between words, with their spaces restored. Every unit stays in exactly one
- * chunk. The source text is still right above the bilingual line, so an imperfect cut is
- * less harmful than one run-on block.
+ * sentence boundaries than the source has paragraphs. CJK cuts land on grapheme clusters;
+ * Latin cuts land between words, with their spaces restored. Every unit stays in exactly
+ * one chunk. The source text is still right above the bilingual line, so an imperfect cut
+ * is less harmful than one run-on block.
  */
 function distributeFlatParagraphs(text: string, sources: readonly string[]): string[] {
   const cjk = CJK_TEXT.test(text);
-  const points = cjk ? Array.from(text) : wordChunks(text);
+  const points = cjk ? graphemeUnits(text) : wordChunks(text);
   const weights = sources.map((source) =>
-    Math.max(1, cjk ? Array.from(source.trim()).length : wordChunks(source.trim()).length),
+    Math.max(1, cjk ? graphemeUnits(source.trim()).length : wordChunks(source.trim()).length),
   );
   const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
   const chunks: string[] = [];
