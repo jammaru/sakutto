@@ -157,4 +157,119 @@ test.describe('X timeline bilingual translation', () => {
       await page.close();
     }
   });
+
+  test('renders flat English output as three paragraphs with spaces after Latin sentence ends', async () => {
+    await resetExtensionStorage(extension.worker, { targetLanguage: 'en' });
+    const page = await extension.context.newPage();
+    try {
+      await page.goto(`${FIXTURE_ORIGIN}/x-timeline.html?flatEn=1`);
+      await page.locator('#main-tweet').evaluate((element) => element.setAttribute('hidden', ''));
+      await page
+        .locator('#three-paragraph-tweet')
+        .evaluate((element) => element.removeAttribute('hidden'));
+      await commandPage(extension.worker, page, 'bilingual');
+      await waitTranslated(page);
+
+      const line = page.locator('#three-paragraph-text > sakutto-line');
+      await expect(line.locator('br')).toHaveCount(4);
+      const chunks = await line.evaluate((element) =>
+        Array.from(element.childNodes)
+          .filter((node) => node.nodeType === Node.TEXT_NODE)
+          .map((node) => node.nodeValue ?? ''),
+      );
+      expect(chunks).toHaveLength(5);
+      const translated = chunks.join(' ');
+      expect(translated).toContain('Welcome to Osaka!');
+      expect(translated).toContain('This is the second sentence.');
+      expect(translated).toContain('Come see me! Hope you visit.');
+      expect(chunks[1]).toBe('');
+      expect(chunks[3]).toBe('');
+      // The fake model returns Osaka!This and me!Hope; neither may stay glued.
+      for (const chunk of chunks) expect(chunk).not.toMatch(/[!?][A-Za-z]/u);
+      await expect(page.locator('#three-paragraph-text')).toContainText('最初の段落には');
+    } finally {
+      await page.close();
+    }
+  });
+
+  test('keeps a single within-paragraph br in flat English output', async () => {
+    await resetExtensionStorage(extension.worker, { targetLanguage: 'en' });
+    const page = await extension.context.newPage();
+    try {
+      await page.goto(`${FIXTURE_ORIGIN}/x-timeline.html?flatEn=1`);
+      await page.locator('#main-tweet').evaluate((element) => element.setAttribute('hidden', ''));
+      await page
+        .locator('#single-br-tweet')
+        .evaluate((element) => element.removeAttribute('hidden'));
+      await commandPage(extension.worker, page, 'bilingual');
+      await waitTranslated(page);
+
+      const line = page.locator('#single-br-text > sakutto-line');
+      await expect(line.locator('br')).toHaveCount(1);
+      const chunks = await line.evaluate((element) =>
+        Array.from(element.childNodes)
+          .filter((node) => node.nodeType === Node.TEXT_NODE)
+          .map((node) => node.nodeValue ?? ''),
+      );
+      expect(chunks).toHaveLength(2);
+      expect(chunks[0]).toContain('Welcome to Osaka!');
+      expect(chunks[1]).toContain('This is the second line.');
+      for (const chunk of chunks) expect(chunk).not.toMatch(/[!?][A-Za-z]/u);
+    } finally {
+      await page.close();
+    }
+  });
+
+  test('translates lazily mounted replies on the detail page', async () => {
+    await resetExtensionStorage(extension.worker, { targetLanguage: 'en' });
+    const page = await extension.context.newPage();
+    try {
+      await page.goto(`${FIXTURE_ORIGIN}/x-timeline.html`);
+      await page.locator('#main-tweet').evaluate((element) => element.setAttribute('hidden', ''));
+      await page.locator('#detail').evaluate((element) => element.removeAttribute('hidden'));
+      await commandPage(extension.worker, page, 'bilingual');
+      await waitTranslated(page);
+      await expect(page.locator('#detail-main-text > sakutto-line')).toContainText(
+        '§en§投稿の詳細画面に表示されている本文です',
+      );
+
+      await page.getByRole('button', { name: '返信を表示' }).click();
+      await expect(page.locator('#reply-one > sakutto-line')).toContainText(
+        '§en§返信が遅れて読み込まれた場合でも',
+      );
+      await page.getByRole('button', { name: 'さらに返信を表示' }).click();
+      await expect(page.locator('#reply-two > sakutto-line')).toContainText(
+        '§en§さらに返信を表示を押すと',
+      );
+      await expect(page.locator('#detail-main-text > sakutto-line')).toContainText(
+        '§en§投稿の詳細画面に表示されている本文です',
+      );
+      await waitTranslated(page);
+    } finally {
+      await page.close();
+    }
+  });
+
+  test('translates a conversation injected after SPA pushState', async () => {
+    await resetExtensionStorage(extension.worker, { targetLanguage: 'en' });
+    const page = await extension.context.newPage();
+    try {
+      await page.goto(`${FIXTURE_ORIGIN}/x-timeline.html`);
+      await page.locator('#main-tweet').evaluate((element) => element.setAttribute('hidden', ''));
+      await commandPage(extension.worker, page, 'bilingual');
+      await waitTranslated(page);
+
+      await page.getByRole('button', { name: 'スレッドを開く' }).click();
+      await expect(page).toHaveURL(/\/i\/web\/status\//u);
+      await expect(page.locator('#spa-main-text > sakutto-line')).toContainText(
+        '§en§シングルページ遷移で開いた詳細画面の本文です',
+      );
+      await expect(page.locator('#spa-reply > sakutto-line')).toContainText(
+        '§en§返信が遅れて読み込まれた場合でも',
+      );
+      await waitTranslated(page);
+    } finally {
+      await page.close();
+    }
+  });
 });

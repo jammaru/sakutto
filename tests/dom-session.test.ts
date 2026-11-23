@@ -4233,3 +4233,93 @@ describe('selection offers on a never host and at init', () => {
     expect(icon().hidden).toBe(true);
   });
 });
+
+describe('X detail conversation', () => {
+  function xEngine(seen: string[]): PageEngine {
+    return engineOf(async function* (segments) {
+      for (const segment of segments) {
+        seen.push(segment.text);
+        yield { id: segment.id, final: `§en§${segment.text}`, engine: 'plamo' as const };
+      }
+    });
+  }
+
+  const xPreferences = {
+    targetLanguage: 'en',
+    display: 'bilingual' as const,
+    auto: 'always' as const,
+  };
+
+  it('translates a reply mounted in the same tick as the main tweet is painted', async () => {
+    document.documentElement.lang = 'ja';
+    const main = '最初の投稿です。'.repeat(12);
+    document.body.innerHTML =
+      '<article data-testid="tweet"><div id="main" data-testid="tweetText" lang="ja">' +
+      main +
+      '</div></article><div id="conversation"></div>';
+    let injected = false;
+    // X lazy-loads the conversation while the primary tweet is being painted. The page's
+    // mutation and our paint land in the same observer callback, which used to be discarded.
+    const pageObserver = new MutationObserver((records) => {
+      if (injected) return;
+      const painted = records.some((record) =>
+        [...record.addedNodes].some(
+          (node) => node instanceof Element && node.tagName === 'SAKUTTO-LINE',
+        ),
+      );
+      if (!painted) return;
+      injected = true;
+      const conversation = document.getElementById('conversation');
+      if (!conversation) return;
+      conversation.innerHTML =
+        '<article data-testid="tweet"><div id="reply" data-testid="tweetText" lang="ja">' +
+        `返信の本文です。${'続き。'.repeat(30)}` +
+        '</div></article>';
+    });
+    pageObserver.observe(document.body, { childList: true, subtree: true });
+    try {
+      const seen: string[] = [];
+      const session = start(document, xEngine(seen), xPreferences);
+      await session.translate();
+      await session.whenIdle();
+      await new Promise((resolve) => setTimeout(resolve, 60));
+      await session.whenIdle();
+
+      expect(injected).toBe(true);
+      expect(seen.some((source) => source.includes('返信'))).toBe(true);
+      expect(document.querySelector('#reply > sakutto-line')?.textContent).toContain(
+        '§en§返信の本文です',
+      );
+    } finally {
+      pageObserver.disconnect();
+    }
+  });
+
+  it('translates a conversation injected after a pushState navigation', async () => {
+    document.documentElement.lang = 'ja';
+    document.body.innerHTML =
+      '<article data-testid="tweet"><div id="main" data-testid="tweetText" lang="ja">' +
+      `最初の投稿です。${'続き。'.repeat(30)}` +
+      '</div></article><div id="spa"></div>';
+    const seen: string[] = [];
+    const session = start(document, xEngine(seen), xPreferences);
+    await session.translate();
+    await session.whenIdle();
+    expect(seen.some((source) => source.includes('最初の投稿'))).toBe(true);
+
+    document.defaultView?.history.pushState({}, '', '/i/web/status/165');
+    const spa = document.getElementById('spa');
+    if (!spa) throw new Error('missing SPA root');
+    spa.innerHTML =
+      '<article data-testid="tweet"><div id="spa-reply" data-testid="tweetText" lang="ja">' +
+      `SPA後の返信です。${'続き。'.repeat(30)}` +
+      '</div></article>';
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    await session.whenIdle();
+
+    expect(seen.some((source) => source.includes('SPA後の返信'))).toBe(true);
+    expect(document.querySelector('#spa-reply > sakutto-line')?.textContent).toContain(
+      '§en§SPA後の返信です',
+    );
+  });
+});

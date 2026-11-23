@@ -31,6 +31,63 @@
       </div>
     </article>
 
+    <article id="single-br-tweet" data-testid="tweet" hidden>
+      <div id="single-br-text" data-testid="tweetText" lang="ja" dir="auto">
+        <span
+          >一行目の長い日本語の本文です。単独の改行が段落ではなく行の途中として残ることを確認します。</span
+        ><br />
+        <span
+          >二行目の長い日本語の本文です。対訳でも二つの行が空行なしで並ぶことを確認します。</span
+        >
+      </div>
+    </article>
+
+    <!-- A realistic tweetText: span runs, inline entities and both kinds of <br>. -->
+    <article id="rich-tweet" data-testid="tweet" hidden>
+      <div id="rich-text" data-testid="tweetText" lang="ja" dir="auto">
+        <span dir="auto"
+          >今日は<span>#大阪</span>へ行きます。<img
+            alt="🌸"
+            src="data:image/gif;base64,R0lGODlhAQABAAAAACw="
+            width="16"
+            height="16"
+        /></span>
+        <br />
+        <br />
+        <span dir="auto"
+          ><a href="/@sakutto_bot">@sakutto_bot</a> と
+          <a href="/hashtag/旅行">#旅行</a>
+          の話をしました。この段落は<br />二行に分かれています。</span
+        >
+        <br />
+        <br />
+        <span dir="auto"
+          >最後の段落には、長い投稿が対訳でも崩れないことを確認するための文章を書いています。<img
+            alt="✨"
+            src="data:image/gif;base64,R0lGODlhAQABAAAAACw="
+            width="16"
+            height="16"
+        /></span>
+      </div>
+    </article>
+
+    <!-- Tweet detail page: the primary post plus lazily mounted conversation replies. -->
+    <section id="detail" aria-label="投稿の詳細" hidden>
+      <article id="detail-main" data-testid="tweet">
+        <div id="detail-main-text" data-testid="tweetText" lang="ja" dir="auto">
+          <span
+            >投稿の詳細画面に表示されている本文です。返信が読み込まれる前から翻訳の対象になります。</span
+          >
+          <br />
+          <br />
+          <span>二番目の段落もあり、返信が遅れて挿入されてもこの本文の訳文は保たれます。</span>
+        </div>
+      </article>
+      <button id="show-replies" type="button">返信を表示</button>
+      <div id="conversation"></div>
+      <button id="show-more-replies" type="button" hidden>さらに返信を表示</button>
+    </section>
+
     <section id="recommendations" aria-label="もっと見つける" hidden>
       <div data-testid="cellInnerDiv">
         <article data-testid="tweet">
@@ -53,7 +110,17 @@
       <button id="recycle-cell" type="button">次の投稿を表示</button>
     </article>
 
+    <!-- SPA navigation: pushState, then mount a whole conversation without a reload. -->
+    <button id="spa-open" type="button">スレッドを開く</button>
+    <div id="spa-root"></div>
+
     <script>
+      // A flat-English fixture: a flatEn=1 query makes the fake engine answer with one
+      // paragraph containing glued Latin sentences instead of the usual marked source.
+      if (new URLSearchParams(location.search).get('flatEn') === '1') {
+        document.documentElement.dataset.benchFlatEn = '1';
+      }
+
       const tweet = document.getElementById('tweet');
       const expandedHtml = [
         '<span id="first">The first paragraph of this expanded post is deliberately long enough to be body copy.</span>',
@@ -91,6 +158,47 @@
         });
       });
       document.getElementById('force-rerender').addEventListener('click', render);
+
+      const replyHtml = (id, body) =>
+        '<article data-testid="tweet"><div id="' +
+        id +
+        '" data-testid="tweetText" lang="ja" dir="auto"><span>' +
+        body +
+        '</span><br /><br /><span>返信の二番目の段落も、本文と同じように訳文が表示されることを確認するための文章です。</span></div></article>';
+      const replyOne =
+        '返信が遅れて読み込まれた場合でも、X の詳細画面では本文と同じ対訳が表示されなければなりません。この長い本文は、返信が後から挿入されても最初のスキャンの結果だけで完了しないことを確かめるためのものです。';
+      const replyTwo =
+        'さらに返信を表示を押すと、会話の末尾に別の返信記事が挿入されます。この返信もまた独立した tweetText として翻訳され、先に翻訳済みの本文や返信を上書きしてはいけません。';
+
+      document.getElementById('show-replies').addEventListener('click', (event) => {
+        event.currentTarget.hidden = true;
+        // X fetches the conversation after the primary tweet has already mounted.
+        setTimeout(() => {
+          document
+            .getElementById('conversation')
+            .insertAdjacentHTML('beforeend', replyHtml('reply-one', replyOne));
+          document.getElementById('show-more-replies').hidden = false;
+        }, 40);
+      });
+      document.getElementById('show-more-replies').addEventListener('click', (event) => {
+        document
+          .getElementById('conversation')
+          .insertAdjacentHTML('beforeend', replyHtml('reply-two', replyTwo));
+        event.currentTarget.hidden = true;
+      });
+
+      document.getElementById('spa-open').addEventListener('click', () => {
+        history.pushState({}, '', '/i/web/status/1650000000000000000');
+        document.getElementById('spa-root').innerHTML = [
+          '<article data-testid="tweet">',
+          '<div id="spa-main-text" data-testid="tweetText" lang="ja" dir="auto">',
+          '<span>シングルページ遷移で開いた詳細画面の本文です。URL だけが変わり、ページは再読み込みされません。この本文も返信も新しい tweetText として翻訳の対象になります。</span>',
+          '</div></article>',
+          '<div id="spa-conversation">',
+          replyHtml('spa-reply', replyOne),
+          '</div>',
+        ].join('');
+      });
 
       document.getElementById('recommendation-more').addEventListener('click', (event) => {
         document.getElementById('recommendation-text').innerHTML = [

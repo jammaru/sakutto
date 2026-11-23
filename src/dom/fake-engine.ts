@@ -35,6 +35,23 @@ export interface FakePace {
 }
 
 const PACE_ATTRIBUTE = 'data-bench-pace';
+const FLAT_EN_ATTRIBUTE = 'data-bench-flat-en';
+/** One paragraph, with no spaces after the exclamation marks, as reported for X (#161). */
+const FLAT_EN_THREE_LINES =
+  'Welcome to Osaka!This is the second sentence.Come see me!Hope you visit.';
+const FLAT_EN_TWO_LINES = 'Welcome to Osaka!This is the second line.';
+
+/**
+ * An X fixture can ask for the model's flattened-English failure shape. Only multi-line
+ * segments are flattened: a single-line lazy reply still gets the marked fake output so a
+ * test can tell which reply was translated.
+ */
+function flatEnglish(text: string, target: string): string | null {
+  if (!/^en(?:-|$)/iu.test(target)) return null;
+  const enabled = globalThis.document?.documentElement?.getAttribute(FLAT_EN_ATTRIBUTE);
+  if (enabled !== '1' || !text.includes('\n')) return null;
+  return text.includes('\n\n') ? FLAT_EN_THREE_LINES : FLAT_EN_TWO_LINES;
+}
 
 /**
  * The pace is read from the page itself so the bench can set it before translation
@@ -76,7 +93,8 @@ export async function* fakeTranslate(
   const pace = readPace();
   for (const segment of segments) {
     if (options.signal.aborted) return;
-    const text = fakeTranslateText(segment.text, options.tgt);
+    const text =
+      flatEnglish(segment.text, options.tgt) ?? fakeTranslateText(segment.text, options.tgt);
     if (!pace) {
       yield { id: segment.id, final: text, engine: 'plamo' };
       continue;

@@ -2285,7 +2285,20 @@ export class PageSession {
   }
 
   private onMutations(records: MutationRecord[]): void {
-    if (!this.active || this.applying > 0) return;
+    if (!this.active) return;
+    if (this.applying > 0) {
+      // An X detail page can mount a lazy reply in the same tick our own paint writes the
+      // main tweet's translation. Those mutation records reach us while `applying` is set,
+      // so editing here would write over a half-finished segment. Queue a scan instead of
+      // dropping the mount: the timer runs after the paint has settled.
+      const pageMount = records.some(
+        (record) =>
+          record.type === 'childList' &&
+          [...record.addedNodes].some((node) => !this.isOwnNode(node)),
+      );
+      if (pageMount) this.scheduleScan();
+      return;
+    }
     let external = false;
     let removed = 0;
     const stale = new Set<Element>();
@@ -2329,6 +2342,8 @@ export class PageSession {
     const element = node instanceof Element ? node : node.parentElement;
     if (!element) return false;
     if (element.id === PAGE_STYLE_ELEMENT_ID) return true;
+    // The bilingual line and the breaks it writes are our own paint, not a page mount.
+    if (element.closest(LINE_TAG) !== null) return true;
     return isOwnUi(element);
   }
 
