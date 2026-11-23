@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Watch - owner-style ASR feel-test fixture</title>
+    <style>
+      body {
+        margin: 0;
+        font-family: sans-serif;
+      }
+      #movie_player {
+        position: relative;
+        width: 640px;
+        height: 360px;
+        background: #111;
+      }
+      .html5-video-container {
+        position: relative;
+        z-index: 1;
+        width: 100%;
+        height: 100%;
+      }
+      .html5-main-video {
+        width: 100%;
+        height: 100%;
+      }
+      .ytp-caption-window-container {
+        position: absolute;
+        left: 8%;
+        right: 8%;
+        bottom: 80px;
+        text-align: center;
+        z-index: 20;
+      }
+      .ytp-caption-segment {
+        display: inline-block;
+        padding: 4px 10px;
+        background: rgb(8 8 8 / 80%);
+        color: #fff;
+        font: 22px/1.35 sans-serif;
+      }
+      .ytp-chrome-bottom {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 72px;
+        z-index: 40;
+        pointer-events: auto;
+        background: rgb(0 0 0 / 45%);
+      }
+      #sidebar {
+        padding: 12px;
+        color: #334;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="movie_player" class="html5-video-player">
+      <div class="html5-video-container">
+        <video id="player" class="html5-main-video" controls muted playsinline></video>
+      </div>
+      <div class="ytp-caption-window-container" lang="en">
+        <span class="ytp-caption-segment" id="native-caption"></span>
+      </div>
+      <div class="ytp-chrome-bottom" data-sakutto="fake-chrome"></div>
+    </div>
+    <div id="sidebar">
+      <p id="page-decoy">UNRELATED_PAGE_COPY_DECOY_7A3F</p>
+      <p>Recommendations and other text that must never leak into a caption line.</p>
+    </div>
+    <!-- prettier-ignore -->
+    <script>
+      (function () {
+        var native = document.getElementById('native-caption');
+        var video = document.getElementById('player');
+        var videoReady = fetch('/dummy.mp4')
+          .then(function (response) { return response.blob(); })
+          .then(function (blob) {
+            video.src = URL.createObjectURL(blob);
+            video.load();
+            return new Promise(function (resolve, reject) {
+              if (video.readyState >= 1) return resolve();
+              var timer = setTimeout(function () { reject(new Error('video metadata')); }, 5000);
+              video.addEventListener('loadedmetadata', function () {
+                clearTimeout(timer);
+                resolve();
+              }, { once: true });
+            });
+          });
+        var trackReady = fetch('/youtube-feeltest-asr.json')
+          .then(function (response) { return response.json(); })
+          .then(function (data) { return data.chunks; });
+        var chunks = [];
+        window.__captionQuality = {
+          language: 'en',
+          get chunks() { return chunks; },
+          decoy: 'UNRELATED_PAGE_COPY_DECOY_7A3F',
+          videoReady: Promise.all([videoReady, trackReady]).then(function (values) {
+            chunks = values[1];
+            paintNative();
+            return undefined;
+          })
+        };
+        function paintNative() {
+          var ms = video.currentTime * 1000;
+          var match = chunks.find(function (chunk) { return ms >= chunk.startMs && ms < chunk.endMs; });
+          native.textContent = match ? match.native : '';
+        }
+        video.addEventListener('timeupdate', paintNative);
+        video.addEventListener('seeked', paintNative);
+        window.setInterval(paintNative, 25);
+        paintNative();
+        window.ytInitialPlayerResponse = {"videoDetails":{"videoId":"feeltestasr0001","defaultAudioLanguage":"en","isLive":true,"title":"Owner-style ASR feel-test player"},"captions":{"playerCaptionsTracklistRenderer":{"captionTracks":[{"baseUrl":"/youtube-feeltest-asr.json","languageCode":"en","kind":"asr","name":{"simpleText":"English (auto-generated)"},"vssId":"a.en"}]}}};
+      })();
+    </script>
+  </body>
+</html>

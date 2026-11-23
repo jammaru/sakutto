@@ -90,16 +90,23 @@ describe('CI workflow guardrails', () => {
     expect(e2eJob).toContain("PLAYWRIGHT_SKIP_INSTALL: '1'");
     expect(e2eJob).toContain("steps.playwright-cache.outputs.cache-hit != 'true'");
 
-    for (const id of ['checks-static', 'checks-unit', 'e2e']) {
+    for (const id of ['checks-static', 'checks-unit', 'e2e', 'caption-quality']) {
       const job = workflowJob(ci, id);
       expect(job).toContain('pnpm/action-setup@v6');
       expect(job).toContain('cache: pnpm');
       expect(job).toContain('pnpm install --frozen-lockfile');
     }
 
+    const captionQualityJob = workflowJob(ci, 'caption-quality');
+    expect(captionQualityJob).toContain('pnpm caption:quality');
+    expect(captionQualityJob).toContain('playwright-chromium-');
+    expect(captionQualityJob).toContain("PLAYWRIGHT_SKIP_INSTALL: '1'");
+
     const checksJob = workflowJob(ci, 'checks');
     expect(checksJob).toContain('name: checks');
-    expect(checksJob).toContain('needs: [changes, checks-static, checks-unit, e2e]');
+    expect(checksJob).toContain(
+      'needs: [changes, checks-static, checks-unit, e2e, caption-quality]',
+    );
     expect(checksJob).toContain('if: ${{ always() }}');
     expect(checksJob).toContain("contains(needs.*.result, 'failure')");
     expect(checksJob).toContain("contains(needs.*.result, 'cancelled')");

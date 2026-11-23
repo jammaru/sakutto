@@ -46,6 +46,32 @@ describe('YouTube caption DOM source', () => {
     );
   });
 
+  it('joins simultaneous pop-on fragments already present on first observation', () => {
+    document.body.innerHTML =
+      '<div class="ytp-caption-window-container caption-window" lang="en"><span class="ytp-caption-segment">The station opens</span><span class="ytp-caption-segment">at dawn</span></div>';
+    expect(readYoutubeCaptionDom(document, { targetLanguage: 'ja', spokenLanguage: 'en' })).toBe(
+      'The station opens at dawn',
+    );
+  });
+
+  it('selects only the appended current fragment for punctuated roll-up', () => {
+    document.body.innerHTML =
+      '<div class="ytp-caption-window-container caption-window" lang="en"><span class="ytp-caption-segment"></span></div>';
+    expect(readYoutubeCaptionDom(document, { targetLanguage: 'ja', spokenLanguage: 'en' })).toBe(
+      '',
+    );
+    const first = document.querySelector('.ytp-caption-segment') as HTMLElement;
+    first.textContent = 'The station opens';
+    const second = document.createElement('span');
+    second.className = 'ytp-caption-segment';
+    second.textContent = 'A red train waits.';
+    document.querySelector('.caption-window')?.append(second);
+
+    expect(readYoutubeCaptionDom(document, { targetLanguage: 'ja', spokenLanguage: 'en' })).toBe(
+      'A red train waits.',
+    );
+  });
+
   it('peeks raw native text without treating a known English track as Japanese', () => {
     document.body.innerHTML = `
       <div class="ytp-caption-window-container">

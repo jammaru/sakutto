@@ -1,0 +1,112 @@
+{
+  "events": [
+    {
+      "tStartMs": 0,
+      "dDurationMs": 600,
+      "segs": [
+        {
+          "utf8": "駅は"
+        }
+      ]
+    },
+    {
+      "tStartMs": 0,
+      "dDurationMs": 1100,
+      "segs": [
+        {
+          "utf8": "駅は夜明けに"
+        }
+      ]
+    },
+    {
+      "tStartMs": 0,
+      "dDurationMs": 1800,
+      "segs": [
+        {
+          "utf8": "夜明けに開きます。"
+        }
+      ]
+    },
+    {
+      "tStartMs": 2200,
+      "dDurationMs": 500,
+      "segs": [
+        {
+          "utf8": "赤い列車が"
+        }
+      ]
+    },
+    {
+      "tStartMs": 2200,
+      "dDurationMs": 1100,
+      "segs": [
+        {
+          "utf8": "赤い列車が2番線で"
+        }
+      ]
+    },
+    {
+      "tStartMs": 2200,
+      "dDurationMs": 1700,
+      "segs": [
+        {
+          "utf8": "2番線で待っています。"
+        }
+      ]
+    },
+    {
+      "tStartMs": 4200,
+      "dDurationMs": 500,
+      "segs": [
+        {
+          "utf8": "切符は北側の"
+        }
+      ]
+    },
+    {
+      "tStartMs": 4200,
+      "dDurationMs": 1200,
+      "segs": [
+        {
+          "utf8": "切符は北側の窓口で"
+        }
+      ]
+    },
+    {
+      "tStartMs": 4200,
+      "dDurationMs": 1800,
+      "segs": [
+        {
+          "utf8": "窓口で売っています。"
+        }
+      ]
+    },
+    {
+      "tStartMs": 6300,
+      "dDurationMs": 500,
+      "segs": [
+        {
+          "utf8": "次の列車は"
+        }
+      ]
+    },
+    {
+      "tStartMs": 6300,
+      "dDurationMs": 1000,
+      "segs": [
+        {
+          "utf8": "次の列車は午後三時に"
+        }
+      ]
+    },
+    {
+      "tStartMs": 6300,
+      "dDurationMs": 1700,
+      "segs": [
+        {
+          "utf8": "午後三時に出ます。"
+        }
+      ]
+    }
+  ]
+}

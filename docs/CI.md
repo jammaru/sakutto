@@ -55,6 +55,7 @@ Do not dispatch `chrome-web-store.yml` or `amo.yml` from a pull request.
 | `checks-static`                      | ~45 s                          | Always. `lint`, `format:check`, and `typecheck`, in parallel with the other checks.                                                                                   |
 | `checks-unit`                        | ~2 min                         | Always. Full clone (`fetch-depth: 0`) so `tests/bench-fixtures.test.ts` can see history; runs `pnpm test` and `bench:equality --check`.                               |
 | `e2e` (shards `1/3`–`3/3`)           | ~1–1.5 min per shard           | Always, except docs-only pull requests (`code=false`). Three Playwright `--shard=i/3` jobs split individual tests, not files, and share the pnpm and Chromium caches. |
+| `caption-quality`                    | ~1 min                         | Always. Deterministic YouTube caption harness (`pnpm caption:quality`) with the same Playwright Chromium cache.                                                       |
 | `checks`                             | < 10 s                         | Always after the split jobs. Aggregate pass/fail only; keeps the branch-protection name stable even when e2e is skipped for a docs-only PR.                           |
 | `pinned-wllama`                      | ~10–20 s                       | Always. `node scripts/wllama/build.ts --check`.                                                                                                                       |
 | `wllama`                             | measured 9s hit / 10m 18s miss | Manual runs, PRs that touch zip/wllama inputs, and code pushes to `main`. One compile. Saves the cache before packaging.                                              |
@@ -66,7 +67,7 @@ Do not dispatch `chrome-web-store.yml` or `amo.yml` from a pull request.
 
 Do not change repository rules from this PR. Recommended required checks on `main`:
 
-1. `checks` (CI) — aggregate of static, unit, equality, and e2e
+1. `checks` (CI) — aggregate of static, unit, equality, e2e, and caption-quality
 2. `pinned-wllama` (CI)
 3. `range` (Model pins)
 
@@ -144,6 +145,7 @@ These run on every PR (including drafts, once the PR is mergeable):
 - `checks-static`: `pnpm lint`, `pnpm format:check`, `pnpm typecheck`
 - `checks-unit`: `pnpm test`, `pnpm bench:equality --check`
 - `e2e`: `pnpm test:e2e` in three Playwright shards, unless the PR is docs-only (`code=false`)
+- `caption-quality`: `pnpm caption:quality` — deterministic caption regression metrics
 - `node scripts/wllama/build.ts --check`
 - Chrome zip, worker smoke test, Firefox `web-ext lint`, second-build compare, and source-zip rebuild **when zip inputs change**; on `main`, also when any non-docs code changes
 

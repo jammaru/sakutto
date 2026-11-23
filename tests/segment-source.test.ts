@@ -49,6 +49,16 @@ describe('segment source', () => {
     expect(model.children).toHaveLength(0);
   });
 
+  it('never builds a writable segment for the caption overlay host', () => {
+    document.body.innerHTML =
+      '<sakutto-captions>Original caption\nTranslated caption</sakutto-captions>';
+    const host = document.querySelector('sakutto-captions');
+    if (!host) throw new Error('missing caption host');
+
+    expect(buildSegment(host)).toBeNull();
+    expect(host.textContent).toBe('Original caption\nTranslated caption');
+  });
+
   it('keeps a decorative separator between two links out of the source', () => {
     document.body.innerHTML = `
       <p id="lead"><a href="/a">Models</a><span aria-hidden="true">/</span><a href="/b">Datasets</a></p>
