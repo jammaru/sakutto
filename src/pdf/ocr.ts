@@ -294,7 +294,14 @@ function onePrintedTitleRow(pieces: readonly OcrTextPiece[], pageWidth: number):
   // A title may carry a colon or a comma, but not the full stops of two sentences. Sentence
   // punctuation is what distinguishes a title from a body row in the two-piece case.
   if (/[.!?。！？]$/u.test(text) || (text.match(/[.!?。！？]/gu) ?? []).length > 1) return false;
-  return /^(\p{Lu}|\d|[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}])/u.test(text);
+  if (!/^(\p{Lu}|\d|[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}])/u.test(text)) {
+    return false;
+  }
+  const ordered = [...pieces].sort((a, b) => a.box.x - b.box.x);
+  const second = ordered[1]?.text.trim() ?? '';
+  // Body columns often start the right piece with a lowercase word; titles rarely do.
+  if (second.length > 0 && /^[a-z]/.test(second)) return false;
+  return true;
 }
 
 /** A row whose two line-region pieces are one sentence split at an ordinary word space. */
@@ -885,8 +892,9 @@ function lineColumn(
   if (
     line.box.x + 4 < gutter &&
     line.box.x + line.box.width > gutter + 4 &&
-    Math.abs(mid - pageWidth / 2) <= pageWidth * 0.06 &&
-    !context.oppositeBand.has(line)
+    !context.oppositeBand.has(line) &&
+    (Math.abs(mid - pageWidth / 2) <= pageWidth * 0.06 ||
+      (/:/u.test(headingText) && line.box.x <= pageWidth * 0.12))
   ) {
     return SPANNING_COLUMN;
   }

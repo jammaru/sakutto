@@ -418,6 +418,9 @@ export function blockSpansGutter(
  */
 function blockMergesColumns(block: LayoutBlock, pageWidth: number): boolean {
   if (pageWidth <= 0) return false;
+  // Spanning lines already have their own column geometry; treating them as merged body
+  // columns made genuine full-width prose covers look like gutter violations.
+  if (block.column < 0) return false;
   // A heading or caption that spans the page is usually a full-width title, not a row of
   // two columns fused together. OCR splits such titles into two text regions with a word
   // gap near the gutter, so they need a wider gap than prose before counting as a merge.
@@ -544,6 +547,32 @@ export interface PaintIntegrityMetrics {
 }
 
 /** Layout-only checks for painted covers vs source lines and column bounds. */
+export function crossColumnViolation(
+  entry: PlacedBlock,
+  pageWidth: number,
+  scale = DEFAULT_PAINT_SCALE,
+): boolean {
+  if (!entry.paint || !entry.fit || !entry.drawn) return false;
+  const block = entry.block;
+  if (verticalWriting(block)) return false;
+  const gutter = pageWidth * 0.49;
+  const paint = coverPaintLayout(block, entry.fit.width, entry.drawn, scale, pageWidth);
+  const mergesColumns = blockMergesColumns(block, pageWidth);
+  const spansAsSource = blockSpansGutter(block, pageWidth) && block.column <= 0 && !mergesColumns;
+  const side = spansAsSource ? null : columnSideForCap(block, entry.drawn.x, pageWidth, false);
+  if (side === 0 && paint.x + paint.width > gutter + 2) return true;
+  if (side !== null && side > 0 && paint.x < gutter - 2) return true;
+  if (
+    side === null &&
+    mergesColumns &&
+    paint.x < gutter - 2 &&
+    paint.x + paint.width > gutter + 2
+  ) {
+    return true;
+  }
+  return false;
+}
+
 export function paintIntegrityMetrics(
   placed: readonly PlacedBlock[],
   pageWidth: number,

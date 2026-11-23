@@ -99,15 +99,15 @@ PDF 翻訳を「動く」から「読める」に変えるため、抽出・段�
 
 | variant             |   CER |   WER | cross-column | lines | ms/page | model bytes |
 | ------------------- | ----: | ----: | -----------: | ----: | ------: | ----------: |
-| baseline-1x         | 66.7% | 94.8% |            1 |   100 |  24.5 s |    21.9 MiB |
-| shipped-baseline    | 11.6% | 16.8% |            2 |   105 |  29.1 s |    21.9 MiB |
-| default-1600        |  5.4% |  7.7% |            1 |   116 |  37.1 s |    21.9 MiB |
-| gray+contrast-1600  |  5.4% |  7.5% |            1 |   116 |  37.7 s |    21.9 MiB |
-| dpi300              |  5.4% |  7.6% |            0 |   115 |  39.2 s |    21.9 MiB |
-| sauvola             | 82.5% | 97.2% |            2 |    97 |  26.3 s |    21.9 MiB |
+| baseline-1x         | 66.7% | 94.8% |            0 |   100 |  24.2 s |    21.9 MiB |
+| shipped-baseline    | 11.6% | 16.8% |            0 |   105 |  29.1 s |    21.9 MiB |
+| default-1600        |  5.4% |  7.7% |            0 |   116 |  36.4 s |    21.9 MiB |
+| gray+contrast-1600  |  5.4% |  7.5% |            0 |   116 |  35.8 s |    21.9 MiB |
+| dpi300              |  5.4% |  7.6% |            0 |   115 |  37.5 s |    21.9 MiB |
+| sauvola             | 82.5% | 97.2% |            2 |    97 |  23.1 s |    21.9 MiB |
 | default-1600 (High) |  3.6% |  6.4% |            0 |   117 | 213.7 s |   132.2 MiB |
 
-**採用**: 2x 描画 + detection maxSide 1600 の Standard（tiny_det + small_rec）。実スキャン p1 の最新コミット値は **CER 5.4%、cross-column 1**（`report.json` と同期）。旧ベンチの 1.4 という値は GT 不一致によるもので、認識精度ではありません。High tier は CER 面で有利な場合がある一方、約 6 倍遅く 6 倍サイズのため既定は Standard のままです。Binarization はこの小さなセリフ文字を潰すため既定では無効です。17 バリアントの全表は `bench/results/scan-ocr/report.md`。
+**採用**: 2x 描画 + detection maxSide 1600 の Standard（tiny_det + small_rec）。実スキャン p1 の最新コミット値は **CER 5.4%、cross-column 0**（`report.json` と同期）。旧 iteration-6 の 3.0% CER は当時の OCR 行分割が異なるためで、現行パイプラインでは 5.4% 付近に安定します。High tier は CER 面で有利な場合がある一方、約 6 倍遅く 6 倍サイズのため既定は Standard のままです。Binarization はこの小さなセリフ文字を潰すため既定では無効です。17 バリアントの全表は `bench/results/scan-ocr/report.md`。
 
 ## 確認
 

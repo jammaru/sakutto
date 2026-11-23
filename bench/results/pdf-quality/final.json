@@ -115,7 +115,7 @@
       {
         "variant": "default-1600",
         "pairing": "tiny_det+small_rec",
-        "ms": 37122.71580100001,
+        "ms": 36394.44768900002,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.0537862703467799,
@@ -125,7 +125,7 @@
         "lines": 116,
         "blocks": 49,
         "skipped": 7,
-        "crossColumnCovers": 1,
+        "crossColumnCovers": 0,
         "overlapPairs": 0,
         "overflow": 5,
         "text": "Sakutto: On-Device Page Translation with a Small Instruction-Tuned Model\nJ. Ammaru\nIndependent researcher\nsakutto@example.org\nMachine translation of web pages is usually a client of a remote service. "

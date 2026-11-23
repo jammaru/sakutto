@@ -253,7 +253,7 @@ async function main(): Promise<void> {
       },
     ) => Array<{ text: string }>;
   }>('ocr.ts');
-  const { placePage, paintedCoverOverlaps } = await loadPdf<{
+  const { placePage, paintedCoverOverlaps, crossColumnViolation } = await loadPdf<{
     placePage: (request: object) => Array<{
       paint: boolean;
       overflow: boolean;
@@ -268,6 +268,7 @@ async function main(): Promise<void> {
       };
     }>;
     paintedCoverOverlaps: (placed: unknown[], pageWidth: number) => number;
+    crossColumnViolation: (entry: unknown, pageWidth: number) => boolean;
   }>('place.ts');
   const { pageMetrics } = await loadPdf<{
     pageMetrics: (
@@ -362,6 +363,22 @@ async function main(): Promise<void> {
         width: pageWidth,
         height: pageHeight,
       });
+      if (
+        process.env.SCAN_OCR_DEBUG_CROSS === '1' &&
+        variant.id === 'default-1600' &&
+        metrics.crossColumnCovers > 0
+      ) {
+        for (const entry of placed) {
+          if (crossColumnViolation(entry, pageWidth)) {
+            console.error(
+              'cross-column:',
+              entry.block.role,
+              entry.block.column,
+              entry.block.text.replace(/\s+/gu, ' ').slice(0, 120),
+            );
+          }
+        }
+      }
       const overlaps = paintedCoverOverlaps(placed, pageWidth);
       if (flagShots && variant.id === 'default-1600') {
         await mkdir(SHOTS, { recursive: true });

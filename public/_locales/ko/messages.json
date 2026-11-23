@@ -1755,15 +1755,15 @@
     "description": "Shown when OCR is unavailable or its model download fails."
   },
   "imageFileAccessHeading": {
-    "message": "Translate a local image",
+    "message": "로컬 이미지 번역",
     "description": "Title of the page opened when the image context menu cannot reach a file URL."
   },
   "imageFileAccessBody": {
-    "message": "Sakutto cannot read this image from the page. Open chrome://extensions, choose Sakutto, and turn on “Allow access to file URLs” (「ファイルの URL へのアクセスを許可する」). You can also choose the image file below and translate it on this device.",
+    "message": "Sakutto가 페이지에서 이 이미지를 읽을 수 없습니다. chrome://extensions에서 Sakutto를 선택하고 “파일 URL에 대한 액세스 허용”(Allow access to file URLs)을 켜세요. 아래에서 이미지 파일을 선택해 이 기기에서 번역할 수도 있습니다.",
     "description": "Guidance when a local image action cannot inject into the tab."
   },
   "imageFileAccessChoose": {
-    "message": "Choose an image file",
+    "message": "이미지 파일 선택",
     "description": "Label for the local image picker."
   },
   "contextTranslateImage": {
@@ -1797,5 +1797,9 @@
   "imageTranslationPermission": {
     "message": "브라우저가 이 이미지에 접근하지 못했습니다. 대신 화면에 보이는 페이지를 캡처해 보세요.",
     "description": "Shown when image pixels cannot be read without extra permissions."
+  },
+  "pdfFileAccessBody": {
+    "message": "Sakutto가 페이지에서 이 PDF를 읽을 수 없습니다. chrome://extensions에서 Sakutto를 선택하고 “파일 URL에 대한 액세스 허용”(Allow access to file URLs)을 켜세요. 아래에서 PDF를 선택해 이 리더에서 열 수도 있습니다.",
+    "description": "Guidance when a local PDF cannot be read from a file:// tab."
   }
 }

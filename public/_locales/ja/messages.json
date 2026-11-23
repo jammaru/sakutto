@@ -1139,6 +1139,10 @@
   "pdfOpenFailed": {
     "message": "この PDF を開けませんでした。ページを再読み込みしてから試してください。"
   },
+  "pdfFileAccessBody": {
+    "message": "この PDF はページから読み取れませんでした。chrome://extensions の Sakutto の詳細で「ファイルの URL へのアクセスを許可する」（Allow access to file URLs）をオンにしてください。下の「PDF ファイルを選択」でファイルを開けば、このリーダーで翻訳できます。",
+    "description": "file:// の PDF にアクセスできないときの案内。"
+  },
   "pdfFileAccessDenied": {
     "message": "この PDF はディスク上のファイルです。ブラウザの拡張機能の設定で「ファイルの URL へのアクセスを許可する」をオンにするか、リーダーでファイルを選んでください。"
   },

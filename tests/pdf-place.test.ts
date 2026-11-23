@@ -573,7 +573,7 @@ describe('placePage', () => {
       align: 'left',
       bold: false,
       italic: false,
-      column: -1,
+      column: 0,
       advance: 515,
       writing: 0,
     };
@@ -613,7 +613,7 @@ describe('placePage', () => {
       align: 'left',
       bold: false,
       italic: false,
-      column: -1,
+      column: 0,
       advance: 515,
       writing: 0,
     };
@@ -652,7 +652,7 @@ describe('placePage', () => {
       align: 'left',
       bold: false,
       italic: false,
-      column: -1,
+      column: 0,
       advance: 490,
       writing: 0,
     };
@@ -693,7 +693,7 @@ describe('placePage', () => {
       align: 'left',
       bold: false,
       italic: false,
-      column: -1,
+      column: 0,
       advance: 542,
       writing: 0,
     };

@@ -500,7 +500,7 @@
     <div class="notice-panel">
       <p>{t('pdfMissing')}</p>
       {#if fileAccessDenied}
-        <p data-sakutto="file-access-message">{t('imageFileAccessBody')}</p>
+        <p data-sakutto="file-access-message">{t('pdfFileAccessBody')}</p>
       {/if}
       <input
         id="pdf-file"

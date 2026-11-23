@@ -1142,6 +1142,10 @@
   "pdfFileAccessDenied": {
     "message": "This PDF is a file on this computer. Allow this extension to access file URLs in the browser's extension settings, or choose the file in the reader."
   },
+  "pdfFileAccessBody": {
+    "message": "Sakutto cannot read this PDF from the page. Open chrome://extensions, choose Sakutto, and turn on “Allow access to file URLs”. You can also choose the PDF below and open it in this reader.",
+    "description": "Guidance when a local PDF cannot be read from a file:// tab."
+  },
   "pdfCompare": {
     "message": "Compare"
   },

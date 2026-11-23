@@ -233,6 +233,28 @@ describe('latest DSH review blockers', () => {
     return { text, box: { x, y, width, height: 20 }, column, writing: 0 } as LayoutBlock;
   }
 
+  it('B1: does not merge uppercase two-column body rows as a title', () => {
+    const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+    const bodyRows = [
+      [
+        region('Machine translation of web pages is usually a', quad(45, 100, 250, 20)),
+        region('client of a remote service in this browser', quad(305, 100, 250, 20)),
+      ],
+      [
+        region('The extension runs the model on the local device', quad(45, 130, 250, 20)),
+        region('and keeps the page text inside the browser', quad(305, 130, 250, 20)),
+      ],
+    ];
+    const result: OcrResult = {
+      regions: bodyRows.flat(),
+      lines: bodyRows.map(readingLine),
+      text: '',
+    };
+    const lines = ocrResultToTextLines(result, options);
+    expect(lines.length).toBeGreaterThanOrEqual(4);
+    expect(lines.filter((line) => line.columnHint === 1).length).toBeGreaterThanOrEqual(2);
+  });
+
   it('B1: splits two-piece rows on a two-column page at the gutter', () => {
     const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
     const bodyRows = [
