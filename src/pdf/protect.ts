@@ -73,19 +73,25 @@ const NOTATION_HEAD = /^(?:\p{L}[\p{N}_^]{0,3}|[\p{N}_^]+)$/u;
  * optional subscript marks; a prose adjective (`Small`, `Large`, `Deep`, ...) has a longer
  * lowercase tail and never matches. Shape alone is not enough for two-letter words such as
  * `In`, so the identifier only counts as notation when an operator follows its chain:
- * `Wi ∈ R ...`, `Wq Q ∈ R ...`, `Wk × d k`. A two-letter English word is excluded even then,
- * so `If Q ∈ R ...` leaves `If` in the prompt and protects only the notation.
+ * `Wi ∈ R ...`, `Wq Q ∈ R ...`, `Wk × d k`, or `We ∈ R ...` with the operator directly after it.
  */
 const FLATTENED_IDENTIFIER = /^\p{Lu}\p{Ll}[\p{N}_^]{0,3}$/u;
 const IDENTIFIER_OPERATOR = /^\s*(?:\p{Lu}[\p{N}_^]{0,3}\s+)?[∈×÷]\s+\S/u;
 /**
- * Two-letter words in English prose. Unlike a flattened matrix name (`Wi`, `Wq`, `Wk`, `Wv`),
- * one of these can open a sentence whose first variable precedes the operator (`If Q ∈ R ...`).
- * English has a small closed set of two-letter words, so naming them here cannot grow with the
- * vocabulary the way an adjective whitelist would; they always stay in the prompt for translation.
+ * Another operand between a two-letter token and the operator: `If Q ∈`, `As W ∈`, `Si Q ∈`.
+ * The token is then a sentence opener and belongs in the prompt, whatever language it came from.
+ * A flattened identifier has the operator directly after it (`We ∈`, `In ∈`) and keeps the
+ * whole expression in one slot.
+ */
+const OPENER_BEFORE_OPERAND = /^\p{Lu}[\p{N}_^]{0,3}\s+[∈×÷]\s+\S/u;
+/**
+ * Two-letter words that can open a sentence. The ambiguous capital + lowercase shape alone
+ * cannot distinguish an opener from a flattened matrix name, so this only helps when another
+ * operand follows the token; the positional rule decides the direct-operator case. Common
+ * Latin-language openers are included because scanned PDFs are translated from more than English.
  */
 const TWO_LETTER_PROSE_WORD =
-  /^(?:ah|am|an|as|at|be|by|do|go|he|hi|if|in|is|it|me|my|no|of|oh|on|or|so|to|up|us|we|yo)$/iu;
+  /^(?:ah|am|an|as|at|be|by|do|go|he|hi|if|in|is|it|me|my|no|of|oh|on|or|so|to|up|us|we|yo|si|se|im|em|es|un|la|le|il)$/iu;
 const LEADING_NUMBER = /^[\p{N}]/u;
 
 function isNotationHead(token: string, following = ''): boolean {
@@ -93,11 +99,10 @@ function isNotationHead(token: string, following = ''): boolean {
     // An article before a size is prose even though `a`/`A` fits the single-letter shape.
     return !(/^[Aa]$/u.test(token) && LEADING_NUMBER.test(following));
   }
-  return (
-    FLATTENED_IDENTIFIER.test(token) &&
-    !TWO_LETTER_PROSE_WORD.test(token) &&
-    IDENTIFIER_OPERATOR.test(following)
-  );
+  if (!FLATTENED_IDENTIFIER.test(token) || !IDENTIFIER_OPERATOR.test(following)) return false;
+  // A two-letter prose word is peeled only when the expression has another operand before the
+  // operator; directly before `∈` it is the matrix name itself (`We ∈ R ...`).
+  return !TWO_LETTER_PROSE_WORD.test(token) || !OPENER_BEFORE_OPERAND.test(following);
 }
 
 /**
@@ -106,9 +111,9 @@ function isNotationHead(token: string, following = ''): boolean {
  * The guard below only protects a chain whose first remaining operand is clearly a variable, so
  * the peeled words are always text the model must translate. No growing vocabulary list is
  * involved: an adjective the report has not seen yet is stripped exactly like a determiner or a
- * sentence opener, and a chain that starts with an English word is left alone. The only fixed
- * word set is the closed class of two-letter English words, which is ambiguous with flattened
- * identifiers by shape alone.
+ * sentence opener, and a chain that starts with an English word is left alone. Two-letter words
+ * are ambiguous with flattened identifiers by shape alone, so their position in the chain (an
+ * operand before the operator, not the operator itself) decides whether they are peeled.
  */
 function splitProseLead(value: string): { lead: string; value: string } {
   let lead = '';

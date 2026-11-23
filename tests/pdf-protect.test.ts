@@ -628,6 +628,63 @@ describe('9a60966 review blockers: two-letter sentence openers', () => {
     },
   );
 
+  it('protects We/In/At directly before an operator as flattened identifiers', () => {
+    const cases = [
+      {
+        source: 'The embedding matrix We ∈ R n×d is learned.',
+        prompt: 'The embedding matrix <i0> is learned.',
+        slot: 'We ∈ R n×d',
+      },
+      {
+        source: 'In ∈ R n×n is the identity matrix.',
+        prompt: '<i0> is the identity matrix.',
+        slot: 'In ∈ R n×n',
+      },
+      {
+        source: 'At ∈ R n×d is the attention matrix.',
+        prompt: '<i0> is the attention matrix.',
+        slot: 'At ∈ R n×d',
+      },
+    ];
+    for (const { source, prompt, slot } of cases) {
+      const block = layoutPage(groupLines([piece(source, 49, 100, 430)])).blocks[0];
+      if (!block) throw new Error('expected a block');
+      const protectedText = protectInlineMath(block);
+      expect(
+        protectedText.slots.map((entry) => entry.text),
+        source,
+      ).toEqual([slot]);
+      expect(protectedText.text, source).toBe(prompt);
+      expectSourcePreserved(protectedText, source);
+    }
+  });
+
+  it('leaves a non-English opener before an operand in the prompt', () => {
+    const cases = [
+      {
+        source: 'Si Q ∈ R d×d es ortogonal, el resultado se sigue.',
+        prompt: 'Si <i0> es ortogonal, el resultado se sigue.',
+        slot: 'Q ∈ R d×d',
+      },
+      {
+        source: 'Se W ∈ R d model se aprende durante el entrenamiento.',
+        prompt: 'Se <i0> model se aprende durante el entrenamiento.',
+        slot: 'W ∈ R d',
+      },
+    ];
+    for (const { source, prompt, slot } of cases) {
+      const block = layoutPage(groupLines([piece(source, 49, 100, 430)])).blocks[0];
+      if (!block) throw new Error('expected a block');
+      const protectedText = protectInlineMath(block);
+      expect(
+        protectedText.slots.map((entry) => entry.text),
+        source,
+      ).toEqual([slot]);
+      expect(protectedText.text, source).toBe(prompt);
+      expectSourcePreserved(protectedText, source);
+    }
+  });
+
   it('still protects flattened identifiers with the same two-letter shape', () => {
     const positives = [
       {

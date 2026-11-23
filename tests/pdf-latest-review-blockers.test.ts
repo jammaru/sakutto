@@ -1657,4 +1657,116 @@ describe('9a60966 review blockers: combined regression suite', () => {
       expect(restored).toBe(`訳文 ${slot} です。`);
     }
   });
+
+  it('keeps We and In matrix names inside one slot while peeling prose openers', () => {
+    const cases = [
+      {
+        source: 'The embedding matrix We ∈ R n×d is learned.',
+        prompt: 'The embedding matrix <i0> is learned.',
+        slot: 'We ∈ R n×d',
+      },
+      {
+        source: 'In ∈ R n×n is the identity matrix.',
+        prompt: '<i0> is the identity matrix.',
+        slot: 'In ∈ R n×n',
+      },
+      {
+        source: 'At ∈ R n×d is the attention matrix.',
+        prompt: '<i0> is the attention matrix.',
+        slot: 'At ∈ R n×d',
+      },
+      {
+        source: 'If Q ∈ R d×d is orthogonal.',
+        prompt: 'If <i0> is orthogonal.',
+        slot: 'Q ∈ R d×d',
+      },
+      {
+        source: 'Si Q ∈ R d×d es ortogonal, el resultado se sigue.',
+        prompt: 'Si <i0> es ortogonal, el resultado se sigue.',
+        slot: 'Q ∈ R d×d',
+      },
+    ];
+    for (const { source, prompt, slot } of cases) {
+      const block = layoutPage(groupLines([piece(source, 49, 100, 430)])).blocks[0];
+      if (!block) throw new Error('expected a block');
+      const protectedText = protectInlineMath(block);
+      expect(
+        protectedText.slots.map((entry) => entry.text),
+        source,
+      ).toEqual([slot]);
+      expect(protectedText.text, source).toBe(prompt);
+      expect(restoreInlineMath('訳文 <i0> です。', protectedText.slots)).toBe(
+        `訳文 ${slot} です。`,
+      );
+    }
+  });
+});
+
+describe('93666bb review blockers: CJK two-column body rows', () => {
+  const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+
+  it('splits four Japanese body rows at the two-column gutter', () => {
+    const rows = Array.from({ length: 4 }, (_, index) => [
+      region('左列の本文テキストです', quad(45, 100 + index * 25, 250, 20)),
+      region('右列の本文テキストです', quad(305, 100 + index * 25, 250, 20)),
+    ]);
+    const result: OcrResult = {
+      regions: rows.flat(),
+      lines: rows.map(readingLine),
+      text: '',
+    };
+
+    const lines = ocrResultToTextLines(result, options);
+    expect(lines).toHaveLength(8);
+    expect(lines.filter((line) => line.columnHint === 0)).toHaveLength(4);
+    expect(lines.filter((line) => line.columnHint === 1)).toHaveLength(4);
+    expect(lines.some((line) => line.titleRow === true)).toBe(false);
+    expect(lines.map((line) => line.text)).not.toContain(
+      '左列の本文テキストです 右列の本文テキストです',
+    );
+
+    const layout = ocrResultToPageLayout(result, options);
+    // The four split lines of each column become one prose block per column, not one span.
+    expect(layout.blocks.map((block) => block.column)).toEqual([0, 1]);
+    expect(layout.blocks.every((block) => block.lines.length === 4)).toBe(true);
+    expect(layout.blocks.every((block) => block.box.width < 300)).toBe(true);
+    expect(layout.blocks.some((block) => block.titleRow === true)).toBe(false);
+  });
+
+  it('splits a 65%-wide Japanese body row between corroborating two-column rows', () => {
+    const bodyAbove = [
+      [
+        region('Left column prose for the first printed row.', quad(45, 100, 250, 20)),
+        region('Right column prose on the same printed row.', quad(305, 100, 250, 20)),
+      ],
+      [
+        region('A second left column line proving two columns.', quad(45, 130, 250, 20)),
+        region('A second right column line proving columns.', quad(305, 130, 250, 20)),
+      ],
+    ];
+    const bodyBelow = [
+      [
+        region('Left column prose after the middle row.', quad(45, 300, 250, 20)),
+        region('Right column prose after the middle row.', quad(305, 300, 250, 20)),
+      ],
+      [
+        region('Another left column line below the middle.', quad(45, 330, 250, 20)),
+        region('Another right column line below the middle.', quad(305, 330, 250, 20)),
+      ],
+    ];
+    const left = '結果は次のとおりです：';
+    const right = 'そして第二列のテキストはここに続きます';
+    const middle = [region(left, quad(105, 200, 250, 20)), region(right, quad(365, 200, 130, 20))];
+    const rows = [...bodyAbove, middle, ...bodyBelow];
+    const result: OcrResult = { regions: rows.flat(), lines: rows.map(readingLine), text: '' };
+
+    const lines = ocrResultToTextLines(result, options);
+    expect(lines.find((line) => line.text === left)?.columnHint).toBe(0);
+    expect(lines.find((line) => line.text === right)?.columnHint).toBe(1);
+    expect(lines.some((line) => line.text === `${left} ${right}`)).toBe(false);
+    expect(lines.some((line) => line.titleRow === true)).toBe(false);
+    expect(
+      ocrResultToPageLayout(result, options).blocks.some((block) => block.titleRow === true),
+    ).toBe(false);
+  });
 });

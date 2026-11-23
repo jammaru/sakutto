@@ -375,10 +375,15 @@ function onePrintedTitleRow(
   pageWidth: number,
   relaxedTitleCaps = false,
   pageTitleEvidence = false,
+  cjkTwoColumnBody = false,
 ): boolean {
   if (pieces.length !== 2 || !pieces.some((piece) => piece.box.width >= pageWidth * 0.12)) {
     return false;
   }
+  // Japanese/CJK body lines have no casing or word spaces to separate them from a title. When
+  // the page's other rows establish two columns and this row shares their gutter, geometry —
+  // not the text shape — decides that it is body text.
+  if (cjkTwoColumnBody) return false;
   if (pageTitleEvidence) {
     // Page evidence overrules the body-word and body-verb guards: a scientific title such as
     // "mRNA expression levels in older adults" is still a title. The lowercase right half is
@@ -422,6 +427,40 @@ function onePrintedTitleRow(
   // Body columns often start the right piece with a lowercase word; titles rarely do.
   if (second.length > 0 && /^[a-z]/.test(second)) return false;
   return true;
+}
+
+/** CJK prose has no casing: a two-piece body row starts with the same glyphs as a title. */
+function cjkTextRow(pieces: readonly OcrTextPiece[]): boolean {
+  const text = pieces
+    .map((piece) => piece.text)
+    .join('')
+    .trim();
+  return /^[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u.test(text);
+}
+
+/**
+ * A CJK row is body text when the page's other rows establish two columns and its own gutter
+ * and measures match them. Without the page evidence a single CJK row stays a title: its text
+ * shape alone cannot say either way.
+ */
+function cjkTwoColumnBodyRow(
+  pieces: readonly OcrTextPiece[],
+  resolved: ResolvedConversion,
+  pageTwoColumn: boolean,
+): boolean {
+  if (!pageTwoColumn || !cjkTextRow(pieces)) return false;
+  const { left, right, leftEnd, rightStart } = splitAtGutter(pieces, resolved.pageWidth);
+  if (left.length === 0 || right.length === 0 || rightStart - leftEnd < MIN_COLUMN_GUTTER) {
+    return false;
+  }
+  const measure = (group: readonly OcrTextPiece[]): number =>
+    Math.max(...group.map((piece) => piece.box.x + piece.box.width)) -
+    Math.min(...group.map((piece) => piece.box.x));
+  return (
+    measure(left) >= resolved.pageWidth * 0.15 &&
+    measure(right) >= resolved.pageWidth * 0.15 &&
+    gutterCentred(leftEnd, rightStart, resolved.pageWidth)
+  );
 }
 
 /** A row whose two line-region pieces are one sentence split at an ordinary word space. */
@@ -732,12 +771,16 @@ export function ocrResultToTextLines(
     const rowTop = Math.min(...pieces.map((piece) => piece.box.y));
     const rowsBelow = twoColumnTops.filter((top) => top > rowTop);
     const rowsAbove = twoColumnTops.filter((top) => top < rowTop);
+    // A CJK row sharing the page's corroborated gutter is body text, not a spanning title: its
+    // glyphs cannot carry the casing evidence an English title check relies on.
+    const cjkBodyGeometry = cjkTwoColumnBodyRow(pieces, resolved, pageTwoColumn);
     // A real section heading can be printed between two-column body rows instead of above all
     // of them. Balanced page margins, a moderate (title-sized) span and a title-shaped tail
     // distinguish it from a near-full-measure colon body row, which has body text above and
-    // below too but must be split at the gutter. The width ceiling is deliberately well below
+    // below too, but must be split at the gutter. The width ceiling is deliberately well below
     // the 75-90% measure of ordinary two-column body rows.
     const centredHeadingBetweenBody =
+      !cjkBodyGeometry &&
       rowsAbove.length >= 2 &&
       rowsBelow.length >= 2 &&
       lineWidth >= resolved.pageWidth * 0.6 &&
@@ -748,13 +791,15 @@ export function ocrResultToTextLines(
     // so it never appears to sit above the body. When this row is the topmost such row and at
     // least two corroborated rows sit below it, the page still proves it is a title: the only
     // shape that survives the relaxed check is a title, not a lowercase right-column fragment.
+    // A CJK body row also sits above its peers sometimes; its shared gutter rules that out.
     const titleAboveBody =
-      centredHeadingBetweenBody ||
-      (twoColumnTops.length > 0 &&
-        (twoColumnTops.every((top) => top > rowTop) ||
-          (rowsBelow.length >= 2 &&
-            rowsBelow.length === twoColumnTops.length - 1 &&
-            onePrintedTitleRow(pieces, resolved.pageWidth, true, true))));
+      !cjkBodyGeometry &&
+      (centredHeadingBetweenBody ||
+        (twoColumnTops.length > 0 &&
+          (twoColumnTops.every((top) => top > rowTop) ||
+            (rowsBelow.length >= 2 &&
+              rowsBelow.length === twoColumnTops.length - 1 &&
+              onePrintedTitleRow(pieces, resolved.pageWidth, true, true)))));
     const orderedPieces = [...pieces].sort((a, b) => a.box.x - b.box.x);
     const firstPieceText = orderedPieces[0]?.text.trim() ?? '';
     // Every title-merge path needs the same page-level or centre/margin evidence as
@@ -822,6 +867,7 @@ export function ocrResultToTextLines(
       resolved.pageWidth,
       titleAboveBody,
       titleAboveBody,
+      cjkBodyGeometry,
     );
     const colonTitleRow =
       titleCentreEvidence && twoPieceColonTitle(pieces, resolved.pageWidth, wholeText);
@@ -836,13 +882,14 @@ export function ocrResultToTextLines(
       (lineWidth < resolved.pageWidth * 0.6 || titleAboveBody) &&
       (!pageTwoColumn || titleAboveBody || rowCentredOnPage(pieces, resolved.pageWidth));
     const twoPieceTitleMerge =
-      (printedTitleRow && !pageTwoColumn && !scientificBodyRow) ||
-      wideGapTitleRow ||
-      (printedTitleRow && scientificTitleRow) ||
-      (colonTitleRow &&
-        (!pageTwoColumn ||
-          (!colonNotationBodyRow(wholeText, orderedPieces[0]?.text ?? '') &&
-            wholeText.split(/\s+/u).length <= 14)));
+      !cjkBodyGeometry &&
+      ((printedTitleRow && !pageTwoColumn && !scientificBodyRow) ||
+        wideGapTitleRow ||
+        (printedTitleRow && scientificTitleRow) ||
+        (colonTitleRow &&
+          (!pageTwoColumn ||
+            (!colonNotationBodyRow(wholeText, orderedPieces[0]?.text ?? '') &&
+              wholeText.split(/\s+/u).length <= 14))));
     const singleRowWordGap =
       twoPieceTitleMerge || (!pageTwoColumn && singleSentenceRow(pieces, resolved.pageWidth));
     // A narrow centred row, a row above every body row, or a printed title row is genuine title
@@ -978,7 +1025,10 @@ function twoColumnBodyRows(
     }
     if (pieces.length < 2 || pieces.some((piece) => piece.displayed === 90)) continue;
     if (isCentredHeadingRow(pieces, resolved.pageWidth)) continue;
-    if (onePrintedTitleRow(pieces, resolved.pageWidth, true)) continue;
+    // A CJK two-piece row cannot be discarded as a title on text shape alone: Japanese body
+    // lines have the same glyph shape. Geometry below decides whether the page has columns,
+    // and a lone CJK row still keeps its title treatment in the main conversion pass.
+    if (!cjkTextRow(pieces) && onePrintedTitleRow(pieces, resolved.pageWidth, true)) continue;
     if (singleSentenceRow(pieces, resolved.pageWidth)) continue;
     const { left, right, leftEnd, rightStart } = splitAtGutter(pieces, resolved.pageWidth);
     if (left.length === 0 || right.length === 0) continue;
