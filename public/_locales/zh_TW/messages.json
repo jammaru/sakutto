@@ -1527,10 +1527,13 @@
     "message": "頁面譯文的顯示方式"
   },
   "translationRevealHelp": {
-    "message": "第一個選項會保留段落的原文，直到譯文完成，再以一個簡短的動畫一次替換，翻譯過程中頁面不會跳動。耗時較長的段落會邊翻譯邊顯示。雙語顯示不受影響。"
+    "message": "第一個選項會保留段落的原文，直到譯文完成，再以一個簡短的動畫一次替換，翻譯過程中頁面不會跳動。按句選項會在每句翻譯完成後立即顯示，並在結束前保持該段高度不變。耗時較長的段落會邊翻譯邊顯示。雙語顯示不受影響。"
   },
   "translationRevealSmooth": {
     "message": "段落翻譯完成後一次替換"
+  },
+  "translationRevealSentence": {
+    "message": "每句翻譯完成後立即顯示"
   },
   "translationRevealStream": {
     "message": "邊翻譯邊顯示（與以往相同）"

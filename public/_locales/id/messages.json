@@ -1527,10 +1527,13 @@
     "message": "Cara terjemahan halaman ditampilkan"
   },
   "translationRevealHelp": {
-    "message": "Opsi pertama mempertahankan teks asli paragraf sampai terjemahannya selesai, lalu menggantinya dengan satu gerakan singkat, sehingga halaman tidak melompat saat diterjemahkan. Paragraf yang memakan waktu lama ditampilkan saat diterjemahkan. Tampilan bilingual tidak berubah."
+    "message": "Opsi pertama mempertahankan teks asli paragraf sampai terjemahannya selesai, lalu menggantinya dengan satu gerakan singkat, sehingga halaman tidak melompat saat diterjemahkan. Opsi per kalimat menampilkan setiap kalimat segera setelah diterjemahkan, sambil menjaga tinggi blok sampai akhir. Paragraf yang memakan waktu lama ditampilkan saat diterjemahkan. Tampilan bilingual tidak berubah."
   },
   "translationRevealSmooth": {
     "message": "Ganti setiap paragraf setelah selesai"
+  },
+  "translationRevealSentence": {
+    "message": "Tampilkan setiap kalimat segera setelah diterjemahkan"
   },
   "translationRevealStream": {
     "message": "Tampilkan teks saat diterjemahkan (seperti sebelumnya)"

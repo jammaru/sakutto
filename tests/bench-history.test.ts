@@ -93,6 +93,32 @@ describe('bench history records', () => {
     expect(isBenchRecord({ ...record(), schema: 2 })).toBe(false);
   });
 
+  it('accepts the latency breakdown and rejects a non-numeric field', () => {
+    const withLatency = record({
+      metrics: {
+        ...record().metrics,
+        engineWork: {
+          batches: 12,
+          pieces: 26,
+          engineMs: 3800,
+          requestMs: 14,
+          ttfbMs: 60,
+          paintMs: 8,
+          domWriteMs: 82,
+        },
+      },
+    });
+    expect(isBenchRecord(withLatency)).toBe(true);
+
+    const broken = record({
+      metrics: {
+        ...record().metrics,
+        engineWork: { ...withLatency.metrics.engineWork, paintMs: 'soon' as unknown as number },
+      },
+    });
+    expect(isBenchRecord(broken)).toBe(false);
+  });
+
   it('round-trips through the JSONL history', () => {
     const text = [record(), record({ page: 'many-cards', sample: 2, samples: 2 })]
       .map(serializeRecord)

@@ -112,6 +112,10 @@ export interface RunPageBenchOptions {
   localServer?: BenchLocalServer | undefined;
   /** Called after every fixture so a caller can stream progress. */
   onRecord?: ((record: BenchRecord) => void) | undefined;
+  /** Which page-reveal mode the mock harness stores before translating. */
+  reveal?: 'smooth' | 'stream' | 'sentence' | undefined;
+  /** Keep the raw per-block request/write trace on the returned records. */
+  captureTrace?: boolean | undefined;
 }
 
 export interface RunPageBenchResult {
@@ -214,7 +218,10 @@ async function openHarness(
   extension: string,
   modelPath: string,
   tier: BenchTier,
-  extras: { localServer?: BenchLocalServer } = {},
+  extras: {
+    localServer?: BenchLocalServer;
+    reveal?: 'smooth' | 'stream' | 'sentence';
+  } = {},
 ): Promise<ExtensionHarness> {
   await readFile(resolve(extension, 'manifest.json'));
 
@@ -285,10 +292,13 @@ async function openHarness(
         ...acceleratorFor({ mode: 'live', backend: prepared.status.backend }),
       };
     } else {
-      await options.evaluate(async (stored) => {
-        const chrome = (globalThis as unknown as { chrome: ChromeApi }).chrome;
-        await chrome.storage.local.set({ settings: stored, siteRules: {} });
-      }, settings());
+      await options.evaluate(
+        async (stored) => {
+          const chrome = (globalThis as unknown as { chrome: ChromeApi }).chrome;
+          await chrome.storage.local.set({ settings: stored, siteRules: {} });
+        },
+        settings('auto', extras.reveal === undefined ? {} : { reveal: extras.reveal }),
+      );
       const status = await readStatus(options).catch(() => null);
       engine = {
         label: 'mock',
@@ -353,6 +363,7 @@ async function measurePage(input: {
   sample: number;
   samples: number;
   tree: { commit: string; dirty: boolean };
+  captureTrace: boolean;
 }): Promise<BenchRecord> {
   const { harness, fixture } = input;
   if (input.mode === 'live') await clearCache(harness.options);
@@ -421,9 +432,15 @@ async function measurePage(input: {
           batches: recorded.perf?.batches ?? null,
           pieces: recorded.perf?.pieces ?? null,
           engineMs: recorded.perf?.engineMs ?? null,
+          requestMs: recorded.perf?.requestMs ?? null,
+          ttfbMs: recorded.perf?.ttfbMs ?? null,
+          paintMs: recorded.perf?.paintMs ?? null,
+          domWriteMs: recorded.perf?.domWriteMs ?? null,
         },
         blocks: recorded.blocks,
         lateBlocks: recorded.lateBlocks,
+        cls: recorded.cls,
+        layoutShifts: recorded.layoutShifts,
         engines: recorded.engines,
         codeUntouched: recorded.codeUntouched,
         state: recorded.state,
@@ -431,6 +448,14 @@ async function measurePage(input: {
         timedOut: recorded.timedOut,
         ...(recorded.unfinished.length > 0 ? { unfinished: recorded.unfinished } : {}),
       },
+      ...(input.captureTrace
+        ? {
+            trace: {
+              perf: recorded.perf?.blocks ?? [],
+              dom: recorded.blockTimeline,
+            },
+          }
+        : {}),
       ...(input.mode === 'mock'
         ? {
             notes:
@@ -445,8 +470,8 @@ async function measurePage(input: {
 
 function table(records: readonly BenchRecord[]): string {
   const header = [
-    '| Page | First visible text (ms) | Viewport done (ms) | Full page (ms) | Blocks/s | Output chars |',
-    '| --- | ---: | ---: | ---: | ---: | ---: |',
+    '| Page | First visible text (ms) | Request → token → paint (ms) | Viewport done (ms) | Full page (ms) | Blocks/s | Output chars |',
+    '| --- | ---: | --- | ---: | ---: | ---: | ---: |',
   ];
   const pages = [...new Set(records.map((record) => record.page))];
   const rows = pages.map((name) => {
@@ -455,9 +480,25 @@ function table(records: readonly BenchRecord[]): string {
       const value = medianMetric(samples, metric);
       return value === null ? '—' : String(value);
     };
-    return `| ${name} | ${cell('firstVisibleTextMs')} | ${cell('viewportDoneMs')} | ${cell(
-      'fullPageMs',
-    )} | ${cell('commitsPerSecond')} | ${String(samples[0]?.metrics.outputChars ?? 0)} |`;
+    // One sample carries the breakdown of the page's own first painted word: how long
+    // before the engine request, before its first token, and before that token reached
+    // the DOM. Older history (or another build) has no latency fields.
+    const latency = samples.find(
+      (sample) =>
+        sample.metrics.engineWork.requestMs !== null &&
+        sample.metrics.engineWork.ttfbMs !== null &&
+        sample.metrics.engineWork.paintMs !== null,
+    );
+    const breakdown = latency
+      ? `${String(latency.metrics.engineWork.requestMs)} / ${String(
+          latency.metrics.engineWork.ttfbMs,
+        )} / ${String(latency.metrics.engineWork.paintMs)}`
+      : '—';
+    return `| ${name} | ${cell('firstVisibleTextMs')} | ${breakdown} | ${cell(
+      'viewportDoneMs',
+    )} | ${cell('fullPageMs')} | ${cell('commitsPerSecond')} | ${String(
+      samples[0]?.metrics.outputChars ?? 0,
+    )} |`;
   });
   return [...header, ...rows].join('\n');
 }
@@ -537,6 +578,7 @@ export async function runPageBench(options: RunPageBenchOptions): Promise<RunPag
   try {
     harness = await openHarness(mode, extension, modelPath, options.tier ?? 'auto', {
       ...(localServer === undefined ? {} : { localServer }),
+      ...(options.reveal === undefined ? {} : { reveal: options.reveal }),
     });
   } catch (error) {
     // A rejected build must not leave the static server holding the process open.
@@ -558,6 +600,7 @@ export async function runPageBench(options: RunPageBenchOptions): Promise<RunPag
           sample: index + 1,
           samples,
           tree,
+          captureTrace: options.captureTrace === true,
         });
         records.push(record);
         if (mode === 'live' && localServer) {
@@ -627,7 +670,16 @@ export async function runPageBench(options: RunPageBenchOptions): Promise<RunPag
   }
   if (writeHistory) {
     await mkdir(resolve(historyPath, '..'), { recursive: true });
-    await appendHistory(historyPath, measured);
+    // A trace is a tooling detail of one run, not a history row: drop it so the JSONL
+    // stays small and comparable across commits.
+    await appendHistory(
+      historyPath,
+      measured.map((record) => {
+        const stored = { ...record };
+        delete stored.trace;
+        return stored;
+      }),
+    );
   }
 
   const comparisons: { metric: BenchMetricKey; text: string }[] = [];

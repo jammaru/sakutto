@@ -1527,10 +1527,13 @@
     "message": "Come appaiono le traduzioni della pagina"
   },
   "translationRevealHelp": {
-    "message": "La prima opzione mantiene il testo originale di un paragrafo finché la traduzione non è pronta, poi lo sostituisce con un breve movimento, così la pagina non salta durante la traduzione. Un paragrafo che richiede molto tempo viene mostrato mentre viene tradotto. La visualizzazione bilingue non cambia."
+    "message": "La prima opzione mantiene il testo originale di un paragrafo finché la traduzione non è pronta, poi lo sostituisce con un breve movimento, così la pagina non salta durante la traduzione. L'opzione per frase mostra ogni frase non appena è tradotta, mantenendo l'altezza del blocco fino alla fine. Un paragrafo che richiede molto tempo viene mostrato mentre viene tradotto. La visualizzazione bilingue non cambia."
   },
   "translationRevealSmooth": {
     "message": "Sostituisci ogni paragrafo quando è pronto"
+  },
+  "translationRevealSentence": {
+    "message": "Mostra ogni frase non appena è tradotta"
   },
   "translationRevealStream": {
     "message": "Mostra il testo mentre viene tradotto (come prima)"

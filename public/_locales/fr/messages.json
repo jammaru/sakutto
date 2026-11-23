@@ -1527,10 +1527,13 @@
     "message": "Affichage des traductions de la page"
   },
   "translationRevealHelp": {
-    "message": "La première option conserve le texte d'origine d'un paragraphe jusqu'à ce que sa traduction soit terminée, puis le remplace en un bref mouvement, afin que la page ne saute pas pendant la traduction. Un paragraphe qui prend longtemps s'affiche pendant sa traduction. L'affichage bilingue n'est pas modifié."
+    "message": "La première option conserve le texte d'origine d'un paragraphe jusqu'à ce que sa traduction soit terminée, puis le remplace en un bref mouvement, afin que la page ne saute pas pendant la traduction. L'option par phrase affiche chaque phrase dès qu'elle est traduite tout en conservant la hauteur du bloc jusqu'à la fin. Un paragraphe qui prend longtemps s'affiche pendant sa traduction. L'affichage bilingue n'est pas modifié."
   },
   "translationRevealSmooth": {
     "message": "Remplacer chaque paragraphe une fois terminé"
+  },
+  "translationRevealSentence": {
+    "message": "Afficher chaque phrase dès qu'elle est traduite"
   },
   "translationRevealStream": {
     "message": "Afficher le texte pendant la traduction (comme avant)"

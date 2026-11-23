@@ -8,6 +8,7 @@ public/vendor
 vendor
 scripts/icon.svg
 scripts/bench/fixtures/
+bench/results/videos/
 coverage
 test-results
 playwright-report

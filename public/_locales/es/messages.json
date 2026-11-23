@@ -1527,10 +1527,13 @@
     "message": "Cómo aparecen las traducciones de la página"
   },
   "translationRevealHelp": {
-    "message": "La primera opción conserva el texto original de un párrafo hasta que su traducción está terminada y luego lo sustituye con un movimiento breve, para que la página no salte mientras se traduce. Un párrafo que tarda mucho se muestra mientras se traduce. La vista bilingüe no cambia."
+    "message": "La primera opción conserva el texto original de un párrafo hasta que su traducción está terminada y luego lo sustituye con un movimiento breve, para que la página no salte mientras se traduce. La opción por oración muestra cada oración en cuanto se traduce y mantiene la altura del bloque hasta el final. Un párrafo que tarda mucho se muestra mientras se traduce. La vista bilingüe no cambia."
   },
   "translationRevealSmooth": {
     "message": "Sustituir cada párrafo cuando esté terminado"
+  },
+  "translationRevealSentence": {
+    "message": "Mostrar cada oración en cuanto se traduzca"
   },
   "translationRevealStream": {
     "message": "Mostrar el texto mientras se traduce (como antes)"
