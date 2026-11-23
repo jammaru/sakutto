@@ -83,8 +83,8 @@ const FLATTENED_MATRIX_NAME = /^W[iqkvo][\p{N}_^]{0,3}$/u;
 const FLATTENED_OUTPUT_MATRIX = /^Wo[\p{N}_^]{0,3}$/u;
 /** A clause boundary before the token: the German "Wo" opens a clause, W_o does not. */
 const CLAUSE_BOUNDARY = /[.!?;:。、]$/u;
-const CLAUSE_OPENER_HEAD = /^[(（「『“‘„«[\{•\-—]/u;
-const CLAUSE_OPENER_TAIL = /[(（「『“‘„«[\{•\-—]\s*$/u;
+const CLAUSE_OPENER_HEAD = /^[(（「『“‘„«[{•\-—]/u;
+const CLAUSE_OPENER_TAIL = /[(（「『“‘„«[{•\-—]\s*$/u;
 function startsClause(preceding: string): boolean {
   const before = preceding.trimEnd();
   if (before.length === 0) return true;
