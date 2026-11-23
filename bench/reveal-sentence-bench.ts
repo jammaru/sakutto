@@ -12,7 +12,26 @@ import { resolve } from 'node:path';
 import { runPageBench } from '../scripts/bench/pages-runner.ts';
 
 const ROOT = resolve(import.meta.dirname, '..');
-const PAGES = ['long-article', 'first-paragraph-then-long-tail', 'many-cards', 'mixed-ui'] as const;
+
+/** Keeps the generated report in the format `pnpm format:check` expects. */
+async function formatMarkdown(markdown: string): Promise<string> {
+  try {
+    const prettier = await import('prettier');
+    const config = (await prettier.resolveConfig(ROOT)) ?? {};
+    return await prettier.format(markdown, { ...config, parser: 'markdown' });
+  } catch {
+    return markdown;
+  }
+}
+const PAGES = [
+  'long-article',
+  'first-paragraph-then-long-tail',
+  'many-cards',
+  'mixed-ui',
+  'single-long-paragraph',
+  'model-card-sidebar',
+  'headline-in-header',
+] as const;
 
 interface Row {
   variant: string;
@@ -31,31 +50,38 @@ const previous = JSON.parse(
 ) as Row[];
 const rows: Row[] = previous.filter((row) => row.variant !== 'sentence');
 
+/** The mock harness still has a few milliseconds of jitter; each row is a median. */
+function median(values: readonly (number | null | undefined)[]): number | null {
+  const found = values.filter((value): value is number => value !== null && value !== undefined);
+  if (found.length === 0) return null;
+  found.sort((a, b) => a - b);
+  const middle = Math.floor(found.length / 2);
+  return found.length % 2 === 1 ? found[middle]! : (found[middle - 1]! + found[middle]!) / 2;
+}
+
 for (const page of PAGES) {
   const result = await runPageBench({
     mode: 'mock',
     extension: resolve(ROOT, '.output/chrome-mv3'),
     only: page,
-    samples: 1,
+    samples: 3,
     run: 'reveal-sentence',
     tier: 'c8',
     reveal: 'sentence',
     writeHistory: false,
     writeSummary: false,
   });
-  for (const record of result.records) {
-    rows.push({
-      variant: 'sentence',
-      page: record.page,
-      firstVisibleMs: record.metrics.firstVisibleTextMs,
-      fullPageMs: record.metrics.fullPageMs,
-      cls: record.metrics.cls ?? null,
-      layoutShifts: record.metrics.layoutShifts ?? null,
-      requestMs: record.metrics.engineWork.requestMs ?? null,
-      ttfbMs: record.metrics.engineWork.ttfbMs ?? null,
-      paintMs: record.metrics.engineWork.paintMs ?? null,
-    });
-  }
+  rows.push({
+    variant: 'sentence',
+    page,
+    firstVisibleMs: median(result.records.map((record) => record.metrics.firstVisibleTextMs)),
+    fullPageMs: median(result.records.map((record) => record.metrics.fullPageMs)),
+    cls: median(result.records.map((record) => record.metrics.cls)),
+    layoutShifts: median(result.records.map((record) => record.metrics.layoutShifts)),
+    requestMs: median(result.records.map((record) => record.metrics.engineWork.requestMs)),
+    ttfbMs: median(result.records.map((record) => record.metrics.engineWork.ttfbMs)),
+    paintMs: median(result.records.map((record) => record.metrics.engineWork.paintMs)),
+  });
 }
 
 const cell = (value: number | null | undefined): string =>
@@ -65,7 +91,7 @@ const lines = [
   '# Reveal mode comparison (mock tier c8)',
   '',
   '`main` is the pre-reveal streaming build; `smooth` and `sentence` are this branch.',
-  'Mock pace: 12 ms prefill, 0.35 ms per character, 3 deltas. Times are milliseconds.',
+  'Mock pace: 12 ms prefill, 0.35 ms per character, 3 deltas. Sentence rows are medians of 3 samples; times are milliseconds.',
   '',
   '| Page | Mode | First visible | Full page | CLS | Layout shifts |',
   '| --- | --- | ---: | ---: | ---: | ---: |',
@@ -83,5 +109,6 @@ writeFileSync(
   `${JSON.stringify(rows, null, 2)}
 `,
 );
-writeFileSync(resolve(ROOT, 'bench/results/reveal-compare.md'), lines.join('\n'));
-console.log(lines.join('\n'));
+const report = await formatMarkdown(lines.join('\n'));
+writeFileSync(resolve(ROOT, 'bench/results/reveal-compare.md'), report);
+console.log(report);

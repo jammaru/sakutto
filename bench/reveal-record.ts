@@ -27,6 +27,7 @@ const MODES = [
 const PAGES = [
   { label: 'long-article', file: 'long-article.html' },
   { label: 'hn-like', file: 'many-cards.html' },
+  { label: 'single-long-paragraph', file: 'single-long-paragraph.html' },
 ];
 
 function launchArgs(extension: string): string[] {

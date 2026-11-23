@@ -114,6 +114,13 @@ const MAX_PAGE_FAILURES = 2;
  * grow, which is what drove layout shift above the smooth-mode range.
  */
 const FAST_VISIBLE_BLOCKS = 2;
+/**
+ * How long a fast-path block may keep decoded text back before writing it anyway, and how
+ * many characters may pile up before a write. A clause boundary writes sooner than either.
+ * The first tokens of a block are never held: first-visible text must not wait for this.
+ */
+const FAST_FLUSH_MS = 40;
+const FAST_FLUSH_CHARS = 96;
 /** Keyboard selections settle before inference, so a partial highlight does not occupy the model. */
 const SELECTION_SETTLE_MS = 48;
 /** A selectionchange that follows pointerup is the same gesture and should not wait out the keyboard delay. */
@@ -232,6 +239,10 @@ interface Live {
    * Indexed by piece, so a restart of one piece cannot erase sentences from another.
    */
   sentenceShownParts?: string[];
+  /** When the fast path last flushed partial text of this block. */
+  fastFlushAt?: number;
+  /** Length of the partial text at that flush, for the character budget. */
+  fastFlushLength?: number;
   /** When the text of this block last grew. */
   lastPieceAt: number;
   /** How many characters of source each piece of the running request has. */
@@ -1592,6 +1603,8 @@ export class PageSession {
         }
       }
       item.firstPieceAt = null;
+      delete item.fastFlushAt;
+      delete item.fastFlushLength;
       const pieces = expandSource(item);
       item.partSource = pieces.map((piece) => piece.text.length);
       item.partAlone = pieces.map(
@@ -2047,10 +2060,11 @@ export class PageSession {
     if (!direct && this.prefs.reveal === 'sentence') {
       const instant = this.firstOnScreen(item);
       if (partial && this.fastVisible(item)) {
-        // On screen the reader is watching the block. Write decoded tokens straight
-        // into its reserved box instead of waiting for a sentence terminator: that
-        // wait is what made the first visible word slower than stream mode. We are
-        // already in a paint frame here, so no extra frame stands before first paint.
+        // On screen the reader is watching the block. Write decoded text into its
+        // reserved box at clause boundaries (or on the decode budget) instead of waiting
+        // for a sentence terminator: a long first sentence made the first visible word
+        // slower than stream mode. We are already in a paint frame here, so no extra
+        // frame stands before first paint.
         this.paintVisibleTokens(item, model, bilingual);
         return;
       }
@@ -2113,16 +2127,21 @@ export class PageSession {
   }
 
   /**
-   * Whether a page block is inside the viewport and can show text as it decodes. Below the
-   * fold sentence mode still writes one finished sentence at a time, so a scroll never
-   * reveals a half-written sentence.
+   * Whether a page block is body copy inside the viewport and can show text as it decodes.
+   * A heading is 'prose' to the segment builder, but it is not a paragraph a reader waits
+   * to read: counting it here used to spend the whole two-block budget on a title and a
+   * byline, leaving a long first paragraph in sentence mode. Below the fold sentence mode
+   * still writes one finished sentence at a time, so a scroll never reveals a half-written
+   * sentence.
    */
   private fastVisible(item: Live): boolean {
-    if (item.role !== 'page' || item.band !== 'visible' || item.kind !== 'prose') return false;
+    if (item.role !== 'page' || item.band !== 'visible' || item.kind !== 'prose' || item.heading) {
+      return false;
+    }
     let ahead = 0;
     for (const other of this.live.values()) {
       if (other === item || other.role !== 'page' || other.band !== 'visible') continue;
-      if (other.kind !== 'prose' || other.index >= item.index) continue;
+      if (other.kind !== 'prose' || other.heading || other.index >= item.index) continue;
       ahead += 1;
       if (ahead >= FAST_VISIBLE_BLOCKS) return false;
     }
@@ -2130,9 +2149,15 @@ export class PageSession {
   }
 
   /**
-   * Writes the tokens decoded so far into a visible block. The height was reserved when
-   * the request started, so the text under the block stays where it was. This is called
-   * from a paint frame, which is the same frame stream mode uses for its first write.
+   * Writes partial text decoded so far into a visible block, without waiting for its first
+   * sentence to end. The height was reserved when the request started, so the text under
+   * the block stays where it was. This is called from a paint frame, the same frame stream
+   * mode uses for its first write.
+   *
+   * The first text of a block is never held back. After that, a write waits for a clause
+   * boundary, a short decode budget or a character budget: a model that emits one token
+   * per frame must not make the reserved box relayout on every token, but a long first
+   * sentence must not keep the reader waiting for its terminator either.
    */
   private paintVisibleTokens(item: Live, model: SegmentModel, bilingual: boolean): void {
     // Unlike partialText(), which drops empty pieces, this reads pieces in order and
@@ -2144,15 +2169,32 @@ export class PageSession {
     if (advanced === null) return;
     const text = joinTranslatedSentences(advanced.parts, this.prefs.targetLanguage);
     if (text.trim().length === 0) return;
+    if (item.streamed && !this.fastFlushDue(item, text)) return;
     if (!item.streamed) {
       this.claim(item, model);
       this.revealer.reserve(model.block);
     }
+    // Only advance the high-water mark when the text really goes to the page. A write
+    // held back by the budget is recomputed from the pieces on the next paint frame.
     item.sentenceShownParts = advanced.shown;
+    item.fastFlushAt = performance.now();
+    item.fastFlushLength = text.length;
     this.write(item, model, text, true, bilingual);
   }
 
-  /** Whether this is the first page paragraph on the screen at the moment. */
+  /** Whether a held-back fast-path write is due now. */
+  private fastFlushDue(item: Live, text: string): boolean {
+    if (endsOnClause(text)) return true;
+    const now = performance.now();
+    if (now - (item.fastFlushAt ?? item.firstPieceAt ?? now) >= FAST_FLUSH_MS) return true;
+    return text.length - (item.fastFlushLength ?? 0) >= FAST_FLUSH_CHARS;
+  }
+
+  /**
+   * Whether this is the first readable page block on the screen at the moment. A heading
+   * above the lead paragraph must not give it the full settle motion: on a page with a
+   * headline in the header that glide moved a screenful of markers and pushed CLS up.
+   */
   private firstOnScreen(item: Live): boolean {
     if (item.role !== 'page' || item.band !== 'visible') return false;
     for (const other of this.live.values()) {
@@ -2160,6 +2202,7 @@ export class PageSession {
         other !== item &&
         other.role === 'page' &&
         other.band === 'visible' &&
+        !other.heading &&
         other.index < item.index
       ) {
         return false;
@@ -2480,6 +2523,8 @@ export class PageSession {
       this.shown.delete(block);
       item.streamed = false;
       delete item.sentenceShownParts;
+      delete item.fastFlushAt;
+      delete item.fastFlushLength;
       this.editDom(() => {
         restoreSegment(model, item.created);
         removeTranslationUi(block);
@@ -3412,6 +3457,50 @@ function visiblePartialParts(item: Live): string[] {
     parts.push(stripped);
   }
   return parts;
+}
+
+/**
+ * Clause marks where a partial translation reads well on its own. Commas, semicolons and
+ * colons are the early ones in both scripts; a sentence terminator is a clause boundary
+ * too, but the fast path never has to wait for one.
+ */
+const CLAUSE_MARKS: ReadonlySet<string> = new Set([
+  ',',
+  '、',
+  ';',
+  '；',
+  ':',
+  '：',
+  '.',
+  '。',
+  '!',
+  '！',
+  '?',
+  '？',
+  '…',
+]);
+const CLAUSE_CLOSERS: ReadonlySet<string> = new Set([
+  '"',
+  "'",
+  '”',
+  '’',
+  ')',
+  ']',
+  '}',
+  '）',
+  '］',
+  '】',
+  '」',
+  '』',
+  '〉',
+  '》',
+]);
+
+function endsOnClause(text: string): boolean {
+  const trimmed = text.trimEnd();
+  let end = trimmed.length - 1;
+  while (end >= 0 && CLAUSE_CLOSERS.has(trimmed[end] ?? '')) end -= 1;
+  return end >= 0 && CLAUSE_MARKS.has(trimmed[end] ?? '');
 }
 
 /**

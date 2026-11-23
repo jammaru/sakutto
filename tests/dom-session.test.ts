@@ -708,6 +708,113 @@ describe('page session', () => {
     expect(document.querySelector('p')?.textContent).toBe('Hello. Two.');
   });
 
+  it('flushes a long first sentence of the lead paragraph past a visible heading and byline', async () => {
+    document.documentElement.lang = 'en';
+    const long =
+      'When the survey closed the team expected a few hundred replies and received slightly more than four thousand which was more than enough to make the original plan of reading every answer by hand impossible';
+    document.body.innerHTML =
+      '<h1 id="title">A single paragraph about the survey</h1>' +
+      '<p id="byline">Methods notebook / 24 October</p>' +
+      '<p id="long">' +
+      long +
+      '. A second sentence follows here.</p>';
+    for (const block of document.querySelectorAll('h1, p')) {
+      block.getBoundingClientRect = () => new DOMRect(0, 0, 300, 40);
+    }
+    const lead = document.querySelector('#long');
+    if (!lead) throw new Error('missing long paragraph');
+    const source = lead.textContent ?? '';
+    const reserve = vi.spyOn(Revealer.prototype, 'reserve');
+    const offer = vi.spyOn(Revealer.prototype, 'offer');
+    const first: string[] = [];
+    const second: string[] = [];
+    const clause: string[] = [];
+    const session = start(
+      document,
+      engineOf(async function* (segments) {
+        for (const segment of segments) {
+          if (!segment.text.includes('When the survey closed')) {
+            yield { id: segment.id, final: '見出し', engine: 'plamo' as const };
+            continue;
+          }
+          yield { id: segment.id, textDelta: '調査が閉じたとき', engine: 'plamo' as const };
+          first.push(lead.textContent ?? '');
+          yield { id: segment.id, textDelta: '、チームは数百件', engine: 'plamo' as const };
+          second.push(lead.textContent ?? '');
+          yield { id: segment.id, textDelta: 'の回答を予想していた、', engine: 'plamo' as const };
+          clause.push(lead.textContent ?? '');
+          yield { id: segment.id, final: '訳:長い最初の文。次の文。', engine: 'plamo' as const };
+        }
+      }),
+      { reveal: 'sentence' },
+    );
+
+    await session.translate();
+    await session.whenIdle();
+
+    // No sentence terminator has decoded at either partial write. The heading and byline
+    // are prose to the segment builder but must not spend the fast-path slot budget.
+    expect(first[0]).toBe('調査が閉じたとき');
+    // The next token lands in the same paint burst; the budget holds it back.
+    expect(second[0]).toBe('調査が閉じたとき');
+    // A clause arrives before any terminator and is written at once, still in reserved height.
+    expect(clause[0]).toBe('調査が閉じたとき、チームは数百件の回答を予想していた、');
+    expect(reserve).toHaveBeenCalledWith(lead);
+    expect(offer.mock.calls.some(([call]) => call.block === lead)).toBe(false);
+    expect(lead.textContent).toBe('訳:長い最初の文。次の文。');
+    expect(document.querySelector('#long')?.textContent).not.toBe(source);
+  });
+
+  it('keeps the third visible model-card paragraph in sentence discipline', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML =
+      '<header><h1 id="title">riverlight / plamo-diffusion-1b</h1></header>' +
+      '<p id="subtitle">A masked diffusion language model fine-tuned for short document translation.</p>' +
+      '<p id="p1">This model converts an autoregressive checkpoint into a masked diffusion decoder and drops the causal mask.</p>' +
+      '<p id="p2">The practical effect for translation is that latency depends on the number of refinement steps.</p>';
+    const subtitle = document.querySelector('#subtitle');
+    const p1 = document.querySelector('#p1');
+    const p2 = document.querySelector('#p2');
+    if (!subtitle || !p1 || !p2) throw new Error('missing model card paragraphs');
+    for (const block of document.querySelectorAll('h1, p')) {
+      block.getBoundingClientRect = () => new DOMRect(0, 0, 300, 40);
+    }
+    const snapshots: Record<string, string> = {};
+    const session = start(
+      document,
+      engineOf(async function* (segments) {
+        for (const segment of segments) {
+          const name = segment.text.includes('riverlight')
+            ? 'title'
+            : segment.text.includes('masked diffusion')
+              ? 'subtitle'
+              : segment.text.includes('autoregressive')
+                ? 'p1'
+                : 'p2';
+          if (name === 'title') {
+            yield { id: segment.id, final: 'モデル', engine: 'plamo' as const };
+            continue;
+          }
+          yield { id: segment.id, textDelta: '最初の節、', engine: 'plamo' as const };
+          const target = name === 'subtitle' ? subtitle : name === 'p1' ? p1 : p2;
+          if (!(name in snapshots)) snapshots[name] = target.textContent ?? '';
+          yield { id: segment.id, final: '訳:最初の節。次の節。', engine: 'plamo' as const };
+        }
+      }),
+      { reveal: 'sentence' },
+    );
+
+    await session.translate();
+    await session.whenIdle();
+
+    expect(snapshots['subtitle']).toBe('最初の節、');
+    // The third visible body block has no fast-path slot: it keeps the source until a
+    // whole sentence has decoded, as every below-fold block does.
+    expect(snapshots['p2']).not.toBe('最初の節、');
+    expect(subtitle.textContent).toBe('訳:最初の節。次の節。');
+    expect(p1.textContent).toBe('訳:最初の節。次の節。');
+    expect(p2.textContent).toBe('訳:最初の節。次の節。');
+  });
   it('does not show a later piece before an earlier one in a visible block', async () => {
     document.documentElement.lang = 'en';
     const source =
