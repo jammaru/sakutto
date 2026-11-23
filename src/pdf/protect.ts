@@ -83,10 +83,19 @@ const FLATTENED_MATRIX_NAME = /^W[iqkvo][\p{N}_^]{0,3}$/u;
 const FLATTENED_OUTPUT_MATRIX = /^Wo[\p{N}_^]{0,3}$/u;
 /** A clause boundary before the token: the German "Wo" opens a clause, W_o does not. */
 const CLAUSE_BOUNDARY = /[.!?;:。、]$/u;
-const CLAUSE_OPENER = /(?:[(（「『“‘•\-—]\s*)$/u;
+const CLAUSE_OPENER_HEAD = /^[(（「『“‘„«[\{•\-—]/u;
+const CLAUSE_OPENER_TAIL = /[(（「『“‘„«[\{•\-—]\s*$/u;
 function startsClause(preceding: string): boolean {
   const before = preceding.trimEnd();
-  return before.length === 0 || CLAUSE_BOUNDARY.test(before) || CLAUSE_OPENER.test(before);
+  if (before.length === 0) return true;
+  if (CLAUSE_BOUNDARY.test(before)) return true;
+  if (CLAUSE_OPENER_HEAD.test(before)) return true;
+  const openerAtEnd = CLAUSE_OPENER_TAIL.exec(before);
+  if (openerAtEnd) {
+    const beforeOpener = before.slice(0, openerAtEnd.index).trimEnd();
+    return beforeOpener.length === 0 || !/\p{L}$/u.test(beforeOpener);
+  }
+  return false;
 }
 const IDENTIFIER_OPERATOR = /^\s*(?:\p{Lu}[\p{N}_^]{0,3}\s+)?[∈×÷]\s+\S/u;
 /**

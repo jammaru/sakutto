@@ -377,13 +377,16 @@ function positiveTopPageTitle(pieces: readonly OcrTextPiece[], pageWidth: number
   const first = ordered[0]?.text.trim() ?? '';
   const second = ordered[1]?.text.trim() ?? '';
   const secondWords = second.split(/\s+/u).filter(Boolean);
-  if (/:/u.test(first)) return true;
+  if (/:/u.test(first)) {
+    if (SCIENTIFIC_BODY_VERB.test(first)) return false;
+    return true;
+  }
   if (SCIENTIFIC_TITLE_PREFIX.test(first)) {
     return scientificShortTitleFirstPiece(first, second, true, false);
   }
   if (secondWords.length >= 2) {
     if (SCIENTIFIC_BODY_VERB.test(first)) return false;
-    return titleCaseTail(secondWords) && scientificShortTitleFirstPiece(first, second, true, false);
+    return titleCaseTail(secondWords);
   }
   return false;
 }
@@ -829,6 +832,7 @@ export function ocrResultToTextLines(
       resolved.pageWidth,
     );
     const topRowSharesBodyColumns =
+      rowsAbove.length === 0 &&
       sharesColumns &&
       !twoColumnRows.includes(lineIndex) &&
       otherColumnRows.length >= 2 &&

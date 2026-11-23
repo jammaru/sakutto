@@ -787,6 +787,12 @@ describe('ed88d36 review blockers: positional rule for every two-letter token', 
     },
     {
       token: 'Wo',
+      source: 'The projection (Wo Q ∈ R d model × d k) is learned.',
+      prompt: 'The projection (<i0>) is learned.',
+      slot: 'Wo Q ∈ R d model × d k',
+    },
+    {
+      token: 'Wo',
       source: 'For Wo Q ∈ R d model × d k we use a projection.',
       prompt: 'For <i0> we use a projection.',
       slot: 'Wo Q ∈ R d model × d k',

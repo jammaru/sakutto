@@ -1927,6 +1927,50 @@ describe('93666bb review blockers: CJK two-column body rows', () => {
     expect(layout.blocks.some((block) => block.titleRow === true)).toBe(false);
   });
 
+  it('c071f74: merges a generic title on body column edges at the page top', () => {
+    const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+    const title = [
+      region('Deep Learning for Natural', quad(45, 60, 250, 20)),
+      region('Language Processing Tasks', quad(305, 60, 250, 20)),
+    ];
+    const bodyRows = [140, 170].map((y) => [
+      region('Left column prose for the first printed row.', quad(45, y, 250, 20)),
+      region('Right column prose on the same printed row.', quad(305, y, 250, 20)),
+    ]);
+    const result: OcrResult = {
+      regions: [...title, ...bodyRows.flat()],
+      lines: [readingLine(title), ...bodyRows.map(readingLine)],
+      text: '',
+    };
+    const full = 'Deep Learning for Natural Language Processing Tasks';
+    const lines = ocrResultToTextLines(result, options);
+    expect(lines[0]?.text).toBe(full);
+    expect(lines[0]?.titleRow).toBe(true);
+    expect(lines.map((line) => line.text)).not.toContain('Language Processing Tasks');
+  });
+
+  it('c071f74: splits a topmost colon body row on corroborated column edges', () => {
+    const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+    const first = [
+      region('The results show strong effects:', quad(45, 65, 250, 20)),
+      region('Older Adults', quad(305, 65, 250, 20)),
+    ];
+    const body = [95, 155, 185].map((y) => [
+      region('Left column prose for the first printed row.', quad(45, y, 250, 20)),
+      region('Right column prose on the same printed row.', quad(305, y, 250, 20)),
+    ]);
+    const result: OcrResult = {
+      regions: [...first, ...body.flat()],
+      lines: [readingLine(first), ...body.map(readingLine)],
+      text: '',
+    };
+    const fused = 'The results show strong effects: Older Adults';
+    const lines = ocrResultToTextLines(result, options);
+    expect(lines.map((line) => line.text)).not.toContain(fused);
+    expect(lines.find((line) => line.text === 'Older Adults')?.columnHint).toBe(1);
+    expect(lines.some((line) => line.titleRow === true)).toBe(false);
+  });
+
   it('8118c86 blocker 1: splits a topmost short CJK right fragment above three full rows', () => {
     const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
     // The short row is the first body row: every corroborated row is below it, but its right
