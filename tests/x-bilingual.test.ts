@@ -2,6 +2,8 @@
 import { describe, expect, it } from 'vitest';
 import { buildSegment } from '@/dom/segment';
 import { applyTranslation, showBilingual } from '@/dom/render';
+import { isBodyCopy } from '@/dom/session';
+import { stripPlaceholderTokens } from '@/dom/placeholders';
 
 const THREE_PARAGRAPHS =
   '<div data-testid="tweetText">' +
@@ -140,5 +142,66 @@ describe('X bilingual rendering', () => {
     const { chunks } = bilingual(TWO_EQUAL_PARAGRAPHS, translation);
     expect(chunks.join('')).toBe(translation);
     expect(chunks.some((chunk) => chunk.includes('e\u0301'))).toBe(true);
+  });
+
+  it('treats guest post bodies like tweetText but not stray lang divs', () => {
+    document.body.innerHTML = [
+      '<article><div><div id="guest" lang="ja" dir="auto" class="text-body whitespace-pre-wrap wrap-anywhere"></div></div></article>',
+      '<div id="stray" lang="ja" dir="auto" class="whitespace-pre-wrap"></div>',
+      '<article><div id="no-class" lang="ja" dir="auto"></div></article>',
+      '<div id="legacy" data-testid="tweetText"></div>',
+    ].join('');
+    expect(isBodyCopy(document.getElementById('guest') as Element)).toBe(true);
+    expect(isBodyCopy(document.getElementById('legacy') as Element)).toBe(true);
+    expect(isBodyCopy(document.getElementById('stray') as Element)).toBe(false);
+    expect(isBodyCopy(document.getElementById('no-class') as Element)).toBe(false);
+  });
+
+  it('reads raw pre-wrap newlines as paragraph breaks without changing the source nodes', () => {
+    document.body.innerHTML =
+      '<article><div><div id="guest" lang="ja" dir="auto" class="text-body whitespace-pre-wrap">' +
+      '<span>最初の段落には十分な長さの日本語の本文が書かれています。</span>' +
+      '<span>\n\n二番目の段落にも十分な長さの文章を用意しています。\n</span>' +
+      '<span>三番目の段落も同じ本文のspanの中に改行だけで続いています。</span>' +
+      '</div></div></article>';
+    const block = document.getElementById('guest') as Element;
+    expect(block.querySelector('br')).toBeNull();
+    const model = buildSegment(block);
+    expect(stripPlaceholderTokens(model?.source ?? '')).toBe(
+      '最初の段落には十分な長さの日本語の本文が書かれています。\n\n' +
+        '二番目の段落にも十分な長さの文章を用意しています。\n' +
+        '三番目の段落も同じ本文のspanの中に改行だけで続いています。',
+    );
+    showBilingual(model as NonNullable<typeof model>, '§en§One.\n\nTwo.\nThree.', []);
+    const line = block.querySelector('sakutto-line') as Element;
+    expect(line.querySelectorAll('br')).toHaveLength(3);
+    expect(line.textContent).toContain('§en§One.');
+    expect(block.querySelectorAll('span')).toHaveLength(3);
+  });
+
+  it('keeps inline entities and Unicode emoji around guest paragraph gaps', () => {
+    document.body.innerHTML =
+      '<article><div><div id="guest" lang="ja" dir="auto" class="text-lead whitespace-pre-wrap">' +
+      '<span>17時から生配信します⚡️</span><span><a href="/hashtag/野球">#野球</a></span>' +
+      '<span> </span><span><a href="/user5">@user5</a></span>' +
+      '<span>\n\n次の段落です。</span></div></div></article>';
+    const block = document.getElementById('guest') as Element;
+    const model = buildSegment(block);
+    expect(model?.source).toMatch(/<i\d+>#野球<\/i\d+>/u);
+    expect(model?.source).toMatch(/<i\d+>@user5<\/i\d+>/u);
+    expect(stripPlaceholderTokens(model?.source ?? '')).toContain('⚡️');
+    expect(stripPlaceholderTokens(model?.source ?? '')).toContain('\n\n');
+    showBilingual(
+      model as NonNullable<typeof model>,
+      '§en§Live now #baseball with @user5\n\nNext paragraph.',
+      [],
+    );
+    expect(block.querySelector('a[href="/hashtag/野球"]')).not.toBeNull();
+    expect(block.querySelector('a[href="/user5"]')).not.toBeNull();
+    expect(block.textContent).toContain('⚡️');
+    const line = block.querySelector('sakutto-line') as Element;
+    expect(line.textContent).toContain('#baseball');
+    expect(line.textContent).toContain('Next paragraph.');
+    expect(line.querySelectorAll('br')).toHaveLength(2);
   });
 });

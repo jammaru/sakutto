@@ -13,6 +13,7 @@ import {
   scriptPositionOf,
   type ScriptPosition,
 } from './blocks';
+import { isXPostBody } from './x-post';
 
 export interface TextSlot {
   node: Text;
@@ -95,6 +96,10 @@ function needsOriginalSpace(left: string, right: string): boolean {
 export function buildSegment(block: Element): SegmentModel | null {
   let nextId = 0;
   const frozen = isDataRowCell(block);
+  // An X guest body puts paragraph breaks in the text nodes themselves: `white-space:
+  // pre-wrap` paints them without any `<br>`. Treat those newlines like the marker a real
+  // `<br>` produces so the model and the bilingual line both see the source paragraphs.
+  const preserveNewlines = isXPostBody(block);
   const built = buildFrame(
     block,
     () => {
@@ -103,6 +108,7 @@ export function buildSegment(block: Element): SegmentModel | null {
     },
     frozen,
     block,
+    preserveNewlines,
   );
   const source = collapseSource(built.source);
 
@@ -149,6 +155,7 @@ function buildFrame(
   allocateId: () => string,
   freezeValues = false,
   boundary?: Element,
+  preserveNewlines = false,
 ): BuiltFrame {
   // A container that owns text of its own is one segment, and a child that paints as its
   // own box — a flex item is blockified even as a `<span>` — has to fold in as a
@@ -168,7 +175,9 @@ function buildFrame(
       const current = gaps[gaps.length - 1];
       if (!current) continue;
       current.push({ node: child as Text, original: value });
-      source += value;
+      // Only the request text is marked; the slot keeps the raw bytes so restore and
+      // hover show exactly what X painted.
+      source += preserveNewlines ? value.replace(/\r\n?|\n/gu, LINE_BREAK) : value;
       continue;
     }
 
@@ -243,7 +252,7 @@ function buildFrame(
     if (!foldChildren && !isLaidOutInline(child)) continue;
     if (child.shadowRoot && child.childNodes.length === 0) continue;
 
-    const inner = buildFrame(child, allocateId, freezeValues, boundary);
+    const inner = buildFrame(child, allocateId, freezeValues, boundary, preserveNewlines);
     if (inner.source.trim().length === 0) continue;
 
     const id = allocateId();
@@ -262,8 +271,9 @@ function buildFrame(
 }
 
 /**
- * The mark used to keep a real `<br>` apart from the document's own indentation while the
- * source is normalized. A private-use character cannot appear in page text by accident.
+ * The mark used to keep a real `<br>` — or a newline in a `pre-wrap` X post body — apart
+ * from the document's own indentation while the source is normalized. A private-use
+ * character cannot appear in page text by accident.
  */
 const LINE_BREAK = '\uE000';
 

@@ -87,6 +87,7 @@ import {
   type SegmentModel,
 } from './segment';
 import type { SiteAuto, SiteRule } from './sites';
+import { isXPostBody } from './x-post';
 
 /** The engine packs by the same rule, so a request the page packs is not split up again. */
 const PACK_TOKEN_LIMIT = DEFAULT_BATCHING.maxBatchTokens;
@@ -2716,8 +2717,11 @@ function nextAfterSubtree(node: Node, root: Node): Node | null {
   return null;
 }
 
-function isBodyCopy(block: Element): boolean {
-  return block.matches('p, li, blockquote, dd, figcaption, [data-testid="tweetText"]');
+export function isBodyCopy(block: Element): boolean {
+  return (
+    block.matches('p, li, blockquote, dd, figcaption, [data-testid="tweetText"]') ||
+    isXPostBody(block)
+  );
 }
 
 /**

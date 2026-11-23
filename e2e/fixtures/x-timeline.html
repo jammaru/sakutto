@@ -110,6 +110,89 @@
       <button id="recycle-cell" type="button">次の投稿を表示</button>
     </article>
 
+    <!--
+      Guest (logged-out) x.com DOM. No data-testid anywhere: the post body is a
+      div[lang][dir=auto].whitespace-pre-wrap, paragraphs are raw newlines in span text,
+      entities are span > a, emoji stay Unicode text, and Show more swaps span children.
+    -->
+    <style>
+      .whitespace-pre-wrap {
+        white-space: pre-wrap;
+      }
+      .line-clamp-5 {
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 5;
+        overflow: hidden;
+      }
+    </style>
+    <!-- prettier-ignore -->
+    <section id="guest-timeline" aria-label="ゲスト用タイムライン" hidden>
+      <div data-href="/i/web/status/1650000000000000001" data-navigation-stop>
+        <article id="guest-post" class="flex flex-col gap-1">
+          <div class="flex flex-col gap-3">
+            <div
+              id="guest-body"
+              lang="ja"
+              dir="auto"
+              class="x-text text-body whitespace-pre-wrap wrap-anywhere"
+            ><span>【特別企画！撮りおろし公式壁紙】トヨタ往年のクルマたちを特別に撮りおろし！今回のクルマは整備場に佇む一台です。
+
+技術の粋を集めて開発された高性能グランツーリスモ。走行性能で様々な世界記録を達成するだけでなく、当時の人気スパイ映画にも登場し、話題を呼んだ1台。</span><span><a href="/hashtag/TOYOTAWALLPAPER?src=hashtag_click">#TOYOTAWALLPAPER</a></span><span> </span><span><a href="/hashtag/2000GT?src=hashtag_click">#2000GT</a></span><span>
+
+壁紙化希望のクルマがあれば返信欄へ！👀✨</span><span> </span><span><a id="base-ui-guest-mention" href="/user5">@user5</a></span></div>
+          </div>
+          <div role="group" aria-label="13 replies, 55 reposts, 830 likes"></div>
+        </article>
+      </div>
+
+      <div data-href="/i/web/status/1650000000000000002" data-navigation-stop>
+        <article id="guest-quote-post" class="flex flex-col gap-1">
+          <div class="flex flex-col gap-3">
+            <div
+              id="guest-quote-outer"
+              lang="ja"
+              dir="auto"
+              class="x-text text-body whitespace-pre-wrap wrap-anywhere"
+            >
+              <span>めっちゃ悔しいなぁ⚡️</span>
+            </div>
+            <div>
+              <div role="link" class="overflow-hidden rounded-2xl border">
+                <article id="guest-quoted-article">
+                  <div lang="ja" dir="auto" class="text-body line-clamp-1">@user4</div>
+                  <div
+                    id="guest-quote-inner"
+                    lang="ja"
+                    dir="auto"
+                    class="x-text text-body line-clamp-5 whitespace-pre-wrap"
+                  ><span>17時から生配信します⚡️
+
+関東昇格トーナメント【公式戦振り返り雑談】はアーカイブでご覧いただけます。</span><span> </span><span><a href="/user5">@user5</a></span></div>
+                </article>
+              </div>
+            </div>
+          </div>
+        </article>
+      </div>
+
+      <article id="guest-show-more-post" class="flex flex-col gap-1">
+        <div class="flex flex-col gap-3">
+          <div
+            id="guest-show-more-text"
+            lang="ja"
+            dir="auto"
+            class="x-text text-body whitespace-pre-wrap wrap-anywhere"
+          >
+            <span id="guest-show-more-truncated"
+              >【お知らせ】本日（１１月２０日）、首脳会談を行いました。※両首脳による発言（速報版、仮訳）　皆様、こんばんは。詳細は続きをご覧ください。</span
+            >
+            <button id="guest-show-more-button" type="button" lang="en">Show more</button>
+          </div>
+        </div>
+      </article>
+    </section>
+
     <!-- SPA navigation: pushState, then mount a whole conversation without a reload. -->
     <button id="spa-open" type="button">スレッドを開く</button>
     <div id="spa-root"></div>
@@ -213,6 +296,31 @@
       document.getElementById('recycle-cell').addEventListener('click', () => {
         document.getElementById('recycled-text').innerHTML =
           '<span>再利用された同じセルにマウントされた新しい日本語の投稿です。古い訳文を破棄し、この新しい本文を翻訳し直します。新しい本文だけが対訳として表示され、以前の投稿の断片が一行にも残らないことを確かめるための追加の文章です。</span>';
+      });
+
+      // Guest X swaps the truncated span, the whitespace text node and the button for one
+      // full-length span in the same tick, keeping the body element itself mounted.
+      document.getElementById('guest-show-more-button').addEventListener('click', (event) => {
+        const body = document.getElementById('guest-show-more-text');
+        const truncated = document.getElementById('guest-show-more-truncated');
+        const button = event.currentTarget;
+        for (const node of [...body.childNodes]) {
+          if (
+            node === truncated ||
+            node === button ||
+            (node.nodeType === Node.TEXT_NODE && (node.nodeValue ?? '').trim() === '')
+          ) {
+            node.remove();
+          }
+        }
+        const full = document.createElement('span');
+        full.id = 'guest-show-more-full';
+        full.textContent =
+          '【お知らせ】\n本日（１１月２０日）、首脳会談を行いました。\n\n' +
+          '※両首脳による発言（速報版、仮訳）\n（高市総理）\n' +
+          '　皆様、こんばんは。長文の本文が展開後に新しいspan一つで表示され、' +
+          '短縮版の訳文が残らずに翻訳し直されることを確認します。';
+        body.appendChild(full);
       });
     </script>
   </body>

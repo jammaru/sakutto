@@ -250,6 +250,97 @@ test.describe('X timeline bilingual translation', () => {
     }
   });
 
+  // Guest (logged-out) X no longer ships data-testid=tweetText. Its body is a
+  // div[lang][dir=auto].whitespace-pre-wrap with raw \n between paragraphs.
+  test('translates guest post bodies with raw newlines and nested quote articles', async () => {
+    await resetExtensionStorage(extension.worker, { targetLanguage: 'en' });
+    const page = await extension.context.newPage();
+    try {
+      await page.goto(`${FIXTURE_ORIGIN}/x-timeline.html`);
+      await page.locator('#main-tweet').evaluate((element) => element.setAttribute('hidden', ''));
+      await page
+        .locator('#guest-timeline')
+        .evaluate((element) => element.removeAttribute('hidden'));
+      await commandPage(extension.worker, page, 'bilingual');
+      await waitTranslated(page);
+
+      const line = page.locator('#guest-body > sakutto-line');
+      await expect(line).toContainText('§en§');
+      expect(await line.locator('br').count()).toBeGreaterThanOrEqual(2);
+      await expect(page.locator('#guest-body')).toContainText('トヨタ往年のクルマたち');
+      await expect(page.locator('#guest-body')).toContainText('👀✨');
+      await expect(page.locator('#guest-body a[href^="/hashtag/"]')).toHaveCount(2);
+      await expect(page.locator('#base-ui-guest-mention')).toBeVisible();
+
+      // Short quote bodies are UI-length, so they use replacement mode; both still translate.
+      await expect(page.locator('#guest-quote-outer')).toContainText('§en§めっちゃ悔しいなぁ');
+      await expect(page.locator('#guest-quote-inner')).toContainText('§en§17時から生配信します');
+    } finally {
+      await page.close();
+    }
+  });
+
+  test('spreads flat English over a guest body whose paragraphs are raw newlines', async () => {
+    await resetExtensionStorage(extension.worker, { targetLanguage: 'en' });
+    const page = await extension.context.newPage();
+    try {
+      await page.goto(`${FIXTURE_ORIGIN}/x-timeline.html?flatEn=1`);
+      await page.locator('#main-tweet').evaluate((element) => element.setAttribute('hidden', ''));
+      await page
+        .locator('#guest-timeline')
+        .evaluate((element) => element.removeAttribute('hidden'));
+      await commandPage(extension.worker, page, 'bilingual');
+      await waitTranslated(page);
+
+      const line = page.locator('#guest-body > sakutto-line');
+      const chunks = await line.evaluate((element) =>
+        Array.from(element.childNodes)
+          .filter((node) => node.nodeType === Node.TEXT_NODE)
+          .map((node) => node.nodeValue ?? ''),
+      );
+      const translated = chunks.join(' ');
+      expect(translated).toContain('Welcome to Osaka!');
+      expect(translated).toContain('This is the second sentence.');
+      expect(translated).toContain('Come see me!');
+      expect(translated).toContain('Hope you visit.');
+      expect(chunks.filter((chunk) => chunk.trim().length > 0).length).toBe(3);
+      expect(chunks.some((chunk) => chunk.trim().length === 0)).toBe(true);
+      for (const chunk of chunks) expect(chunk).not.toMatch(/[!?][A-Za-z]/u);
+      await expect(page.locator('#guest-body')).toContainText('トヨタ往年のクルマたち');
+    } finally {
+      await page.close();
+    }
+  });
+
+  test('retranslates a guest body when Show more swaps its span children', async () => {
+    await resetExtensionStorage(extension.worker, { targetLanguage: 'en' });
+    const page = await extension.context.newPage();
+    try {
+      await page.goto(`${FIXTURE_ORIGIN}/x-timeline.html`);
+      await page.locator('#main-tweet').evaluate((element) => element.setAttribute('hidden', ''));
+      await page
+        .locator('#guest-timeline')
+        .evaluate((element) => element.removeAttribute('hidden'));
+      await commandPage(extension.worker, page, 'bilingual');
+      await waitTranslated(page);
+
+      const body = page.locator('#guest-show-more-text');
+      const line = body.locator('> sakutto-line');
+      await expect(line).toContainText('§en§');
+      await expect(body).toContainText('詳細は続きをご覧ください');
+
+      await page.locator('#guest-show-more-button').click();
+      await expect(page.locator('#guest-show-more-full')).toBeVisible();
+      await expect(page.locator('#guest-show-more-truncated')).toHaveCount(0);
+      await expect(page.locator('#guest-show-more-button')).toHaveCount(0);
+      await expect(line).toContainText('長文の本文が展開後に新しいspan一つで表示され');
+      await expect(line).not.toContainText('詳細は続きをご覧ください');
+      await waitTranslated(page);
+    } finally {
+      await page.close();
+    }
+  });
+
   test('translates a conversation injected after SPA pushState', async () => {
     await resetExtensionStorage(extension.worker, { targetLanguage: 'en' });
     const page = await extension.context.newPage();
