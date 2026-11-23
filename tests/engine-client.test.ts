@@ -415,6 +415,50 @@ describe('EngineClient', () => {
       model: { id: HIGH_QUALITY_MODEL_ID },
     });
   });
+
+  it('settles an aborted OCR download with an unresponsive host so its task entry clears', async () => {
+    const port = new FakePort();
+    connect.mockReturnValue(port.port);
+    const client = new EngineClient(controller());
+    const abort = new AbortController();
+    // Mirrors the service worker's ocrDownloadTasks ownership: the promise is removed from
+    // the map only when EngineClient's request settles.
+    const tasks = new Map<string, Promise<unknown>>();
+    const task = client
+      .downloadOcr('standard', { signal: abort.signal })
+      .finally(() => tasks.delete('standard'));
+    tasks.set('standard', task);
+
+    const download = await waitForMessage<{ requestId: string }>(port, 'ocr-download');
+    expect(tasks.size).toBe(1);
+    abort.abort();
+    await expect(task).rejects.toMatchObject({ code: 'aborted' });
+    expect(tasks.size).toBe(0);
+    expect(port.messagesOfType('ocr-cancel')).toContainEqual({
+      type: 'ocr-cancel',
+      requestId: download.requestId,
+    });
+
+    // A later request is no longer treated as an existing in-flight task.
+    const retryAbort = new AbortController();
+    const retry = client.downloadOcr('standard', { signal: retryAbort.signal });
+    await vi.waitFor(() => expect(port.messagesOfType('ocr-download')).toHaveLength(2));
+    retryAbort.abort();
+    await expect(retry).rejects.toMatchObject({ code: 'aborted' });
+  });
+
+  it('rejects a pending OCR download when the engine port is dropped', async () => {
+    const port = new FakePort();
+    connect.mockReturnValue(port.port);
+    const client = new EngineClient(controller());
+    const pending = client.downloadOcr('standard', { signal: new AbortController().signal });
+    await waitForMessage(port, 'ocr-download');
+
+    // bootSource() drops the port before disconnecting it, so the disconnect handler's
+    // "current port" guard cannot settle the pending round-trip on its own.
+    await client.bootSource();
+    await expect(pending).rejects.toMatchObject({ code: 'offscreen-unavailable' });
+  });
 });
 
 function upgradedLocalServerSettings() {

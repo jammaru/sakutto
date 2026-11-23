@@ -380,13 +380,14 @@ export class EngineClient {
     const cancel = (): void => this.sendRaw({ type: 'ocr-cancel', requestId });
     options.signal.addEventListener('abort', cancel, { once: true });
     try {
-      await this.ensureSource();
-      const port = await this.connect();
+      await raceWithAbort(this.ensureSource(), options.signal);
+      const port = await raceWithAbort(this.connect(), options.signal);
       if (options.signal.aborted) throw abortError();
       const value = await this.roundTrip(
         port,
         { type: 'ocr-download', requestId, tier } satisfies OcrDownloadRequest,
         0,
+        options.signal,
       );
       if (!isOcrStatus(value)) throw hostError('The OCR host returned an invalid status.');
       return value;
@@ -715,6 +716,9 @@ export class EngineClient {
     const port = this.port;
     this.port = null;
     this.clearPushedSettings();
+    // The disconnect handler ignores a port that is no longer current, so settle every
+    // pending request here. Otherwise an unresponsive host can wedge a download forever.
+    this.failAll(hostError('The translation host was closed.'));
     try {
       port?.disconnect();
     } catch {

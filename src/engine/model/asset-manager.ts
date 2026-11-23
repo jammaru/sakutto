@@ -40,6 +40,19 @@ export interface AssetDownloadOptions<Id extends string> {
 interface Inspection<Id extends string> {
   status: AssetStatus<Id>;
   needsHash: boolean;
+  /** Every pinned final exists at its expected size; parts never count here. */
+  allFinalsPresent: boolean;
+}
+
+function missingAssetMessage(id: string): string {
+  return `Asset ${id} is not downloaded yet.`;
+}
+
+/** A missing final is a resumable state, never a verification failure to cache. */
+class MissingFinalError extends EngineError {
+  constructor(id: string) {
+    super('model-missing', missingAssetMessage(id));
+  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -121,7 +134,9 @@ export class AssetManager<Id extends string> {
     const inspected = await this.inspect(id);
     // An inspection that overlapped deletion must not start verification for removed files.
     if (generation !== this.generation(id)) return this.status(id);
-    if (inspected.needsHash && !this.errors.has(id)) {
+    // A bundle missing a final is partial and resumable. Starting verification here would
+    // make verifyBundle() reject on the absent file and cache a sticky error for this tier.
+    if (inspected.needsHash && inspected.allFinalsPresent && !this.errors.has(id)) {
       this.kickVerify(id);
       return { ...inspected.status, state: 'verifying' };
     }
@@ -198,12 +213,21 @@ export class AssetManager<Id extends string> {
     const signal = options.signal ?? new AbortController().signal;
     let source = await this.inspect(id);
     if (source.needsHash) {
+      // Hashing a final cannot repair a missing sibling; leave the source untouched.
+      if (!source.allFinalsPresent) return false;
       await this.ensureVerified(id, signal);
       source = await this.inspect(id);
     }
     if (source.status.state !== 'ready') return false;
 
-    if ((await this.inspect(id, target)).status.state !== 'ready') {
+    // Nothing to transfer into the same store, and deleting "the source" would delete the
+    // only verified copy. A target holding resumable .part bytes is not a verified
+    // destination either, so keep the source there even after the copy succeeds.
+    if (target === this.store) return true;
+    const targetState = (await this.inspect(id, target)).status.state;
+    const targetWasReady = targetState === 'ready';
+    const canRemoveSource = targetState === 'absent' || targetWasReady;
+    if (!targetWasReady) {
       for (const file of this.bundles[id].files) {
         if (signal.aborted) throw abortError();
         await copyModelFile({
@@ -222,7 +246,9 @@ export class AssetManager<Id extends string> {
       await this.writeManifest(id, undefined, target);
     }
 
-    if (options.removeSource) await this.store.removeDirectory(this.directory(id));
+    if (options.removeSource && canRemoveSource) {
+      await this.store.removeDirectory(this.directory(id));
+    }
     return true;
   }
 
@@ -319,6 +345,8 @@ export class AssetManager<Id extends string> {
     let received = 0;
     let needsHash = false;
     let present = false;
+    let allFinalsPresent = true;
+    let verifiedFinals = 0;
 
     for (const file of bundle.files) {
       const stat = await store.stat(this.finalPath(id, file));
@@ -328,6 +356,7 @@ export class AssetManager<Id extends string> {
         this.errors.set(id, error);
         return {
           needsHash: false,
+          allFinalsPresent: false,
           status: {
             id,
             state: 'error',
@@ -342,23 +371,31 @@ export class AssetManager<Id extends string> {
       if (decision === 'verified' || decision === 'needs-hash') {
         received += file.size;
         present = true;
+        if (decision === 'verified') verifiedFinals += 1;
       } else {
+        // A complete .part is resumable bytes, not a final file: it must never make the
+        // bundle ready or authorize deleting the only store that has real finals.
+        allFinalsPresent = false;
         const partial = await store.size(this.partPath(id, file));
         received += Math.min(partial, file.size);
         if (partial > 0) present = true;
       }
     }
 
+    // A previous verification could have cached "not downloaded" while a final was
+    // temporarily missing. A fresh inspection that no longer supports that error clears it.
+    if (this.errors.get(id) === missingAssetMessage(id)) this.errors.delete(id);
     const failure = this.errors.get(id);
     const state = failure
       ? 'error'
-      : received === bundle.size && !needsHash
+      : verifiedFinals === bundle.files.length && !needsHash
         ? 'ready'
         : present || received > 0
           ? 'partial'
           : 'absent';
     return {
       needsHash,
+      allFinalsPresent,
       status: {
         id,
         state,
@@ -386,8 +423,24 @@ export class AssetManager<Id extends string> {
           progress: 1,
         });
       })
-      .catch((error: unknown) => {
+      .catch(async (error: unknown) => {
         if (isAbortError(error) || !this.verificationIsCurrent(id, controller.signal, generation)) {
+          return;
+        }
+        if (error instanceof MissingFinalError) {
+          // A final disappeared while verification was starting: report the resumable state
+          // instead of caching a "not downloaded" error for every later status() call.
+          this.errors.delete(id);
+          const inspected = await this.inspect(id).catch(() => null);
+          this.notify(
+            inspected?.status ?? {
+              id,
+              state: 'partial',
+              received: 0,
+              total: this.bundles[id].size,
+              progress: 0,
+            },
+          );
           return;
         }
         const message = error instanceof Error ? error.message : String(error);
@@ -424,6 +477,14 @@ export class AssetManager<Id extends string> {
     const bundle = this.bundles[id];
     this.assertVerificationCurrent(id, signal, generation);
     const manifest = await this.readManifest(id);
+    // Never hash a half-downloaded bundle. Verify only when every final is on disk; readers
+    // that explicitly request hashing still get a model-missing error for an absent file.
+    for (const file of bundle.files) {
+      this.assertVerificationCurrent(id, signal, generation);
+      const stat = await this.store.stat(this.finalPath(id, file));
+      this.assertVerificationCurrent(id, signal, generation);
+      if (!stat || stat.size === 0) throw new MissingFinalError(id);
+    }
     let completed = 0;
     for (const file of bundle.files) {
       this.assertVerificationCurrent(id, signal, generation);
@@ -431,7 +492,7 @@ export class AssetManager<Id extends string> {
       this.assertVerificationCurrent(id, signal, generation);
       const decision = decideIntegrity(file, stat, this.manifestFile(manifest, file.path));
       if (decision === 'missing') {
-        throw new EngineError('model-missing', `Asset ${id} is not downloaded yet.`);
+        throw new MissingFinalError(id);
       }
       if (decision === 'reject-size') {
         throw new EngineError('model-integrity', `Unexpected size for ${file.path}.`, {

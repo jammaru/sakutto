@@ -3,6 +3,7 @@ import { AssetManager, parseAssetManifest } from '@/engine/model/asset-manager';
 import type { AssetBundle } from '@/engine/model/asset';
 import { sha256Hex } from '@/engine/model/sha256';
 import { MemoryFileStore, bytesOf } from './support/fakes';
+import { flushTasks } from './support/ports';
 
 const DET = bytesOf('det weights');
 const REC = bytesOf('recognition weights');
@@ -196,6 +197,103 @@ describe('AssetManager', () => {
     await resumed.download('standard', { signal: new AbortController().signal });
     expect(await resumed.status('standard')).toMatchObject({ state: 'ready', progress: 1 });
     expect(store.files.has('models/ocr-standard/det.onnx.part')).toBe(false);
+  });
+
+  it('never reports full .part files as a ready bundle', async () => {
+    const store = new MemoryFileStore();
+    await store.append('models/ocr-standard/det.onnx.part', DET, 0);
+    await store.append('models/ocr-standard/rec.onnx.part', REC, 0);
+    const hash = vi.fn(hashBlob);
+    const manager = new AssetManager({
+      store,
+      bundles: { standard: bundle() },
+      hashBlob: hash,
+    });
+
+    expect(await manager.status('standard')).toMatchObject({
+      state: 'partial',
+      received: DET.length + REC.length,
+    });
+    await flushTasks();
+    expect(await manager.status('standard')).toMatchObject({ state: 'partial' });
+    expect(hash).not.toHaveBeenCalled();
+  });
+
+  it('keeps the source when a target has only parts and when copying into the same store', async () => {
+    const source = new MemoryFileStore();
+    const manager = new AssetManager({
+      store: source,
+      bundles: { standard: bundle() },
+      fetchImpl: async (input) => fullResponse(input),
+      hashBlob,
+    });
+    await manager.download('standard', { signal: new AbortController().signal });
+
+    const target = new MemoryFileStore();
+    await target.append('models/ocr-standard/det.onnx.part', DET, 0);
+    await target.append('models/ocr-standard/rec.onnx.part', REC, 0);
+    expect(await manager.copyToStore('standard', target, { removeSource: true })).toBe(true);
+
+    // The parts were replaced by verified finals; the original store is still intact.
+    expect([...target.files.keys()]).toContain('models/ocr-standard/det.onnx');
+    expect([...target.files.keys()]).toContain('models/ocr-standard/rec.onnx');
+    expect([...target.files.keys()]).toContain('models/ocr-standard/asset.json');
+    expect([...source.files.keys()]).toContain('models/ocr-standard/det.onnx');
+    await expect(
+      new AssetManager({ store: target, bundles: { standard: bundle() }, hashBlob }).status(
+        'standard',
+      ),
+    ).resolves.toMatchObject({ state: 'ready', progress: 1 });
+
+    // A same-store "move" has nothing to transfer and must never delete its own finals.
+    expect(await manager.copyToStore('standard', source, { removeSource: true })).toBe(true);
+    expect([...source.files.keys()]).toContain('models/ocr-standard/det.onnx');
+  });
+
+  it('keeps an incomplete bundle partial without starting verification or caching an error', async () => {
+    const store = new MemoryFileStore();
+    await store.append('models/ocr-standard/det.onnx', DET, 0);
+    await store.append('models/ocr-standard/rec.onnx.part', REC.slice(0, 4), 0);
+    const hash = vi.fn(hashBlob);
+    const states: string[] = [];
+    let notifyReady!: () => void;
+    const ready = new Promise<void>((resolve) => {
+      notifyReady = resolve;
+    });
+    const manager = new AssetManager({
+      store,
+      bundles: { standard: bundle() },
+      hashBlob: hash,
+      onStatus: (status) => {
+        states.push(status.state);
+        if (status.state === 'ready') notifyReady();
+      },
+    });
+
+    expect(await manager.status('standard')).toMatchObject({
+      state: 'partial',
+      received: DET.length + 4,
+    });
+    await flushTasks();
+    expect(await manager.status('standard')).toMatchObject({ state: 'partial' });
+    // Even an explicit read of the existing final cannot turn a missing sibling into a
+    // permanently cached verification error.
+    await expect(manager.readFile('standard', 'det.onnx')).rejects.toMatchObject({
+      code: 'model-missing',
+    });
+    expect(await manager.status('standard')).toMatchObject({ state: 'partial' });
+    expect(hash).not.toHaveBeenCalled();
+    expect(states).not.toContain('verifying');
+    expect(states).not.toContain('error');
+
+    await store.append('models/ocr-standard/rec.onnx', REC, 0);
+    await expect(manager.status('standard')).resolves.toMatchObject({ state: 'verifying' });
+    await ready;
+    await expect(manager.status('standard')).resolves.toMatchObject({
+      state: 'ready',
+      progress: 1,
+    });
+    expect(hash).toHaveBeenCalledTimes(2);
   });
 
   it('enforces the shared consent gate before any network request', async () => {
