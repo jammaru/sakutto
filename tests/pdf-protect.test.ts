@@ -327,6 +327,41 @@ describe('latest DSH review report blockers', () => {
   });
 });
 
+describe('review 9166c54: leading prose before notation', () => {
+  it('leaves possessive determiners and reference nouns outside the protected slot', () => {
+    const notation = '3 × 3';
+    const cases = [
+      'Our 3 × 3 kernel is used.',
+      'Their 3 × 3 kernel is used.',
+      'Its 3 × 3 kernel is used.',
+      'His 3 × 3 kernel is used.',
+      'Her 3 × 3 kernel is used.',
+      'Figure 3 × 3 shows the kernel.',
+      'Table 3 × 3 lists the kernels.',
+      'Section 3 × 3 explains it.',
+      'Theorem 3 × 3 is stated below.',
+      'Lemma 3 × 3 is proved there.',
+    ];
+    for (const source of cases) {
+      const lead = source.slice(0, source.indexOf(notation));
+      const lines = groupLines([piece(source, 49, 100, 430)]);
+      const block = layoutPage(lines).blocks[0];
+      if (!block) throw new Error('expected a block');
+      const protectedText = protectInlineMath(block);
+      expect(
+        protectedText.slots.map((slot) => slot.text),
+        source,
+      ).toEqual([notation]);
+      expect(protectedText.text, source).toBe(
+        lead + '<i0>' + source.slice(lead.length + notation.length),
+      );
+      expectSourcePreserved(protectedText, source);
+      const tags = protectedText.slots.map((_slot, index) => `<i${String(index)}>`).join('');
+      expect(restoreInlineMath('訳文 ' + tags + ' です。', protectedText.slots)).not.toBeNull();
+    }
+  });
+});
+
 describe('review 5 notation and typography', () => {
   it('B4: protects the whole dimension expression and keeps the sentence', () => {
     const source =

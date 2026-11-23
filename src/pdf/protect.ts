@@ -53,16 +53,18 @@ const DIMENSION_CHAIN = new RegExp(
 );
 
 /**
- * Prose words that look like short variables to `TEXT_NOTATION`.
+ * Prose words that look like short variables to `TEXT_NOTATION` / `DIMENSION_CHAIN`.
  *
  * The notation pattern has to accept a leading word (`A ∈ R`) or an article before a size
  * (`a 3 × 3`) to cover symbols set in an ordinary text face. Those words belong in the prompt:
- * the model must translate "Let" and "This is a …", not paste them back into Japanese. The
+ * the model must translate "Let", "Our" and "Table 3 × 3", not paste them back into Japanese.
+ * Possessive determiners and reference nouns are ordinary paper prose and fit the operand shape
+ * (`Our` and `Table` are just capitalized words), so they need to be stripped explicitly. The
  * article alternative requires a following number, so a real variable such as `a ∈ R` stays
  * inside the protected slot.
  */
 const PROSE_LEAD =
-  /^(?:(?:Let|For|If|When|Where|Then|While|With|Each|Given|The|This|That|These|Those|We|It|And|But|Are|Was|Were|Has|Have|Can|May|Use|Using|From|Into|Over|Under|After|Before|By|In|On|At|To|Of|As|Since|Because|Here|Note|Thus|Hence|Therefore|Consequently|Accordingly|Moreover|Furthermore|However|Although|Though|Whereas|Meanwhile|Finally|First|Second|Third|Next|Now|Also|Indeed|Specifically|Notably|Recall|Observe|Consider|Suppose|Assume|Per|Via)\s+|(?:A|a)\s+(?=\p{N}))/u;
+  /^(?:(?:Let|For|If|When|Where|Then|While|With|Each|Given|The|This|That|These|Those|We|It|Its|Our|Their|His|Her|My|Your|And|But|Are|Was|Were|Has|Have|Can|May|Use|Using|From|Into|Over|Under|After|Before|By|In|On|At|To|Of|As|Since|Because|Here|Note|Thus|Hence|Therefore|Consequently|Accordingly|Moreover|Furthermore|However|Although|Though|Whereas|Meanwhile|Finally|First|Second|Third|Next|Now|Also|Indeed|Specifically|Notably|Recall|Observe|Consider|Suppose|Assume|Per|Via|Table|Figure|Section|Theorem|Lemma|Equation|Algorithm|Appendix|Listing)\s+|(?:A|a)\s+(?=\p{N}))/u;
 
 /**
  * Prose words that look like dimension names to DIMENSION_CHAIN.

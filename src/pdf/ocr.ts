@@ -454,10 +454,24 @@ function twoPieceColonTitle(
   return !rowHasInteriorSentenceBreak(wholeText);
 }
 
+/** A row whose own span has roughly equal page margins is genuinely centred. */
+function rowCentredOnPage(pieces: readonly OcrTextPiece[], pageWidth: number): boolean {
+  if (pageWidth <= 0 || pieces.length === 0) return false;
+  const left = Math.min(...pieces.map((piece) => piece.box.x));
+  const right = Math.max(...pieces.map((piece) => piece.box.x + piece.box.width));
+  // Same 10% asymmetry allowance as a printed gutter: real layouts are not perfectly centred.
+  return Math.abs((left + right) / 2 - pageWidth / 2) <= pageWidth * 0.1;
+}
+
 /**
  * A short row centred on the page is a title, byline or subtitle, not two body columns.
  * Body columns fill most of the measure even on a partially filled row; counting a centred
  * heading as gutter evidence makes later single-column lines split at ordinary word spaces.
+ *
+ * Width alone is not centring. A left-aligned fused two-column row ending in a short right
+ * fragment is also narrower than 60% of the page; treating it as a heading swallows the
+ * fragment into the left column and paints a cover across the gutter. Require balanced page
+ * margins before a short capitalised body row can count as title evidence.
  */
 function isCentredHeadingRow(pieces: readonly OcrTextPiece[], pageWidth: number): boolean {
   const text = pieces
@@ -470,7 +484,7 @@ function isCentredHeadingRow(pieces: readonly OcrTextPiece[], pageWidth: number)
   if (words.length === 0 || words.length > 12) return false;
   const left = Math.min(...pieces.map((piece) => piece.box.x));
   const right = Math.max(...pieces.map((piece) => piece.box.x + piece.box.width));
-  return right - left < pageWidth * 0.6;
+  return right - left < pageWidth * 0.6 && rowCentredOnPage(pieces, pageWidth);
 }
 
 /**
@@ -772,9 +786,13 @@ export function ocrResultToTextLines(
     const titleLikeRow = printedTitleRow && headingWholeLine && !scientificBodyRow;
     // A short centred title can have a word gap far wider than a normal word space. A long
     // full-width title is only distinguishable from two body columns when the page's gutter
-    // evidence sits below it; neither case covers a wide-gap two-column body row.
+    // evidence sits below it; neither case covers a wide-gap two-column body row. On a
+    // two-column page a narrow row needs page evidence or a genuinely centred span: a short
+    // capitalised body row at a line break is not a title just because it fits in 60% of the page.
     const wideGapTitleRow =
-      titleLikeRow && (lineWidth < resolved.pageWidth * 0.6 || titleAboveBody);
+      titleLikeRow &&
+      (lineWidth < resolved.pageWidth * 0.6 || titleAboveBody) &&
+      (!pageTwoColumn || titleAboveBody || rowCentredOnPage(pieces, resolved.pageWidth));
     const twoPieceTitleMerge =
       (printedTitleRow && !pageTwoColumn && !scientificBodyRow) ||
       wideGapTitleRow ||
