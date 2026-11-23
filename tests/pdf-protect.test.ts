@@ -744,6 +744,18 @@ describe('ed88d36 review blockers: positional rule for every two-letter token', 
       prompt: 'Wo <i0> gilt, ist die Matrix symmetrisch.',
       slot: 'Q ∈ R d×d',
     },
+    {
+      token: 'Wo',
+      source: '(Wo Q ∈ R d×d gilt, ist die Matrix symmetrisch.)',
+      prompt: '(Wo <i0> gilt, ist die Matrix symmetrisch.)',
+      slot: 'Q ∈ R d×d',
+    },
+    {
+      token: 'Wo',
+      source: '• Wo Q ∈ R d×d gilt, ist die Matrix symmetrisch.',
+      prompt: '• Wo <i0> gilt, ist die Matrix symmetrisch.',
+      slot: 'Q ∈ R d×d',
+    },
   ];
 
   const identifiers = [

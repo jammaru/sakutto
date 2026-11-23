@@ -1840,15 +1840,27 @@ describe('93666bb review blockers: CJK two-column body rows', () => {
       right: 'Mice and rats',
       rightWidth: 250,
     },
-    {
-      name: 'short capitalised right fragment',
-      right: 'Mice',
-      rightWidth: 45,
-    },
-  ])('b4129df top row: splits English body above corroborated columns ($name)', (scenario) => {
+  {
+    name: 'short capitalised right fragment',
+    right: 'Mice',
+    rightWidth: 45,
+  },
+  {
+    name: 'title-cased two-word right fragment',
+    right: 'Older Adults',
+    rightWidth: 90,
+  },
+  {
+    name: 'mRNA prefix with one-word right fragment',
+    left: 'mRNA vaccines reduce',
+    right: 'Mice',
+    rightWidth: 45,
+  },
+])('b4129df top row: splits English body above corroborated columns ($name)', (scenario) => {
     const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+    const left = scenario.left ?? 'Results show strong effects on';
     const first = [
-      region('Results show strong effects on', quad(45, 65, 250, 20)),
+      region(left, quad(45, 65, 250, 20)),
       region(scenario.right, quad(305, 65, scenario.rightWidth, 20)),
     ];
     const body = [95, 155, 185].map((y) => [
@@ -1860,17 +1872,14 @@ describe('93666bb review blockers: CJK two-column body rows', () => {
       lines: [readingLine(first), ...body.map(readingLine)],
       text: '',
     };
-    const fused = `Results show strong effects on ${scenario.right}`;
+    const fused = `${left} ${scenario.right}`;
 
     const lines = ocrResultToTextLines(result, options);
     expect(
       lines.map((line) => line.text),
       scenario.name,
     ).not.toContain(fused);
-    expect(
-      lines.find((line) => line.text === 'Results show strong effects on')?.columnHint,
-      scenario.name,
-    ).toBe(0);
+    expect(lines.find((line) => line.text === left)?.columnHint, scenario.name).toBe(0);
     expect(lines.find((line) => line.text === scenario.right)?.columnHint, scenario.name).toBe(1);
     expect(
       lines.some((line) => line.titleRow === true),
