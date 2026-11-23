@@ -463,11 +463,18 @@ describe('page session', () => {
     if (!opening || !block) throw new Error('missing paragraphs');
     opening.getBoundingClientRect = () => new DOMRect(0, 0, 300, 40);
     block.getBoundingClientRect = () => new DOMRect(0, 60, 300, 80);
-    // Each sentence write recreates the bilingual line, so watch every animation on it.
+    // The final settle can fade the block, dimming the line through its ancestor.
+    // Watch every animation on the block, on its subtree (each write recreates the
+    // line) and on its ancestors.
     const originalAnimate = Element.prototype.animate;
-    const lineFrames: Keyframe[][] = [];
+    const fades: { element: Element; frames: Keyframe[] }[] = [];
     Element.prototype.animate = function (this: Element, frames: Keyframe[]) {
-      if (this.localName === 'sakutto-line') lineFrames.push(frames);
+      if (
+        (this === block || block.contains(this) || this.contains(block)) &&
+        frames.some((frame) => frame.opacity !== undefined)
+      ) {
+        fades.push({ element: this, frames });
+      }
       return { pause() {}, cancel() {}, currentTime: 0 } as unknown as Animation;
     } as typeof Element.prototype.animate;
 
@@ -491,8 +498,11 @@ describe('page session', () => {
       await session.translate();
       await session.whenIdle();
       expect(block.querySelector('sakutto-line')?.textContent?.trim()).toBe('One. Two.');
-      // The final settle must not fade a line the reader has already been reading.
-      expect(lineFrames.some((frames) => frames.some((frame) => frame.opacity === 0))).toBe(false);
+      // The final settle must not fade a line the reader has already been reading,
+      // directly or through the block or an ancestor of it.
+      expect(fades.map(({ element, frames }) => ({ element: element.localName, frames }))).toEqual(
+        [],
+      );
     } finally {
       Element.prototype.animate = originalAnimate;
     }

@@ -2011,17 +2011,19 @@ export class PageSession {
         if (this.paintSentences(item, model, bilingual)) return;
       } else if (item.streamed) {
         // Sentence writes create the bilingual line while the reader is already
-        // reading it. Fading that line in again at the final settle would blink the
-        // sentences on it; only a line created by this final write is new.
+        // reading it. Fading the block at the final settle would fade that line
+        // through its ancestor, so release the reservation and write without a
+        // focus animation. Only a line created by this final write is new.
         const hadLine = bilingual && model.block.querySelector(':scope > sakutto-line') !== null;
-        const added =
-          bilingual && !hadLine
-            ? () => model.block.querySelector(':scope > sakutto-line')
-            : undefined;
+        const added = bilingual
+          ? () => model.block.querySelector(':scope > sakutto-line')
+          : undefined;
         this.revealer.settle(
           model.block,
           () => this.write(item, model, text, false, bilingual),
-          instant ? undefined : { kind: revealKind(item), ...(added ? { added } : {}) },
+          instant || (bilingual && hadLine)
+            ? undefined
+            : { kind: revealKind(item), ...(added ? { added } : {}) },
         );
         return;
       } else if (!instant && this.shown.get(model.block) !== shownAs(text, bilingual)) {
