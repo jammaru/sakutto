@@ -424,6 +424,10 @@ function blockMergesColumns(block: LayoutBlock, pageWidth: number): boolean {
   const spanningTitle = block.column <= 0 && (block.role === 'heading' || block.role === 'caption');
   const minimumGutter = spanningTitle ? MERGED_HEADING_GUTTER : MERGED_COLUMN_GUTTER;
   const gutter = pageWidth * 0.49;
+  const gapAtPrintedGutter = (leftEnd: number, rightStart: number): boolean => {
+    const centre = (leftEnd + rightStart) / 2;
+    return Math.abs(centre - pageWidth / 2) <= pageWidth * 0.12;
+  };
   return block.lines.some((line) => {
     const pieces = line.pieces;
     if (pieces.length < 2) return false;
@@ -450,7 +454,8 @@ function blockMergesColumns(block: LayoutBlock, pageWidth: number): boolean {
       };
       if (
         gutterWidth >= minimumGutter &&
-        gutterWidth > Math.max(widestInnerGap(left), widestInnerGap(right)) + 0.001
+        gutterWidth > Math.max(widestInnerGap(left), widestInnerGap(right)) + 0.001 &&
+        (block.column >= 0 || gapAtPrintedGutter(leftEnd, rightStart))
       ) {
         return true;
       }

@@ -59,6 +59,31 @@ describe('latest DSH review blockers', () => {
     expect(layout.blocks.map((block) => block.column)).toEqual([0]);
   });
 
+  it('B2: keeps a sentence-case mRNA title whole above two-column body', () => {
+    const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+    const bodyRows = [
+      [
+        region('Left column prose for the first printed row.', quad(45, 140, 250, 20)),
+        region('Right column prose on that same printed row.', quad(305, 140, 250, 20)),
+      ],
+      [
+        region('A second left column line proving two columns.', quad(45, 170, 250, 20)),
+        region('A second right column line proving two columns.', quad(305, 170, 250, 20)),
+      ],
+    ];
+    const title = [
+      region('mRNA vaccines are effective', quad(45, 60, 250, 20)),
+      region('In Older Adults', quad(305, 60, 250, 20)),
+    ];
+    const result: OcrResult = {
+      regions: [...title, ...bodyRows.flat()],
+      lines: [readingLine(title), ...bodyRows.map(readingLine)],
+      text: '',
+    };
+    const full = 'mRNA vaccines are effective In Older Adults';
+    expect(ocrResultToTextLines(result, options).map((line) => line.text)[0]).toBe(full);
+  });
+
   it('B2: keeps an mRNA title without a colon whole on one line', () => {
     const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
     const items = [
@@ -546,6 +571,6 @@ describe('latest DSH review blockers', () => {
     );
     expect(
       [...element.bilingual.children].map((row) => row.firstElementChild?.textContent),
-    ).toEqual(['left-top', 'spanning', 'left-bottom', 'right-top']);
+    ).toEqual(['left-top', 'right-top', 'spanning', 'left-bottom']);
   });
 });

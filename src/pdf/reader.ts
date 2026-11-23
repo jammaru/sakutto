@@ -10,7 +10,13 @@ import {
   type PdfPageOcr,
   type PdfOcrRecognize,
 } from './ocr';
-import { compareReadingOrder, verticalWriting, type LayoutBlock, type PageLayout } from './layout';
+import {
+  bilingualReadingRanks,
+  compareReadingOrder,
+  verticalWriting,
+  type LayoutBlock,
+  type PageLayout,
+} from './layout';
 import { layoutPage } from './layout';
 import { COVER_PAD_TOP_EM, HINTING_PAD_PX, coverPaintLayout, drawnBox } from './place';
 import { coverStyle, READER_STYLE, TextMeasurer } from './render';
@@ -177,6 +183,7 @@ export class PdfReader {
   private readonly retryableOcr = new Set<number>();
   private readonly ocrRetryNotBefore = new Map<number, number>();
   private readonly ocrRetryAttempts = new Map<number, number>();
+  private static readonly MAX_OCR_PAGE_ATTEMPTS = 6;
   private ocrRetryTimer: ReturnType<typeof setTimeout> | null = null;
   private parsing: Promise<void> | null = null;
   private visible = true;
@@ -358,7 +365,13 @@ export class PdfReader {
     // decide that order: down the left column then the right for horizontal text, and right
     // to left for vertical Japanese. Sorting by y/x alone alternated the two columns and
     // reversed vertical pages.
-    rows.sort((a, b) => compareReadingOrder(a.block, b.block));
+    const hasSpanning = rows.some((row) => row.block.column < 0);
+    if (hasSpanning) {
+      const ranks = bilingualReadingRanks(rows.map((row) => row.block));
+      rows.sort((a, b) => (ranks.get(a.block) ?? 0) - (ranks.get(b.block) ?? 0));
+    } else {
+      rows.sort((a, b) => compareReadingOrder(a.block, b.block));
+    }
 
     for (const item of rows) {
       const translation = item.translation;
@@ -939,12 +952,18 @@ export class PdfReader {
         if (ocrAttempted && fallback) {
           const attempt = (this.ocrRetryAttempts.get(next) ?? 0) + 1;
           this.ocrRetryAttempts.set(next, attempt);
-          this.retryableOcr.add(next);
-          this.ocrRetryNotBefore.set(
-            next,
-            Date.now() + Math.min(30_000, 1000 * 2 ** Math.min(attempt - 1, 5)),
-          );
-          this.session.replacePage(next, fallback.layout, fallback.height);
+          if (attempt >= PdfReader.MAX_OCR_PAGE_ATTEMPTS) {
+            this.retryableOcr.delete(next);
+          } else {
+            this.retryableOcr.add(next);
+            this.ocrRetryNotBefore.set(
+              next,
+              Date.now() + Math.min(30_000, 1000 * 2 ** Math.min(attempt - 1, 5)),
+            );
+          }
+          if (attempt === 1) {
+            this.session.replacePage(next, fallback.layout, fallback.height);
+          }
           this.skippedBlocks.set(next, fallback.layout.skipped.length);
           if (fallback.empty) this.emptyPages.add(next);
           const element = this.pageElements.get(next);

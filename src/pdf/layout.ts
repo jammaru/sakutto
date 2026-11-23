@@ -118,6 +118,46 @@ export function compareReadingOrder(
   return left.box.y - right.box.y || left.box.x - right.box.x;
 }
 
+/**
+ * Reading order for the bilingual pane when full-width blocks delimit bands between columns.
+ * `compareReadingOrder()` stays transitive for layout; this matches the quality bench's
+ * expected sequence on two-column pages with spanning blocks.
+ */
+export function bilingualReadingRanks(
+  blocks: readonly Pick<LayoutBlock, 'box' | 'column' | 'writing' | 'text'>[],
+): Map<Pick<LayoutBlock, 'box' | 'column' | 'writing' | 'text'>, number> {
+  const ranks = new Map<Pick<LayoutBlock, 'box' | 'column' | 'writing' | 'text'>, number>();
+  if (blocks.length === 0) return ranks;
+  const spanning = blocks
+    .filter((block) => block.column < 0)
+    .sort((left, right) => left.box.y - right.box.y);
+  const emitted = new Set<Pick<LayoutBlock, 'box' | 'column' | 'writing' | 'text'>>();
+  let seq = 0;
+  const emit = (block: Pick<LayoutBlock, 'box' | 'column' | 'writing' | 'text'>) => {
+    ranks.set(block, seq++);
+    emitted.add(block);
+  };
+  const pending = () => blocks.filter((block) => !emitted.has(block));
+  const columnRank = (block: Pick<LayoutBlock, 'column'>) => (block.column < 0 ? 0.5 : block.column);
+  const sortBand = (
+    left: Pick<LayoutBlock, 'box' | 'column' | 'writing' | 'text'>,
+    right: Pick<LayoutBlock, 'box' | 'column' | 'writing' | 'text'>,
+  ) =>
+    columnRank(left) - columnRank(right) ||
+    left.box.y - right.box.y ||
+    left.box.x - right.box.x;
+  for (const span of spanning) {
+    for (const block of pending()
+      .filter((entry) => entry.box.y < span.box.y - 0.5)
+      .sort(sortBand)) {
+      emit(block);
+    }
+    emit(span);
+  }
+  for (const block of pending().sort(sortBand)) emit(block);
+  return ranks;
+}
+
 export interface PageLayout {
   blocks: LayoutBlock[];
   /** Most common font size on the page, which decides what counts as a heading. */
