@@ -549,19 +549,19 @@
       <summary>{t('onboardingOtherLicenses')}</summary>
       <ul class="links">
         <li>
-          <a href={officialLinks.licenseJa} target="_blank" rel="noreferrer"
-            >{t('plamoOfficialLicenseJa')}</a
-          >
+          <a href={officialLinks.licenseJa} target="_blank" rel="noreferrer">
+            {t('plamoOfficialLicenseJa')}
+          </a>
         </li>
         <li>
-          <a href={officialLinks.licenseEn} target="_blank" rel="noreferrer"
-            >{t('plamoOfficialLicenseEn')}</a
-          >
+          <a href={officialLinks.licenseEn} target="_blank" rel="noreferrer">
+            {t('plamoOfficialLicenseEn')}
+          </a>
         </li>
         <li>
-          <a href={officialLinks.registration} target="_blank" rel="noreferrer"
-            >{t('plamoRegistrationLink')}</a
-          >
+          <a href={officialLinks.registration} target="_blank" rel="noreferrer">
+            {t('plamoRegistrationLink')}
+          </a>
         </li>
         <li>
           <a href={licenseLinks.plamoJa} target="_blank" rel="noreferrer">{t('licensePlaMoJa')}</a>
