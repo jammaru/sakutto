@@ -1946,6 +1946,143 @@ describe('page session', () => {
     expect(session.state()).toMatchObject({ pending: 0, done: 1, total: 1, skipped: 0 });
   });
 
+  it('retranslates a smooth block the page changes before its final arrives', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = '<p id="lead">Hello world</p>';
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const session = start(
+      document,
+      engineOf(async function* (segments) {
+        for (const segment of segments) {
+          if (segment.text === 'Hello world') {
+            await gate;
+            // A stale answer that must not overwrite the page's newer source.
+            yield { id: segment.id, final: '古い訳', engine: 'plamo' as const };
+            continue;
+          }
+          yield { id: segment.id, final: `訳:${segment.text}`, engine: 'plamo' as const };
+        }
+      }),
+      { reveal: 'smooth' },
+    );
+
+    await session.translate();
+    await vi.waitFor(() => {
+      expect(session.state().pending).toBe(1);
+    });
+    const lead = document.querySelector('#lead');
+    if (!lead || !(lead.firstChild instanceof Text)) throw new Error('missing lead text');
+    expect(lead.textContent).toBe('Hello world');
+
+    // Nothing has been painted yet: the running block must still be claimed.
+    lead.firstChild.nodeValue = 'New source';
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    release();
+    await session.whenIdle();
+
+    expect(lead.textContent).toBe('訳:New source');
+    expect(session.state()).toMatchObject({ pending: 0, done: 1, total: 1, skipped: 0 });
+  });
+
+  it('retranslates a third visible sentence block changed before its first write', async () => {
+    document.documentElement.lang = 'en';
+    const body = (seed: string): string => Array.from({ length: 8 }, () => seed).join(' ');
+    document.body.innerHTML =
+      `<p id="p1">${body('First paragraph')}</p>` +
+      `<p id="p2">${body('Second paragraph')}</p>` +
+      `<p id="p3">${body('Third paragraph')}</p>`;
+    for (const block of document.querySelectorAll('p')) {
+      block.getBoundingClientRect = () => new DOMRect(0, 0, 300, 40);
+    }
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let thirdStarted!: () => void;
+    const thirdRequest = new Promise<void>((resolve) => {
+      thirdStarted = resolve;
+    });
+    const session = start(
+      document,
+      engineOf(async function* (segments) {
+        for (const segment of segments) {
+          if (segment.text.startsWith('Third paragraph')) {
+            thirdStarted();
+            // An unterminated partial that sentence discipline holds back: no paint, no claim.
+            yield { id: segment.id, textDelta: '途中', engine: 'plamo' as const };
+            await gate;
+            yield { id: segment.id, final: '古い訳', engine: 'plamo' as const };
+            continue;
+          }
+          yield { id: segment.id, final: `訳:${segment.text}`, engine: 'plamo' as const };
+        }
+      }),
+      { reveal: 'sentence' },
+    );
+
+    await session.translate();
+    await thirdRequest;
+    const third = document.querySelector('#p3');
+    if (!third || !(third.firstChild instanceof Text)) throw new Error('missing third text');
+    expect(third.textContent).toBe(body('Third paragraph').trim());
+
+    third.firstChild.nodeValue = 'New source';
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    release();
+    await session.whenIdle();
+
+    expect(third.textContent).toBe('訳:New source');
+    expect(session.state()).toMatchObject({ pending: 0, done: 3, total: 3, skipped: 0 });
+  });
+
+  it('rebuilds inline source from the snapshot after a partial paint and a link edit', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = '<p id="lead">Hello <a href="/world">world</a> today.</p>';
+    const lead = document.querySelector('#lead');
+    if (!(lead instanceof HTMLElement)) throw new Error('missing lead');
+    lead.getBoundingClientRect = () => new DOMRect(0, 0, 300, 40);
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const requests: string[] = [];
+    const session = start(
+      document,
+      engineOf(async function* (segments) {
+        for (const segment of segments) {
+          requests.push(segment.text);
+          if (segment.text.includes('<i1>world</i1>')) {
+            yield { id: segment.id, textDelta: '途中', engine: 'plamo' as const };
+            await gate;
+            yield { id: segment.id, final: '古い訳', engine: 'plamo' as const };
+            continue;
+          }
+          yield { id: segment.id, final: `訳:${segment.text}`, engine: 'plamo' as const };
+        }
+      }),
+      { reveal: 'sentence' },
+    );
+
+    await session.translate();
+    await vi.waitFor(() => {
+      expect(lead.textContent).toBe('途中');
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const link = lead.querySelector('a');
+    if (!link || !(link.firstChild instanceof Text)) throw new Error('missing link text');
+    link.firstChild.nodeValue = 'there';
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    release();
+    await session.whenIdle();
+
+    expect(requests).toEqual(['Hello <i1>world</i1> today.', 'Hello <i1>there</i1> today.']);
+    expect(lead.textContent).toContain('there');
+    expect(lead.textContent).not.toBe('古い訳');
+  });
+
   it('streams a block that is decoded by itself and will take more than three seconds', async () => {
     // No other block gets text beside it, as where one request is decoded at a time. Nine
     // letters in 0.6 s of the sixty it will have: four seconds, by its own speed. The speed

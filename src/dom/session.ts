@@ -1637,6 +1637,11 @@ export class PageSession {
     for (const item of batch) {
       if (item.role === 'page' && item.model) {
         item.model.block.setAttribute('data-sakutto-pending', '1');
+        // Claim the block when the request starts, not when its first text is painted.
+        // Smooth mode holds every token until the final, and sentence mode holds
+        // unterminated text on slow and below-fold blocks: without this mark a page
+        // edit in that window is invisible to onMutations and the stale final lands.
+        this.claim(item, item.model);
         // The source is still on the page here, so measure its box once and hold that
         // height before the first token arrives. On screen, sentence mode then writes
         // tokens as they decode without moving whatever sits under the block.
@@ -2745,11 +2750,36 @@ export class PageSession {
     for (const node of created) this.expected.set(node, node.nodeValue ?? '');
   }
 
+  /**
+   * Puts the source back on the page before a replacement request is built, keeping any
+   * edit the page made while our partial translation was on screen. A replace-mode
+   * partial writes the translation into the first slot and empties the rest; rebuilding
+   * the source from that DOM would send the translator its own output as source.
+   */
+  private restoreSourceSlots(item: Live): void {
+    const model = item.model;
+    if (!model) return;
+    this.editDom(() => {
+      for (const slot of allSlots(model)) {
+        const painted = this.expected.get(slot.node);
+        const current = slot.node.nodeValue ?? '';
+        // A value that still matches what we painted is ours and goes back to the
+        // original text. Anything else is the page's newer text and must survive.
+        const next = painted === undefined || painted !== current ? current : slot.original;
+        if (next !== current) slot.node.nodeValue = next;
+      }
+      // The undo is our write, not a new page edit. Record the restored values so the
+      // observer does not start another retranslation from its own mutation records.
+      this.remember(model, []);
+    });
+  }
+
   private forgetLive(item: Live, restore: boolean): void {
     this.changingReveal(() => {
       if (item.model) {
         if (restore) this.resetLive(item);
         else {
+          this.restoreSourceSlots(item);
           this.revealer.forget(item.model.block);
           this.shown.delete(item.model.block);
           removeTranslationUi(item.model.block);
@@ -3078,7 +3108,12 @@ export class PageSession {
 
   private blockOf(node: Node): Element | null {
     const element = node instanceof Element ? node : node.parentElement;
-    return element?.closest('[data-sakutto-id]') ?? null;
+    for (let current = element; current; current = current.parentElement) {
+      // The id is claimed when the request starts, but the live map also covers the
+      // window before a claim is painted and after a retranslation clears the marks.
+      if (this.liveByBlock.has(current) || current.hasAttribute('data-sakutto-id')) return current;
+    }
+    return null;
   }
 
   private shouldPrefetchRange(range: Range): boolean {
