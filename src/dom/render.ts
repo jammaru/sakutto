@@ -61,7 +61,9 @@ export function restoreStructure(model: SegmentModel, created: Text[]): void {
   discardCreated(created);
   removeTranslationUi(model.block);
   restoreChildOrder(ordered(model));
-  for (const slot of allSlots(model)) slot.node.nodeValue = slot.original;
+  for (const slot of allSlots(model)) {
+    if (slot.node.nodeValue !== slot.original) slot.node.nodeValue = slot.original;
+  }
 }
 
 export function paintPlain(model: SegmentModel, translation: string, created: Text[]): void {
@@ -79,7 +81,11 @@ export function showBilingual(model: SegmentModel, translation: string, created:
   const line = ensureChild(model.block, LINE_TAG);
   line.replaceChildren();
   line.setAttribute('translate', 'no');
-  line.append(model.block.ownerDocument.createTextNode(visibleTranslation(translation)));
+  const chunks = bilingualChunks(model, translation);
+  for (let index = 0; index < chunks.length; index += 1) {
+    if (index > 0) line.append(model.block.ownerDocument.createElement('br'));
+    line.append(model.block.ownerDocument.createTextNode(chunks[index] ?? ''));
+  }
 }
 
 export function removeTranslationUi(block: Element): void {
@@ -104,6 +110,11 @@ function ordered(model: SegmentModel): OrderedFrame {
 function restoreChildOrder(frame: OrderedFrame): void {
   for (const child of frame.children) restoreChildOrder(child);
   const parent = frame.element;
+  const current = [...parent.childNodes];
+  const offset = current.length - frame.order.length;
+  if (offset >= 0 && frame.order.every((node, index) => current[offset + index] === node)) {
+    return;
+  }
   for (const node of frame.order) {
     if (node.parentNode === parent) parent.appendChild(node);
   }
@@ -265,6 +276,74 @@ function wordChunks(text: string): string[] {
 }
 
 const CJK_TEXT = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u;
+/** Scripts and punctuation that never take an inserted Latin word space. */
+const SPACELESS_TEXT =
+  /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}\p{Script=Thai}\u3000-\u303f\uff00-\uffef]/u;
+
+/**
+ * Whether two chunks of a flattened translation are two Latin words (or a sentence end and
+ * the next word) that a model ran together. CJK text and space-less scripts are joined as-is.
+ */
+function needsUnitSpace(left: string, right: string): boolean {
+  const tail = left.at(-1) ?? '';
+  const head = right[0] ?? '';
+  if (!tail || !head || /\s/u.test(tail) || /\s/u.test(head)) return false;
+  if (SPACELESS_TEXT.test(tail) || SPACELESS_TEXT.test(head)) return false;
+  if (/[.!?,;:)\]}"'\u201d\u2019\u2026]/u.test(tail)) return /[\p{L}\p{N}]/u.test(head);
+  return /[\p{L}\p{N}]/u.test(tail) && /[\p{L}\p{N}]/u.test(head);
+}
+
+/** Joins whole units, restoring the Latin space a trimmed sentence split discarded. */
+function joinUnits(units: readonly string[], bilingual: boolean): string {
+  if (!bilingual) return units.join('');
+  let output = '';
+  for (const unit of units) {
+    if (unit.length === 0) continue;
+    if (output.length > 0 && needsUnitSpace(output, unit)) output += ' ';
+    output += unit;
+  }
+  return output;
+}
+
+/**
+ * A flattened model output can run two Latin sentences together (\`Welcome to Osaka!This is\`).
+ * The sentence splitter only accepts a terminator followed by whitespace, so give it one.
+ * Dots inside URLs, email addresses, bare host names, file names and dotted abbreviations
+ * are not sentence ends and keep their place; unchanged text is returned as-is.
+ */
+function separateGluedSentences(text: string): string {
+  const ranges: Array<[number, number]> = [];
+  for (const pattern of [
+    /(?:https?:\/\/|www\.)[^\s<>"'）)】」』]+/giu,
+    /(?<=^|[\s<>()"'])[^\s<>()"']+@[^\s<>()"']+\.[a-z]{2,}/giu,
+    // Dot-separated labels with a lowercase suffix: example.com, second.example.org,
+    // node.js, README.md. A capitalized word after the dot starts a new sentence
+    // (sentence.Come), so an uppercase suffix is deliberately not treated as a token.
+    /(?<![\p{L}\p{N}])(?:[\p{L}\p{N}](?:[\p{L}\p{N}-]*[\p{L}\p{N}])?\.)+[a-z]{2,}(?![\p{L}\p{N}])/gu,
+    // Repeated single letters with dots: U.S.A., e.g., Ph.D.
+    /(?<!\p{L})(?:\p{L}\.){2,}/gu,
+  ]) {
+    for (const match of text.matchAll(pattern)) {
+      if (match.index === undefined) continue;
+      ranges.push([match.index, match.index + match[0].length]);
+    }
+  }
+
+  let output = '';
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index] ?? '';
+    output += character;
+    const next = text[index + 1] ?? '';
+    const previous = text[index - 1] ?? '';
+    if (!/[.!?]/u.test(character) || !/\p{L}/u.test(next)) continue;
+    if (!/[\p{L}\p{N}]/u.test(previous)) continue;
+    // A dot after a digit is a version or list separator (1.2.Next), not a sentence end.
+    if (character === '.' && !/\p{L}/u.test(previous)) continue;
+    if (ranges.some(([start, end]) => index >= start && index < end)) continue;
+    output += ' ';
+  }
+  return output;
+}
 
 /**
  * Starts of label-like tokens (`コメント：`, `Comments:`) after the first one. A label with a
@@ -353,7 +432,11 @@ function safeChunks(text: string, sources: readonly string[]): string[] {
  * If there are fewer units than lines, the first lines take one each and the rest stay empty;
  * that is the merge case that used to leave one stray character on every blank `<br>` line.
  */
-function groupUnits(units: readonly string[], sources: readonly string[]): string[] {
+function groupUnits(
+  units: readonly string[],
+  sources: readonly string[],
+  bilingual = false,
+): string[] {
   const count = sources.length;
   if (count <= 1) return [units.join('')];
 
@@ -370,7 +453,7 @@ function groupUnits(units: readonly string[], sources: readonly string[]): strin
 
     const remainingLines = count - line - 1;
     if (remainingUnits <= remainingLines) {
-      chunks.push(units[index] ?? '');
+      chunks.push(joinUnits([units[index] ?? ''], bilingual));
       index += 1;
       continue;
     }
@@ -381,7 +464,7 @@ function groupUnits(units: readonly string[], sources: readonly string[]): strin
         ? remainingUnits
         : Math.round((remainingUnits * (weights[line] ?? 1)) / remainingWeight);
     take = Math.max(1, Math.min(take, remainingUnits - remainingLines));
-    chunks.push(units.slice(index, index + take).join(''));
+    chunks.push(joinUnits(units.slice(index, index + take), bilingual));
     index += take;
   }
   return chunks.map((chunk) => chunk.trim());
@@ -392,20 +475,21 @@ function groupUnits(units: readonly string[], sources: readonly string[]): strin
  * split only at sentence ends; when there are fewer sentences than lines, several source
  * lines stay empty instead of receiving a fragment. Space-delimited text may fall back to
  * word boundaries only when there are not enough sentence boundaries to fill the lines.
- * There is deliberately no per-code-point fallback: that put `あ` / `り` / `がとう` on the
- * whitespace-only lines between Gmail's `<br>`s.
+ * There is deliberately no per-code-point fallback in this replacement path: that put
+ * `あ` / `り` / `がとう` on the whitespace-only lines between Gmail's `<br>`s. The bilingual
+ * line has its own fallback below, because its gaps are painted without source `<br>`s.
  */
-function splitByWeights(text: string, sources: readonly string[]): string[] {
+function splitByWeights(text: string, sources: readonly string[], bilingual = false): string[] {
   const count = sources.length;
   const trimmed = text.trim();
   if (count <= 1) return [trimmed];
   if (trimmed.length === 0) return Array.from({ length: count }, () => '');
 
   const safe = safeChunks(trimmed, sources);
-  if (safe.length >= count) return groupUnits(safe, sources);
+  if (safe.length >= count) return groupUnits(safe, sources, bilingual);
 
   const sentences = sentenceChunks(trimmed).filter((chunk) => chunk.trim().length > 0);
-  if (sentences.length >= count) return groupUnits(sentences, sources);
+  if (sentences.length >= count) return groupUnits(sentences, sources, bilingual);
 
   if (CJK_TEXT.test(trimmed)) {
     const chunks = sentences.slice(0, count);
@@ -414,13 +498,13 @@ function splitByWeights(text: string, sources: readonly string[]): string[] {
   }
 
   const words = wordChunks(trimmed);
-  if (words.length >= count) return groupUnits(words, sources);
+  if (words.length >= count) return groupUnits(words, sources, bilingual);
   const chunks = words.slice(0, count);
   while (chunks.length < count) chunks.push('');
   return chunks.map((chunk) => chunk.trim());
 }
 
-function lineChunks(text: string, groups: readonly LineGroup[]): string[] {
+function lineChunks(text: string, groups: readonly LineGroup[], bilingual = false): string[] {
   if (groups.length <= 1) return [text];
 
   const leading = /^\s*/u.exec(text)?.[0] ?? '';
@@ -431,10 +515,16 @@ function lineChunks(text: string, groups: readonly LineGroup[]): string[] {
   if (nonEmpty.length === groups.length) {
     chunks = nonEmpty;
   } else {
-    chunks = splitByWeights(
-      text,
-      groups.map((group) => group.source),
-    );
+    const sources = groups.map((group) => group.source);
+    chunks = splitByWeights(text, sources, bilingual);
+    // The replacement renderer deliberately leaves blank lines empty when the output has
+    // fewer sentence ends than the source has lines. A bilingual line has no real `<br>`s
+    // of its own, so flattening every paragraph into its first chunk would read as one
+    // run-on block. This last resort applies to flat output in any language; the replacement
+    // path is unchanged.
+    if (bilingual && chunks.filter((chunk) => chunk.trim().length > 0).length < groups.length) {
+      chunks = distributeFlatParagraphs(text.trim(), sources);
+    }
   }
 
   // Spaces at the edges of a gap sit beside an inline placeholder, not a line break. Keep
@@ -445,6 +535,76 @@ function lineChunks(text: string, groups: readonly LineGroup[]): string[] {
     chunks[last] = (chunks[last] ?? '') + trailing;
   }
   return chunks;
+}
+
+/**
+ * Splits into grapheme clusters so a ZWJ emoji, flag pair or combining sequence is never
+ * cut in half by a paragraph gap. Older runtimes without Intl.Segmenter fall back to code
+ * points, which at least keeps surrogate pairs together.
+ */
+function graphemeUnits(text: string): string[] {
+  const Segmenter = (
+    Intl as unknown as {
+      Segmenter?: new (
+        locales?: string | string[],
+        options?: { granularity: 'grapheme' },
+      ) => { segment(input: string): Iterable<{ segment: string }> };
+    }
+  ).Segmenter;
+  if (!Segmenter) return Array.from(text);
+  return Array.from(
+    new Segmenter(undefined, { granularity: 'grapheme' }).segment(text),
+    (part) => part.segment,
+  );
+}
+
+/**
+ * Last-resort split for a flattened translation, in any target language, that has fewer
+ * sentence boundaries than the source has paragraphs. CJK cuts land on grapheme clusters;
+ * Latin cuts land between words, with their spaces restored. Every unit stays in exactly
+ * one chunk. The source text is still right above the bilingual line, so an imperfect cut
+ * is less harmful than one run-on block.
+ */
+function distributeFlatParagraphs(text: string, sources: readonly string[]): string[] {
+  const cjk = CJK_TEXT.test(text);
+  const points = cjk ? graphemeUnits(text) : wordChunks(text);
+  const weights = sources.map((source) =>
+    Math.max(1, cjk ? graphemeUnits(source.trim()).length : wordChunks(source.trim()).length),
+  );
+  const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
+  const chunks: string[] = [];
+  let cursor = 0;
+
+  for (let index = 0; index < sources.length - 1; index += 1) {
+    const remainingPoints = points.length - cursor;
+    const remainingGroups = sources.length - index - 1;
+    const preferred = Math.round((points.length * (weights[index] ?? 1)) / totalWeight);
+    // Leave enough units for the paragraphs that follow. A translation shorter than the
+    // paragraph count simply leaves the trailing paragraphs empty.
+    const take = Math.min(Math.max(0, preferred), Math.max(0, remainingPoints - remainingGroups));
+    const part = points.slice(cursor, cursor + take);
+    chunks.push(cjk ? part.join('') : joinUnits(part, true));
+    cursor += take;
+  }
+  const rest = points.slice(cursor);
+  chunks.push(cjk ? rest.join('') : joinUnits(rest, true));
+  return chunks;
+}
+
+/** Mirror the source's real line breaks without rewriting its React-owned text nodes. */
+function bilingualChunks(model: SegmentModel, translation: string): string[] {
+  const sources = model.source.split('\n');
+  const groups = sources
+    .filter((source) => source.trim().length > 0)
+    .map((source) => ({ slots: [], source }));
+  const chunks = lineChunks(separateGluedSentences(visibleTranslation(translation)), groups, true);
+  let index = 0;
+  return sources.map((source) => {
+    if (source.trim().length === 0) return '';
+    const chunk = chunks[index] ?? '';
+    index += 1;
+    return chunk;
+  });
 }
 
 /**

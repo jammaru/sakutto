@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>X timeline bilingual reconciliation</title>
+  </head>
+  <body>
+    <article id="main-tweet" data-testid="tweet">
+      <div id="tweet" data-testid="tweetText">
+        <span>A short preview of a longer post.</span>
+      </div>
+      <button id="show-more" type="button">Show more</button>
+      <button id="force-rerender" type="button">Refresh timeline state</button>
+    </article>
+
+    <article id="three-paragraph-tweet" data-testid="tweet" hidden>
+      <div id="three-paragraph-text" data-testid="tweetText">
+        <span
+          >最初の段落には、対訳でも独立した段落として残したい日本語の本文が十分な長さで書かれています。</span
+        >
+        <br />
+        <br />
+        <span
+          >二番目の段落にも、空白行をまたいでも内容が混ざらないことを確認するための文章を用意しています。</span
+        >
+        <br />
+        <br />
+        <span
+          >最後の段落では、翻訳完了後にも三段階の構造が失われず、それぞれの訳文が正しい位置に表示されることを確認します。</span
+        >
+      </div>
+    </article>
+
+    <article id="single-br-tweet" data-testid="tweet" hidden>
+      <div id="single-br-text" data-testid="tweetText" lang="ja" dir="auto">
+        <span
+          >一行目の長い日本語の本文です。単独の改行が段落ではなく行の途中として残ることを確認します。</span
+        ><br />
+        <span
+          >二行目の長い日本語の本文です。対訳でも二つの行が空行なしで並ぶことを確認します。</span
+        >
+      </div>
+    </article>
+
+    <!-- A realistic tweetText: span runs, inline entities and both kinds of <br>. -->
+    <article id="rich-tweet" data-testid="tweet" hidden>
+      <div id="rich-text" data-testid="tweetText" lang="ja" dir="auto">
+        <span dir="auto"
+          >今日は<span>#大阪</span>へ行きます。<img
+            alt="🌸"
+            src="data:image/gif;base64,R0lGODlhAQABAAAAACw="
+            width="16"
+            height="16"
+        /></span>
+        <br />
+        <br />
+        <span dir="auto"
+          ><a href="/@sakutto_bot">@sakutto_bot</a> と
+          <a href="/hashtag/旅行">#旅行</a>
+          の話をしました。この段落は<br />二行に分かれています。</span
+        >
+        <br />
+        <br />
+        <span dir="auto"
+          >最後の段落には、長い投稿が対訳でも崩れないことを確認するための文章を書いています。<img
+            alt="✨"
+            src="data:image/gif;base64,R0lGODlhAQABAAAAACw="
+            width="16"
+            height="16"
+        /></span>
+      </div>
+    </article>
+
+    <!--
+      Logged-in X: the old tweetText testid survives, but the body paints paragraph gaps
+      with raw newlines under pre-wrap. Newline-only spans sit between text spans, there
+      are no <br> nodes, and entities are anchors (emoji may be an img[alt]).
+    -->
+    <!-- prettier-ignore -->
+    <article id="prewrap-stack-tweet" data-testid="tweet" hidden>
+      <div id="prewrap-stack-text" data-testid="tweetText" lang="ja" dir="auto" class="x-text r-whitespace-pre-wrap"><span>ログイン済みのタイムラインでは本文が白折返しで描画されます。</span>
+
+<span>短い行が続く場合でも、対訳の同じ位置に改行が残ることを確認します。</span>
+
+<span>絵文字の画像が混ざる行も訳せます。<img alt="🌸" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" width="16" height="16" /></span>
+
+<span>ハッシュタグやメンションを含む行も、一行ずつ要求として送られます。</span>
+
+<span><a href="/hashtag/日本語">#日本語</a> と <a href="/user9">@user9</a> を含む行です。</span>
+
+<span>空白行をはさんでも訳文が混ざらないことを確かめる六行目です。</span>
+
+<span>七行目も同じ間隔で訳文が配置され、原文の改行が保たれます。</span>
+
+<span>最後の行まで崩れずに表示されることを確認するための八行目です。</span></div>
+    </article>
+
+    <!-- Tweet detail page: the primary post plus lazily mounted conversation replies. -->
+    <section id="detail" aria-label="投稿の詳細" hidden>
+      <article id="detail-main" data-testid="tweet">
+        <div id="detail-main-text" data-testid="tweetText" lang="ja" dir="auto">
+          <span
+            >投稿の詳細画面に表示されている本文です。返信が読み込まれる前から翻訳の対象になります。</span
+          >
+          <br />
+          <br />
+          <span>二番目の段落もあり、返信が遅れて挿入されてもこの本文の訳文は保たれます。</span>
+        </div>
+      </article>
+      <button id="show-replies" type="button">返信を表示</button>
+      <div id="conversation"></div>
+      <button id="show-more-replies" type="button" hidden>さらに返信を表示</button>
+    </section>
+
+    <section id="recommendations" aria-label="もっと見つける" hidden>
+      <div data-testid="cellInnerDiv">
+        <article data-testid="tweet">
+          <div id="recommendation-text" data-testid="tweetText">
+            <span>おすすめ欄に表示されている日本語の長い投稿は、最初は短縮版の末尾です。</span>
+          </div>
+          <button id="recommendation-more" type="button">さらに表示</button>
+        </article>
+      </div>
+    </section>
+
+    <article id="recycled-tweet" data-testid="tweet" hidden>
+      <div data-testid="cellInnerDiv">
+        <div id="recycled-text" data-testid="tweetText">
+          <span
+            >仮想リストの古いセルに表示されていた日本語の投稿です。この古い本文は、セルが再利用された後には残ってはいけません。古い要求が完了する前に別の投稿へ差し替わる場面を再現するための長い本文で、古い訳文が新しいセルに残らないことを確認します。</span
+          >
+        </div>
+      </div>
+      <button id="recycle-cell" type="button">次の投稿を表示</button>
+    </article>
+
+    <!--
+      Guest (logged-out) x.com DOM. No data-testid anywhere: the post body is a
+      div[lang][dir=auto].whitespace-pre-wrap, paragraphs are raw newlines in span text,
+      entities are span > a, emoji stay Unicode text, and Show more swaps span children.
+    -->
+    <style>
+      .whitespace-pre-wrap,
+      .r-whitespace-pre-wrap {
+        white-space: pre-wrap;
+      }
+      .line-clamp-5 {
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 5;
+        overflow: hidden;
+      }
+    </style>
+    <!-- prettier-ignore -->
+    <section id="guest-timeline" aria-label="ゲスト用タイムライン" hidden>
+      <div data-href="/i/web/status/1650000000000000001" data-navigation-stop>
+        <article id="guest-post" class="flex flex-col gap-1">
+          <div class="flex flex-col gap-3">
+            <div
+              id="guest-body"
+              lang="ja"
+              dir="auto"
+              class="x-text text-body whitespace-pre-wrap wrap-anywhere"
+            ><span>【特別企画！撮りおろし公式壁紙】トヨタ往年のクルマたちを特別に撮りおろし！今回のクルマは整備場に佇む一台です。
+
+技術の粋を集めて開発された高性能グランツーリスモ。走行性能で様々な世界記録を達成するだけでなく、当時の人気スパイ映画にも登場し、話題を呼んだ1台。</span><span><a href="/hashtag/TOYOTAWALLPAPER?src=hashtag_click">#TOYOTAWALLPAPER</a></span><span> </span><span><a href="/hashtag/2000GT?src=hashtag_click">#2000GT</a></span><span>
+
+壁紙化希望のクルマがあれば返信欄へ！👀✨</span><span> </span><span><a id="base-ui-guest-mention" href="/user5">@user5</a></span></div>
+          </div>
+          <div role="group" aria-label="13 replies, 55 reposts, 830 likes"></div>
+        </article>
+      </div>
+
+      <div data-href="/i/web/status/1650000000000000002" data-navigation-stop>
+        <article id="guest-quote-post" class="flex flex-col gap-1">
+          <div class="flex flex-col gap-3">
+            <div
+              id="guest-quote-outer"
+              lang="ja"
+              dir="auto"
+              class="x-text text-body whitespace-pre-wrap wrap-anywhere"
+            >
+              <span>めっちゃ悔しいなぁ⚡️</span>
+            </div>
+            <div>
+              <div role="link" class="overflow-hidden rounded-2xl border">
+                <article id="guest-quoted-article">
+                  <div lang="ja" dir="auto" class="text-body line-clamp-1">@user4</div>
+                  <div
+                    id="guest-quote-inner"
+                    lang="ja"
+                    dir="auto"
+                    class="x-text text-body line-clamp-5 whitespace-pre-wrap"
+                  ><span>17時から生配信します⚡️
+
+関東昇格トーナメント【公式戦振り返り雑談】はアーカイブでご覧いただけます。</span><span> </span><span><a href="/user5">@user5</a></span></div>
+                </article>
+              </div>
+            </div>
+          </div>
+        </article>
+      </div>
+
+      <article id="guest-show-more-post" class="flex flex-col gap-1">
+        <div class="flex flex-col gap-3">
+          <div
+            id="guest-show-more-text"
+            lang="ja"
+            dir="auto"
+            class="x-text text-body whitespace-pre-wrap wrap-anywhere"
+          >
+            <span id="guest-show-more-truncated"
+              >【お知らせ】本日（１１月２０日）、首脳会談を行いました。※両首脳による発言（速報版、仮訳）　皆様、こんばんは。詳細は続きをご覧ください。</span
+            >
+            <button id="guest-show-more-button" type="button" lang="en">Show more</button>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <!-- SPA navigation: pushState, then mount a whole conversation without a reload. -->
+    <button id="spa-open" type="button">スレッドを開く</button>
+    <div id="spa-root"></div>
+
+    <script>
+      // A flat-English fixture: a flatEn=1 query makes the fake engine answer with one
+      // paragraph containing glued Latin sentences instead of the usual marked source.
+      if (new URLSearchParams(location.search).get('flatEn') === '1') {
+        document.documentElement.dataset.benchFlatEn = '1';
+      }
+
+      const tweet = document.getElementById('tweet');
+      const expandedHtml = [
+        '<span id="first">The first paragraph of this expanded post is deliberately long enough to be body copy.</span>',
+        '<br />',
+        '<span id="second">The second paragraph arrives after Show more and must remain on its own line.</span>',
+        '<br />',
+        '<br />',
+        '<span id="third">The final paragraph completes the long post and should stay beside its Japanese translation.</span>',
+      ].join('');
+      window.__xReconciliations = 0;
+
+      // Stand in for React replacing the tweet's children from its virtual DOM while keeping
+      // the tweetText container itself mounted, as happens during timeline reconciliation.
+      const render = () => {
+        tweet.innerHTML = expandedHtml;
+        window.__xReconciliations += 1;
+      };
+
+      document.getElementById('show-more').addEventListener('click', (event) => {
+        render();
+        event.currentTarget.hidden = true;
+        const observer = new MutationObserver((records) => {
+          const sourceChanged = records.some(
+            (record) =>
+              record.type === 'characterData' && record.oldValue !== record.target.nodeValue,
+          );
+          if (!sourceChanged) return;
+          observer.disconnect();
+          queueMicrotask(render);
+        });
+        observer.observe(tweet, {
+          subtree: true,
+          characterData: true,
+          characterDataOldValue: true,
+        });
+      });
+      document.getElementById('force-rerender').addEventListener('click', render);
+
+      const replyHtml = (id, body) =>
+        '<article data-testid="tweet"><div id="' +
+        id +
+        '" data-testid="tweetText" lang="ja" dir="auto"><span>' +
+        body +
+        '</span><br /><br /><span>返信の二番目の段落も、本文と同じように訳文が表示されることを確認するための文章です。</span></div></article>';
+      const replyOne =
+        '返信が遅れて読み込まれた場合でも、X の詳細画面では本文と同じ対訳が表示されなければなりません。この長い本文は、返信が後から挿入されても最初のスキャンの結果だけで完了しないことを確かめるためのものです。';
+      const replyTwo =
+        'さらに返信を表示を押すと、会話の末尾に別の返信記事が挿入されます。この返信もまた独立した tweetText として翻訳され、先に翻訳済みの本文や返信を上書きしてはいけません。';
+
+      document.getElementById('show-replies').addEventListener('click', (event) => {
+        event.currentTarget.hidden = true;
+        // X fetches the conversation after the primary tweet has already mounted.
+        setTimeout(() => {
+          document
+            .getElementById('conversation')
+            .insertAdjacentHTML('beforeend', replyHtml('reply-one', replyOne));
+          document.getElementById('show-more-replies').hidden = false;
+        }, 40);
+      });
+      document.getElementById('show-more-replies').addEventListener('click', (event) => {
+        document
+          .getElementById('conversation')
+          .insertAdjacentHTML('beforeend', replyHtml('reply-two', replyTwo));
+        event.currentTarget.hidden = true;
+      });
+
+      document.getElementById('spa-open').addEventListener('click', () => {
+        history.pushState({}, '', '/i/web/status/1650000000000000000');
+        document.getElementById('spa-root').innerHTML = [
+          '<article data-testid="tweet">',
+          '<div id="spa-main-text" data-testid="tweetText" lang="ja" dir="auto">',
+          '<span>シングルページ遷移で開いた詳細画面の本文です。URL だけが変わり、ページは再読み込みされません。この本文も返信も新しい tweetText として翻訳の対象になります。</span>',
+          '</div></article>',
+          '<div id="spa-conversation">',
+          replyHtml('spa-reply', replyOne),
+          '</div>',
+        ].join('');
+      });
+
+      document.getElementById('recommendation-more').addEventListener('click', (event) => {
+        document.getElementById('recommendation-text').innerHTML = [
+          '<span>おすすめ欄に表示されている日本語の長い投稿は、展開前の本文よりも十分に長くなります。</span>',
+          '<br />',
+          '<br />',
+          '<span>さらに表示を押すと現れる追加の段落です。翻訳中の古い要求ではなく、この新しい本文が英語に翻訳される必要があります。</span>',
+        ].join('');
+        event.currentTarget.hidden = true;
+      });
+
+      document.getElementById('recycle-cell').addEventListener('click', () => {
+        document.getElementById('recycled-text').innerHTML =
+          '<span>再利用された同じセルにマウントされた新しい日本語の投稿です。古い訳文を破棄し、この新しい本文を翻訳し直します。新しい本文だけが対訳として表示され、以前の投稿の断片が一行にも残らないことを確かめるための追加の文章です。</span>';
+      });
+
+      // Guest X swaps the truncated span, the whitespace text node and the button for one
+      // full-length span in the same tick, keeping the body element itself mounted.
+      document.getElementById('guest-show-more-button').addEventListener('click', (event) => {
+        const body = document.getElementById('guest-show-more-text');
+        const truncated = document.getElementById('guest-show-more-truncated');
+        const button = event.currentTarget;
+        for (const node of [...body.childNodes]) {
+          if (
+            node === truncated ||
+            node === button ||
+            (node.nodeType === Node.TEXT_NODE && (node.nodeValue ?? '').trim() === '')
+          ) {
+            node.remove();
+          }
+        }
+        const full = document.createElement('span');
+        full.id = 'guest-show-more-full';
+        full.textContent =
+          '【お知らせ】\n本日（１１月２０日）、首脳会談を行いました。\n\n' +
+          '※両首脳による発言（速報版、仮訳）\n（高市総理）\n' +
+          '　皆様、こんばんは。長文の本文が展開後に新しいspan一つで表示され、' +
+          '短縮版の訳文が残らずに翻訳し直されることを確認します。';
+        body.appendChild(full);
+      });
+    </script>
+  </body>
+</html>
