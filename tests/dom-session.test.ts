@@ -2125,6 +2125,84 @@ describe('page session', () => {
     expect(block.textContent).toBe('One. Two.New text,');
   });
 
+  it('repaints a below-fold block from a clean mark after an engine-abort requeue', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = '<p>First source sentence. Second source sentence.</p>';
+    const block = document.querySelector('p');
+    if (!block) throw new Error('missing paragraph');
+    block.getBoundingClientRect = () => new DOMRect(0, 2400, 300, 40);
+    let calls = 0;
+    const seen: string[] = [];
+    const session = start(
+      document,
+      engineOf(async function* (segments) {
+        calls += 1;
+        const first = segments[0];
+        if (!first) throw new Error('expected a piece');
+        if (calls === 1) {
+          yield { id: first.id, textDelta: 'One. ', engine: 'plamo' as const };
+          seen.push(block.textContent ?? '');
+          // A caption preemption aborts the engine mid-clause. The requeue must not burn a
+          // page retry, so the failed attempt's finished clause must not survive as a mark
+          // and reject the replacement's first clause.
+          throw abortError();
+        }
+        yield { id: first.id, textDelta: 'New. ', engine: 'plamo' as const };
+        seen.push(block.textContent ?? '');
+        yield { id: first.id, final: 'New. Two.', engine: 'plamo' as const };
+      }),
+      { reveal: 'sentence' },
+    );
+
+    await session.translate();
+    await session.whenIdle();
+    expect(calls).toBe(2);
+    expect(seen[0]).toBe('One.');
+    // The retry's finished clause must land before the final settle, not only at the final.
+    expect(seen[1]).toBe('New.');
+    expect(block.textContent).toBe('New. Two.');
+  });
+
+  it('repaints a visible block from a clean mark after a broken-placeholder retry', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = '<p>See <a href="/osaka">Osaka</a> today.</p>';
+    const block = document.querySelector('p');
+    if (!block) throw new Error('missing paragraph');
+    block.getBoundingClientRect = () => new DOMRect(0, 0, 300, 40);
+    let calls = 0;
+    const seen: string[] = [];
+    const session = start(
+      document,
+      engineOf(async function* (segments) {
+        calls += 1;
+        const first = segments[0];
+        if (!first) throw new Error('expected a piece');
+        if (calls === 1) {
+          yield { id: first.id, textDelta: '訳:See ', engine: 'plamo' as const };
+          seen.push(block.textContent ?? '');
+          // A final with a broken placeholder makes acceptTranslation discard the answer
+          // and retry flattened. The retry's partial must replace this painted fragment
+          // before the final settle; a retained mark would reject it.
+          yield { id: first.id, final: '訳:See <i1 Osaka today', engine: 'plamo' as const };
+          return;
+        }
+        yield { id: first.id, textDelta: '新しい訳:See,', engine: 'plamo' as const };
+        seen.push(block.textContent ?? '');
+        yield { id: first.id, final: '新しい訳:See Osaka today.', engine: 'plamo' as const };
+      }),
+      { reveal: 'sentence' },
+    );
+
+    await session.translate();
+    await session.whenIdle();
+    expect(calls).toBe(2);
+    expect(seen[0]).toBe('訳:See');
+    expect(seen[1]).toBe('新しい訳:See,');
+    expect(block.textContent).toContain('新しい訳:See Osaka today.');
+    expect(document.body.innerHTML).not.toMatch(/<i\d/);
+    expect(document.querySelector('a')?.getAttribute('href')).toBe('/osaka');
+  });
+
   it('does not arm the selection folder timeout when the grant gate is off', async () => {
     vi.useFakeTimers();
     try {

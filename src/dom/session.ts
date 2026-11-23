@@ -1631,6 +1631,10 @@ export class PageSession {
         this.keepFinalShownParts(item);
       } else {
         item.partText = pieces.map(() => '');
+        // Every piece is requested again here, including after an engine abort that does
+        // not burn a page retry. No mark from the interrupted attempt may block the
+        // replacement's partials, so clear the high-water marks and any queued fast flush.
+        this.keepFinalShownParts(item);
       }
       for (const piece of pieces) {
         const index = partIndex(piece.id);
@@ -1957,6 +1961,11 @@ export class PageSession {
       item.partError = [];
       item.translation = '';
       item.state = 'idle';
+      // The flattened retry requests every piece afresh. A mark left by the discarded
+      // translation would reject its partials, and a fast-path flush queued for that
+      // fragment must not fire after the retry starts.
+      delete item.sentenceShownParts;
+      this.cancelFastFlush(item);
       item.model.block.setAttribute('data-sakutto-pending', '1');
       this.enqueue(item, true);
       return 'retry';
