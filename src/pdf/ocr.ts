@@ -370,6 +370,19 @@ function colonNotationBodyRow(wholeText: string, firstPiece: string): boolean {
   return /:\s*[A-Z]\s*$/u.test(firstPiece.trim());
 }
 
+/** A top-row title needs more than one capitalised token on the right (e.g. "In Older Adults"). */
+function positiveTopPageTitle(pieces: readonly OcrTextPiece[], pageWidth: number): boolean {
+  if (!onePrintedTitleRow(pieces, pageWidth, true, true)) return false;
+  const ordered = [...pieces].sort((a, b) => a.box.x - b.box.x);
+  const first = ordered[0]?.text.trim() ?? '';
+  const second = ordered[1]?.text.trim() ?? '';
+  const secondWords = second.split(/\s+/u).filter(Boolean);
+  if (secondWords.length >= 2) return true;
+  if (SCIENTIFIC_TITLE_PREFIX.test(first) || /:\s*$/u.test(first) || /:/u.test(first)) return true;
+  if (scientificShortTitleFirstPiece(first, second, true, true)) return true;
+  return secondWords.length > 1 && titleCaseTail(secondWords);
+}
+
 function onePrintedTitleRow(
   pieces: readonly OcrTextPiece[],
   pageWidth: number,
@@ -814,7 +827,7 @@ export function ocrResultToTextLines(
       sharesColumns &&
       !twoColumnRows.includes(lineIndex) &&
       otherColumnRows.length >= 2 &&
-      !onePrintedTitleRow(pieces, resolved.pageWidth, true, true);
+      !positiveTopPageTitle(pieces, resolved.pageWidth);
     const aboveAllBodyRows =
       otherBodyTops.length > 0 &&
       otherBodyTops.every((top) => top > rowTop) &&
