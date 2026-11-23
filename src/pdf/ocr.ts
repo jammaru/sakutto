@@ -292,7 +292,9 @@ function onePrintedTitleRow(pieces: readonly OcrTextPiece[], pageWidth: number):
   if (!cjk && words.length < 3) return false;
   if (cjk && text.length < 8) return false;
   const prose = text.replace(/\d\.\d/gu, '').replace(/\b(?:Dr|Mr|Ms|Prof|e\.g|i\.e)\./gu, '');
-  const withoutDottedTokens = prose.replace(/\b\w+\.\w+/gu, (token) => token.replace(/\./g, ''));
+  const withoutDottedTokens = prose.replace(/\b(?:\w\.)+\w*\.?/gu, (token) =>
+    token.replace(/\./g, ''),
+  );
   if (
     /[.!?。！？]\s+(?:\p{Lu}|[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}])/u.test(
       withoutDottedTokens,
