@@ -746,10 +746,10 @@ export function ocrResultToTextLines(
     // Every title-merge path needs the same page-level or centre/margin evidence as
     // `centredTitleRow`. On a two-column page a capitalised right fragment beside a column
     // gutter is body text, whether its row carries a colon or a scientific prefix or not.
+    // `rowCentredOnPage` already proves balanced page margins, so no 60% width cap belongs
+    // here: a real section title sitting between body columns can span 65% of the page.
     const titleCentreEvidence =
-      !pageTwoColumn ||
-      titleAboveBody ||
-      (rowCentredOnPage(pieces, resolved.pageWidth) && lineWidth < resolved.pageWidth * 0.6);
+      !pageTwoColumn || titleAboveBody || rowCentredOnPage(pieces, resolved.pageWidth);
     const scientificTitleRow =
       titleCentreEvidence &&
       scientificShortTitleFirstPiece(

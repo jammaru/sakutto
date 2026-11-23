@@ -58,17 +58,31 @@ const DIMENSION_CHAIN = new RegExp(
  * The notation patterns accept a leading word (`A ∈ R`) or an article before a size
  * (`a 3 × 3`) to cover symbols set in an ordinary text face. Instead of listing every prose word
  * that can occupy that position (a list that broke on `Small`, `Large`, `Deep`, `More`, `Fewer`,
- * `Double`, ...), decide from the token's shape: a single letter (including Greek), a number, or
- * a letter carrying a digit/subscript/superscript is a variable; everything else is prose and
+ * `Double`, ...), decide from the token's shape: a single letter (including Greek), a number, a
+ * letter carrying a digit/subscript/superscript, or a flattened subscripted identifier whose
+ * chain continues with an operator (`Wi ∈ R ...`) is a variable; everything else is prose and
  * belongs in the prompt. `a`/`A` immediately before a number is an article, not a variable.
  */
 const LEAD_TOKEN = /^([^\s]+)(\s+)/u;
 const NOTATION_HEAD = /^(?:\p{L}[\p{N}_^]{0,3}|[\p{N}_^]+)$/u;
+/**
+ * PDF extraction flattens a subscripted matrix name (`W_i`, `W_q`, `W_k`, `W_v`) into `Wi`,
+ * `Wq`, `Wk`, `Wv`. Such an identifier is a capital plus exactly one lowercase letter, with
+ * optional subscript marks; a prose adjective (`Small`, `Large`, `Deep`, ...) has a longer
+ * lowercase tail and never matches. Shape alone is not enough for two-letter words such as
+ * `In`, so the identifier only counts as notation when an operator follows its chain:
+ * `Wi ∈ R ...`, `Wq Q ∈ R ...`, `Wk × d k`.
+ */
+const FLATTENED_IDENTIFIER = /^\p{Lu}\p{Ll}[\p{N}_^]{0,3}$/u;
+const IDENTIFIER_OPERATOR = /^\s*(?:\p{Lu}[\p{N}_^]{0,3}\s+)?[∈×÷]\s+\S/u;
 const LEADING_NUMBER = /^[\p{N}]/u;
 
 function isNotationHead(token: string, following = ''): boolean {
-  // An article before a size is prose even though `a`/`A` fits the single-letter shape.
-  return NOTATION_HEAD.test(token) && !(/^[Aa]$/u.test(token) && LEADING_NUMBER.test(following));
+  if (NOTATION_HEAD.test(token)) {
+    // An article before a size is prose even though `a`/`A` fits the single-letter shape.
+    return !(/^[Aa]$/u.test(token) && LEADING_NUMBER.test(following));
+  }
+  return FLATTENED_IDENTIFIER.test(token) && IDENTIFIER_OPERATOR.test(following);
 }
 
 /**
@@ -137,7 +151,9 @@ function protectSpan(match: string, slots: ProtectedSlot[], following: string): 
   const first = value.split(/\s+/u)[0] ?? '';
   // Only a chain that starts with a variable or a number is notation. An English adjective or
   // noun (`Small × Large`, `Model × Time`) is prose even when it fits the loose operand shape.
-  if (value.length < 4 || !isNotationHead(first)) return raw;
+  // A flattened identifier needs the same operator evidence the lead peeler used, so pass the
+  // rest of the chain instead of an empty following string here.
+  if (value.length < 4 || !isNotationHead(first, value.slice(first.length))) return raw;
   const index = slots.length;
   slots.push({ text: value, script: 'none' });
   return lead + PLACEHOLDER(index) + tail;

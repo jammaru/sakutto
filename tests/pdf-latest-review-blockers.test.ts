@@ -1400,4 +1400,57 @@ describe('2053d13 review blocker 2: centre guards on every title merge path', ()
       expect(lines[0]?.columnHint).toBeUndefined();
     }
   });
+
+  // A wide centred section title between two-column body rows must not inherit the 60%
+  // width cap of the short-centred-heading rule. Its own balanced page margins are the
+  // centring evidence, even though a 10pt gap sits over the body gutter.
+  it.each([
+    {
+      name: 'scientific prefix',
+      left: 'mRNA Vaccine Design in',
+      right: 'Older Adults and Children',
+    },
+    {
+      name: 'colon prefix',
+      left: 'Key results from the trial:',
+      right: 'Older Adults and Children',
+    },
+  ])(
+    'merges a 65%-wide centred $name title between two-column body rows',
+    ({ name, left, right }) => {
+      const bodyBelow = [
+        [
+          region('Left column prose after the title.', quad(45, 300, 250, 20)),
+          region('Right column prose after the title.', quad(305, 300, 250, 20)),
+        ],
+        [
+          region('Another left column line below the title.', quad(45, 330, 250, 20)),
+          region('Another right column line below the title.', quad(305, 330, 250, 20)),
+        ],
+      ];
+      // 105..495 = 390pt = 65% of the page width, with equal 105pt margins.
+      const title = [region(left, quad(105, 200, 200, 20)), region(right, quad(315, 200, 180, 20))];
+      const result: OcrResult = {
+        regions: [...bodyRows.flat(), ...title, ...bodyBelow.flat()],
+        lines: [...bodyRows.map(readingLine), readingLine(title), ...bodyBelow.map(readingLine)],
+        text: '',
+      };
+      const fused = `${left} ${right}`;
+
+      const lines = ocrResultToTextLines(result, options);
+      expect(
+        lines.map((line) => line.text),
+        name,
+      ).toContain(fused);
+      const titleLine = lines.find((line) => line.text === fused);
+      expect(titleLine?.columnHint, name).toBeUndefined();
+      expect(titleLine?.titleRow, name).toBe(true);
+
+      const layout = ocrResultToPageLayout(result, options);
+      const block = layout.blocks.find((candidate) => candidate.text === fused);
+      expect(block, name).toBeDefined();
+      expect(block?.titleRow, name).toBe(true);
+      expect(block?.column, name).toBeLessThan(0);
+    },
+  );
 });

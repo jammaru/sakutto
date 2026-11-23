@@ -399,10 +399,10 @@ describe('review 5 notation and typography', () => {
     const block = layoutPage(lines).blocks[0];
     if (!block) throw new Error('expected a block');
     const protectedText = protectInlineMath(block);
-    // Only the clearly-symbolic part is protected. `Wi` is a two-letter word to the prose
-    // guard, so it stays outside the slot where the model can translate it (source is kept).
-    expect(protectedText.slots.map((slot) => slot.text)).toContain('Q ∈ R d model ×d k');
-    expect(protectedText.text).toContain('parameter matrices Wi <i0>');
+    // A flattened subscripted identifier stays inside the slot together with the rest of
+    // the dimension expression: leaving `Wi` in the prompt lets the model rewrite it.
+    expect(protectedText.slots.map((slot) => slot.text)).toContain('Wi Q ∈ R d model ×d k');
+    expect(protectedText.text).toContain('parameter matrices <i0>');
     expect(protectedText.text).toContain('parameter matrices ');
     expect(protectedText.text).toContain(', and ');
     expect(protectedText.text).not.toContain('model ×d k');
@@ -534,6 +534,51 @@ describe('2053d13 review blocker 1: notation heads instead of a prose whitelist'
         source,
       ).toContain(slot);
       expectSourcePreserved(protectedText, source);
+    }
+  });
+});
+
+describe('402e0bb review blocker 2: flattened multi-letter math identifiers', () => {
+  it('keeps Wi inside the slot together with its dimension chain', () => {
+    const source = 'Each head uses Wi ∈ R d model × d k for its projection.';
+    const block = layoutPage(groupLines([piece(source, 49, 100, 430)])).blocks[0];
+    if (!block) throw new Error('expected a block');
+    const protectedText = protectInlineMath(block);
+    expect(protectedText.slots.map((slot) => slot.text)).toEqual(['Wi ∈ R d model × d k']);
+    expect(protectedText.text).toBe('Each head uses <i0> for its projection.');
+    expectSourcePreserved(protectedText, source);
+    expect(restoreInlineMath('各ヘッドは <i0> を使う。', protectedText.slots)).not.toBeNull();
+  });
+
+  it('protects Wq/Wk/Wv identifiers wherever their chain starts', () => {
+    const cases = [
+      {
+        source: 'The projection matrices Wq and Wk satisfy Wq ∈ R d model × d k .',
+        slots: ['Wq ∈ R d model × d k'],
+      },
+      {
+        source: 'We denote the weights Wq ∈ R d model and Wk ∈ R d model .',
+        slots: ['Wq ∈ R d', 'Wk ∈ R d'],
+      },
+      {
+        source: 'The value matrix Wv ∈ R d model × d v is learned.',
+        slots: ['Wv ∈ R d model × d v'],
+      },
+    ];
+    for (const { source, slots } of cases) {
+      const block = layoutPage(groupLines([piece(source, 49, 100, 430)])).blocks[0];
+      if (!block) throw new Error('expected a block');
+      const protectedText = protectInlineMath(block);
+      expect(
+        protectedText.slots.map((slot) => slot.text),
+        source,
+      ).toEqual(slots);
+      expectSourcePreserved(protectedText, source);
+      for (const slot of protectedText.slots) {
+        expect(slot.text, source).toMatch(/^W[ qkv]/u);
+      }
+      const tags = protectedText.slots.map((_slot, index) => '<i' + String(index) + '>').join('');
+      expect(restoreInlineMath('訳文 ' + tags + ' です。', protectedText.slots)).not.toBeNull();
     }
   });
 });
