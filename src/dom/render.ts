@@ -61,7 +61,9 @@ export function restoreStructure(model: SegmentModel, created: Text[]): void {
   discardCreated(created);
   removeTranslationUi(model.block);
   restoreChildOrder(ordered(model));
-  for (const slot of allSlots(model)) slot.node.nodeValue = slot.original;
+  for (const slot of allSlots(model)) {
+    if (slot.node.nodeValue !== slot.original) slot.node.nodeValue = slot.original;
+  }
 }
 
 export function paintPlain(model: SegmentModel, translation: string, created: Text[]): void {
@@ -79,7 +81,11 @@ export function showBilingual(model: SegmentModel, translation: string, created:
   const line = ensureChild(model.block, LINE_TAG);
   line.replaceChildren();
   line.setAttribute('translate', 'no');
-  line.append(model.block.ownerDocument.createTextNode(visibleTranslation(translation)));
+  const chunks = bilingualChunks(model, translation);
+  for (let index = 0; index < chunks.length; index += 1) {
+    if (index > 0) line.append(model.block.ownerDocument.createElement('br'));
+    line.append(model.block.ownerDocument.createTextNode(chunks[index] ?? ''));
+  }
 }
 
 export function removeTranslationUi(block: Element): void {
@@ -104,6 +110,11 @@ function ordered(model: SegmentModel): OrderedFrame {
 function restoreChildOrder(frame: OrderedFrame): void {
   for (const child of frame.children) restoreChildOrder(child);
   const parent = frame.element;
+  const current = [...parent.childNodes];
+  const offset = current.length - frame.order.length;
+  if (offset >= 0 && frame.order.every((node, index) => current[offset + index] === node)) {
+    return;
+  }
   for (const node of frame.order) {
     if (node.parentNode === parent) parent.appendChild(node);
   }
@@ -445,6 +456,22 @@ function lineChunks(text: string, groups: readonly LineGroup[]): string[] {
     chunks[last] = (chunks[last] ?? '') + trailing;
   }
   return chunks;
+}
+
+/** Mirror the source's real line breaks without rewriting its React-owned text nodes. */
+function bilingualChunks(model: SegmentModel, translation: string): string[] {
+  const sources = model.source.split('\n');
+  const groups = sources
+    .filter((source) => source.trim().length > 0)
+    .map((source) => ({ slots: [], source }));
+  const chunks = lineChunks(visibleTranslation(translation), groups);
+  let index = 0;
+  return sources.map((source) => {
+    if (source.trim().length === 0) return '';
+    const chunk = chunks[index] ?? '';
+    index += 1;
+    return chunk;
+  });
 }
 
 /**

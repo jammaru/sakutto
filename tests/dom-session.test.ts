@@ -677,6 +677,45 @@ describe('page session', () => {
     expect(added.textContent).toContain('訳:Added later');
   });
 
+  it('rebinds a cached translation when an SPA replaces children in the same block', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = '<p id="lead"><span>Hello world</span></p>';
+    const session = start(
+      document,
+      immediate((text) => `訳:${text}`),
+    );
+    await session.translate();
+    await session.whenIdle();
+
+    const lead = document.querySelector('#lead');
+    if (!lead) throw new Error('missing lead');
+    lead.replaceChildren(document.createElement('span'));
+    if (!lead.firstElementChild) throw new Error('missing replacement');
+    lead.firstElementChild.textContent = 'Hello world';
+
+    await vi.waitFor(() => expect(lead.textContent).toBe('訳:Hello world'));
+    session.restore();
+    expect(lead.textContent).toBe('Hello world');
+  });
+
+  it('keeps source line breaks in a bilingual translation', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML =
+      '<p id="lead"><span>First line.</span><br /><br /><span>Second line.</span></p>';
+    const session = start(
+      document,
+      immediate((text) => `訳:${text}`),
+      { display: 'bilingual' },
+    );
+    await session.translate();
+    await session.whenIdle();
+
+    const line = document.querySelector('#lead > sakutto-line');
+    expect(line?.querySelectorAll('br')).toHaveLength(2);
+    expect(line?.childNodes[0]?.nodeValue).toBe('訳:First line.');
+    expect(line?.childNodes[4]?.nodeValue).toBe('Second line.');
+  });
+
   it('interrupts an in-flight page translation for a selection', async () => {
     document.documentElement.lang = 'en';
     document.body.innerHTML = '<p>Hello world</p>';

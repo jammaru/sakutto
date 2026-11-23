@@ -2346,7 +2346,19 @@ export class PageSession {
     const existing = this.liveByBlock.get(block);
     if (!existing || existing.state === 'running') return;
     const model = buildSegment(block);
-    if (model && model.source === existing.source) return;
+    if (model && model.source === existing.source) {
+      // React can replace the children while keeping this block mounted. Rebind the live
+      // segment to those new nodes, then put back cached output the reconciliation removed.
+      // A later scan would skip this already-known block and leave the source text bare.
+      existing.model = model;
+      existing.originalChildren = model.order.filter(
+        (node) => !(node instanceof Element && isOwnUi(node)),
+      );
+      if (existing.state === 'done' && existing.translation.trim().length > 0) {
+        this.paint(existing, false);
+      }
+      return;
+    }
     const index = existing.index;
     this.forgetLive(existing, false);
     this.addBlock(block, index);
@@ -2623,7 +2635,7 @@ function nextAfterSubtree(node: Node, root: Node): Node | null {
 }
 
 function isBodyCopy(block: Element): boolean {
-  return block.matches('p, li, blockquote, dd, figcaption');
+  return block.matches('p, li, blockquote, dd, figcaption, [data-testid="tweetText"]');
 }
 
 /**

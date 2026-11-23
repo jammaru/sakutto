@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>X timeline bilingual reconciliation</title>
+  </head>
+  <body>
+    <article data-testid="tweet">
+      <div id="tweet" data-testid="tweetText">
+        <span>A short preview of a longer post.</span>
+      </div>
+      <button id="show-more" type="button">Show more</button>
+      <button id="force-rerender" type="button">Refresh timeline state</button>
+    </article>
+    <script>
+      const tweet = document.getElementById('tweet');
+      const expandedHtml = [
+        '<span id="first">The first paragraph of this expanded post is deliberately long enough to be body copy.</span>',
+        '<br />',
+        '<span id="second">The second paragraph arrives after Show more and must remain on its own line.</span>',
+        '<br />',
+        '<br />',
+        '<span id="third">The final paragraph completes the long post and should stay beside its Japanese translation.</span>',
+      ].join('');
+      window.__xReconciliations = 0;
+
+      // Stand in for React replacing the tweet's children from its virtual DOM while keeping
+      // the tweetText container itself mounted, as happens during timeline reconciliation.
+      const render = () => {
+        tweet.innerHTML = expandedHtml;
+        window.__xReconciliations += 1;
+      };
+
+      document.getElementById('show-more').addEventListener('click', (event) => {
+        render();
+        event.currentTarget.hidden = true;
+        const observer = new MutationObserver((records) => {
+          const sourceChanged = records.some(
+            (record) =>
+              record.type === 'characterData' && record.oldValue !== record.target.nodeValue,
+          );
+          if (!sourceChanged) return;
+          observer.disconnect();
+          queueMicrotask(render);
+        });
+        observer.observe(tweet, {
+          subtree: true,
+          characterData: true,
+          characterDataOldValue: true,
+        });
+      });
+      document.getElementById('force-rerender').addEventListener('click', render);
+    </script>
+  </body>
+</html>
