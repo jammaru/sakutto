@@ -76,6 +76,22 @@ export function verticalWriting(block: Pick<LayoutBlock, 'writing'>): boolean {
 }
 
 /**
+ * Right-to-left order for two blocks on a vertical page, or null when their x positions are too
+ * close to call separate columns. Adjacent Japanese columns sit at normal pitch, not a page
+ * gutter apart, so half a column is enough separation; smaller differences are jitter inside one
+ * column, which still reads top to bottom.
+ */
+function verticalColumnXOrder(
+  left: Pick<LayoutBlock, 'box'>,
+  right: Pick<LayoutBlock, 'box'>,
+): number | null {
+  const distance = Math.abs(right.box.x - left.box.x);
+  return distance > Math.max(left.box.width, right.box.width, 1) / 2
+    ? right.box.x - left.box.x
+    : null;
+}
+
+/**
  * Reading order for two layout blocks.
  *
  * Layout emits blocks in reading order already, so this is only used where translated and
@@ -90,19 +106,13 @@ export function compareReadingOrder(
 ): number {
   const vertical = verticalWriting(left) && verticalWriting(right);
   if (vertical) {
-    if (left.column >= 0 && right.column >= 0) {
-      if (left.column !== right.column) return right.column - left.column;
-      // Same reported column. Large horizontal separation still means two distinct vertical
-      // columns when the caller had no column evidence and assigned both the same number;
-      // vertical Japanese reads those right to left. Small x differences are just OCR jitter
-      // inside one column, so those lines still run top to bottom.
-      const measure = Math.max(left.box.width, right.box.width, 1);
-      if (Math.abs(right.box.x - left.box.x) > measure * 1.5) {
-        return right.box.x - left.box.x;
-      }
-    } else if (Math.abs(right.box.x - left.box.x) > 0.5) {
-      return right.box.x - left.box.x;
+    if (left.column >= 0 && right.column >= 0 && left.column !== right.column) {
+      return right.column - left.column;
     }
+    // Same reported column (or a spanning block): adjacent vertical columns still read right to
+    // left. Only OCR jitter inside one column falls through to the top-to-bottom order.
+    const xOrder = verticalColumnXOrder(left, right);
+    if (xOrder !== null) return xOrder;
     return left.box.y - right.box.y || left.box.x - right.box.x;
   }
   // Full-width blocks (column < 0) interrupt the left column at their own top edge. Sorting
@@ -143,7 +153,18 @@ export function bilingualReadingRanks(
   const sortBand = (
     left: Pick<LayoutBlock, 'box' | 'column' | 'writing' | 'text'>,
     right: Pick<LayoutBlock, 'box' | 'column' | 'writing' | 'text'>,
-  ) => columnRank(left) - columnRank(right) || left.box.y - right.box.y || left.box.x - right.box.x;
+  ) => {
+    if (verticalWriting(left) && verticalWriting(right)) {
+      const xOrder = verticalColumnXOrder(left, right);
+      if (xOrder !== null) return xOrder;
+      if (left.column >= 0 && right.column >= 0 && left.column !== right.column) {
+        return right.column - left.column;
+      }
+    }
+    return (
+      columnRank(left) - columnRank(right) || left.box.y - right.box.y || left.box.x - right.box.x
+    );
+  };
   for (const span of spanning) {
     for (const block of pending()
       .filter((entry) => entry.box.y < span.box.y - 0.5)

@@ -299,7 +299,22 @@ function rowHasInteriorSentenceBreak(text: string): boolean {
 const SCIENTIFIC_BODY_VERB =
   /\b(?:reduc(?:e|es|ed|ing)|enabl(?:e|es|ed|ing)|edit(?:s|ed|ing)?|induc(?:e|es|ed|ing)|inhibit(?:s|ed|ing)?|increas(?:e|es|ed|ing)|affect(?:s|ed|ing)?|improv(?:e|es|ed|ing)|regulat(?:e|es|ed|ing)|mediat(?:e|es|ed|ing)|promot(?:e|es|ed|ing)|target(?:s|ed|ing)?|encod(?:e|es|ed|ing)|express(?:es|ed|ing)?|detect(?:s|ed|ing)?|measur(?:e|es|ed|ing)|observ(?:e|es|ed|ing)|suggest(?:s|ed|ing)?|demonstrat(?:e|es|ed|ing)|confirm(?:s|ed|ing)?|analyz(?:e|es|ed|ing)|evaluat(?:e|es|ed|ing)|determin(?:e|es|ed|ing)|identif(?:y|ies|ied|ying)|generat(?:e|es|ed|ing)|bind(?:s|ing)?|bound|provid(?:e|es|ed|ing)|show(?:s|ed|ing)?|reveal(?:s|ed|ing)?)\b/u;
 const TITLE_TAIL_FUNCTION_WORD =
-  /^(?:in|of|for|to|and|the|a|an|on|with|from|by|at|as|via|or|but|into|using)$/u;
+  /^(?:in|of|for|to|and|the|a|an|on|with|from|by|at|as|via|or|but|into|using|without|during|between|among|across|after|before|over|under|near|beyond|within|throughout|despite|versus|vs|per|about|above|below|around|against|since|until|than|toward|towards|except|including|given)$/u;
+
+/**
+ * A short title-case fragment such as "In Older Adults without Vaccination". Lowercase
+ * prepositions are ordinary in title case, so they are allowed; a lowercase content word means
+ * this is the sentence continuing after the prefix, not the tail of a title.
+ */
+function titleCaseTail(words: readonly string[]): boolean {
+  if (words.length === 0 || words.length > 4) return false;
+  if (!/^\p{Lu}/u.test(words[0] ?? '')) return false;
+  return !words
+    .slice(1)
+    .some(
+      (word) => /^[a-z]{3,}$/u.test(word) && !TITLE_TAIL_FUNCTION_WORD.test(word.toLowerCase()),
+    );
+}
 
 /** OCR titles that start with a short scientific token (mRNA, eDNA, …), not body prose. */
 const SCIENTIFIC_TITLE_PREFIX = /^(?:mRNA|iOS|eBay|DNA|RNA|eDNA|CRISPR|Node\.js|U\.S\.)\b/iu;
@@ -309,7 +324,11 @@ function scientificShortTitleFirstPiece(first: string, second: string): boolean 
     return false;
   }
   if (/:/u.test(first)) return false;
-  if (first.split(/\s+/u).filter(Boolean).length > 4) return false;
+  const tail = second.split(/\s+/u).filter(Boolean);
+  const firstWords = first.split(/\s+/u).filter(Boolean).length;
+  // A scientific prefix plus a copula can run past four words in a real title. Allow that only
+  // when the other half looks like a title fragment rather than lowercase body prose.
+  if (firstWords > 8 || (firstWords > 4 && !titleCaseTail(tail))) return false;
   if (/\b(?:expression|levels|samples|sequencing|reveal|collected)\b/iu.test(first)) {
     return false;
   }
@@ -320,7 +339,6 @@ function scientificShortTitleFirstPiece(first: string, second: string): boolean 
   );
   if (!/\b[a-z]{2,}/u.test(afterPrefix)) return true;
   if (SCIENTIFIC_BODY_VERB.test(afterPrefix)) return false;
-  const tail = second.split(/\s+/u).filter(Boolean);
   if (tail.length === 0 || tail.length > 6) return false;
   // A short second fragment alone is not a title: "Severe disease in older adults" is the
   // sentence continuing after the prefix, while "In Older Adults" is a real title tail.
@@ -637,6 +655,10 @@ export function ocrResultToTextLines(
       .join(' ')
       .trim();
     const headingWholeLine = wholeText.length <= 120 && !/[.!?。]$/u.test(wholeText);
+    // A two-piece title printed above every corroborated two-column body row keeps its middle
+    // whitespace: the page's gutter evidence belongs to the body below it, not to the title.
+    const rowTop = Math.min(...pieces.map((piece) => piece.box.y));
+    const titleAboveBody = twoColumnTops.length > 0 && twoColumnTops.every((top) => top > rowTop);
     const orderedPieces = [...pieces].sort((a, b) => a.box.x - b.box.x);
     const firstPieceText = orderedPieces[0]?.text.trim() ?? '';
     const scientificTitleRow = scientificShortTitleFirstPiece(
@@ -644,8 +666,11 @@ export function ocrResultToTextLines(
       orderedPieces[1]?.text.trim() ?? '',
     );
     // A scientific prefix that fails the title check is body prose even when OCR capitalised the
-    // row; the generic full-width-title heuristic must not rescue it.
-    const scientificBodyRow = SCIENTIFIC_TITLE_PREFIX.test(firstPieceText) && !scientificTitleRow;
+    // row; the generic full-width-title heuristic must not rescue it. A row above every body
+    // column is different: its gap is title whitespace, so titleAboveBody/wideGapTitleRow stay
+    // available even when the text heuristic was too conservative.
+    const scientificBodyRow =
+      SCIENTIFIC_TITLE_PREFIX.test(firstPieceText) && !scientificTitleRow && !titleAboveBody;
     // A full-width title starts with a capital and has no sentence-ending punctuation. Its
     // word gap at the gutter is ordinary spacing, not two columns, even when it is wide.
     const titleWholeLine =
@@ -684,10 +709,6 @@ export function ocrResultToTextLines(
     // own text structure decides. Page-wide column evidence still wins over that text guess.
     const printedTitleRow = onePrintedTitleRow(pieces, resolved.pageWidth);
     const colonTitleRow = twoPieceColonTitle(pieces, resolved.pageWidth, wholeText);
-    // A two-piece title printed above every two-column body row keeps its middle whitespace,
-    // however wide: the page's gutter evidence belongs to the body below it, not to the title.
-    const rowTop = Math.min(...pieces.map((piece) => piece.box.y));
-    const titleAboveBody = twoColumnTops.length > 0 && twoColumnTops.every((top) => top > rowTop);
     const titleLikeRow = printedTitleRow && headingWholeLine && !scientificBodyRow;
     // A short centred title can have a word gap far wider than a normal word space. A long
     // full-width title is only distinguishable from two body columns when the page's gutter

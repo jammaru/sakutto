@@ -7,6 +7,7 @@ import {
 import { defineBackground } from 'wxt/utils/define-background';
 import { EngineClient } from '@/background/engine-client';
 import { OcrRecognitionRequests } from '@/background/ocr-requests';
+import { ocrReadyForRecognition } from '@/background/ocr-readiness';
 import { captureActiveSenderTab } from '@/background/image-capture';
 import { ModelDownloads } from '@/background/model-downloads';
 import { ocrRecognitionTimeoutMs, type OcrFailureResponse } from '@/engine/offscreen/protocol';
@@ -296,7 +297,7 @@ export default defineBackground(() => {
 
   async function ensureOcrReady(tier: OcrTier): Promise<void> {
     const status = await client.ocrStatus(tier);
-    if (status.state === 'ready' || status.state === 'loaded') return;
+    if (ocrReadyForRecognition(status)) return;
     // On-demand downloads used to leave the first scanned page waiting on a 23 MB transfer
     // with no visible error when that transfer could not start. Onboarding already offers the
     // bundle; if it is missing, ask the reader to say so instead of waiting forever.

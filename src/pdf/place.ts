@@ -455,7 +455,10 @@ function blockMergesColumns(block: LayoutBlock, pageWidth: number): boolean {
       if (
         gutterWidth >= minimumGutter &&
         gutterWidth > Math.max(widestInnerGap(left), widestInnerGap(right)) + 0.001 &&
-        (block.column >= 0 || gapAtPrintedGutter(leftEnd, rightStart))
+        // Native XY-cut assigns a full-width heading to its parent column (0), not -1. Its wide
+        // word gap can be far from the printed gutter, so every column needs this check: a real
+        // two-column merge leaves its white gutter near the middle of the page.
+        gapAtPrintedGutter(leftEnd, rightStart)
       ) {
         return true;
       }

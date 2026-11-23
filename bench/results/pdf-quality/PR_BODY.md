@@ -101,7 +101,7 @@ PDF 翻訳を「動く」から「読める」に変えるため、抽出・段�
 | ------------------- | ----: | ----: | -----------: | ----: | ------: | ----------: |
 | baseline-1x         | 66.7% | 94.8% |            0 |   100 |  24.2 s |    21.9 MiB |
 | shipped-baseline    | 11.6% | 16.8% |            0 |   105 |  29.1 s |    21.9 MiB |
-| default-1600        |  3.0% |  5.5% |            0 |   117 |  34.1 s |    21.9 MiB |
+| default-1600        |  3.0% |  5.5% |            0 |   117 |  34.8 s |    21.9 MiB |
 | gray+contrast-1600  |  5.4% |  7.5% |            0 |   116 |  35.8 s |    21.9 MiB |
 | dpi300              |  5.4% |  7.6% |            0 |   115 |  37.5 s |    21.9 MiB |
 | sauvola             | 82.5% | 97.2% |            2 |    97 |  23.1 s |    21.9 MiB |
@@ -111,6 +111,6 @@ PDF 翻訳を「動く」から「読める」に変えるため、抽出・段�
 
 ## 確認
 
-- `pnpm lint`, `pnpm typecheck` (0 errors / 1 warning), `pnpm test` (204 files, 2,663 passed, 1 skipped), `pnpm format:check`, `pnpm i18n:check` がすべて成功。
+- `pnpm lint`, `pnpm typecheck` (0 errors / 1 warning), `pnpm test` (205 files, 2,678 passed, 1 skipped), `pnpm format:check`, `pnpm i18n:check` がすべて成功。
 - `pnpm bench:pdf:quality --label final --shots --no-download` を再実行し、レポートとスクリーンショットを更新。`baseline.json` は現行指標の参照用で、履歴のlegacy行のみ旧指標のcontext。
 - 権限モデル・シークレット・ Manifest に変更なし。

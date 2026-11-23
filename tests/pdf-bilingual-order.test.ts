@@ -42,6 +42,14 @@ function state(b: LayoutBlock): BlockState {
   } as BlockState;
 }
 
+/** A normal-pitch vertical column: 40pt wide boxes separated by a 10pt inter-column gap. */
+function narrowVertical(text: string, x: number, y: number): LayoutBlock {
+  return {
+    ...block(text, x, y, 0, 90),
+    box: { x, y, width: 40, height: 20 },
+  } as LayoutBlock;
+}
+
 function rowSources(element: BilingualElement): string[] {
   return [...element.bilingual.children].map((row) => row.firstElementChild?.textContent ?? '');
 }
@@ -77,6 +85,34 @@ describe('bilingual reading order', () => {
     const right = block('右列', 400, 90, 0, 90);
     const left = block('左列', 100, 90, 0, 90);
     expect(compareReadingOrder(right, left)).toBeLessThan(0);
+  });
+
+  it('reads adjacent vertical columns at normal pitch right to left', () => {
+    const right = narrowVertical('右列', 250, 90);
+    const left = narrowVertical('左列', 200, 90);
+    expect(compareReadingOrder(right, left)).toBeLessThan(0);
+    expect(compareReadingOrder(left, right)).toBeGreaterThan(0);
+    const element: BilingualElement = {
+      bilingual: document.createElement('div'),
+      bilingualRows: new Map(),
+    };
+    painter()(element, [state(left), state(right)]);
+    expect(rowSources(element)).toEqual(['右列', '左列']);
+  });
+
+  it('reads adjacent vertical columns right to left below a spanning block', () => {
+    const heading = {
+      ...block('見出し', 45, 50, -1, 90),
+      box: { x: 45, y: 50, width: 500, height: 20 },
+    } as LayoutBlock;
+    const right = narrowVertical('右列', 250, 90);
+    const left = narrowVertical('左列', 200, 90);
+    const element: BilingualElement = {
+      bilingual: document.createElement('div'),
+      bilingualRows: new Map(),
+    };
+    painter()(element, [state(left), state(heading), state(right)]);
+    expect(rowSources(element)).toEqual(['見出し', '右列', '左列']);
   });
 
   it('reorders rows that already had a DOM node when the layout order changes', () => {

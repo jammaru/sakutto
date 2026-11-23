@@ -139,6 +139,75 @@ describe('latest DSH review blockers', () => {
     expect(ocrResultToTextLines(result, options).map((line) => line.text)[0]).toBe(full);
   });
 
+  it('B1: keeps a long scientific title above two-column body whole on one line', () => {
+    const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+    const title = [
+      region('mRNA vaccines are highly effective', quad(45, 60, 250, 20)),
+      region('In Older Adults', quad(305, 60, 250, 20)),
+    ];
+    const bodyRows = [
+      [
+        region('Left column prose for the first printed row.', quad(45, 140, 250, 20)),
+        region('Right column prose on the same printed row.', quad(305, 140, 250, 20)),
+      ],
+      [
+        region('A second left column line proving two columns.', quad(45, 170, 250, 20)),
+        region('A second right column line proving columns.', quad(305, 170, 250, 20)),
+      ],
+    ];
+    const result: OcrResult = {
+      regions: [...title, ...bodyRows.flat()],
+      lines: [readingLine(title), ...bodyRows.map(readingLine)],
+      text: '',
+    };
+    const full = 'mRNA vaccines are highly effective In Older Adults';
+
+    const lines = ocrResultToTextLines(result, options);
+    expect(lines[0]?.text).toBe(full);
+    expect(lines[0]?.columnHint).toBeUndefined();
+
+    const layout = ocrResultToPageLayout(result, options);
+    expect(layout.blocks.map((block) => block.text)).toContain(full);
+    expect(layout.blocks.filter((block) => block.text.includes('Older Adults'))).toHaveLength(1);
+    expect(layout.skipped).toEqual([]);
+  });
+
+  it.each([
+    'In Older Adults without Vaccination',
+    'In Older Adults during Winter',
+    'In Older Adults between Trials',
+  ])('B2: keeps a scientific title with tail %s whole above two-column body', (tail) => {
+    const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+    const title = [
+      region('mRNA vaccines are effective', quad(45, 60, 250, 20)),
+      region(tail, quad(305, 60, 250, 20)),
+    ];
+    const bodyRows = [
+      [
+        region('Left column prose for the first printed row.', quad(45, 140, 250, 20)),
+        region('Right column prose on the same printed row.', quad(305, 140, 250, 20)),
+      ],
+      [
+        region('A second left column line proving two columns.', quad(45, 170, 250, 20)),
+        region('A second right column line proving columns.', quad(305, 170, 250, 20)),
+      ],
+    ];
+    const result: OcrResult = {
+      regions: [...title, ...bodyRows.flat()],
+      lines: [readingLine(title), ...bodyRows.map(readingLine)],
+      text: '',
+    };
+    const full = 'mRNA vaccines are effective ' + tail;
+
+    const lines = ocrResultToTextLines(result, options);
+    expect(lines[0]?.text).toBe(full);
+    expect(lines[0]?.columnHint).toBeUndefined();
+
+    const layout = ocrResultToPageLayout(result, options);
+    expect(layout.blocks.map((block) => block.text)).toContain(full);
+    expect(layout.skipped).toEqual([]);
+  });
+
   it('B2: keeps an mRNA title without a colon whole on one line', () => {
     const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
     const items = [
@@ -533,6 +602,55 @@ describe('latest DSH review blockers', () => {
       pageWidth,
     );
     expect(metrics.crossColumnCovers).toBe(1);
+  });
+
+  it('B5: a wide heading gap left of the gutter is not a cross-column cover', () => {
+    // Native XY-cut gives the full-width heading column 0; its 20pt word gap is at x=175,
+    // far left of the 595pt page gutter at ~291.55. Only a gap at the printed gutter counts.
+    const pageWidth = 595;
+    const block: LayoutBlock = {
+      box: { x: 45, y: 100, width: 390, height: 22 },
+      room: { x: 45, y: 100, width: 390, height: 22 },
+      lines: [
+        lineFrom([
+          piece('Left half of heading', 45, 112, 120),
+          piece('Right half of heading', 185, 112, 250),
+        ]),
+      ],
+      text: 'Left half of heading Right half of heading',
+      role: 'heading',
+      fontSize: 10,
+      lineHeight: 1.2,
+      align: 'left',
+      bold: false,
+      italic: false,
+      column: 0,
+      advance: 390,
+      writing: 0,
+    };
+    const fit = {
+      fits: true as const,
+      fontSize: 10,
+      lineHeight: 12,
+      lines: ['横断する見出し'],
+      height: 24,
+      grown: false,
+      width: 390,
+    };
+    const metrics = paintIntegrityMetrics(
+      [
+        {
+          block,
+          translation: '横断する見出し',
+          fit,
+          paint: true,
+          drawn: { x: 45, y: 100, width: 390, height: 24 },
+          overflow: false,
+        },
+      ],
+      pageWidth,
+    );
+    expect(metrics.crossColumnCovers).toBe(0);
   });
 
   function permutations<T>(items: readonly T[]): T[][] {
