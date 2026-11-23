@@ -34,9 +34,17 @@ export function isAllowedRequest(url: string): boolean {
   return ALLOWED_REQUEST.some((pattern) => pattern.test(url));
 }
 
-export async function loadExtension(lang: 'en-US' | 'ja'): Promise<LoadedExtension> {
+export interface ExtensionLaunchOptions {
+  /** Optional Playwright video directory, used by caption-quality recordings. */
+  recordVideoDir?: string;
+}
+
+export async function loadExtension(
+  lang: 'en-US' | 'ja',
+  options: ExtensionLaunchOptions = {},
+): Promise<LoadedExtension> {
   const profileDirectory = await mkdtemp(join(tmpdir(), 'sakutto-profile-'));
-  return launchExtension(lang, profileDirectory, true);
+  return launchExtension(lang, profileDirectory, true, options);
 }
 
 /** Opens the built extension in an existing profile. `close` leaves the profile on disk. */
@@ -44,6 +52,7 @@ export async function launchExtension(
   lang: 'en-US' | 'ja',
   profileDirectory: string,
   deleteProfile = false,
+  options: ExtensionLaunchOptions = {},
 ): Promise<LoadedExtension> {
   const args = [
     `--disable-extensions-except=${extensionPath}`,
@@ -59,6 +68,14 @@ export async function launchExtension(
   const context = await chromium.launchPersistentContext(profileDirectory, {
     headless: false,
     ...(lang === 'en-US' ? { locale: 'en-US' } : {}),
+    ...(options.recordVideoDir
+      ? {
+          recordVideo: {
+            dir: options.recordVideoDir,
+            size: { width: 1280, height: 720 },
+          },
+        }
+      : {}),
     args,
   });
 

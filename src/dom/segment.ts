@@ -7,6 +7,7 @@ import {
   isFrozenInline,
   isInlineCode,
   isKeptInlineText,
+  isOwnUi,
   isScreenReaderOnly,
   isTranslationExcluded,
   ownsText,
@@ -94,6 +95,7 @@ function needsOriginalSpace(left: string, right: string): boolean {
 }
 
 export function buildSegment(block: Element): SegmentModel | null {
+  if (isOwnUi(block)) return null;
   let nextId = 0;
   const frozen = isDataRowCell(block);
   // An X guest body puts paragraph breaks in the text nodes themselves: `white-space:

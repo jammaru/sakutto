@@ -19,6 +19,7 @@ import {
   type SessionPreferences,
 } from '@/dom/session';
 import { CAPTION_PLAYHEAD_PRIORITY } from '@/captions/engine';
+import { CaptionOverlay } from '@/captions/overlay';
 import { abortError, modelChangedError } from '@/engine/errors';
 import { JobScheduler } from '@/engine/queue/scheduler';
 import type { TranslateOptions } from '@/engine/types';
@@ -285,6 +286,81 @@ describe('page session', () => {
     expect(snapshot(document.body)).toEqual(before);
     expect(document.querySelector('sakutto-line')).toBeNull();
     expect(document.querySelector('sakutto-note')).toBeNull();
+  });
+
+  it('keeps page nodes and page translation out of the caption overlay host', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = `
+      <div id="player">
+        <h1 id="title">A trip through Hokkaido</h1>
+        <div id="author">Rail films</div>
+        <div id="potato">Potato recipes</div>
+        <div id="eye">👀 12,345 views</div>
+        <div id="si">SI</div>
+        <video></video>
+      </div>
+    `;
+    const player = document.querySelector('#player');
+    if (!(player instanceof HTMLElement)) throw new Error('missing player');
+    const overlay = new CaptionOverlay(document, {
+      label: 'Translated captions',
+      pending: 'Translating caption…',
+      showOriginal: 'Show original caption',
+      hideOriginal: 'Hide original caption',
+    });
+    overlay.attach(player);
+    overlay.show({
+      original: 'The station opens at dawn.',
+      translation: '駅は夜明けに開きます。',
+      display: 'bilingual',
+      pending: false,
+    });
+    const host = player.querySelector('sakutto-captions');
+    if (!(host instanceof HTMLElement)) throw new Error('missing caption host');
+    const seen: string[] = [];
+    const session = start(
+      document,
+      engineOf(async function* (segments) {
+        for (const segment of segments) {
+          seen.push(segment.text);
+          yield { id: segment.id, final: `訳:${segment.text}`, engine: 'plamo' };
+        }
+      }),
+    );
+
+    await session.translate();
+    await session.whenIdle();
+    overlay.show({
+      original: 'A red train waits at platform two.',
+      translation: '赤い列車が二番線に停まっています。',
+      display: 'bilingual',
+      pending: false,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    await session.whenIdle();
+
+    const lines = [...(overlay.shadow()?.querySelectorAll('.line') ?? [])];
+    expect(lines.map((line) => line.textContent)).toEqual([
+      'A red train waits at platform two.',
+      '赤い列車が二番線に停まっています。',
+    ]);
+    expect(host.textContent).toBe('');
+    expect(host.childNodes).toHaveLength(0);
+    expect(host.querySelector('#title, #author, #potato, #eye, #si')).toBeNull();
+    for (const id of ['title', 'author', 'potato', 'eye', 'si']) {
+      const element = document.getElementById(id);
+      expect(element).not.toBeNull();
+      expect(host.contains(element)).toBe(false);
+    }
+    for (const caption of [
+      'The station opens at dawn.',
+      '駅は夜明けに開きます。',
+      'A red train waits at platform two.',
+      '赤い列車が二番線に停まっています。',
+    ]) {
+      expect(seen.every((source) => !source.includes(caption))).toBe(true);
+    }
+    overlay.detach();
   });
 
   it('clears the navigation stop after a persisted BFCache restore', async () => {
