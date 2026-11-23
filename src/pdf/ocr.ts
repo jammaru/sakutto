@@ -1901,6 +1901,16 @@ export function uncoveredPdfOcrResult(
   };
 }
 
+/** A single raster covering nearly the whole page is the scan itself, not a drawing on it. */
+function isPageBackgroundImage(image: Box, pageWidth: number, pageHeight: number): boolean {
+  if (pageWidth <= 0 || pageHeight <= 0) return false;
+  return (
+    image.width >= pageWidth * 0.9 &&
+    image.height >= pageHeight * 0.9 &&
+    image.width * image.height >= pageWidth * pageHeight * 0.8
+  );
+}
+
 /** Native layout plus only the OCR lines not already represented by native text. */
 export function ocrResultToHybridPage(
   result: OcrResult,
@@ -1908,15 +1918,18 @@ export function ocrResultToHybridPage(
   options: OcrConversionOptions,
 ): { lines: OcrTextLine[]; layout: PageLayout } {
   // A page-sized scan is the background, not a figure whose native header should be skipped.
-  const native = layoutPage(
-    extracted.lines,
-    { images: [] },
-    {
-      width: extracted.width,
-      height: extracted.height,
-      index: options.pageIndex,
-    },
-  );
+  // Only those images are dropped: a large partial figure still protects the native text drawn
+  // inside it from being translated over the artwork.
+  const figures: FigureAreas = {
+    images: extracted.figures.images.filter(
+      (image) => !isPageBackgroundImage(image, extracted.width, extracted.height),
+    ),
+  };
+  const native = layoutPage(extracted.lines, figures, {
+    width: extracted.width,
+    height: extracted.height,
+    index: options.pageIndex,
+  });
   const lines = ocrResultToTextLines(
     uncoveredPdfOcrResult(result, extracted.lines, options),
     options,
@@ -1958,8 +1971,11 @@ export interface PdfPageOcrOptions {
   readonly pageWidth: number;
   readonly pageHeight: number;
   readonly recognize: PdfOcrRecognize;
-  /** Tier the host was asked to run; selects the matching local safety net. */
-  readonly tier?: OcrTier;
+  /**
+   * Tier the host was asked to run; selects the matching local safety net. A getter is read at
+   * the start of each run so a settings change follows the same source as the recognize call.
+   */
+  readonly tier?: OcrTier | (() => OcrTier | undefined);
   /** Hard bound for one page; the default keeps a wedged engine from hanging the reader. */
   readonly timeoutMs?: number;
   readonly timeoutMessage?: string;
@@ -2035,12 +2051,14 @@ export class PdfPageOcr {
     const controller = new AbortController();
     this.controller = controller;
     let timedOut = false;
+    const requestedTier =
+      typeof this.options.tier === 'function' ? this.options.tier() : this.options.tier;
     const timer = setTimeout(
       () => {
         timedOut = true;
         controller.abort();
       },
-      this.options.timeoutMs ?? ocrPageTimeoutMs(this.options.tier ?? 'standard'),
+      this.options.timeoutMs ?? ocrPageTimeoutMs(requestedTier ?? 'standard'),
     );
     const operation = Promise.resolve().then(async () => {
       try {

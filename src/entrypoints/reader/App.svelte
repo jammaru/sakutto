@@ -372,6 +372,7 @@
       settings = next;
       reader?.setGlossary(next.glossary);
       reader?.setTargetLanguage(next.targetLanguage, next.form);
+      reader?.setOcrTier(next.selectedOcrTier);
     });
 
     const onMessage = (message: unknown) => {

@@ -1,4 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
+import type { OcrTier } from '@/engine/ocr/catalog';
+import { ocrPageTimeoutMs } from '@/engine/offscreen/protocol';
 import type { ImageDataLike, OcrQuad, OcrRegion, OcrResult, ReadingLine } from '@/engine/ocr/types';
 import type { FigureAreas } from '@/pdf/figures';
 import { lineFrom, type TextLine, type TextPiece } from '@/pdf/lines';
@@ -233,6 +235,36 @@ describe('hybrid native and scanned PDF pages', () => {
       header.text,
       scannedBody.text,
     ]);
+  });
+
+  it('protects native labels in a partial figure, but not text on a full-page scan', () => {
+    const label = nativeLine('Axis label inside the drawing');
+    const options = {
+      pageIndex: 0,
+      pageWidth: PAGE.width,
+      pageHeight: PAGE.height,
+    };
+    const extracted = (figures: FigureAreas) => ({
+      index: 0,
+      width: PAGE.width,
+      height: PAGE.height,
+      lines: [label],
+      figures,
+      empty: false,
+    });
+    const emptyOcr = ocrResult([], []);
+
+    // Large enough to need OCR, but not a page background: its label must stay skipped.
+    const partial: FigureAreas = { images: [{ x: 0, y: 0, width: 300, height: 400 }] };
+    const hybrid = ocrResultToHybridPage(emptyOcr, extracted(partial), options);
+    expect(hybrid.layout.blocks.map((block) => block.text)).not.toContain(label.text);
+    expect(hybrid.layout.skipped.map((block) => block.text)).toContain(label.text);
+    expect(hybrid.layout.skipped[0]?.role).toBe('figure-label');
+
+    // The page-sized exception still applies: that native text remains translatable prose.
+    const background = ocrResultToHybridPage(emptyOcr, extracted(FULL_PAGE_IMAGE), options);
+    expect(background.layout.blocks.map((block) => block.text)).toContain(label.text);
+    expect(background.layout.skipped.map((block) => block.text)).not.toContain(label.text);
   });
 });
 
@@ -829,6 +861,33 @@ describe('lazy per-page OCR', () => {
       timeoutMessage: '設定でOCRモデルをダウンロードしてください',
     });
     await expect(page.run(pixels)).rejects.toThrow('設定でOCRモデルをダウンロードしてください');
+  });
+
+  it('takes the local timeout from a live tier getter', async () => {
+    vi.useFakeTimers();
+    try {
+      let tier: OcrTier = 'standard';
+      const page = createPdfPageOcr({
+        pageIndex: 0,
+        pageWidth: 400,
+        pageHeight: 200,
+        tier: () => tier,
+        recognize: () => new Promise<OcrResult>(() => undefined),
+      });
+      // The settings change lands between reader boot and this page's recognition.
+      tier = 'high';
+      let rejected = false;
+      const pending = page.run(pixels).catch(() => {
+        rejected = true;
+      });
+      await vi.advanceTimersByTimeAsync(ocrPageTimeoutMs('standard') + 1);
+      expect(rejected).toBe(false);
+      await vi.advanceTimersByTimeAsync(ocrPageTimeoutMs('high') - ocrPageTimeoutMs('standard'));
+      expect(rejected).toBe(true);
+      await pending;
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

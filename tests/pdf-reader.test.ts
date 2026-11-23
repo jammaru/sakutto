@@ -8,6 +8,7 @@ import {
 } from '@/pdf/reader';
 import type { PdfDocument, PdfPage } from '@/pdf/extract';
 import type { PdfEngine } from '@/pdf/session';
+import { ocrPageTimeoutMs } from '@/engine/offscreen/protocol';
 import type { OcrResult } from '@/engine/ocr/types';
 
 const labels: ReaderLabels = {
@@ -85,7 +86,7 @@ function fakePage(renders: { count: number }): PdfPage {
   };
 }
 
-/** Native text with, optionally, a large raster: a mixed page that still needs OCR. */
+/** Native prose plus a label inside a large partial raster: a mixed page that still needs OCR. */
 function mixedScanPage(renders: { count: number }, scanned: boolean): PdfPage {
   return {
     getViewport: ({ scale }) => ({
@@ -96,9 +97,18 @@ function mixedScanPage(renders: { count: number }, scanned: boolean): PdfPage {
     getTextContent: async () => ({
       items: [
         {
-          str: 'Native header text that remains when OCR cannot read the scan below.',
+          // PDF y grows upward, then the image flip puts this at y 250..260 inside the raster.
+          str: 'Native label inside the raster figure',
+          transform: [10, 0, 0, 10, 20, 20],
+          width: 120,
+          height: 10,
+          fontName: 'F1',
+        },
+        {
+          // y 20..30, above the image: real prose that must still be translated.
+          str: 'Native prose outside the raster figure.',
           transform: [10, 0, 0, 10, 20, 250],
-          width: 140,
+          width: 120,
           height: 10,
           fontName: 'F1',
         },
@@ -172,6 +182,28 @@ const scannedResult: OcrResult = (() => {
       { x: 180, y: 20 },
       { x: 180, y: 50 },
       { x: 20, y: 50 },
+    ],
+    symbolScores: [0.95],
+  } as const;
+  return {
+    regions: [region],
+    lines: [{ orientation: 'horizontal', items: [region], indices: [0] }],
+    text: region.text,
+  };
+})();
+
+/** Scanned text below the native figure label, in the 2x OCR raster's coordinates. */
+const mixedScannedResult: OcrResult = (() => {
+  const region = {
+    text: 'Scanned body beside the raster figure',
+    confidence: 0.95,
+    recognitionConfidence: 0.95,
+    vertical: false,
+    quad: [
+      { x: 20, y: 120 },
+      { x: 180, y: 120 },
+      { x: 180, y: 140 },
+      { x: 20, y: 140 },
     ],
     symbolScores: [0.95],
   } as const;
@@ -1006,6 +1038,113 @@ describe('PdfReader viewport observer', () => {
     );
     expect(recognize).toHaveBeenCalledTimes(1);
     reader.destroy();
+  });
+
+  it('keeps a native figure label skipped when mixed-page OCR succeeds', async () => {
+    vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver);
+    vi.stubGlobal('ResizeObserver', FakeResizeObserver);
+    ocrCanvas();
+    const recognize = vi.fn().mockResolvedValue(mixedScannedResult);
+    const root = document.createElement('div');
+    Object.defineProperty(root, 'clientWidth', { configurable: true, get: () => 520 });
+    document.body.append(root);
+    const document_: PdfDocument = {
+      numPages: 1,
+      getPage: async () => mixedScanPage({ count: 0 }, true),
+      getMetadata: async () => null,
+      destroy: async () => undefined,
+    };
+    const reader = new PdfReader(root, geometries(1), {
+      document: document_,
+      engine: silentEngine,
+      labels,
+      targetLanguage: 'ja',
+      form: 'plain',
+      onProgress: () => undefined,
+      ocr: { recognize },
+      ops: { transform: 1, paintImageXObject: 2 },
+    });
+
+    reader.start();
+    await vi.waitFor(() => expect(recognize).toHaveBeenCalledOnce());
+    await vi.waitFor(() => expect(reader.coverage(0)).toHaveLength(2));
+    const texts = reader.coverage(0).map((entry) => entry.sourceText);
+    expect(texts).toContain('Native prose outside the raster figure.');
+    expect(texts).toContain(mixedScannedResult.text);
+    expect(texts).not.toContain('Native label inside the raster figure');
+    expect(pageHost(root, 0).dataset.ocrFailed).toBeUndefined();
+    reader.destroy();
+  });
+
+  it('keeps a native figure label skipped when mixed-page OCR fails', async () => {
+    vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver);
+    vi.stubGlobal('ResizeObserver', FakeResizeObserver);
+    ocrCanvas();
+    const recognize = vi.fn().mockRejectedValue(new Error('OCR is unavailable'));
+    const root = document.createElement('div');
+    Object.defineProperty(root, 'clientWidth', { configurable: true, get: () => 520 });
+    document.body.append(root);
+    const document_: PdfDocument = {
+      numPages: 1,
+      getPage: async () => mixedScanPage({ count: 0 }, true),
+      getMetadata: async () => null,
+      destroy: async () => undefined,
+    };
+    const reader = new PdfReader(root, geometries(1), {
+      document: document_,
+      engine: silentEngine,
+      labels,
+      targetLanguage: 'ja',
+      form: 'plain',
+      onProgress: () => undefined,
+      ocr: { recognize },
+      ops: { transform: 1, paintImageXObject: 2 },
+    });
+
+    reader.start();
+    await vi.waitFor(() => expect(pageHost(root, 0).dataset.ocrFailed).toBe('true'));
+    expect(reader.coverage(0).map((entry) => entry.sourceText)).toEqual([
+      'Native prose outside the raster figure.',
+    ]);
+    reader.destroy();
+  });
+
+  it('uses the live OCR tier for the local timeout after a settings change', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver);
+      vi.stubGlobal('ResizeObserver', FakeResizeObserver);
+      ocrCanvas();
+      const recognize = vi.fn(() => new Promise<OcrResult>(() => undefined));
+      const root = document.createElement('div');
+      Object.defineProperty(root, 'clientWidth', { configurable: true, get: () => 520 });
+      document.body.append(root);
+      const reader = new PdfReader(root, geometries(1), {
+        document: fakeDocument({ count: 0 }, 1),
+        engine: silentEngine,
+        labels,
+        targetLanguage: 'ja',
+        form: 'plain',
+        onProgress: () => undefined,
+        ocr: { recognize, tier: 'standard' },
+      });
+
+      // Settings change while the reader is open, before this scan page is recognized.
+      reader.setOcrTier('high');
+      reader.start();
+      for (let index = 0; index < 20 && recognize.mock.calls.length === 0; index += 1) {
+        await vi.advanceTimersByTimeAsync(0);
+      }
+      expect(recognize).toHaveBeenCalledOnce();
+
+      await vi.advanceTimersByTimeAsync(ocrPageTimeoutMs('standard') + 1);
+      expect(pageHost(root, 0).dataset.ocrFailed).toBeUndefined();
+      await vi.advanceTimersByTimeAsync(ocrPageTimeoutMs('high') - ocrPageTimeoutMs('standard'));
+      expect(pageHost(root, 0).dataset.ocrFailed).toBe('true');
+      reader.destroy();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('toggles a side-by-side original and translated layout', () => {

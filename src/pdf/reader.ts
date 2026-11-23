@@ -560,6 +560,16 @@ export class PdfReader {
     this.session.setGlossary(glossary);
   }
 
+  /**
+   * Keeps the tier used for the local page timeout in step with the tier the recognize callback
+   * will ask the host to run. Called from the settings subscription while the reader is open.
+   */
+  setOcrTier(tier: OcrTier | undefined): void {
+    if (!this.ocr) return;
+    if (tier === undefined) delete this.ocr.tier;
+    else this.ocr.tier = tier;
+  }
+
   /** Pauses translating while the tab is hidden, and resumes when it is shown again. */
   setVisible(visible: boolean): void {
     this.visible = visible;
@@ -887,15 +897,11 @@ export class PdfReader {
         const runOcr =
           this.ocr !== null &&
           shouldRunPdfOcr(extracted.lines, extracted.figures, extracted.width, extracted.height);
-        const nativeLayout = layoutPage(
-          extracted.lines,
-          runOcr ? { images: [] } : extracted.figures,
-          {
-            width: extracted.width,
-            height: extracted.height,
-            index: next,
-          },
-        );
+        const nativeLayout = layoutPage(extracted.lines, extracted.figures, {
+          width: extracted.width,
+          height: extracted.height,
+          index: next,
+        });
         fallback = {
           layout: nativeLayout,
           lines: extracted.lines,
@@ -922,7 +928,8 @@ export class PdfReader {
             pageWidth: extracted.width,
             pageHeight: extracted.height,
             recognize: this.ocr.recognize,
-            ...(this.ocr.tier !== undefined ? { tier: this.ocr.tier } : {}),
+            // The timeout must follow the same live setting the recognize callback reads.
+            tier: () => this.ocr?.tier,
             timeoutMessage: this.labels.ocrFailed,
           });
           this.pageOcr = pageOcr;
