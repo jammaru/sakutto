@@ -132,6 +132,99 @@ function start(
   return session;
 }
 
+/**
+ * A later piece may grow after an earlier piece restarts with a shorter prefix. The
+ * already-shown sentences must survive in both the below-fold sentence path and the
+ * above-fold token path, whether the chunks land in separate frames or one coalesced
+ * frame. Returns the page text after both pieces decoded, after the restart/growth,
+ * and after the final settle.
+ */
+async function multiPieceRestartSnapshots(rect: DOMRect, queuedFrame: boolean): Promise<string[]> {
+  document.documentElement.lang = 'en';
+  const source =
+    'The harbour office logs every crossing and publishes the delays each month. '.repeat(10);
+  document.body.innerHTML = `<p>${source}</p>`;
+  const block = document.querySelector('p');
+  if (!block) throw new Error('missing paragraph');
+  block.getBoundingClientRect = () => rect;
+  const frames: (() => void)[] = [];
+  const shown: string[] = [];
+  let reachedFirst!: () => void;
+  let reachedSecond!: () => void;
+  let releaseFirst!: () => void;
+  let releaseSecond!: () => void;
+  const firstReached = new Promise<void>((resolve) => {
+    reachedFirst = resolve;
+  });
+  const secondReached = new Promise<void>((resolve) => {
+    reachedSecond = resolve;
+  });
+  const firstGate = new Promise<void>((resolve) => {
+    releaseFirst = resolve;
+  });
+  const secondGate = new Promise<void>((resolve) => {
+    releaseSecond = resolve;
+  });
+  const session = new PageSession(document, {
+    engine: engineOf(async function* (segments) {
+      const [first, second] = segments;
+      if (!first || !second || segments.length !== 2) throw new Error('expected two pieces');
+      yield { id: first.id, textDelta: 'One. Two. ', engine: 'plamo' as const };
+      yield { id: second.id, textDelta: 'Three. Four. ', engine: 'plamo' as const };
+      reachedFirst();
+      await firstGate;
+      yield { id: first.id, textDelta: 'One. ', restart: true, engine: 'plamo' as const };
+      yield { id: second.id, textDelta: 'Five. Six. ', engine: 'plamo' as const };
+      reachedSecond();
+      await secondGate;
+      yield { id: first.id, final: 'One. Two. ', engine: 'plamo' as const };
+      yield { id: second.id, final: 'Three. Four. Five. Six. ', engine: 'plamo' as const };
+    }),
+    labels,
+    preferences: preferences({ reveal: 'sentence', targetLanguage: 'de' }),
+    scheduleFrame: queuedFrame
+      ? (callback) => {
+          frames.push(callback);
+        }
+      : (callback) => callback(),
+    debounceMs: 20,
+  });
+  sessions.push(session);
+  const flush = (): void => {
+    while (frames.length > 0) frames.shift()?.();
+  };
+
+  await session.translate();
+  let idleReached = false;
+  const idle = session.whenIdle().then(() => {
+    idleReached = true;
+  });
+  await firstReached;
+  if (queuedFrame) flush();
+  shown.push(block.textContent ?? '');
+  releaseFirst();
+  await secondReached;
+  if (queuedFrame) {
+    // A below-fold sentence write goes through the revealer, which leaves off-screen
+    // entries resting until the next input; run the paint frame, then wake it so the
+    // queued write is applied before the snapshot.
+    flush();
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Unidentified' }));
+    flush();
+  }
+  shown.push(block.textContent ?? '');
+  releaseSecond();
+  if (queuedFrame) {
+    for (let attempt = 0; attempt < 20 && !idleReached; attempt += 1) {
+      flush();
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+  }
+  await idle;
+  shown.push(block.textContent ?? '');
+  return shown;
+}
+
 afterEach(() => {
   for (const session of sessions) session.dispose();
   sessions.length = 0;
@@ -676,6 +769,42 @@ describe('page session', () => {
     // A restart's shorter prefix must not replace the sentences the reader already saw.
     expect(shown).toEqual(['One. Two.', 'One. Two.']);
     expect(document.querySelector('p')?.textContent).toBe('One. Three.');
+  });
+
+  it('keeps earlier sentences when a later piece grows after an earlier piece restarts below the fold', async () => {
+    const shown = await multiPieceRestartSnapshots(new DOMRect(0, 2400, 300, 40), false);
+    expect(shown).toEqual([
+      'One. Two. Three. Four.',
+      'One. Two. Three. Four. Five. Six.',
+      'One. Two. Three. Four. Five. Six.',
+    ]);
+  });
+
+  it('keeps earlier tokens when a later piece grows after an earlier piece restarts above the fold', async () => {
+    const shown = await multiPieceRestartSnapshots(new DOMRect(0, 0, 300, 40), false);
+    expect(shown).toEqual([
+      'One. Two. Three. Four.',
+      'One. Two. Three. Four. Five. Six.',
+      'One. Two. Three. Four. Five. Six.',
+    ]);
+  });
+
+  it('keeps shown sentences when a restart and later growth share one visible frame', async () => {
+    const shown = await multiPieceRestartSnapshots(new DOMRect(0, 0, 300, 40), true);
+    expect(shown).toEqual([
+      'One. Two. Three. Four.',
+      'One. Two. Three. Four. Five. Six.',
+      'One. Two. Three. Four. Five. Six.',
+    ]);
+  });
+
+  it('keeps shown sentences when a restart and later growth share one below-fold frame', async () => {
+    const shown = await multiPieceRestartSnapshots(new DOMRect(0, 2400, 300, 40), true);
+    expect(shown).toEqual([
+      'One. Two. Three. Four.',
+      'One. Two. Three. Four. Five. Six.',
+      'One. Two. Three. Four. Five. Six.',
+    ]);
   });
 
   it('keeps sentence discipline for a block below the fold', async () => {

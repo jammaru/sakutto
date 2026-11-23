@@ -227,8 +227,11 @@ interface Live {
   firstPieceAt: number | null;
   /** Unfinished text of this block has been written to the page. */
   streamed: boolean;
-  /** Sentences already written in sentence reveal mode, joined as they appear on the page. */
-  sentenceShown?: string;
+  /**
+   * Highest text of each piece already written to the page in sentence reveal mode.
+   * Indexed by piece, so a restart of one piece cannot erase sentences from another.
+   */
+  sentenceShownParts?: string[];
   /** When the text of this block last grew. */
   lastPieceAt: number;
   /** How many characters of source each piece of the running request has. */
@@ -2136,16 +2139,16 @@ export class PageSession {
     // stops at the first one that has not started: a later piece may never appear
     // before the one before it. Unfinished text is kept, so the first visible tokens
     // still arrive as early as stream mode's.
-    const text = visiblePartialText(item, this.prefs.targetLanguage);
+    const parts = visiblePartialParts(item);
+    const advanced = extendShownParts(parts, item.sentenceShownParts);
+    if (advanced === null) return;
+    const text = joinTranslatedSentences(advanced.parts, this.prefs.targetLanguage);
     if (text.trim().length === 0) return;
-    // The high-water mark is shared with the below-fold sentence path. A restart's
-    // shorter prefix must not replace what the reader has already seen.
-    if (item.sentenceShown !== undefined && text.length <= item.sentenceShown.length) return;
     if (!item.streamed) {
       this.claim(item, model);
       this.revealer.reserve(model.block);
     }
-    item.sentenceShown = text;
+    item.sentenceShownParts = advanced.shown;
     this.write(item, model, text, true, bilingual);
   }
 
@@ -2175,24 +2178,23 @@ export class PageSession {
     // Split each piece on its own: a terminator in a later piece may not close an
     // unfinished sentence in an earlier one, and a piece that has not started yet may
     // not be skipped. Pieces are translated in order and must appear in that order.
-    const ready = finishedSentenceText(
+    const parts = finishedSentenceParts(
       item.partText.map((part) => stripPlaceholderTokens(part)),
       item.partFinal,
       this.prefs.targetLanguage,
     );
     // Once a sentence is on the page, an unfinished tail must not be written over it.
-    // Neither may a restart's shorter prefix replace sentences already shown.
-    if (
-      ready.length === 0 ||
-      (item.sentenceShown !== undefined && ready.length <= item.sentenceShown.length)
-    ) {
-      return true;
-    }
-    if (item.sentenceShown === undefined) {
+    // Neither may a restart's shorter prefix replace sentences already shown: each
+    // piece keeps the longest prefix the reader has seen until the final settle.
+    const advanced = extendShownParts(parts, item.sentenceShownParts);
+    if (advanced === null) return true;
+    const ready = joinTranslatedSentences(advanced.parts, this.prefs.targetLanguage);
+    if (ready.length === 0) return true;
+    if (item.sentenceShownParts === undefined) {
       this.claim(item, model);
       this.revealer.reserve(model.block);
     }
-    item.sentenceShown = ready;
+    item.sentenceShownParts = advanced.shown;
     const generation = this.paintGeneration;
     const write = (): void => {
       if (generation !== this.paintGeneration || !this.active) return;
@@ -2477,7 +2479,7 @@ export class PageSession {
       this.revealer.forget(block);
       this.shown.delete(block);
       item.streamed = false;
-      delete item.sentenceShown;
+      delete item.sentenceShownParts;
       this.editDom(() => {
         restoreSegment(model, item.created);
         removeTranslationUi(block);
@@ -3397,50 +3399,72 @@ function partialText(item: Live, target: string): string {
 }
 
 /**
- * The decoded text of a visible block, in piece order. A piece that has not started yet
+ * The decoded text of a visible block, piece by piece. A piece that has not started yet
  * stops the read, so a later piece is never shown before the one before it — filtering
  * empty pieces away, as partialText() does for the other paths, would show it alone.
+ * Indexes line up with partText so the high-water can be applied before joining.
  */
-function visiblePartialText(item: Live, target: string): string {
+function visiblePartialParts(item: Live): string[] {
   const parts: string[] = [];
   for (const part of item.partText) {
     const stripped = stripPlaceholderTokens(part).trim();
     if (stripped.length === 0) break;
     parts.push(stripped);
   }
-  return joinTranslatedSentences(parts, target);
+  return parts;
 }
 
 /**
- * The sentences of a decoded translation that are finished, in piece order. A piece is
- * still being decoded unless it ends on a sentence boundary (or has its final answer),
- * so its last span stays behind — and every later piece waits for it, because a
- * terminator in a later piece says nothing about where the earlier one ended.
+ * The finished sentences of each piece of a decoded translation, indexed by piece. A
+ * piece is still being decoded unless it ends on a sentence boundary (or has its final
+ * answer), so its last span stays behind — and every later piece waits for it, because
+ * a terminator in a later piece says nothing about where the earlier one ended.
  */
-function finishedSentenceText(
+function finishedSentenceParts(
   parts: readonly string[],
   final: readonly boolean[],
   target: string,
-): string {
+): string[] {
   const ready: string[] = [];
   for (let index = 0; index < parts.length; index += 1) {
     const part = parts[index]?.trim() ?? '';
     if (part.length === 0) break;
     const spans = sentenceSpans(part);
     const done = spans.filter((span) => hasSentenceTerminator(span.text)).map((span) => span.text);
-    if (final[index] === true) {
+    if (final[index] === true && spans.length > done.length) {
       // A finished piece needs no terminator: its whole text is ready.
-      if (spans.length > done.length) {
-        const tail = spans.at(-1);
-        if (tail) done.push(tail.text);
-      }
-      ready.push(...done);
-      continue;
+      const tail = spans.at(-1);
+      if (tail) done.push(tail.text);
     }
-    ready.push(...done);
-    if (done.length < spans.length) break;
+    ready[index] = joinTranslatedSentences(done, target);
+    if (final[index] !== true && done.length < spans.length) break;
   }
-  return joinTranslatedSentences(ready, target);
+  return ready;
+}
+
+/**
+ * High-water mark per piece of the text already written to the page. A restart may shorten
+ * one piece while a later piece grows: the joined text is then longer than before although
+ * a sentence the reader already saw has vanished. Only a candidate that continues a
+ * piece's mark may replace it, so every partial paint extends the text on the page; a
+ * corrected answer takes over at the final settle, which bypasses this guard. Returns the
+ * text to join and the new marks, or null when no piece grew.
+ */
+function extendShownParts(
+  candidates: readonly string[],
+  shown: readonly string[] | undefined,
+): { parts: string[]; shown: string[] } | null {
+  const count = Math.max(candidates.length, shown?.length ?? 0);
+  const parts: string[] = [];
+  let grew = false;
+  for (let index = 0; index < count; index += 1) {
+    const mark = shown?.[index] ?? '';
+    const candidate = candidates[index] ?? '';
+    const next = candidate.length > mark.length && candidate.startsWith(mark) ? candidate : mark;
+    parts.push(next);
+    if (next !== mark) grew = true;
+  }
+  return grew ? { parts, shown: parts } : null;
 }
 
 /**
