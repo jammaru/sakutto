@@ -183,3 +183,15 @@ describe('committed bench history', () => {
     expect(last[11]).toBe(String(final.fullDocumentMs));
   });
 });
+
+describe('current DSH review blockers', () => {
+  it('B5: the first-block narrative uses the committed final summary value', () => {
+    const final = json<{ summary: Summary }>('bench/results/pdf-quality/final.json').summary;
+    const value = String(final.firstTranslatedBlockFromRunStartMs) + ' ms';
+    const row = rowWithLabel(PR_BODY, '最初の訳文が出るまで（実行開始から）');
+    expect(row[2]).toBe(value);
+    const narrative = PR_BODY.split('\n').find((line) => line.includes('実行開始からの値（'));
+    expect(narrative, 'narrative sentence with run-start latency').toBeDefined();
+    expect(narrative).toContain(row[1] + ' → ' + value);
+  });
+});

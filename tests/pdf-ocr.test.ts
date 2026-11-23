@@ -362,8 +362,8 @@ describe('OCR geometry and layout conversion', () => {
       align: 'left',
       bold: false,
       italic: false,
-      // One line wider than 60% of the page is a spanning block, not a body column.
-      column: -1,
+      // A page with no body columns keeps even a wide line in its single column group.
+      column: 0,
       writing: 0,
     });
     expect(block?.box).toEqual(line?.box);
@@ -1498,5 +1498,102 @@ describe('bracketed citations in OCR prose', () => {
         text,
       ).toBe(true);
     }
+  });
+});
+
+describe('current DSH review blockers', () => {
+  it('B1: keeps a single-column paragraph whose last line is short in one block', () => {
+    const items = [
+      region(
+        'This is a full width line of ordinary prose on a single column page',
+        quad(50, 100, 500, 20),
+      ),
+      region(
+        'and another full width line of ordinary prose in the same paragraph',
+        quad(50, 125, 500, 20),
+      ),
+      region('short last line of the paragraph.', quad(50, 150, 200, 20)),
+    ];
+    const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+    const result = ocrResult(
+      items,
+      items.map((item, index) => readingLine('horizontal', [item], [index])),
+    );
+    const lines = ocrResultToTextLines(result, options);
+    expect(lines.map((line) => line.text)).toEqual(items.map((item) => item.text));
+    const layout = ocrResultToPageLayout(result, options);
+    expect(layout.blocks).toHaveLength(1);
+    expect(layout.blocks[0]?.text).toBe(items.map((item) => item.text).join(' '));
+    expect(layout.blocks[0]?.role).toBe('prose');
+    expect(layout.blocks[0]?.column).toBe(0);
+  });
+
+  it('B2: a rotated margin stamp does not merge the horizontal body columns', () => {
+    const left1 = region('Left column body line one with words', quad(45, 100, 240, 20));
+    const right1 = region('Right column body line one with words', quad(315, 100, 240, 20));
+    const left2 = region('Left column body line two with words', quad(45, 125, 240, 20));
+    const right2 = region('Right column body line two with words', quad(315, 125, 240, 20));
+    const stamp = region('縦書き', quad(580, 300, 15, 80), true);
+    const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+    const result = ocrResult(
+      [left1, right1, left2, right2, stamp],
+      [
+        readingLine('horizontal', [left1]),
+        readingLine('horizontal', [right1]),
+        readingLine('horizontal', [left2]),
+        readingLine('horizontal', [right2]),
+        readingLine('vertical', [stamp]),
+      ],
+    );
+    const layout = ocrResultToPageLayout(result, options);
+    const body = layout.blocks.filter((block) => block.role === 'prose' && block.lines.length > 1);
+    expect(body.map((block) => block.text)).toEqual([
+      [left1.text, left2.text].join(' '),
+      [right1.text, right2.text].join(' '),
+    ]);
+    expect(body.map((block) => block.column)).toEqual([0, 1]);
+  });
+
+  it('B3: keeps a long full-width title with a colon and many words whole', () => {
+    const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+    for (const title of [
+      'Attention Is All You Need But This Title Has More Than Twelve Words',
+      'Attention: Is All You Need But This Title Has More Than Twelve Words',
+    ]) {
+      const words = title.split(' ');
+      let x = 50;
+      const pieces = words.map((text) => {
+        const item = region(text, quad(x, 100, text.length * 7, 20));
+        x += text.length * 7 + 10;
+        return item;
+      });
+      expect(x - 10).toBeLessThanOrEqual(options.pageWidth);
+      const result = ocrResult(pieces, [readingLine('horizontal', pieces)]);
+      expect(
+        ocrResultToTextLines(result, options).map((line) => line.text),
+        title,
+      ).toEqual([title]);
+      const layout = ocrResultToPageLayout(result, options);
+      expect(
+        layout.blocks.map((block) => block.text),
+        title,
+      ).toEqual([title]);
+    }
+  });
+
+  it('B3: keeps a single-column line with 20pt word gaps whole', () => {
+    const texts = ['This sentence has', 'a wide middle', 'gap in it.'];
+    const items = [
+      region(texts[0]!, quad(100, 100, 180, 20)),
+      region(texts[1]!, quad(310, 100, 120, 20)),
+      region(texts[2]!, quad(450, 100, 80, 20)),
+    ];
+    const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+    const result = ocrResult(items, [readingLine('horizontal', items)]);
+    expect(ocrResultToTextLines(result, options).map((line) => line.text)).toEqual([
+      texts.join(' '),
+    ]);
+    const layout = ocrResultToPageLayout(result, options);
+    expect(layout.blocks.map((block) => block.text)).toEqual([texts.join(' ')]);
   });
 });

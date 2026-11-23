@@ -464,6 +464,24 @@ export function ocrResultToTextLines(
       wholeText.split(/\s+/u).length <= 12 &&
       !/[.,;:!?。]/u.test(wholeText) &&
       /^\p{Lu}/u.test(wholeText);
+    // A long title or a wrapped body line can fail every title heuristic (a colon, more than
+    // twelve words) yet still be one printed line. Word-sized boxes separated only by ordinary
+    // word spaces are not two columns: a real gutter is wider than a word space, belongs to
+    // line-region-scale text, or is corroborated by other rows on the page.
+    const orderedPieces = [...pieces].sort((a, b) => a.box.x - b.box.x);
+    const wordGaps: number[] = [];
+    for (let index = 1; index < orderedPieces.length; index += 1) {
+      const previous = orderedPieces[index - 1]!;
+      const current = orderedPieces[index]!;
+      wordGaps.push(current.box.x - (previous.box.x + previous.box.width));
+    }
+    const wordSpacedLine =
+      orderedPieces.length >= 4 &&
+      orderedPieces.every((piece) => piece.box.width <= resolved.pageWidth * 0.15) &&
+      wordGaps.every((gap) => gap >= 0 && gap <= WIDE_COLUMN_GUTTER + 2);
+    const wideGaps = wordGaps.filter((gap) => gap >= WIDE_COLUMN_GUTTER).sort((a, b) => b - a);
+    const dominantLineGap =
+      wideGaps[0] !== undefined && (wideGaps[1] === undefined || wideGaps[0] >= wideGaps[1] * 2);
     const gutterNearMiddle = gutterCentred(leftEnd, rightStart, resolved.pageWidth);
     const straddlesMiddle = leftEnd <= middle + 4 && rightStart >= middle - 4;
     const gutterEvidence = gutterNearMiddle || straddlesMiddle;
@@ -471,7 +489,7 @@ export function ocrResultToTextLines(
     // Capitalisation alone cannot tell them apart: a merged body row routinely starts with a
     // proper noun and has no terminal punctuation at a line break. Only a word-gap-sized
     // centre gap suppresses the split, not the title-like casing of the whole row.
-    const titleWordGap = titleWholeLine && gutterGap <= WIDE_COLUMN_GUTTER;
+    const titleWordGap = (titleWholeLine || wordSpacedLine) && gutterGap <= WIDE_COLUMN_GUTTER + 2;
     const wideTwoColumnLine =
       lineWidth >= resolved.pageWidth * 0.82 &&
       leftWidth > resolved.pageWidth * 0.18 &&
@@ -479,15 +497,14 @@ export function ocrResultToTextLines(
       gutterEvidence &&
       gutterGap >= WIDE_COLUMN_GUTTER &&
       !titleWordGap;
-    // The narrow-line arm previously accepted any 6-10pt gap near the midpoint, which is just
-    // an ordinary word gap on a single-column line (and split centred titles the same way).
-    // A narrow row needs page-wide corroboration; a wide row can stand on its real gutter.
+    // A narrow row normally needs page-wide corroboration. Without it, two similarly wide
+    // word spaces on one printed line are not a gutter; only a gap far wider than every other
+    // gap on the row (a short left column beside a right body) can stand on its own.
     const narrowTwoColumnLine =
       lineWidth < resolved.pageWidth * 0.82 &&
       !titleWordGap &&
       ((pageTwoColumn && gutterGap >= MIN_COLUMN_GUTTER) ||
-        // Without page-wide evidence, only a gutter far wider than any word space counts.
-        gutterGap >= WIDE_COLUMN_GUTTER * 2);
+        (gutterGap >= WIDE_COLUMN_GUTTER * 2 && dominantLineGap));
     // A short left heading beside a normal body line is a two-column row too: the 18% width
     // floor for `wideTwoColumnLine` cannot see it, but the gutter and shared baseline can.
     const shortHeadingBesideBody =
@@ -633,8 +650,10 @@ function columnContext(lines: readonly OcrTextLine[], pageWidth: number): Column
     bodySize,
     ranges: [] as readonly ColumnRange[],
   };
-  if (pageWidth <= 0 || lines.length < 2 || lines.some(verticalLine)) return single;
+  if (pageWidth <= 0 || lines.length < 2) return single;
   const centre = (line: OcrTextLine): number => line.box.x + line.box.width / 2;
+  // A rotated margin stamp is not a body line: exclude it from inference instead of letting one
+  // vertical region disqualify the whole page and merge the horizontal columns.
   const bodies = lines.filter((line) => !verticalLine(line) && line.box.width <= pageWidth * 0.6);
   const left = bodies.filter((line) => centre(line) < pageWidth * 0.45);
   const right = bodies.filter((line) => centre(line) > pageWidth * 0.55);
@@ -727,11 +746,13 @@ function lineColumn(
   // A line emitted by a gutter split already knows which side of the printed column it came
   // from. Recomputing from its own box would misclassify an overflowing right-column row.
   if (line.columnHint !== undefined && !verticalLine(line)) return line.columnHint;
+  // Without two body columns there is nothing to interleave: a single-column scan keeps its
+  // top-to-bottom source order and one paragraph group. The width test must not run first:
+  // a full-width first line would become spanning while its short last line becomes column 0,
+  // splitting one paragraph. Only a line physically wider than the page is still spanning.
+  if (!context.twoColumn) return line.box.width > pageWidth ? SPANNING_COLUMN : 0;
   const mid = line.box.x + line.box.width / 2;
   if (line.box.width > pageWidth * 0.6) return SPANNING_COLUMN;
-  // Without two body columns there is nothing to interleave: a centred single-column scan
-  // keeps its top-to-bottom source order and one paragraph group.
-  if (!context.twoColumn) return 0;
   const headingText = line.text.trim();
   const heading =
     !verticalLine(line) &&
@@ -787,9 +808,11 @@ function twoColumnOrder(
   pageWidth: number,
   context: ColumnContext = columnContext(lines, pageWidth),
 ): OcrTextLine[] {
-  if (pageWidth <= 0 || lines.length < 2 || lines.some(verticalLine) || !context.twoColumn) {
-    return [...lines];
-  }
+  if (pageWidth <= 0 || lines.length < 2 || !context.twoColumn) return [...lines];
+  // Vertical Japanese columns carry an authoritative right-to-left order. A page made only of
+  // vertical lines keeps it; on a mostly horizontal page a rotated stamp is held at its source
+  // position as a run separator, so it cannot suppress the ordering of the body columns.
+  if (lines.every(verticalLine)) return [...lines];
   const ordered: OcrTextLine[] = [];
   let run: OcrTextLine[] = [];
   const flush = (): void => {
@@ -803,7 +826,7 @@ function twoColumnOrder(
     run = [];
   };
   for (const line of lines) {
-    if (lineColumn(line, pageWidth, context) === SPANNING_COLUMN) {
+    if (verticalLine(line) || lineColumn(line, pageWidth, context) === SPANNING_COLUMN) {
       flush();
       ordered.push(line);
     } else {

@@ -378,3 +378,34 @@ describe('prepositions after a multiplied dimension', () => {
     }
   });
 });
+
+describe('current DSH review blockers', () => {
+  it('B4: leaves a trailing preposition outside the slot at punctuation or end of text', () => {
+    const cases = [
+      { source: 'The size is 3 × 3 in.', slot: '3 × 3', prompt: 'The size is <i0> in.' },
+      { source: 'The tensor is A × B in.', slot: 'A × B', prompt: 'The tensor is <i0> in.' },
+      { source: 'The result is 3 × 3 in', slot: '3 × 3', prompt: 'The result is <i0> in' },
+      {
+        source: 'The size is 3 × 3, in pixels.',
+        slot: '3 × 3',
+        prompt: 'The size is <i0>, in pixels.',
+      },
+    ];
+    for (const { source, slot, prompt } of cases) {
+      const lines = groupLines([piece(source, 49, 100, 430)]);
+      const block = layoutPage(lines).blocks[0];
+      if (!block) throw new Error('expected a block');
+      const protectedText = protectInlineMath(block);
+      expect(
+        protectedText.slots.map((entry) => entry.text),
+        source,
+      ).toContain(slot);
+      expect(
+        protectedText.slots.some((entry) => /\bin$/u.test(entry.text)),
+        source,
+      ).toBe(false);
+      expect(protectedText.text, source).toBe(prompt);
+      expectSourcePreserved(protectedText, source);
+    }
+  });
+});

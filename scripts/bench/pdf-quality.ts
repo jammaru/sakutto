@@ -407,6 +407,14 @@ async function refreshPrBody(summary: ReturnType<typeof summarize>): Promise<voi
   const path = join(ROOT, 'bench/results/pdf-quality/PR_BODY.md');
   const text = await readFile(path, 'utf8').catch(() => null);
   if (text === null) return;
+  const baselineSummary = JSON.parse(await readFile(join(OUT, 'baseline.json'), 'utf8')) as {
+    summary: { firstTranslatedBlockFromRunStartMs: number };
+  };
+  const runStart =
+    String(baselineSummary.summary.firstTranslatedBlockFromRunStartMs) +
+    ' ms → ' +
+    String(summary.firstTranslatedBlockFromRunStartMs) +
+    ' ms';
   const values = new Map([
     [
       '未翻訳散文ブロック率（skipped 散文を含む）',
@@ -430,7 +438,20 @@ async function refreshPrBody(summary: ReturnType<typeof summarize>): Promise<voi
       const cells = line.split('|');
       const label = cells[1]?.trim() ?? '';
       const value = values.get(label);
-      if (value === undefined || cells[3] === undefined) return line;
+      if (value === undefined || cells[3] === undefined) {
+        // The prose sentence used to hard-code the same latencies as the table, so a refresh
+        // contradicted its own raw data. Keep both in step with the committed summaries.
+        if (!line.includes('実行開始からの値（')) return line;
+        return line
+          .replace(
+            /比較可能な実行開始からの値（[^）]*）/u,
+            '比較可能な実行開始からの値（' + runStart + '）',
+          )
+          .replace(
+            /ページ処理からの \d+ ms/u,
+            'ページ処理からの ' + String(summary.firstTranslatedBlockMs) + ' ms',
+          );
+      }
       const original = cells[3];
       const decorated = original.includes('**') ? '**' + value + '**' : value;
       const width = Math.max(original.length, decorated.length + 2);

@@ -75,6 +75,8 @@ const TRAILING_PROSE_DIMENSION = /(?:\s+(?:model|hd|out|in|dim|size))+$/iu;
 
 /** An ordinary lowercase word after the match: a preposition, not more notation. */
 const PROSE_CONTINUATION = /^\s+\p{Ll}{2,}/u;
+/** End of a sentence, clause or block: the trailing prose word is not part of the notation. */
+const EXPRESSION_END = /^\s*(?:$|[.,;:!?)\]]|。|、)/u;
 
 /**
  * Trims a trailing prose word that the dimension pattern mistook for a dimension name.
@@ -87,7 +89,13 @@ const PROSE_CONTINUATION = /^\s+\p{Ll}{2,}/u;
 function trimProseDimensionSuffix(match: string, following: string): string {
   const prose = TRAILING_PROSE_DIMENSION.exec(match);
   if (!prose) return match;
-  if (/[×÷]/u.test(match) && !PROSE_CONTINUATION.test(following)) return match;
+  if (
+    /[×÷]/u.test(match) &&
+    !PROSE_CONTINUATION.test(following) &&
+    !EXPRESSION_END.test(following)
+  ) {
+    return match;
+  }
   return match.slice(0, prose.index);
 }
 

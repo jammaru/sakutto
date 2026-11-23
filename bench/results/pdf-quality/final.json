@@ -1,6 +1,6 @@
 {
   "label": "final",
-  "generatedAt": "2026-11-23T04:17:25.446Z",
+  "generatedAt": "2026-11-23T05:17:12.465Z",
   "engine": "deterministic local fake",
   "pace": {
     "ttfbMs": 6,
@@ -28,8 +28,8 @@
         "readingOrderAccuracy": 0.9895833333333334,
         "twoColumnPages": 1,
         "firstTranslatedBlockMs": 7,
-        "firstTranslatedBlockFromRunStartMs": 350,
-        "fullDocumentMs": 245,
+        "firstTranslatedBlockFromRunStartMs": 327,
+        "fullDocumentMs": 229,
         "meanScale": 0.9846128195131897
       }
     },
@@ -46,9 +46,9 @@
         "overflowRate": 0.08,
         "readingOrderAccuracy": 0.9583333333333334,
         "twoColumnPages": 1,
-        "firstTranslatedBlockMs": 6,
-        "firstTranslatedBlockFromRunStartMs": 930,
-        "fullDocumentMs": 63,
+        "firstTranslatedBlockMs": 7,
+        "firstTranslatedBlockFromRunStartMs": 821,
+        "fullDocumentMs": 64,
         "meanScale": 0.9885424892343686
       }
     }
@@ -61,7 +61,7 @@
       {
         "variant": "baseline-1x",
         "pairing": "tiny_det+small_rec",
-        "ms": 27064.190258000002,
+        "ms": 24856.155191,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.6671721767263169,
@@ -79,7 +79,7 @@
       {
         "variant": "dpi200",
         "pairing": "tiny_det+small_rec",
-        "ms": 35004.193623,
+        "ms": 30911.289223999993,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.20230512587200486,
@@ -97,7 +97,7 @@
       {
         "variant": "shipped-baseline",
         "pairing": "tiny_det+small_rec",
-        "ms": 30525.402927999996,
+        "ms": 27499.22779199999,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.11606510969568294,
@@ -115,7 +115,7 @@
       {
         "variant": "default-1600",
         "pairing": "tiny_det+small_rec",
-        "ms": 39035.22086999999,
+        "ms": 34035.93699900003,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.030330603579011222,
@@ -133,7 +133,7 @@
       {
         "variant": "dpi300",
         "pairing": "tiny_det+small_rec",
-        "ms": 40957.78547900001,
+        "ms": 36291.62566800002,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.030330603579011222,
@@ -151,17 +151,17 @@
       {
         "variant": "sauvola",
         "pairing": "tiny_det+small_rec",
-        "ms": 23622.678862,
+        "ms": 21561.601743999985,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.8252957233848953,
         "wer": 0.9723203769140165,
         "order": 0.012345679012345678,
-        "covered": 0.030624263839811542,
-        "lines": 98,
-        "blocks": 33,
-        "skipped": 17,
-        "crossColumnCovers": 1,
+        "covered": 0.030035335689045935,
+        "lines": 97,
+        "blocks": 34,
+        "skipped": 15,
+        "crossColumnCovers": 2,
         "overlapPairs": 0,
         "overflow": 15,
         "text": "Sakuttw: Op-Device Page Translation with a Somall Instrution-Tuned Model\n1. Ammnaru\nMr t s\nt h Mh\n2\n1 iny wers\na w\n二 2\nR 1\nkclramdins srane I\nwinsynept e\nA自寸\nPl sh raee skman e Wo Lamkh raie -e lme\n×5"
@@ -169,25 +169,25 @@
       {
         "variant": "dpi200+sauvola",
         "pairing": "tiny_det+small_rec",
-        "ms": 31291.26775,
+        "ms": 28567.26621999999,
         "warmups": 1,
         "modelBytes": 22939968,
-        "cer": 0.6860782529572339,
-        "wer": 0.9363957597173145,
+        "cer": 0.6859771509453038,
+        "wer": 0.9369846878680801,
         "order": 0.12286890064667842,
-        "covered": 0.07243816254416961,
-        "lines": 104,
-        "blocks": 60,
+        "covered": 0.071849234393404,
+        "lines": 103,
+        "blocks": 61,
         "skipped": 6,
         "crossColumnCovers": 0,
         "overlapPairs": 0,
-        "overflow": 27,
+        "overflow": 28,
         "text": "Sakutto: On-Device Page Translation with a Small Instruction-Tuned Model\n1. Amnurs\ndme in bront nt a rearet who is alnendy looking a de srm.\n2.1 Jume\nS\nanlasti 60 S\n2.2 Page wode?\n3. Schedaling\n4. MNN"
       },
       {
         "variant": "dpi200+gray",
         "pairing": "tiny_det+small_rec",
-        "ms": 32083.000691000023,
+        "ms": 30259.030056999996,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.2227277322818724,
@@ -205,7 +205,7 @@
       {
         "variant": "gray+contrast",
         "pairing": "tiny_det+small_rec",
-        "ms": 31528.545014000032,
+        "ms": 30792.37421800004,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.21170761298149834,
@@ -223,7 +223,7 @@
       {
         "variant": "gray+contrast-1600",
         "pairing": "tiny_det+small_rec",
-        "ms": 35876.18053599994,
+        "ms": 35139.132109,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.030128399555151147,
@@ -241,7 +241,7 @@
       {
         "variant": "contrast",
         "pairing": "tiny_det+small_rec",
-        "ms": 31079.590501000057,
+        "ms": 31112.951773999957,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.20816904256394703,
@@ -259,7 +259,7 @@
       {
         "variant": "otsu",
         "pairing": "tiny_det+small_rec",
-        "ms": 28171.706196999992,
+        "ms": 28047.60896600003,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.689111313315135,
@@ -277,25 +277,25 @@
       {
         "variant": "denoise",
         "pairing": "tiny_det+small_rec",
-        "ms": 29150.914188999915,
+        "ms": 27932.765850000083,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.7235870993832777,
         "wer": 0.9570082449941107,
         "order": 0.037037037037037035,
         "covered": 0.059481743227326266,
-        "lines": 105,
+        "lines": 104,
         "blocks": 22,
         "skipped": 19,
         "crossColumnCovers": 0,
         "overlapPairs": 0,
-        "overflow": 4,
+        "overflow": 5,
         "text": "Sakutte: On-Device Page Translation with a Small Instruction-Tuned Model\n1. Amemara\nt tu t sa\ndun s\nsoin 4 s\nMOvlhtm D 1\n4\ndes a elian\nO\ndn\nABSTD ACT\nMa meite dhe smian opeg mel oe de cmule cmn male a"
       },
       {
         "variant": "trim",
         "pairing": "tiny_det+small_rec",
-        "ms": 32670.018277999945,
+        "ms": 30007.353566000005,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.1991709635021737,
@@ -313,7 +313,7 @@
       {
         "variant": "box-0.35",
         "pairing": "tiny_det+small_rec",
-        "ms": 30668.520979000023,
+        "ms": 30775.431874,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.20230512587200486,
@@ -331,7 +331,7 @@
       {
         "variant": "box-0.55",
         "pairing": "tiny_det+small_rec",
-        "ms": 30988.98054099991,
+        "ms": 30937.54545700003,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.20210292184814477,
@@ -349,7 +349,7 @@
       {
         "variant": "unclip-1.8",
         "pairing": "tiny_det+small_rec",
-        "ms": 26786.755607000086,
+        "ms": 26737.72900199995,
         "warmups": 1,
         "modelBytes": 22939968,
         "cer": 0.3609341825902335,
@@ -377,9 +377,9 @@
     "overflowRate": 0.024390243902439025,
     "readingOrderAccuracy": 0.9833333333333334,
     "twoColumnPages": 2,
-    "firstTranslatedBlockMs": 6,
-    "firstTranslatedBlockFromRunStartMs": 350,
-    "fullDocumentMs": 988,
+    "firstTranslatedBlockMs": 7,
+    "firstTranslatedBlockFromRunStartMs": 327,
+    "fullDocumentMs": 878,
     "meanScale": 0.9857425995580282
   },
   "pages": [
@@ -897,9 +897,9 @@
       "skippedProse": 0,
       "readingOrder": 0.9583333333333334,
       "twoColumn": true,
-      "firstBlockMs": 12,
-      "firstBlockFromRunStartMs": 350,
-      "pageMs": 82
+      "firstBlockMs": 13,
+      "firstBlockFromRunStartMs": 327,
+      "pageMs": 81
     },
     {
       "fixture": "arxiv",
@@ -1096,8 +1096,8 @@
       "readingOrder": 1,
       "twoColumn": false,
       "firstBlockMs": 7,
-      "firstBlockFromRunStartMs": 484,
-      "pageMs": 48
+      "firstBlockFromRunStartMs": 452,
+      "pageMs": 39
     },
     {
       "fixture": "arxiv",
@@ -1294,8 +1294,8 @@
       "readingOrder": 1,
       "twoColumn": false,
       "firstBlockMs": 7,
-      "firstBlockFromRunStartMs": 565,
-      "pageMs": 26
+      "firstBlockFromRunStartMs": 515,
+      "pageMs": 27
     },
     {
       "fixture": "arxiv",
@@ -1592,8 +1592,8 @@
       "readingOrder": 1,
       "twoColumn": false,
       "firstBlockMs": 8,
-      "firstBlockFromRunStartMs": 620,
-      "pageMs": 89
+      "firstBlockFromRunStartMs": 565,
+      "pageMs": 82
     },
     {
       "fixture": "scan",
@@ -2109,9 +2109,9 @@
       "skippedProse": 0,
       "readingOrder": 0.9583333333333334,
       "twoColumn": true,
-      "firstBlockMs": 6,
-      "firstBlockFromRunStartMs": 930,
-      "pageMs": 63
+      "firstBlockMs": 7,
+      "firstBlockFromRunStartMs": 821,
+      "pageMs": 64
     }
   ]
 }
