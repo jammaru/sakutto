@@ -114,6 +114,80 @@ describe('latest DSH review blockers', () => {
     );
   });
 
+  it('B1: merges a scientific title above body when the first half exceeds 8 words', () => {
+    const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+    const title = [
+      region('mRNA vaccines are highly effective and generally safe for', quad(45, 60, 250, 20)),
+      region('Older Adults', quad(305, 60, 250, 20)),
+    ];
+    const bodyRows = [
+      [
+        region('Left column prose for the first printed row.', quad(45, 140, 250, 20)),
+        region('Right column prose on the same printed row.', quad(305, 140, 250, 20)),
+      ],
+      [
+        region('A second left column line proving two columns.', quad(45, 170, 250, 20)),
+        region('A second right column line proving columns.', quad(305, 170, 250, 20)),
+      ],
+    ];
+    const result: OcrResult = {
+      regions: [...title, ...bodyRows.flat()],
+      lines: [readingLine(title), ...bodyRows.map(readingLine)],
+      text: '',
+    };
+    const full = 'mRNA vaccines are highly effective and generally safe for Older Adults';
+
+    const lines = ocrResultToTextLines(result, options);
+    expect(lines[0]?.text).toBe(full);
+    expect(lines[0]?.columnHint).toBeUndefined();
+
+    const layout = ocrResultToPageLayout(result, options);
+    expect(layout.blocks[0]?.text).toBe(full);
+    expect(layout.blocks.filter((block) => block.text.includes('Older Adults'))).toHaveLength(1);
+    expect(layout.skipped).toEqual([]);
+  });
+
+  it('B1: merges a scientific title above body when the tail exceeds 6 words', () => {
+    const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+    const title = [
+      region('mRNA vaccines are effective', quad(45, 60, 250, 20)),
+      region('In Older Adults with Type 2 Diabetes', quad(305, 60, 250, 20)),
+    ];
+    const bodyRows = [
+      [
+        region('Left column prose for the first printed row.', quad(45, 140, 250, 20)),
+        region('Right column prose on the same printed row.', quad(305, 140, 250, 20)),
+      ],
+      [
+        region('A second left column line proving two columns.', quad(45, 170, 250, 20)),
+        region('A second right column line proving columns.', quad(305, 170, 250, 20)),
+      ],
+    ];
+    const result: OcrResult = {
+      regions: [...title, ...bodyRows.flat()],
+      lines: [readingLine(title), ...bodyRows.map(readingLine)],
+      text: '',
+    };
+    const full = 'mRNA vaccines are effective In Older Adults with Type 2 Diabetes';
+
+    const lines = ocrResultToTextLines(result, options);
+    expect(lines[0]?.text).toBe(full);
+    expect(lines[0]?.columnHint).toBeUndefined();
+    expect(
+      lines.filter(
+        (line) =>
+          line.columnHint === 0 &&
+          line.text.startsWith('mRNA vaccines are effective') &&
+          line.text !== full,
+      ),
+    ).toHaveLength(0);
+
+    const layout = ocrResultToPageLayout(result, options);
+    expect(layout.blocks[0]?.text).toBe(full);
+    expect(layout.blocks.filter((block) => block.text.includes('Older Adults'))).toHaveLength(1);
+    expect(layout.skipped).toEqual([]);
+  });
+
   it('B2: keeps a sentence-case mRNA title whole above two-column body', () => {
     const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
     const bodyRows = [
@@ -650,6 +724,124 @@ describe('latest DSH review blockers', () => {
       ],
       pageWidth,
     );
+    expect(metrics.crossColumnCovers).toBe(0);
+  });
+
+  it('B5: a centred two-piece title with a 20pt gap is not a cross-column cover', () => {
+    // The B1 title merge keeps both halves on one line. Their 20pt gap sits at the page
+    // centre, so a gutter-width heuristic alone mistakes the title for a fused column row.
+    const pageWidth = 595;
+    const block: LayoutBlock = {
+      box: { x: 120, y: 60, width: 340, height: 24 },
+      room: { x: 120, y: 60, width: 340, height: 24 },
+      lines: [lineFrom([piece('Short Paper', 120, 72, 160), piece('Title Here', 300, 72, 160)])],
+      text: 'Short Paper Title Here',
+      role: 'prose',
+      fontSize: 12,
+      lineHeight: 1.2,
+      align: 'left',
+      bold: false,
+      italic: false,
+      column: -1,
+      advance: 340,
+      writing: 0,
+    };
+    const fit = {
+      fits: true as const,
+      fontSize: 12,
+      lineHeight: 14,
+      lines: ['短い論文タイトル'],
+      height: 24,
+      grown: false,
+      width: 340,
+    };
+    const metrics = paintIntegrityMetrics(
+      [
+        {
+          block,
+          translation: '短い論文タイトル',
+          fit,
+          paint: true,
+          drawn: { x: 120, y: 60, width: 340, height: 24 },
+          overflow: false,
+        },
+      ],
+      pageWidth,
+    );
+    expect(metrics.crossColumnCovers).toBe(0);
+  });
+
+  it('B5: an OCR-merged centred title keeps the spanning exemption in page metrics', () => {
+    const options = { pageIndex: 0, pageWidth: 595, pageHeight: 800 };
+    const title = [
+      region('Short Paper', quad(120, 60, 160, 20)),
+      region('Title Here', quad(300, 60, 160, 20)),
+    ];
+    const bodyRows = [
+      [
+        region('Left column prose for the first printed row.', quad(45, 140, 240, 20)),
+        region('Right column prose on the same printed row.', quad(305, 140, 240, 20)),
+      ],
+      [
+        region('A second left column line proving two columns.', quad(45, 170, 240, 20)),
+        region('A second right column line proving columns.', quad(305, 170, 240, 20)),
+      ],
+    ];
+    const result: OcrResult = {
+      regions: [...title, ...bodyRows.flat()],
+      lines: [readingLine(title), ...bodyRows.map(readingLine)],
+      text: '',
+    };
+    const layout = ocrResultToPageLayout(result, options);
+    expect(layout.blocks[0]?.text).toBe('Short Paper Title Here');
+    expect(layout.blocks[0]?.column).toBe(-1);
+
+    const placed = placePage({
+      layout,
+      translationOf: (block) => stubExpand(block.text),
+      target: 'ja',
+      measure: (_block, text, size) => measure(text, size),
+      pageHeight: 800,
+    });
+    const metrics = pageMetrics(layout, placed, { x: 0, y: 0, width: 595, height: 800 });
+    expect(metrics.crossColumnCovers).toBe(0);
+  });
+
+  it('B5: a long OCR-merged title above body is not a cross-column cover', () => {
+    const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+    const title = [
+      region('mRNA vaccines are highly effective and generally safe for', quad(45, 60, 250, 20)),
+      region('Older Adults', quad(305, 60, 250, 20)),
+    ];
+    const bodyRows = [
+      [
+        region('Left column prose for the first printed row.', quad(45, 140, 250, 20)),
+        region('Right column prose on the same printed row.', quad(305, 140, 250, 20)),
+      ],
+      [
+        region('A second left column line proving two columns.', quad(45, 170, 250, 20)),
+        region('A second right column line proving columns.', quad(305, 170, 250, 20)),
+      ],
+    ];
+    const result: OcrResult = {
+      regions: [...title, ...bodyRows.flat()],
+      lines: [readingLine(title), ...bodyRows.map(readingLine)],
+      text: '',
+    };
+    const layout = ocrResultToPageLayout(result, options);
+    expect(layout.blocks[0]?.text).toBe(
+      'mRNA vaccines are highly effective and generally safe for Older Adults',
+    );
+    expect(layout.blocks[0]?.titleRow).toBe(true);
+
+    const placed = placePage({
+      layout,
+      translationOf: (block) => stubExpand(block.text),
+      target: 'ja',
+      measure: (_block, text, size) => measure(text, size),
+      pageHeight: 800,
+    });
+    const metrics = pageMetrics(layout, placed, { x: 0, y: 0, width: 600, height: 800 });
     expect(metrics.crossColumnCovers).toBe(0);
   });
 

@@ -61,6 +61,11 @@ export interface LayoutBlock {
   /** Reading column this block belongs to, counted from the left of its region. */
   column: number;
   /**
+   * True when an OCR source row was kept whole as one spanning title line. Its central word gap
+   * is title spacing, not a fused two-column gutter, so paint integrity keeps the span exemption.
+   */
+  titleRow?: boolean | undefined;
+  /**
    * Length of the source along its writing direction, in points.
    *
    * After `/Rotate 90` or `/Rotate 270` the axis-aligned box has `width` equal to the em and

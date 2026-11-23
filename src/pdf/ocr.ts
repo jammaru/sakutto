@@ -66,6 +66,8 @@ export interface OcrTextLine extends TextLine {
   pieces: OcrTextPiece[];
   /** Column of a line emitted by a gutter split; geometry decides when it is absent. */
   readonly columnHint?: number | undefined;
+  /** True when the row was kept whole as one spanning title, not split into body columns. */
+  readonly titleRow?: boolean | undefined;
 }
 
 /** LayoutBlock is structurally extended so PdfSession can consume it without changes. */
@@ -319,7 +321,11 @@ function titleCaseTail(words: readonly string[]): boolean {
 /** OCR titles that start with a short scientific token (mRNA, eDNA, …), not body prose. */
 const SCIENTIFIC_TITLE_PREFIX = /^(?:mRNA|iOS|eBay|DNA|RNA|eDNA|CRISPR|Node\.js|U\.S\.)\b/iu;
 
-function scientificShortTitleFirstPiece(first: string, second: string): boolean {
+function scientificShortTitleFirstPiece(
+  first: string,
+  second: string,
+  relaxedWordCaps = false,
+): boolean {
   if (!SCIENTIFIC_TITLE_PREFIX.test(first)) {
     return false;
   }
@@ -327,8 +333,12 @@ function scientificShortTitleFirstPiece(first: string, second: string): boolean 
   const tail = second.split(/\s+/u).filter(Boolean);
   const firstWords = first.split(/\s+/u).filter(Boolean).length;
   // A scientific prefix plus a copula can run past four words in a real title. Allow that only
-  // when the other half looks like a title fragment rather than lowercase body prose.
-  if (firstWords > 8 || (firstWords > 4 && !titleCaseTail(tail))) return false;
+  // when the other half looks like a title fragment rather than lowercase body prose. Once the
+  // page proves the row sits above every two-column body row, the halves are a title regardless
+  // of these conservative word caps: a 9-word first half or a 7-word tail is still one title.
+  if (!relaxedWordCaps && (firstWords > 8 || (firstWords > 4 && !titleCaseTail(tail)))) {
+    return false;
+  }
   if (/\b(?:expression|levels|samples|sequencing|reveal|collected)\b/iu.test(first)) {
     return false;
   }
@@ -339,7 +349,7 @@ function scientificShortTitleFirstPiece(first: string, second: string): boolean 
   );
   if (!/\b[a-z]{2,}/u.test(afterPrefix)) return true;
   if (SCIENTIFIC_BODY_VERB.test(afterPrefix)) return false;
-  if (tail.length === 0 || tail.length > 6) return false;
+  if (tail.length === 0 || (!relaxedWordCaps && tail.length > 6)) return false;
   // A short second fragment alone is not a title: "Severe disease in older adults" is the
   // sentence continuing after the prefix, while "In Older Adults" is a real title tail.
   return !tail
@@ -356,7 +366,11 @@ function colonNotationBodyRow(wholeText: string, firstPiece: string): boolean {
   return /:\s*[A-Z]\s*$/u.test(firstPiece.trim());
 }
 
-function onePrintedTitleRow(pieces: readonly OcrTextPiece[], pageWidth: number): boolean {
+function onePrintedTitleRow(
+  pieces: readonly OcrTextPiece[],
+  pageWidth: number,
+  relaxedTitleCaps = false,
+): boolean {
   if (pieces.length !== 2 || !pieces.some((piece) => piece.box.width >= pageWidth * 0.12)) {
     return false;
   }
@@ -374,7 +388,7 @@ function onePrintedTitleRow(pieces: readonly OcrTextPiece[], pageWidth: number):
   const second = ordered[1]?.text.trim() ?? '';
   const startsTitle =
     /^(\p{Lu}|\d|[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}])/u.test(text) ||
-    scientificShortTitleFirstPiece(first, second);
+    scientificShortTitleFirstPiece(first, second, relaxedTitleCaps);
   if (!startsTitle) return false;
   // Body columns often start the right piece with a lowercase word; titles rarely do.
   if (second.length > 0 && /^[a-z]/.test(second)) return false;
@@ -664,6 +678,7 @@ export function ocrResultToTextLines(
     const scientificTitleRow = scientificShortTitleFirstPiece(
       firstPieceText,
       orderedPieces[1]?.text.trim() ?? '',
+      titleAboveBody,
     );
     // A scientific prefix that fails the title check is body prose even when OCR capitalised the
     // row; the generic full-width-title heuristic must not rescue it. A row above every body
@@ -707,7 +722,7 @@ export function ocrResultToTextLines(
     // A detector that emits one quad per printed line can reduce a full-width sentence or a
     // long title to just two pieces; the word-level guards above cannot see those, so their
     // own text structure decides. Page-wide column evidence still wins over that text guess.
-    const printedTitleRow = onePrintedTitleRow(pieces, resolved.pageWidth);
+    const printedTitleRow = onePrintedTitleRow(pieces, resolved.pageWidth, titleAboveBody);
     const colonTitleRow = twoPieceColonTitle(pieces, resolved.pageWidth, wholeText);
     const titleLikeRow = printedTitleRow && headingWholeLine && !scientificBodyRow;
     // A short centred title can have a word gap far wider than a normal word space. A long
@@ -775,11 +790,23 @@ export function ocrResultToTextLines(
       gutterGap >= MIN_COLUMN_GUTTER &&
       gutterEvidence &&
       (narrowTwoColumnLine || wideTwoColumnLine || shortHeadingBesideBody || wideLineRegionMerge);
-    const pushLine = (selected: OcrTextPiece[], id: string, columnHint?: number): void => {
+    const pushLine = (
+      selected: OcrTextPiece[],
+      id: string,
+      columnHint?: number,
+      titleRow = false,
+    ): void => {
       if (selected.length === 0) return;
       const line = lineFrom(selected);
       const text = selected.map((piece) => piece.text).join(pieceVertical ? '' : ' ');
-      output.push({ ...line, text, id, pieces: selected, columnHint });
+      output.push({
+        ...line,
+        text,
+        id,
+        pieces: selected,
+        columnHint,
+        titleRow: titleRow || undefined,
+      });
     };
     if (resolved.pageWidth > 0 && !pieceVertical && lineWidth >= resolved.pageWidth * 0.82) {
       const rows = splitMergedBodyLine(pieces, resolved.pageWidth);
@@ -794,7 +821,9 @@ export function ocrResultToTextLines(
       pushLine(rightPieces, lineId + ':right', 1);
       continue;
     }
-    pushLine(pieces, lineId);
+    // Mark rows the title heuristics kept whole. Their centre gap is title whitespace, so the
+    // paint-integrity metric must not re-read one as a fused pair of body columns later.
+    pushLine(pieces, lineId, undefined, twoPieceTitleMerge || titleWordGap);
   }
   return twoColumnOrder(output, resolved.pageWidth, columnContext(output, resolved.pageWidth));
 }
@@ -832,7 +861,7 @@ function twoColumnBodyRows(
     }
     if (pieces.length < 2 || pieces.some((piece) => piece.displayed === 90)) continue;
     if (isCentredHeadingRow(pieces, resolved.pageWidth)) continue;
-    if (onePrintedTitleRow(pieces, resolved.pageWidth)) continue;
+    if (onePrintedTitleRow(pieces, resolved.pageWidth, true)) continue;
     if (singleSentenceRow(pieces, resolved.pageWidth)) continue;
     const { left, right, leftEnd, rightStart } = splitAtGutter(pieces, resolved.pageWidth);
     if (left.length === 0 || right.length === 0) continue;
@@ -1341,6 +1370,7 @@ export function ocrLinesToLayoutBlocks(
       italic: group.lines.every(
         (line) => line.pieces.length > 0 && line.pieces.every((piece) => piece.italic),
       ),
+      titleRow: group.lines.every((line) => line.titleRow === true) || undefined,
       // Keep -1 for spanning lines. Folding them into column 0 would let a full-width
       // title widen the left column's room across the gutter and clip its translation.
       column: group.column,

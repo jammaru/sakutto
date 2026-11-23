@@ -409,6 +409,38 @@ export function blockSpansGutter(
 }
 
 /**
+ * A short, centred one-line title described without OCR's explicit title marker.
+ *
+ * Native layout and hand-built blocks can only be recognised from geometry: a fused body row
+ * fills both column measures, while a centred title is a narrow line whose middle gap is word
+ * spacing. Requiring both the narrow measure and title-like text keeps a genuine fused row a
+ * cross-column cover. Longer OCR titles carry the titleRow marker instead.
+ */
+function spanningTitleRow(block: LayoutBlock, pageWidth: number): boolean {
+  if (block.column > 0 || block.lines.length !== 1) return false;
+  const pieces = [...(block.lines[0]?.pieces ?? [])].sort((a, b) => a.box.x - b.box.x);
+  if (pieces.length !== 2) return false;
+  const left = pieces[0]!;
+  const right = pieces[1]!;
+  if (
+    Math.abs(left.box.y - right.box.y) >
+    Math.max(2, Math.min(left.box.height, right.box.height) * 0.3)
+  ) {
+    return false;
+  }
+  const text = block.text.trim();
+  if (text.length === 0 || text.length > 48 || /[.!?。]$/u.test(text)) return false;
+  const words = text.split(/\s+/u).filter(Boolean);
+  if (words.length < 2 || words.length > 8 || !/^\p{Lu}/u.test(text)) return false;
+  const lineWidth =
+    Math.max(left.box.x + left.box.width, right.box.x + right.box.width) -
+    Math.min(left.box.x, right.box.x);
+  if (lineWidth >= pageWidth * 0.7) return false;
+  const gapCentre = (left.box.x + left.box.width + right.box.x) / 2;
+  return Math.abs(gapCentre - pageWidth / 2) <= pageWidth * 0.12;
+}
+
+/**
  * True when one source line holds text from both columns.
  *
  * A title or byline also spans the page, but its word gaps are ordinary spacing and its pieces
@@ -418,6 +450,9 @@ export function blockSpansGutter(
  */
 function blockMergesColumns(block: LayoutBlock, pageWidth: number): boolean {
   if (pageWidth <= 0) return false;
+  // OCR already merged a title above the body into one spanning line: its centre gap is title
+  // whitespace, so it must never be re-read as a fused pair of body columns here.
+  if (block.titleRow || spanningTitleRow(block, pageWidth)) return false;
   // A heading or caption that spans the page is usually a full-width title, not a row of
   // two columns fused together. OCR splits such titles into two text regions with a word
   // gap near the gutter, so they need a wider gap than prose before counting as a merge.
