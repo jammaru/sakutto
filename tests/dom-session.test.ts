@@ -755,6 +755,194 @@ describe('page session', () => {
     expect(lead.textContent).toBe('最初の節。次の節。');
   });
 
+  it('writes the first chunk of a visible heading without a paint frame or a clause', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML =
+      '<main><h1 id="title">What the tide gauges recorded during the outage</h1></main>';
+    const title = document.querySelector('#title');
+    if (!title) throw new Error('missing title');
+    title.getBoundingClientRect = () => new DOMRect(0, 0, 300, 40);
+    const frames: (() => void)[] = [];
+    const reserve = vi.spyOn(Revealer.prototype, 'reserve');
+    const offer = vi.spyOn(Revealer.prototype, 'offer');
+    let afterFirst: string | null = null;
+    const session = new PageSession(document, {
+      engine: engineOf(async function* (segments) {
+        for (const segment of segments) {
+          // No terminator and no clause mark: the old sentence path held this chunk
+          // until the final, which made the page's first paint wait for the heading.
+          yield { id: segment.id, textDelta: '停電中に潮位計が記録した', engine: 'plamo' as const };
+          afterFirst = title.textContent ?? '';
+          yield { id: segment.id, final: '停電中に潮位計が記録した値。', engine: 'plamo' as const };
+        }
+      }),
+      labels,
+      preferences: preferences({ reveal: 'sentence' }),
+      scheduleFrame: (callback) => {
+        frames.push(callback);
+      },
+      debounceMs: 20,
+    });
+    sessions.push(session);
+
+    await session.translate();
+    await vi.waitFor(() => {
+      expect(afterFirst).not.toBeNull();
+    });
+    expect(afterFirst).toBe('停電中に潮位計が記録した');
+    expect(frames).toHaveLength(0);
+    expect(reserve).toHaveBeenCalledWith(title);
+    expect(offer.mock.calls.some(([call]) => call.block === title)).toBe(false);
+
+    let idle = false;
+    const done = session.whenIdle().then(() => {
+      idle = true;
+    });
+    for (let attempt = 0; attempt < 30 && !idle; attempt += 1) {
+      while (frames.length > 0) frames.shift()?.();
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    await done;
+    expect(title.textContent).toBe('停電中に潮位計が記録した値。');
+  });
+
+  it('paints the first chunk and first clause of a split long paragraph without a frame', async () => {
+    document.documentElement.lang = 'en';
+    const long =
+      'When the survey closed the team expected a few hundred replies and received slightly more than four thousand, which was more than enough to make the original plan of reading every answer by hand impossible. '.repeat(
+        8,
+      );
+    document.body.innerHTML =
+      '<h1 id="title">A single paragraph about the survey</h1>' +
+      '<p id="byline">Methods notebook / 24 October</p>' +
+      '<p id="long">' +
+      long +
+      '</p>';
+    for (const block of document.querySelectorAll('h1, p')) {
+      block.getBoundingClientRect = () => new DOMRect(0, 0, 300, 40);
+    }
+    const lead = document.querySelector('#long');
+    if (!lead) throw new Error('missing long paragraph');
+    const source = lead.textContent ?? '';
+    const pieces: string[][] = [];
+    const reserve = vi.spyOn(Revealer.prototype, 'reserve');
+    const offer = vi.spyOn(Revealer.prototype, 'offer');
+    const frames: (() => void)[] = [];
+    const shown: string[] = [];
+    const session = new PageSession(document, {
+      engine: engineOf(async function* (segments) {
+        pieces.push(segments.map((segment) => segment.text));
+        for (const segment of segments) {
+          if (!segment.text.includes('When the survey closed')) {
+            yield { id: segment.id, final: '見出し', engine: 'plamo' as const };
+            continue;
+          }
+          yield { id: segment.id, textDelta: '調査が閉じたとき', engine: 'plamo' as const };
+          shown.push(lead.textContent ?? '');
+          yield { id: segment.id, textDelta: '、チームは数百件', engine: 'plamo' as const };
+          shown.push(lead.textContent ?? '');
+          yield { id: segment.id, textDelta: 'の回答を予想していた、', engine: 'plamo' as const };
+          shown.push(lead.textContent ?? '');
+          yield { id: segment.id, final: '訳:長い最初の文。次の文。', engine: 'plamo' as const };
+        }
+      }),
+      labels,
+      preferences: preferences({ reveal: 'sentence' }),
+      scheduleFrame: (callback) => {
+        frames.push(callback);
+      },
+      debounceMs: 20,
+    });
+    sessions.push(session);
+
+    await session.translate();
+    await vi.waitFor(() => {
+      expect(shown.length).toBeGreaterThan(0);
+    });
+    expect(pieces.flat().length).toBeGreaterThan(1);
+    // All three snapshots are read in the decode turn, before any queued frame runs:
+    // the first chunk paints at once, the next one waits for a clause, and the clause
+    // paints at once. No paint frame or flush timer stands before the first two words.
+    expect(shown.slice(0, 3)).toEqual([
+      '調査が閉じたとき',
+      '調査が閉じたとき',
+      '調査が閉じたとき、チームは数百件の回答を予想していた、',
+    ]);
+    expect(reserve).toHaveBeenCalledWith(lead);
+    expect(offer.mock.calls.some(([call]) => call.block === lead)).toBe(false);
+
+    let idle = false;
+    const done = session.whenIdle().then(() => {
+      idle = true;
+    });
+    for (let attempt = 0; attempt < 30 && !idle; attempt += 1) {
+      while (frames.length > 0) frames.shift()?.();
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    await done;
+    expect(lead.textContent).toContain('訳:長い最初の文。次の文。');
+    expect(document.querySelector('#long')?.textContent).not.toBe(source);
+  });
+
+  it('writes the first chunk of a late-mounted visible paragraph without a frame', async () => {
+    document.documentElement.lang = 'en';
+    document.body.innerHTML = '<main><p id="early">The early article body is short.</p></main>';
+    const frames: (() => void)[] = [];
+    let lateAfterFirst: string | null = null;
+    const session = new PageSession(document, {
+      engine: engineOf(async function* (segments) {
+        for (const segment of segments) {
+          yield { id: segment.id, textDelta: '最初の節、', engine: 'plamo' as const };
+          if (segment.text.includes('late')) {
+            lateAfterFirst = document.querySelector('#late')?.textContent ?? null;
+          }
+          yield { id: segment.id, final: `訳:${segment.text}`, engine: 'plamo' as const };
+        }
+      }),
+      labels,
+      preferences: preferences({ reveal: 'sentence' }),
+      scheduleFrame: (callback) => {
+        frames.push(callback);
+      },
+      debounceMs: 20,
+    });
+    sessions.push(session);
+
+    await session.translate();
+    let idle = false;
+    let done = session.whenIdle().then(() => {
+      idle = true;
+    });
+    for (let attempt = 0; attempt < 30 && !idle; attempt += 1) {
+      while (frames.length > 0) frames.shift()?.();
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    await done;
+
+    const late = document.createElement('p');
+    late.id = 'late';
+    late.textContent = 'A late paragraph mounted after the first paint of the article.';
+    late.getBoundingClientRect = () => new DOMRect(0, 0, 300, 40);
+    document.querySelector('main')?.append(late);
+
+    await vi.waitFor(() => {
+      expect(lateAfterFirst).not.toBeNull();
+    });
+    expect(lateAfterFirst).toBe('最初の節、');
+    expect(frames).toHaveLength(0);
+
+    idle = false;
+    done = session.whenIdle().then(() => {
+      idle = true;
+    });
+    for (let attempt = 0; attempt < 30 && !idle; attempt += 1) {
+      while (frames.length > 0) frames.shift()?.();
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    await done;
+    expect(late.textContent).toContain('訳:');
+  });
+
   it('requests and paints the main paragraph before model-card tags and chrome', async () => {
     document.documentElement.lang = 'en';
     document.body.innerHTML =
@@ -1005,9 +1193,14 @@ describe('page session', () => {
             yield { id: segment.id, final: 'モデル', engine: 'plamo' as const };
             continue;
           }
-          yield { id: segment.id, textDelta: '最初の節、', engine: 'plamo' as const };
           const target = name === 'subtitle' ? subtitle : name === 'p1' ? p1 : p2;
+          yield { id: segment.id, textDelta: '最初の節、', engine: 'plamo' as const };
           if (!(name in snapshots)) snapshots[name] = target.textContent ?? '';
+          if (name === 'p2') {
+            // A later unterminated delta must still wait, even after the first chunk.
+            yield { id: segment.id, textDelta: 'まだ途中', engine: 'plamo' as const };
+            expect(p2.textContent).toBe('最初の節、');
+          }
           yield { id: segment.id, final: '訳:最初の節。次の節。', engine: 'plamo' as const };
         }
       }),
@@ -1018,9 +1211,10 @@ describe('page session', () => {
     await session.whenIdle();
 
     expect(snapshots['subtitle']).toBe('最初の節、');
-    // The third visible body block has no fast-path slot: it keeps the source until a
-    // whole sentence has decoded, as every below-fold block does.
-    expect(snapshots['p2']).not.toBe('最初の節、');
+    // The third visible body block has no fast-path slot, but its first decoded chunk
+    // is the page's first painted word on a page with a slow lead: it goes straight to
+    // the page. Only the text after that first chunk stays in sentence discipline.
+    expect(snapshots['p2']).toBe('最初の節、');
     expect(subtitle.textContent).toBe('訳:最初の節。次の節。');
     expect(p1.textContent).toBe('訳:最初の節。次の節。');
     expect(p2.textContent).toBe('訳:最初の節。次の節。');

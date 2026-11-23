@@ -67,23 +67,23 @@
     "variant": "sentence",
     "page": "long-article",
     "firstVisibleMs": 125,
-    "fullPageMs": 1775,
+    "fullPageMs": 1777,
     "cls": 0.0321,
     "layoutShifts": 6,
-    "requestMs": 12,
-    "ttfbMs": 22,
-    "paintMs": 14
+    "requestMs": 13,
+    "ttfbMs": 21,
+    "paintMs": 1
   },
   {
     "variant": "sentence",
     "page": "first-paragraph-then-long-tail",
     "firstVisibleMs": 100,
-    "fullPageMs": 1400,
+    "fullPageMs": 1425,
     "cls": 0.0318,
     "layoutShifts": 4,
-    "requestMs": 9,
-    "ttfbMs": 22,
-    "paintMs": 4
+    "requestMs": 11,
+    "ttfbMs": 21,
+    "paintMs": 1
   },
   {
     "variant": "sentence",
@@ -93,19 +93,19 @@
     "cls": 0.0336,
     "layoutShifts": 7,
     "requestMs": 9,
-    "ttfbMs": 20,
-    "paintMs": 11
+    "ttfbMs": 14,
+    "paintMs": 1
   },
   {
     "variant": "sentence",
     "page": "mixed-ui",
-    "firstVisibleMs": 100,
+    "firstVisibleMs": 125,
     "fullPageMs": 975,
     "cls": 0.0318,
     "layoutShifts": 6,
-    "requestMs": 9,
-    "ttfbMs": 20,
-    "paintMs": 12
+    "requestMs": 8,
+    "ttfbMs": 21,
+    "paintMs": 1
   },
   {
     "variant": "sentence",
@@ -116,28 +116,39 @@
     "layoutShifts": 1,
     "requestMs": 6,
     "ttfbMs": 18,
-    "paintMs": 11
+    "paintMs": 1
   },
   {
     "variant": "sentence",
     "page": "model-card-sidebar",
-    "firstVisibleMs": 100,
+    "firstVisibleMs": 125,
     "fullPageMs": 1125,
     "cls": 0.0325,
     "layoutShifts": 11,
     "requestMs": 11,
     "ttfbMs": 20,
-    "paintMs": 11
+    "paintMs": 1
   },
   {
     "variant": "sentence",
     "page": "headline-in-header",
     "firstVisibleMs": 150,
-    "fullPageMs": 1101,
+    "fullPageMs": 1125,
     "cls": 0.0322,
     "layoutShifts": 6,
-    "requestMs": 12,
-    "ttfbMs": 17,
-    "paintMs": 41
+    "requestMs": 13,
+    "ttfbMs": 19,
+    "paintMs": 37
+  },
+  {
+    "variant": "sentence",
+    "page": "late-mount-spa",
+    "firstVisibleMs": 125,
+    "fullPageMs": 1625,
+    "cls": 0.0317,
+    "layoutShifts": 5,
+    "requestMs": 9,
+    "ttfbMs": 18,
+    "paintMs": 1
   }
 ]

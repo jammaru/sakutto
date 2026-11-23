@@ -31,6 +31,7 @@ const PAGES = [
   'single-long-paragraph',
   'model-card-sidebar',
   'headline-in-header',
+  'late-mount-spa',
 ] as const;
 
 interface Row {

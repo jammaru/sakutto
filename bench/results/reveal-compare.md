@@ -13,10 +13,11 @@ Mock pace: 12 ms prefill, 0.35 ms per character, 3 deltas. Sentence rows are med
 | first-paragraph-then-long-tail | smooth   |           150 |      1400 | 0.0317 |             3 |
 | many-cards                     | smooth   |           150 |      1325 | 0.0336 |             7 |
 | mixed-ui                       | smooth   |           175 |      1075 | 0.0318 |             6 |
-| long-article                   | sentence |           125 |      1775 | 0.0321 |             6 |
-| first-paragraph-then-long-tail | sentence |           100 |      1400 | 0.0318 |             4 |
+| long-article                   | sentence |           125 |      1777 | 0.0321 |             6 |
+| first-paragraph-then-long-tail | sentence |           100 |      1425 | 0.0318 |             4 |
 | many-cards                     | sentence |           100 |      1225 | 0.0336 |             7 |
-| mixed-ui                       | sentence |           100 |       975 | 0.0318 |             6 |
+| mixed-ui                       | sentence |           125 |       975 | 0.0318 |             6 |
 | single-long-paragraph          | sentence |           150 |      1125 | 0.0316 |             1 |
-| model-card-sidebar             | sentence |           100 |      1125 | 0.0325 |            11 |
-| headline-in-header             | sentence |           150 |      1101 | 0.0322 |             6 |
+| model-card-sidebar             | sentence |           125 |      1125 | 0.0325 |            11 |
+| headline-in-header             | sentence |           150 |      1125 | 0.0322 |             6 |
+| late-mount-spa                 | sentence |           125 |      1625 | 0.0317 |             5 |

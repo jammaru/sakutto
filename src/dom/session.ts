@@ -1645,10 +1645,13 @@ export class PageSession {
         // unterminated text on slow and below-fold blocks: without this mark a page
         // edit in that window is invisible to onMutations and the stale final lands.
         this.claim(item, item.model);
-        // The source is still on the page here, so measure its box once and hold that
-        // height before the first token arrives. On screen, sentence mode then writes
-        // tokens as they decode without moving whatever sits under the block.
-        if (this.prefs.reveal === 'sentence' && item.band === 'visible') {
+        // The source is still on the page here, so measure the blocks that will write
+        // a decoded chunk at once and hold their height before the first token arrives.
+        // Nothing under them may move while the words come in. Blocks that keep their
+        // source until a whole sentence reserve just before that write instead: a page
+        // of labels and sidebar chrome should not hold a queue of layout reads in front
+        // of the first request.
+        if (this.prefs.reveal === 'sentence' && this.firstChunkImmediate(item)) {
           this.revealer.reserve(item.model.block);
         }
       }
@@ -1729,6 +1732,7 @@ export class PageSession {
         }
         if (chunk.engine) item.engine = chunk.engine;
         if (chunk.textDelta !== undefined) {
+          const firstChunk = item.firstPieceAt === null;
           const before = chunk.restart === true ? '' : (item.partText[index] ?? '');
           item.partText[index] = before + chunk.textDelta;
           if (item.firstPieceAt === null && chunk.textDelta.length > 0) {
@@ -1750,12 +1754,18 @@ export class PageSession {
           }
           // Text that is kept back needs no frame.
           if (this.holdsBack(item)) this.noteLiveRate();
-          else if (this.prefs.reveal === 'sentence' && this.fastVisible(item)) {
+          else if (
+            this.prefs.reveal === 'sentence' &&
+            (this.fastVisible(item) || (firstChunk && this.firstChunkImmediate(item)))
+          ) {
             // The first visible word must not wait for a paint frame: on a busy page the
-            // frame can be far behind the 40 ms decode budget. Write into the reserved box
-            // in this turn. paintVisibleTokens still holds every later partial to a clause
-            // or budget, and arms the flush timer from the write it just made, so the timer
-            // fires at the deadline rather than one frame after it.
+            // frame can be far behind the 40 ms decode budget. Write in this turn, both
+            // for a fast block and for the first chunk of any other block on the screen.
+            // A heading or a third paragraph used to hold that chunk until its sentence
+            // ended, which made the page's first paint late and bimodal. paintVisibleTokens
+            // still holds later partials to a clause or budget, and arms the flush timer
+            // from the write it just made, so the timer fires at the deadline. Other
+            // visible blocks go back to sentence discipline after their first chunk.
             this.paint(item, true);
             this.noteTiming();
             this.noteLiveRate();
@@ -2276,6 +2286,21 @@ export class PageSession {
   }
 
   /**
+   * Whether this block's first decoded chunk goes straight to the page. Body copy and
+   * headings are what a reader meets on arrival; a tab, a tag or a sidebar label keeps
+   * its source until a whole sentence, because writing a half-word there moves the
+   * labels beside it without helping the first painted paragraph.
+   */
+  private firstChunkImmediate(item: Live): boolean {
+    if (item.role !== 'page' || item.band !== 'visible') return false;
+    // A title in a page header sits beside a byline and a date in a flex line. Writing
+    // half of it there moves those labels sideways; that fixture's first paragraph is
+    // already on the fast path, so the heading keeps its source until a sentence ends.
+    if (item.heading && item.model?.block.closest('header')) return false;
+    return item.heading || item.bodyProse;
+  }
+
+  /**
    * Writes partial text decoded so far into a visible block, without waiting for its first
    * sentence to end. The height was reserved when the request started, so the text under
    * the block stays where it was. This is called from a paint frame, the same frame stream
@@ -2349,6 +2374,14 @@ export class PageSession {
    * chunk has been dealt with.
    */
   private paintSentences(item: Live, model: SegmentModel, bilingual: boolean): boolean {
+    // The first decoded chunk of an on-screen block is the page's first painted word
+    // on pages whose first sentence is long. It goes straight to the reserved box,
+    // whether or not the chunk happens to end on a sentence. Waiting for a terminator,
+    // a clause, a paint frame or a reveal offer made that word late. Later text of
+    // this block goes back to sentence discipline.
+    if (item.sentenceShownParts === undefined && this.firstChunkImmediate(item)) {
+      if (this.writeFirstChunk(item, model, bilingual)) return true;
+    }
     // Split each piece on its own: a terminator in a later piece may not close an
     // unfinished sentence in an earlier one, and a piece that has not started yet may
     // not be skipped. Pieces are translated in order and must appear in that order.
@@ -2389,6 +2422,28 @@ export class PageSession {
         apply: write,
       });
     }
+    return true;
+  }
+
+  /**
+   * Writes the decoded prefix of a visible block before its first sentence ends. The
+   * source is measured and its height held first, so a shorter translation cannot move
+   * what is under the block while the reader watches the words arrive. The high-water
+   * marks are the raw prefixes of this write, so the next finished sentence, which
+   * grows out of the same text, replaces them. Returns false when there is no text yet.
+   */
+  private writeFirstChunk(item: Live, model: SegmentModel, bilingual: boolean): boolean {
+    const parts = visiblePartialParts(item);
+    const advanced = extendShownParts(parts, item.sentenceShownParts);
+    if (advanced === null) return false;
+    const text = joinTranslatedSentences(advanced.parts, this.prefs.targetLanguage);
+    if (text.trim().length === 0) return false;
+    if (item.sentenceShownParts === undefined) {
+      this.claim(item, model);
+      this.revealer.reserve(model.block);
+    }
+    item.sentenceShownParts = advanced.shown;
+    this.write(item, model, text, true, bilingual);
     return true;
   }
 
