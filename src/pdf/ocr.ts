@@ -383,9 +383,7 @@ function positiveTopPageTitle(pieces: readonly OcrTextPiece[], pageWidth: number
   }
   if (secondWords.length >= 2) {
     if (SCIENTIFIC_BODY_VERB.test(first)) return false;
-    return (
-      titleCaseTail(secondWords) && scientificShortTitleFirstPiece(first, second, true, false)
-    );
+    return titleCaseTail(secondWords) && scientificShortTitleFirstPiece(first, second, true, false);
   }
   return false;
 }

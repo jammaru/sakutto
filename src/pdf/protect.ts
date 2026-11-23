@@ -86,9 +86,7 @@ const CLAUSE_BOUNDARY = /[.!?;:。、]$/u;
 const CLAUSE_OPENER = /(?:[(（「『“‘•\-—]\s*)$/u;
 function startsClause(preceding: string): boolean {
   const before = preceding.trimEnd();
-  return (
-    before.length === 0 || CLAUSE_BOUNDARY.test(before) || CLAUSE_OPENER.test(before)
-  );
+  return before.length === 0 || CLAUSE_BOUNDARY.test(before) || CLAUSE_OPENER.test(before);
 }
 const IDENTIFIER_OPERATOR = /^\s*(?:\p{Lu}[\p{N}_^]{0,3}\s+)?[∈×÷]\s+\S/u;
 /**

@@ -1840,23 +1840,23 @@ describe('93666bb review blockers: CJK two-column body rows', () => {
       right: 'Mice and rats',
       rightWidth: 250,
     },
-  {
-    name: 'short capitalised right fragment',
-    right: 'Mice',
-    rightWidth: 45,
-  },
-  {
-    name: 'title-cased two-word right fragment',
-    right: 'Older Adults',
-    rightWidth: 90,
-  },
-  {
-    name: 'mRNA prefix with one-word right fragment',
-    left: 'mRNA vaccines reduce',
-    right: 'Mice',
-    rightWidth: 45,
-  },
-])('b4129df top row: splits English body above corroborated columns ($name)', (scenario) => {
+    {
+      name: 'short capitalised right fragment',
+      right: 'Mice',
+      rightWidth: 45,
+    },
+    {
+      name: 'title-cased two-word right fragment',
+      right: 'Older Adults',
+      rightWidth: 90,
+    },
+    {
+      name: 'mRNA prefix with one-word right fragment',
+      left: 'mRNA vaccines reduce',
+      right: 'Mice',
+      rightWidth: 45,
+    },
+  ])('b4129df top row: splits English body above corroborated columns ($name)', (scenario) => {
     const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
     const left = scenario.left ?? 'Results show strong effects on';
     const first = [
