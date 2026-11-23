@@ -1,6 +1,11 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { focusedPdfPage, PdfReader, type ReaderLabels } from '@/pdf/reader';
+import {
+  focusedPdfPage,
+  PdfOcrModelMissingError,
+  PdfReader,
+  type ReaderLabels,
+} from '@/pdf/reader';
 import type { PdfDocument, PdfPage } from '@/pdf/extract';
 import type { PdfEngine } from '@/pdf/session';
 import type { OcrResult } from '@/engine/ocr/types';
@@ -72,6 +77,38 @@ function fakePage(renders: { count: number }): PdfPage {
     }),
     getTextContent: async () => ({ items: [], styles: {} }),
     getOperatorList: async () => ({ fnArray: [], argsArray: [] }),
+    commonObjs: { get: () => null },
+    render: () => {
+      renders.count += 1;
+      return { promise: Promise.resolve() };
+    },
+  };
+}
+
+/** Native text with, optionally, a large raster: a mixed page that still needs OCR. */
+function mixedScanPage(renders: { count: number }, scanned: boolean): PdfPage {
+  return {
+    getViewport: ({ scale }) => ({
+      width: 200 * scale,
+      height: 280 * scale,
+      transform: [scale, 0, 0, -scale, 0, 280 * scale],
+    }),
+    getTextContent: async () => ({
+      items: [
+        {
+          str: 'Native header text that remains when OCR cannot read the scan below.',
+          transform: [10, 0, 0, 10, 20, 250],
+          width: 140,
+          height: 10,
+          fontName: 'F1',
+        },
+      ],
+      styles: {},
+    }),
+    getOperatorList: async () =>
+      scanned
+        ? { fnArray: [1, 2], argsArray: [[140, 0, 0, 200, 30, 20], []] }
+        : { fnArray: [], argsArray: [] },
     commonObjs: { get: () => null },
     render: () => {
       renders.count += 1;
@@ -882,6 +919,92 @@ describe('PdfReader viewport observer', () => {
     await vi.waitFor(() => expect(reader.coverage(0)).toHaveLength(1));
     expect(reader.coverage(0)[0]?.sourceText).toBe(scannedResult.text);
     expect(reports.at(-1)).toMatchObject({ parsed: 1, pages: 1 });
+    reader.destroy();
+  });
+
+  it('re-queues a model-missing page after its retry budget runs out and OCR becomes ready', async () => {
+    vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver);
+    vi.stubGlobal('ResizeObserver', FakeResizeObserver);
+    ocrCanvas();
+    let modelsReady = false;
+    const recognize = vi.fn(() => {
+      if (!modelsReady) throw new PdfOcrModelMissingError('OCR models are not downloaded.');
+      return Promise.resolve(scannedResult);
+    });
+    const root = document.createElement('div');
+    Object.defineProperty(root, 'clientWidth', { configurable: true, get: () => 520 });
+    document.body.append(root);
+    const reader = new PdfReader(root, geometries(1), {
+      document: fakeDocument({ count: 0 }, 1),
+      engine: silentEngine,
+      labels,
+      targetLanguage: 'ja',
+      form: 'plain',
+      onProgress: () => undefined,
+      ocr: { recognize },
+    });
+
+    reader.start();
+    await vi.waitFor(() => expect(recognize).toHaveBeenCalledOnce());
+    // Six failures exhaust the ordinary backoff budget while the download is still running.
+    for (let call = 2; call <= 6; call += 1) {
+      reader.retryOcr();
+      await vi.waitFor(() => expect(recognize).toHaveBeenCalledTimes(call));
+    }
+    expect(pageHost(root, 0).dataset.ocrFailed).toBe('true');
+    expect(reader.coverage(0)).toHaveLength(0);
+
+    // An `ocr:progress` message with state `ready` makes the reader call retryOcr().
+    modelsReady = true;
+    reader.retryOcr();
+    await vi.waitFor(() => expect(recognize).toHaveBeenCalledTimes(7));
+    await vi.waitFor(() => expect(reader.coverage(0)).toHaveLength(1));
+    expect(reader.coverage(0)[0]?.sourceText).toBe(scannedResult.text);
+    expect(pageHost(root, 0).dataset.ocrFailed).toBeUndefined();
+    reader.destroy();
+  });
+
+  it('surfaces a failed OCR pass on a mixed page but not on a page that never ran OCR', async () => {
+    vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver);
+    vi.stubGlobal('ResizeObserver', FakeResizeObserver);
+    ocrCanvas();
+    const recognize = vi.fn().mockRejectedValue(new Error('OCR is unavailable'));
+    const renders = { count: 0 };
+    const root = document.createElement('div');
+    Object.defineProperty(root, 'clientWidth', { configurable: true, get: () => 520 });
+    document.body.append(root);
+    const document_: PdfDocument = {
+      numPages: 2,
+      getPage: async (number) => mixedScanPage(renders, number === 1),
+      getMetadata: async () => null,
+      destroy: async () => undefined,
+    };
+    const reader = new PdfReader(root, geometries(2), {
+      document: document_,
+      engine: silentEngine,
+      labels,
+      targetLanguage: 'ja',
+      form: 'plain',
+      onProgress: () => undefined,
+      ocr: { recognize },
+      ops: { transform: 1, paintImageXObject: 2 },
+    });
+
+    reader.start();
+    await vi.waitFor(() => expect(recognize).toHaveBeenCalledOnce());
+    await vi.waitFor(() => expect(reader.parsedPages()).toEqual([0, 1]));
+    await vi.waitFor(() => expect(pageHost(root, 0).dataset.ocrFailed).toBe('true'));
+
+    const mixed = pageHost(root, 0);
+    // Native fallback blocks keep the page readable, but the OCR error must still be shown.
+    expect(mixed.dataset.pageEmpty).toBe('false');
+    expect(mixed.querySelector('.sakutto-page__missing')?.textContent).toBe(labels.ocrFailed);
+    const textOnly = pageHost(root, 1);
+    expect(textOnly.dataset.ocrFailed).toBeUndefined();
+    expect(textOnly.querySelector('.sakutto-page__missing')?.textContent).not.toBe(
+      labels.ocrFailed,
+    );
+    expect(recognize).toHaveBeenCalledTimes(1);
     reader.destroy();
   });
 

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
   import { browser } from 'wxt/browser';
+  import { ocrReadyToRetry } from '@/background/ocr-readiness';
   import { DEFAULT_MODEL_ID } from '@/engine/model/catalog';
   import { DEFAULT_OCR_TIER } from '@/engine/ocr/catalog';
   import { encodeOcrImage } from '@/engine/ocr/codec';
@@ -9,7 +10,12 @@
   import { loadPdfjs, resolvePdfjsAssetUrls } from '@/pdf/assets';
   import type { PdfDocument } from '@/pdf/extract';
   import { OcrUserMessageError } from '@/pdf/ocr';
-  import { PdfReader, type PageGeometry, type ReaderProgress } from '@/pdf/reader';
+  import {
+    PdfOcrModelMissingError,
+    PdfReader,
+    type PageGeometry,
+    type ReaderProgress,
+  } from '@/pdf/reader';
   import { pdfConcurrencyFor } from '@/pdf/session';
   import { hasLicenseConsent } from '@/shared/agreement';
   import { currentUiLanguage, t } from '@/shared/i18n';
@@ -265,7 +271,9 @@
           const outcome = await requestOcrRecognizeDetailed(tier, encodeOcrImage(image), signal);
           if (signal.aborted) throw abortError();
           if (outcome.error === 'model-missing') {
-            throw new OcrUserMessageError(t('ocrDownloadRequired'));
+            // A distinct class lets the reader keep these pages for the download-ready retry;
+            // ordinary OCR failures still go through the short backoff budget.
+            throw new PdfOcrModelMissingError(t('ocrDownloadRequired'));
           }
           if (!outcome.result) throw new OcrUserMessageError(t('pdfOcrFailed'));
           return outcome.result;
@@ -368,7 +376,10 @@
 
     const onMessage = (message: unknown) => {
       if (isOcrProgressMessage(message)) {
-        if (message.status.state === 'loaded') reader?.retryOcr();
+        // `ready` is when a finished download first makes recognition possible. Waiting only
+        // for `loaded` left pages that failed while the bundle was missing stuck untranslated
+        // whenever no recognition ran to warm the runtime afterwards.
+        if (ocrReadyToRetry(message.status)) reader?.retryOcr();
         return;
       }
       if (!isModelProgressMessage(message)) return;

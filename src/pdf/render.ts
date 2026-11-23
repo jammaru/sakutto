@@ -305,10 +305,12 @@ export const READER_STYLE = `
   text-align: center;
 }
 
-/* Only a page with no text layer shows the notice; every other page keeps it out of the way
-   without having to remove the node. The default is none so a page that never sets the flag
-   cannot leave the notice on screen. */
-.sakutto-page[data-page-empty="true"] .sakutto-page__missing {
+/* A page with no text layer shows the notice, and so does a page whose OCR pass failed: even
+   with native fallback blocks the reader needs to know the scan was never transcribed. Every
+   other page keeps the node out of the way, and a page that sets neither flag cannot leave a
+   stale notice on screen. */
+.sakutto-page[data-page-empty="true"] .sakutto-page__missing,
+.sakutto-page[data-ocr-failed="true"] .sakutto-page__missing {
   display: grid;
 }
 

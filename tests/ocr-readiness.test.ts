@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ocrReadyForRecognition } from '@/background/ocr-readiness';
+import { ocrReadyForRecognition, ocrReadyToRetry } from '@/background/ocr-readiness';
 import type { AssetStatus } from '@/engine/model/asset';
 import type { OcrTier } from '@/engine/ocr/catalog';
 
@@ -15,6 +15,16 @@ describe('OCR recognition readiness', () => {
   it('waits for an in-flight runtime instead of reporting a missing bundle', () => {
     // Cold start: recognize() created the runtime task but it has not resolved yet.
     expect(ocrReadyForRecognition(status('loading'))).toBe(true);
+  });
+
+  it.each(['ready', 'loaded'] as const)('retries pages when OCR reports %s', (state) => {
+    expect(ocrReadyToRetry(status(state))).toBe(true);
+  });
+
+  it('does not retry on an in-flight runtime load or a failed download', () => {
+    for (const state of ['loading', 'downloading', 'verifying', 'error'] as const) {
+      expect(ocrReadyToRetry(status(state)), state).toBe(false);
+    }
   });
 
   it.each(['absent', 'partial', 'downloading', 'verifying', 'error'] as const)(

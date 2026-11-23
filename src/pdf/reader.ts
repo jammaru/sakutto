@@ -23,6 +23,15 @@ import { coverStyle, READER_STYLE, TextMeasurer } from './render';
 import { extractPage, renderPage, type PdfDocument } from './extract';
 import type { TextLine } from './lines';
 import { PdfSession, traitsOf, type BlockState, type PdfEngine } from './session';
+
+/**
+ * OCR failed only because the models are not installed yet.
+ *
+ * The reader keeps these pages apart from ordinary transient failures: a fresh download must
+ * re-queue them even after their backoff budget is spent, while a timeout still uses that budget.
+ */
+export class PdfOcrModelMissingError extends OcrUserMessageError {}
+
 /**
  * Page geometry, known before a page's text is parsed: a page's size comes from the document's
  * own page tree, and the reader needs it to reserve space and to place the placeholder before
@@ -181,6 +190,8 @@ export class PdfReader {
   private pageOcr: PdfPageOcr | null = null;
   private readonly parsed = new Set<number>();
   private readonly retryableOcr = new Set<number>();
+  /** Pages whose OCR pass failed because the bundle was missing, not because of a transient error. */
+  private readonly modelMissingOcr = new Set<number>();
   private readonly ocrRetryNotBefore = new Map<number, number>();
   private readonly ocrRetryAttempts = new Map<number, number>();
   private static readonly MAX_OCR_PAGE_ATTEMPTS = 6;
@@ -560,6 +571,13 @@ export class PdfReader {
   retryOcr(): void {
     if (this.ocrRetryTimer !== null) clearTimeout(this.ocrRetryTimer);
     this.ocrRetryTimer = null;
+    // Models that were missing when the page was parsed change everything about that failure:
+    // re-queue those pages even if their transient-retry budget ran out while the download
+    // was still in flight, and give them a fresh budget for the newly installed runtime.
+    for (const page of this.modelMissingOcr) {
+      this.retryableOcr.add(page);
+      this.ocrRetryAttempts.delete(page);
+    }
     for (const page of this.retryableOcr) this.ocrRetryNotBefore.set(page, 0);
     if (this.visible) void this.parseNext();
     else this.scheduleOcrRetry();
@@ -922,6 +940,7 @@ export class PdfReader {
 
         this.parsed.add(next);
         this.retryableOcr.delete(next);
+        this.modelMissingOcr.delete(next);
         this.ocrRetryNotBefore.delete(next);
         this.ocrRetryAttempts.delete(next);
         this.session.replacePage(next, pageLayout, extracted.height);
@@ -934,12 +953,15 @@ export class PdfReader {
         if (element) {
           if (extracted.empty || ocrAttempted) {
             element.host.dataset.pageEmpty = pageLayout.blocks.length === 0 ? 'true' : 'false';
-            if (ocrAttempted && pageLayout.blocks.length === 0) {
+            if (ocrAttempted) {
               element.missing.textContent = this.labels.emptyPage;
             }
           } else {
             delete element.host.dataset.pageEmpty;
           }
+          // A successful pass retires the error from an earlier one, including a mixed page
+          // whose native fallback had blocks and therefore never looked empty.
+          delete element.host.dataset.ocrFailed;
           this.paintTextLayer(element, textLines);
         }
         this.session.focusPage(this.focus);
@@ -950,6 +972,10 @@ export class PdfReader {
         if (isAbortError(error)) return;
         this.parsed.add(next);
         if (ocrAttempted && fallback) {
+          // Only a missing bundle is worth waiting for: a later readiness message re-queues
+          // these pages even after the ordinary backoff budget is exhausted.
+          if (error instanceof PdfOcrModelMissingError) this.modelMissingOcr.add(next);
+          else this.modelMissingOcr.delete(next);
           const attempt = (this.ocrRetryAttempts.get(next) ?? 0) + 1;
           this.ocrRetryAttempts.set(next, attempt);
           if (attempt >= PdfReader.MAX_OCR_PAGE_ATTEMPTS) {
@@ -969,6 +995,10 @@ export class PdfReader {
           const element = this.pageElements.get(next);
           if (element) {
             element.host.dataset.pageEmpty = fallback.layout.blocks.length === 0 ? 'true' : 'false';
+            // A mixed page still has native blocks, so pageEmpty alone would hide the notice
+            // and the reader would never learn that its OCR pass failed. The CSS shows the
+            // overlay for either state; pages that never ran OCR keep the old behaviour.
+            element.host.dataset.ocrFailed = 'true';
             element.missing.textContent =
               error instanceof OcrUserMessageError ? error.message : this.labels.ocrFailed;
             this.paintTextLayer(element, fallback.lines);

@@ -12,3 +12,13 @@ import type { OcrTier } from '@/engine/ocr/catalog';
 export function ocrReadyForRecognition(status: AssetStatus<OcrTier>): boolean {
   return status.state === 'ready' || status.state === 'loaded' || status.state === 'loading';
 }
+
+/**
+ * OCR progress states that mean a reader may retry pages that failed while the bundle was
+ * missing. A finished download (`ready`) is the first point recognition can succeed, even when
+ * no runtime has been loaded yet; `loaded` covers the later runtime warm-up. `loading` is not a
+ * transition to retry on: it is an in-flight task that the first recognition already waits for.
+ */
+export function ocrReadyToRetry(status: AssetStatus<OcrTier>): boolean {
+  return status.state === 'ready' || status.state === 'loaded';
+}
