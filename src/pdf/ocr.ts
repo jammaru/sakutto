@@ -13,7 +13,7 @@ import {
   type LayoutBlock,
   type PageLayout,
 } from './layout';
-import { bodyFontSize, lineFrom, type TextLine, type TextPiece } from './lines';
+import { bodyFontSize, isRotated, lineFrom, type TextLine, type TextPiece } from './lines';
 import { hasSourceProse } from './prose-detect';
 
 /**
@@ -22,6 +22,9 @@ import { hasSourceProse } from './prose-detect';
  * Keep the image-only geometry/character rules in one place by delegating to the extractor.
  * A substantial raster can coexist with a native header or caption. Such pages need an OCR
  * pass too; native coverage is removed after recognition rather than guessed from page text.
+ * A cover with decorative/logo rasters and a few lines of real native prose is not a scan:
+ * waiting for OCR there would hold translation behind a model download and render for text the
+ * reader already has.
  */
 export function shouldRunPdfOcr(
   lines: readonly TextLine[],
@@ -32,22 +35,19 @@ export function shouldRunPdfOcr(
   if (isImageOnlyPage(lines, figures, width, height)) return true;
   // Tiled scans can cover most of a page without any single image reaching 35% of it.
   if (rasterCoverage(figures, width, height) < 0.35) return false;
-  // A page already covered by a usable native text layer is an ordinary text page with a
-  // background image; OCR would be discarded by the deduplication below after a full model
-  // download and render. Keep the scan pass for pages whose native text is only a header,
-  // caption, or stamp.
-  return nativeTextCoverage(lines, width, height) < 0.15;
+  // Enough readable native characters across enough reading lines means the page has a text
+  // layer worth translating now. Large artwork beside it is decoration or a scan background,
+  // not a reason to block; deduplication below drops any OCR that repeats these lines.
+  const native = lines.filter((line) => !isRotated(line) && line.text.trim().length > 0);
+  if (native.length === 0) return true;
+  let chars = 0;
+  for (const line of native) chars += line.text.replace(/\s+/gu, '').length;
+  return chars < MIN_NATIVE_OCR_CHARS || native.length < MIN_NATIVE_OCR_LINES;
 }
 
-function nativeTextCoverage(lines: readonly TextLine[], width: number, height: number): number {
-  // Sum line areas rather than their bounding box: a header and a footer must not make the
-  // empty middle of a mixed page look text-covered.
-  const area = lines.reduce(
-    (sum, line) => sum + Math.max(0, line.box.width) * Math.max(0, line.box.height),
-    0,
-  );
-  return area / Math.max(1, width * height);
-}
+/** A native layer with this much prose across this many lines is translated before any OCR. */
+const MIN_NATIVE_OCR_CHARS = 80;
+const MIN_NATIVE_OCR_LINES = 3;
 
 /** A text piece with deterministic identity and both image-space and page-space geometry. */
 export interface OcrTextPiece extends TextPiece {

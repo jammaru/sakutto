@@ -1026,6 +1026,7 @@ export class PdfReader {
     this.parsingIndex = next;
     this.parsing = (async () => {
       let ocrAttempted = false;
+      let nativePublished = false;
       let fallback: {
         layout: PageLayout;
         lines: TextLine[];
@@ -1075,9 +1076,24 @@ export class PdfReader {
         let pageLayout = nativeLayout;
         let textLines = extracted.lines;
 
+        // Publish the readable native layer before any OCR render or inference. A J-STAGE style
+        // cover carries decorated rasters but its own prose: the reader must be translating that
+        // text now, not sitting behind an OCR model download with an "OCR reading" notice.
+        // A mixed scan benefits too: its native blocks stay visible while recognition runs, and
+        // ocrResultToHybridPage deduplicates what OCR later finds in the same places.
+        nativePublished = nativeLayout.blocks.length > 0;
+        if (nativePublished) {
+          this.session.replacePage(next, nativeLayout, extracted.height);
+          this.skippedBlocks.set(next, nativeLayout.skipped.length);
+          if (element) this.paintTextLayer(element, textLines);
+          this.session.focusPage(this.focus);
+        }
+
         if (this.ocr && runOcr) {
           ocrAttempted = true;
-          if (element) {
+          // Only an OCR-only page has nothing to show while recognition runs. A mixed page with
+          // native prose keeps its text layer; an empty-page notice there would hide it.
+          if (element && !nativePublished) {
             element.host.dataset.pageEmpty = 'true';
             element.missing.textContent = this.labels.ocrReading(next + 1, this.geometries.length);
           }
@@ -1124,7 +1140,11 @@ export class PdfReader {
         this.clearOcrModelMissing(next, element);
         this.ocrRetryNotBefore.delete(next);
         this.ocrRetryAttempts.delete(next);
-        this.session.replacePage(next, pageLayout, extracted.height);
+        // No OCR, or an OCR pass that added nothing, leaves the layout already handed to the
+        // session above. Replacing it with the same blocks would requeue work in flight.
+        if (!nativePublished || pageLayout !== nativeLayout) {
+          this.session.replacePage(next, pageLayout, extracted.height);
+        }
         this.skippedBlocks.set(next, pageLayout.skipped.length);
         if ((extracted.empty || ocrAttempted) && pageLayout.blocks.length === 0) {
           this.emptyPages.add(next);
@@ -1168,7 +1188,9 @@ export class PdfReader {
               Date.now() + Math.min(30_000, 1000 * 2 ** Math.min(attempt - 1, 5)),
             );
           }
-          if (attempt === 1) {
+          // The native fallback was already handed to the session before OCR started. Replacing
+          // it with the identical layout would only requeue work that may already be translating.
+          if (attempt === 1 && !nativePublished) {
             this.session.replacePage(next, fallback.layout, fallback.height);
           }
           this.skippedBlocks.set(next, fallback.layout.skipped.length);

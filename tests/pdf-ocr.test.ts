@@ -229,6 +229,24 @@ describe('shouldRunPdfOcr', () => {
       shouldRunPdfOcr([nativeLine('12345 67890 12345')], NO_IMAGES, PAGE.width, PAGE.height),
     ).toBe(false);
   });
+
+  it('does not OCR a cover whose native prose sits beside large decorative rasters', () => {
+    // J-STAGE cover: a 150-character text layer with two big grayscale logos. The rasters must
+    // not turn an ordinary text page into a synchronous OCR wait.
+    const lines = [
+      nativeLine('DOI:10.1587/transinf.2025KBL0002'),
+      nativeLine('Publicized:2026/02/26'),
+      nativeLine('This article has been accepted and published on J-STAGE in advance of'),
+      nativeLine('copyediting. Content is final as presented.'),
+    ];
+    const logos: FigureAreas = {
+      images: [
+        { x: 0, y: 0, width: PAGE.width, height: 212 },
+        { x: 0, y: 738, width: PAGE.width, height: 104 },
+      ],
+    };
+    expect(shouldRunPdfOcr(lines, logos, PAGE.width, PAGE.height)).toBe(false);
+  });
 });
 
 describe('hybrid native and scanned PDF pages', () => {

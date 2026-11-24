@@ -1350,6 +1350,60 @@ describe('PdfReader viewport observer', () => {
     }
   });
 
+  it('paints and translates native prose while OCR is still pending on a mixed page', async () => {
+    vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver);
+    vi.stubGlobal('ResizeObserver', FakeResizeObserver);
+    ocrCanvas();
+
+    const pending: { resolve: ((result: OcrResult) => void) | null } = { resolve: null };
+    const recognize = vi.fn(
+      (_image: unknown, signal: AbortSignal) =>
+        new Promise<OcrResult>((resolve, reject) => {
+          signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')));
+          pending.resolve = resolve;
+        }),
+    );
+    const root = document.createElement('div');
+    Object.defineProperty(root, 'clientWidth', { configurable: true, get: () => 520 });
+    document.body.append(root);
+    const renders = { count: 0 };
+    const reader = new PdfReader(root, geometries(1), {
+      document: {
+        numPages: 1,
+        getPage: async () => mixedScanPage(renders, true),
+        getMetadata: async () => null,
+        destroy: async () => undefined,
+      },
+      engine: silentEngine,
+      labels,
+      targetLanguage: 'ja',
+      form: 'plain',
+      onProgress: () => undefined,
+      ocr: { recognize },
+      ops: { transform: 1, paintImageXObject: 2 },
+    });
+
+    reader.start();
+    await vi.waitFor(() => expect(recognize).toHaveBeenCalledOnce());
+
+    // The native text layer is already selectable and handed to the session; the OCR pass is
+    // deliberately still pending here. No empty-page notice may cover the readable prose.
+    const host = pageHost(root, 0);
+    await vi.waitFor(() =>
+      expect(host.querySelector('.sakutto-page__text')?.textContent).toContain(
+        'Native prose outside the raster figure.',
+      ),
+    );
+    expect(host.dataset.pageEmpty).not.toBe('true');
+    expect(host.querySelector('.sakutto-page__missing')?.textContent).not.toBe(
+      labels.ocrReading(1, 1),
+    );
+
+    pending.resolve?.(scannedResult);
+    await vi.waitFor(() => expect(host.dataset.pageEmpty).toBe('false'));
+    reader.destroy();
+  });
+
   it('toggles a side-by-side original and translated layout', () => {
     vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver);
     vi.stubGlobal('ResizeObserver', FakeResizeObserver);

@@ -33,7 +33,10 @@ export function standardFontDataUrl(): string {
   return pathToFileURL(resolve(dirname(pdfjsPath), '..', '..', 'standard_fonts') + '/').href;
 }
 
-export async function openPdfBytes(bytes: Uint8Array): Promise<{
+export async function openPdfBytes(
+  bytes: Uint8Array,
+  cMapUrl?: string,
+): Promise<{
   numPages: number;
   getPage: (n: number) => Promise<unknown>;
   destroy: () => Promise<void>;
@@ -44,5 +47,8 @@ export async function openPdfBytes(bytes: Uint8Array): Promise<{
     useSystemFonts: false,
     isEvalSupported: false,
     standardFontDataUrl: standardFontDataUrl(),
+    // The Node build reads cMaps from the filesystem, so callers pass a plain directory path
+    // rather than a file:// URL. Fixtures with UTF-16 CMaps need it to expose their text layer.
+    ...(cMapUrl ? { cMapUrl, cMapPacked: true } : {}),
   }).promise;
 }
