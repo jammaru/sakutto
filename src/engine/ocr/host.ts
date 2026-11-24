@@ -28,6 +28,7 @@ export interface OcrHostOptions {
 
 interface OcrRequest {
   tier: OcrTier;
+  kind: 'recognize' | 'download';
   controller: AbortController;
 }
 
@@ -97,7 +98,7 @@ export class OcrHost {
     image: DecodedOcrImage,
     signal?: AbortSignal,
   ): Promise<unknown> {
-    const controller = this.track(requestId, tier, signal);
+    const controller = this.track(requestId, 'recognize', tier, signal);
     const timeoutMs = this.options.timeoutMs;
     const boundMs =
       typeof timeoutMs === 'function'
@@ -141,7 +142,7 @@ export class OcrHost {
   }
 
   async download(requestId: string, tier: OcrTier): Promise<AssetStatus<OcrTier>> {
-    const controller = this.track(requestId, tier);
+    const controller = this.track(requestId, 'download', tier);
     try {
       const assets = await this.assets();
       await assets.download(tier, { signal: controller.signal });
@@ -174,7 +175,12 @@ export class OcrHost {
     if (!request) return;
     request.controller.abort();
     this.requests.delete(requestId);
-    void this.assetsTask?.then((assets) => assets.cancel(request.tier));
+    // Aborting a recognition must only abort the load that request started: its controller is
+    // already passed to the runtime (and therefore to asset reads). Calling AssetManager.cancel
+    // here would kill a user-initiated tier download that merely shares the same tier.
+    if (request.kind === 'download') {
+      void this.assetsTask?.then((assets) => assets.cancel(request.tier));
+    }
   }
 
   /**
@@ -247,12 +253,17 @@ export class OcrHost {
     }
   }
 
-  private track(requestId: string, tier: OcrTier, signal?: AbortSignal): AbortController {
+  private track(
+    requestId: string,
+    kind: OcrRequest['kind'],
+    tier: OcrTier,
+    signal?: AbortSignal,
+  ): AbortController {
     this.cancel(requestId);
     const controller = new AbortController();
     if (signal?.aborted) controller.abort();
     else signal?.addEventListener('abort', () => controller.abort(), { once: true });
-    this.requests.set(requestId, { tier, controller });
+    this.requests.set(requestId, { tier, kind, controller });
     return controller;
   }
 

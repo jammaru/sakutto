@@ -1541,16 +1541,16 @@ describe('latest DSH review blockers', () => {
       expect(layout.blocks.map((block) => block.text)).not.toContain('boxes with equal six');
     });
 
-    it('B1: a 6pt centred gutter with two regions per column still splits', () => {
-      // The word-space guard must be geometry-aware: when each side of the centred 6pt gap is
-      // a two-word column measure, the gap is a printed gutter even though the word spaces on
-      // either side happen to be exactly as wide.
+    it('B1: a structurally wider centred gutter with two regions per column still splits', () => {
+      // A real 2-column scan keeps its internal word spaces at 6pt but opens the central gutter
+      // to 8pt. The wider central gap is geometry evidence a phrase-wrapped single column cannot
+      // fake, even when both rows share the same x/width layout.
       const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
       const row = (y: number, left: readonly string[], right: readonly string[]) => [
         region(left[0]!, quad(45, y, 115, 20)),
         region(left[1]!, quad(166, y, 115, 20)),
-        region(right[0]!, quad(287, y, 115, 20)),
-        region(right[1]!, quad(408, y, 115, 20)),
+        region(right[0]!, quad(289, y, 115, 20)),
+        region(right[1]!, quad(410, y, 115, 20)),
       ];
       const first = row(100, ['density values', 'of the'], ['remain stable', 'across runs']);
       const second = row(
@@ -1623,6 +1623,39 @@ describe('latest DSH review blockers', () => {
       ];
       const first = row(100, ['The measured', 'density values', 'remain stable', 'across runs.']);
       const second = row(130, ['Repeated scans', 'of the sample', 'yield similar', 'results.']);
+      const result = ocrResult(
+        [...first, ...second],
+        [readingLine('horizontal', first), readingLine('horizontal', second)],
+      );
+
+      const lines = ocrResultToTextLines(result, options);
+      expect(lines.map((line) => line.text)).toEqual([
+        first.map((item) => item.text).join(' '),
+        second.map((item) => item.text).join(' '),
+      ]);
+      expect(lines).toHaveLength(2);
+      expect(lines.every((line) => line.columnHint === undefined)).toBe(true);
+
+      const layout = ocrResultToPageLayout(result, options);
+      expect(layout.blocks.every((block) => block.column === 0)).toBe(true);
+      expect(layout.blocks.map((block) => block.text).join(' ')).toBe(
+        [...first, ...second].map((item) => item.text).join(' '),
+      );
+    });
+
+    it('B1: a finite-verb 2+2 phrase row with equal 6pt gaps is not split into columns', () => {
+      // Review reproduction: four equally spaced phrase boxes per row, identical x/width layout
+      // on both rows, and a right pair headed by a finite verb outside any word list. Geometry
+      // alone must keep each row whole and in source order: no columnHint, no left/left-right/right.
+      const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+      const row = (y: number) => [
+        region('Another line of', quad(45, y, 115, 20)),
+        region('ordinary prose', quad(166, y, 115, 20)),
+        region('keeps the same', quad(287, y, 115, 20)),
+        region('six point gaps', quad(408, y, 115, 20)),
+      ];
+      const first = row(100);
+      const second = row(130);
       const result = ocrResult(
         [...first, ...second],
         [readingLine('horizontal', first), readingLine('horizontal', second)],

@@ -225,76 +225,10 @@ function sharesBaseline(left: readonly OcrTextPiece[], right: readonly OcrTextPi
   return Math.abs(centre(left) - centre(right)) <= Math.max(2, height * 0.75);
 }
 
-/** Words that leave a phrase unfinished: a following noun must attach across the boundary. */
-const OPEN_PHRASE_TAIL =
-  /^(?:a|an|the|this|that|these|those|some|any|each|every|no|one|such|of|in|on|at|to|for|with|by|from|as|into|through|between|among|about|over|under|during|before|after|without|within|across|via|per|and|or|but|while|because|although|which|who|whose|where|when|than|if|unless|not|only|also|very|more|most|less|least|several|many|few|two|three|four|five)$/iu;
-
-/** Finite verbs that can open the predicate of a clause begun in the preceding phrase. */
-const CLAUSE_VERB =
-  /^(?:is|are|was|were|be|been|being|has|have|had|do|does|did|can|could|will|would|may|might|must|should|shall|remain|remains|become|becomes|seem|seems|appear|appears|show|shows|suggest|suggests|indicate|indicates|demonstrate|demonstrates|provide|provides|yield|yields|produce|produces|give|gives|make|makes|take|takes|require|requires|allow|allows|help|helps|use|uses|find|finds|observe|observes|report|reports|describe|describes|define|defines|contain|contains|include|includes|support|supports|increase|increases|decrease|decreases|affect|affects|depend|depends|vary|varies|occur|occurs|result|results|lead|leads|converge|converges|continue|continues|change|changes|improve|improves|reduce|reduces|reveal|reveals|confirm|confirms)\b/iu;
-
-/** Prepositions/conjunctions that attach the right pair to the left noun phrase. */
-const PHRASE_CONTINUATION_HEAD =
-  /^(?:with|and|or|of|in|to|for|on|at|by|from|as|into|through|between|among|about|over|under|during|before|after|without|within|across|via|per|but|while|because|although|than|if|unless)\b/iu;
-
-const WORD_RUN = /[\p{L}\p{N}]+(?:['’-][\p{L}\p{N}]+)*/gu;
-
-function phraseText(pieces: readonly OcrTextPiece[]): string {
-  return [...pieces]
-    .sort((a, b) => a.box.x - b.box.x)
-    .map((piece) => piece.text.trim())
-    .filter(Boolean)
-    .join(' ')
-    .trim();
-}
-
-function edgeWord(text: string, last = false): string {
-  const words = text.match(WORD_RUN) ?? [];
-  return (last ? words[words.length - 1] : words[0])?.toLowerCase() ?? '';
-}
-
-/**
- * Whether the two halves of a 2+2 row are independent column snippets rather than one
- * sentence flowing across the gutter.
- *
- * Equal 6pt gaps and aligned x positions cannot tell the two apart. Text can: a single
- * sentence either leaves an unfinished phrase at the gutter (a determiner/preposition
- * that the next phrase completes with a noun), or hands a subject over to a lowercase
- * predicate. Separate column snippets close their clause, open a new sentence, or start
- * with a term already used on their side of the gutter. A right pair that opens with a
- * preposition or conjunction instead attaches to the left noun phrase. CJK lines have no word
- * classes to inspect, so geometry keeps the deciding vote there.
- */
-function independentColumnSnippets(
-  left: readonly OcrTextPiece[],
-  right: readonly OcrTextPiece[],
-): boolean {
-  const leftText = phraseText(left);
-  const rightText = phraseText(right);
-  if (leftText.length === 0 || rightText.length === 0) return false;
-  if (!/\s/u.test(leftText) && !/\s/u.test(rightText)) return true;
-  if (/[.!?。！？;；:：][\s)'"]*$/u.test(leftText)) return true;
-
-  const leftWords = (leftText.match(WORD_RUN) ?? []).map((word) => word.toLowerCase());
-  const leftTail = edgeWord(leftText, true);
-  const rightHead = edgeWord(rightText);
-  if (leftTail.length === 0 || rightHead.length === 0) return true;
-  // "... word boxes with equal six ..." is one noun phrase flowing across the gutter, not
-  // two column snippets. A preposition/conjunction head binds the right pair to the left one.
-  if (PHRASE_CONTINUATION_HEAD.test(rightHead)) return false;
-  // Parallel columns routinely open different snippets with the same term at a line break.
-  if (leftWords.includes(rightHead)) return true;
-
-  if (OPEN_PHRASE_TAIL.test(leftTail)) {
-    // A dangling determiner/preposition needs a noun, not a fresh predicate.
-    return CLAUSE_VERB.test(rightHead) || OPEN_PHRASE_TAIL.test(rightHead);
-  }
-  const leftHasVerb = leftWords.some((word) => CLAUSE_VERB.test(word));
-  return !(/^[\p{Ll}]/u.test(rightText) && CLAUSE_VERB.test(rightHead) && !leftHasVerb);
-}
-
 /** White gap that separates two printed columns. Dense scans map a 12px gutter to ~6pt. */
 const MIN_COLUMN_GUTTER = 6;
+/** Tolerance for OCR jitter when comparing neighbouring white gaps on one row. */
+const GAP_EPSILON = 0.5;
 /** A same-baseline row split by this much white is two body columns, not one wide line. */
 const WIDE_COLUMN_GUTTER = 10;
 
@@ -315,30 +249,52 @@ interface PieceSplit {
   readonly rightStart: number;
 }
 
-/** Split evidence that can promote an equal-looking word gap to a printed gutter. */
+/** Split evidence for a centred gap that may be a printed gutter. */
 interface GutterSplitEvidence extends PieceSplit {
   readonly pageWidth: number;
-  /** Another candidate row starts and splits at the same column edges, within OCR jitter. */
-  readonly alignedColumns: boolean;
-  /** The row's left and right pairs read as separate snippets, not one sentence across the gap. */
-  readonly independentSnippets: boolean;
+}
+
+/** White gaps between successive pieces inside one side of a split. */
+function internalPieceGaps(group: readonly OcrTextPiece[]): number[] {
+  const byX = [...group].sort((a, b) => a.box.x - b.box.x);
+  const gaps: number[] = [];
+  for (let index = 1; index < byX.length; index += 1) {
+    const previous = byX[index - 1]!;
+    const current = byX[index]!;
+    gaps.push(current.box.x - (previous.box.x + previous.box.width));
+  }
+  return gaps;
+}
+
+/**
+ * Whether a 2+2 split's central gap is structurally distinct from its word spacing.
+ *
+ * Four equally spaced phrase boxes describe one column wrapped into phrases, not two columns:
+ * "keeps the same | six point gaps" has the same 6pt geometry as a real dense-scan gutter, and
+ * two such rows repeat the exact same x/width layout. That row continuity is evidence of a
+ * repeated phrase grid, never of a page gutter. Only a central gap wider than both internal
+ * word gaps can start column evidence; no word or verb list is involved.
+ */
+function structurallyDistinctGutter(
+  left: readonly OcrTextPiece[],
+  right: readonly OcrTextPiece[],
+  gutterGap: number,
+): boolean {
+  if (left.length !== 2 || right.length !== 2) return false;
+  const internal = [...internalPieceGaps(left), ...internalPieceGaps(right)];
+  return internal.length === 2 && gutterGap > Math.max(...internal) + GAP_EPSILON;
 }
 
 /**
  * Whether a centred gap that looks like a word space is actually the page's printed gutter.
  *
  * On a dense scan a 12px column gutter maps to about 6pt — the same as an ordinary word space.
- * Width alone cannot tell the two apart, but geometry can: when the gap sits at the page midpoint
- * and leaves two word regions on either side with comparable column measures, those four regions
- * can be two body columns, not a single long line. This is deliberately narrow (two regions per
- * column): a longer run of equally spaced words stays ordinary spacing, as does a ragged split
- * whose two halves are not comparable measures.
- *
- * A 2+2 split with equal 6pt gaps is still ordinary dense-scan spacing unless something else says
- * otherwise: the left and right pairs must read as independent column snippets, and either the
- * central gap is wider than the row's internal word gaps or the column edges line up with another
- * candidate row on the page. Equal gaps plus aligned edges alone are not enough: a single sentence
- * broken across four phrase boxes would otherwise corroborate itself as two columns.
+ * Width alone cannot tell the two apart, but geometry can: when the gap sits at the page midpoint,
+ * leaves two word regions on either side with comparable column measures, and is wider than the
+ * row's own word gaps, those four regions can be two body columns. This is deliberately narrow
+ * (two regions per column): a longer run of equally spaced words stays ordinary spacing, as does
+ * a ragged split whose two halves are not comparable measures. Identical layouts on several rows
+ * cannot promote equal gaps: repeated phrase wrapping is not aligned column evidence.
  */
 function twoRegionsPerColumn(
   pageWidth: number,
@@ -347,12 +303,8 @@ function twoRegionsPerColumn(
   leftEnd: number,
   rightStart: number,
   gutterGap: number,
-  internalGaps: readonly number[],
-  alignedColumns: boolean,
-  independentSnippets: boolean,
 ): boolean {
-  if (left.length !== 2 || right.length !== 2) return false;
-  if (!independentSnippets) return false;
+  if (!structurallyDistinctGutter(left, right, gutterGap)) return false;
   if (!gutterCentred(leftEnd, rightStart, pageWidth)) return false;
   const measure = (group: readonly OcrTextPiece[]): number =>
     Math.max(...group.map((piece) => piece.box.x + piece.box.width)) -
@@ -366,9 +318,7 @@ function twoRegionsPerColumn(
   ) {
     return false;
   }
-  return (
-    alignedColumns || (internalGaps.length > 0 && gutterGap > Math.max(...internalGaps) + 0.01)
-  );
+  return true;
 }
 
 /**
@@ -378,10 +328,9 @@ function twoRegionsPerColumn(
  * 6-12pt gaps near the page midpoint. If the chosen gap is no wider than the other gaps on the
  * row, it is ordinary justification/OCR spacing, not a printed gutter. A real gutter stands out
  * from the word spaces (or is the row's only gap, in which case there is nothing to compare).
- * Callers that know the row's split geometry pass it so a centred two-region-per-column split can
- * override the equal-gap reading, but only when the two pairs are independent snippets and there is
- * page-level evidence (aligned column edges) or a genuinely wider central gap; callers without that
- * evidence keep the conservative answer.
+ * Callers that know the row's split geometry pass it so a centred 2+2 split can override the
+ * equal-gap reading, but only when the central gap is structurally wider than both internal word
+ * gaps. Callers without that evidence keep the conservative answer.
  */
 function wordSpaceGutter(
   pieces: readonly OcrTextPiece[],
@@ -412,9 +361,6 @@ function wordSpaceGutter(
       split.leftEnd,
       split.rightStart,
       gutterGap,
-      others,
-      split.alignedColumns,
-      split.independentSnippets,
     )
   );
 }
@@ -1239,7 +1185,6 @@ export function ocrResultToTextLines(
 interface GutterRowCandidate extends PieceSplit {
   readonly index: number;
   readonly pieces: OcrTextPiece[];
-  readonly leftStart: number;
   readonly gutterGap: number;
 }
 
@@ -1247,13 +1192,12 @@ interface GutterRowCandidate extends PieceSplit {
  * Page-wide column evidence from the raw reading lines. A dense scan can place a real gutter only
  * 6pt from an ordinary word space, so the width of one gap is not enough on its own: two or more
  * rows with comparable measures on both sides of a centred gap prove the page has body columns.
- * When the gap is only word-space wide, the candidate rows must also share their column edges;
- * otherwise equally spaced phrases on a single-column row would corroborate each other as columns.
- * A 2+2 row must additionally read as two independent snippets: a sentence flowing across the
- * gutter is one row of phrases, not evidence of columns, even when its x positions align with
- * another such row. A lone single-column row (including a centred title or a merged two-column
- * row) has no corroboration and keeps its ordinary word gaps. The row indices let a title above
- * the body keep its own whitespace even when the page as a whole is two-column.
+ * A 2+2 row qualifies only when its central gap is structurally wider than both internal word
+ * gaps: four equal gaps, even repeated at the same x positions on several rows, are one column
+ * wrapped into phrases and must never corroborate a gutter. A lone single-column row (including
+ * a centred title or a merged two-column row) has no corroboration and keeps its ordinary word
+ * gaps. The row indices let a title above the body keep its own whitespace even when the page as
+ * a whole is two-column.
  */
 function twoColumnBodyRows(
   lines: readonly ReadingLine<OcrRegion>[],
@@ -1289,9 +1233,13 @@ function twoColumnBodyRows(
     if (left.length === 0 || right.length === 0) continue;
     const gutterGap = rightStart - leftEnd;
     if (gutterGap < MIN_COLUMN_GUTTER) continue;
-    // Two phrase boxes per side only prove columns when each side is its own snippet. Equal
-    // 6pt gaps plus identical x positions also describe one sentence broken into four boxes.
-    if (left.length === 2 && right.length === 2 && !independentColumnSnippets(left, right)) {
+    // Four equal gaps describe one sentence wrapped into phrase boxes. Repeated identical
+    // x/width layouts on later rows are row continuity, not aligned column edges.
+    if (
+      left.length === 2 &&
+      right.length === 2 &&
+      !structurallyDistinctGutter(left, right, gutterGap)
+    ) {
       continue;
     }
     const measure = (group: readonly OcrTextPiece[]): number =>
@@ -1311,26 +1259,15 @@ function twoColumnBodyRows(
       right,
       leftEnd,
       rightStart,
-      leftStart: Math.min(...left.map((piece) => piece.box.x)),
       gutterGap,
     });
   }
 
-  // Two candidate rows that start and split at the same x positions expose a printed column
-  // layout even when each row's middle gap is just a word space. Check them in a separate pass so
-  // a row rejected by the word-space guard can still supply (or receive) that alignment evidence.
-  // Only semantically independent 2+2 rows reach this pass, so alignment is never the sole
-  // evidence for splitting a sentence that merely shares those x positions.
-  const alignmentTolerance = Math.max(6, resolved.pageWidth * 0.03);
+  // A word-space-wide gap can still be a gutter, but only for rows whose geometry passed the
+  // structural 2+2 test above (or that have a different piece layout). Candidate rows are judged
+  // independently: identical phrase grids never vouch for one another as column edges.
   const rows: number[] = [];
   for (const candidate of candidates) {
-    const alignedColumns = candidates.some(
-      (other) =>
-        other.index !== candidate.index &&
-        Math.abs(other.leftStart - candidate.leftStart) <= alignmentTolerance &&
-        Math.abs(other.leftEnd - candidate.leftEnd) <= alignmentTolerance &&
-        Math.abs(other.rightStart - candidate.rightStart) <= alignmentTolerance,
-    );
     if (
       !wordSpaceGutter(candidate.pieces, candidate.gutterGap, {
         pageWidth: resolved.pageWidth,
@@ -1338,11 +1275,6 @@ function twoColumnBodyRows(
         right: candidate.right,
         leftEnd: candidate.leftEnd,
         rightStart: candidate.rightStart,
-        alignedColumns,
-        independentSnippets:
-          candidate.left.length !== 2 ||
-          candidate.right.length !== 2 ||
-          independentColumnSnippets(candidate.left, candidate.right),
       })
     ) {
       rows.push(candidate.index);

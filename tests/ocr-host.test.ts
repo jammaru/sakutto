@@ -79,6 +79,75 @@ describe('OcrHost', () => {
     expect(await host.status('standard')).toMatchObject({ state: 'absent' });
   });
 
+  it('cancelling a recognition leaves an unrelated tier download running', async () => {
+    const payload = bytesOf('bundle bytes');
+    const file = {
+      path: 'model.onnx',
+      commit: 'pinned-commit',
+      size: payload.length,
+      sha256: sha256Hex(payload),
+      url: 'https://example.test/model.onnx',
+    };
+    const bundles = {
+      standard: { id: 'standard', files: [file], size: payload.length },
+      high: { id: 'high', files: [file], size: payload.length },
+    } as const;
+    let fetchStarted!: () => void;
+    const downloadStarted = new Promise<void>((resolve) => {
+      fetchStarted = resolve;
+    });
+    let releaseDownload!: () => void;
+    const downloadGate = new Promise<void>((resolve) => {
+      releaseDownload = resolve;
+    });
+    let fetches = 0;
+    const manager = new AssetManager<OcrTier>({
+      store: new MemoryFileStore(),
+      bundles,
+      fetchImpl: async () => {
+        fetches += 1;
+        if (fetches === 1) {
+          fetchStarted();
+          await downloadGate;
+        }
+        return new Response(new Uint8Array(payload), { status: 200 });
+      },
+      hashBlob: async (blob) => sha256Hex(new Uint8Array(await blob.arrayBuffer())),
+    });
+    let recognitionStarted!: () => void;
+    const recognized = new Promise<void>((resolve) => {
+      recognitionStarted = resolve;
+    });
+    let finishRecognition!: () => void;
+    const recognitionGate = new Promise<void>((resolve) => {
+      finishRecognition = resolve;
+    });
+    const runtime: OcrRuntimeLike = {
+      recognize: async () => {
+        recognitionStarted();
+        await recognitionGate;
+        return { text: 'late' };
+      },
+      release: vi.fn(),
+    };
+    const host = new OcrHost({
+      createAssetManager: async () => manager,
+      createRuntime: async () => runtime,
+    });
+
+    const downloading = host.download('download-1', 'standard');
+    await downloadStarted;
+    const pending = host.recognize('recognition-1', 'standard', image);
+    await recognized;
+    host.cancel('recognition-1');
+    await expect(pending).rejects.toMatchObject({ code: 'aborted' });
+    // The tier's own transfer never saw a cancellation: it finishes and verifies normally.
+    releaseDownload();
+    await expect(downloading).resolves.toMatchObject({ progress: 1 });
+    expect(await manager.status('standard')).toMatchObject({ state: 'ready' });
+    finishRecognition();
+  });
+
   it('serializes independent same-tier callers without aborting either request', async () => {
     const manager = assets();
     const signals: AbortSignal[] = [];

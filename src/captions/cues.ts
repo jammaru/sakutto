@@ -552,7 +552,11 @@ function dedupeRollingCaptionCues(cues: readonly CaptionCue[]): CaptionCue[] {
     if (overlaps && text.startsWith(previousRaw)) {
       const previous = fragments.at(-1);
       if (previous) {
-        previous.text = text;
+        // Only the growth beyond the previous raw window is new. The last fragment may be a
+        // slide delta ("D" after "A B C" -> "B C D"), not the whole old window, so replacing it
+        // with the new window would duplicate every retained word ("B C D E" -> "A B C B C D E").
+        const grown = text.slice(previousRaw.length);
+        previous.text = normalizeSentenceUnitText(joinCaptionFragments(previous.text, grown));
         previous.endMs = Math.max(previous.endMs, cue.endMs);
         previousRaw = text;
         previousRawEndMs = Math.max(previousRawEndMs, cue.endMs);
