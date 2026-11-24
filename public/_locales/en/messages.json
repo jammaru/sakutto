@@ -899,19 +899,19 @@
     "message": "The translation cache could not be cleared."
   },
   "idleLabel": {
-    "message": "Release the model from memory after"
+    "message": "Keep the model loaded"
   },
   "idle1": {
-    "message": "1 minute"
+    "message": "For 1 minute after translation"
   },
   "idle5": {
-    "message": "5 minutes"
+    "message": "For 5 minutes after translation"
   },
   "idle15": {
-    "message": "15 minutes"
+    "message": "For 15 minutes after translation"
   },
   "idleNever": {
-    "message": "Never"
+    "message": "Until the browser closes"
   },
   "tierLabel": {
     "message": "Performance mode"
@@ -1735,5 +1735,8 @@
   "allSitesPopupEnable": {
     "message": "Turn on",
     "description": "Button in the toolbar popup that turns on all-sites access."
+  },
+  "idleImmediate": {
+    "message": "Until translation finishes (manual mode)"
   }
 }

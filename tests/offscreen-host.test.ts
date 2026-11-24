@@ -1553,4 +1553,35 @@ describe('CPU retry runtime', () => {
       vi.useRealTimers();
     }
   });
+
+  it('releases immediately and signals host-idle in manual mode', async () => {
+    vi.useFakeTimers();
+    try {
+      const { services, unload, reset, dispose } = createServices();
+      services.router.translate = async function* () {
+        yield { id: 'a', final: 'x', engine: 'plamo' };
+      } as never;
+      const host = createHost(services, 60_000);
+      const port = new FakePort();
+      host.handlePort(port.port);
+
+      port.emit(runtimeSet({ requestId: 'runtime-manual', idleMinutes: -1 }));
+      await vi.advanceTimersByTimeAsync(0);
+      port.emit({
+        type: 'translate',
+        requestId: 'r1',
+        segments: [{ id: 'a', text: 'Hello.' }],
+        options: serializeTranslateOptions(options()),
+      });
+      await vi.advanceTimersByTimeAsync(0);
+      await vi.advanceTimersByTimeAsync(10);
+
+      expect(reset).toHaveBeenCalled();
+      expect(unload).toHaveBeenCalled();
+      expect(dispose).toHaveBeenCalled();
+      expect(port.messagesOfType('host-idle').length).toBeGreaterThan(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

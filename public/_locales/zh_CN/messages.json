@@ -1725,5 +1725,8 @@
   },
   "allSitesPopupEnable": {
     "message": "开启"
+  },
+  "idleImmediate": {
+    "message": "翻译后立即释放（手动）"
   }
 }

@@ -300,6 +300,14 @@ export interface ModelPersistEvent {
   modelId: ModelId;
 }
 
+/**
+ * Fired after the host released idle resources and has no active requests. The service
+ * worker can close the offscreen/engine document in manual mode to reclaim WASM memory.
+ */
+export interface HostIdleEvent {
+  type: 'host-idle';
+}
+
 export type EngineHostMessage =
   | ChunkEvent
   | DoneEvent
@@ -307,7 +315,8 @@ export type EngineHostMessage =
   | ModelProgressEvent
   | ResponseEvent
   | ResponseErrorEvent
-  | ModelPersistEvent;
+  | ModelPersistEvent
+  | HostIdleEvent;
 
 export interface TranslationStartRequest {
   type: 'start';
@@ -501,6 +510,7 @@ function isErrorPayload(value: unknown): value is EngineErrorPayload {
 export function isEngineHostMessage(value: unknown): value is EngineHostMessage {
   if (!isRecord(value)) return false;
   if (value.type === 'model-persist') return isModelId(value.modelId);
+  if (value.type === 'host-idle') return true;
   if (!isRequestId(value)) return false;
 
   switch (value.type) {

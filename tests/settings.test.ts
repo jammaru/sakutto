@@ -80,6 +80,15 @@ describe('settings defaults', () => {
     expect(isTierPreference('gpu')).toBe(false);
   });
 
+  it('accepts manual idle mode (-1)', () => {
+    expect(
+      normalizeSettings(
+        { schemaVersion: SETTINGS_SCHEMA_VERSION, targetLanguage: 'en', idleMinutes: -1 },
+        'en-US',
+      ).idleMinutes,
+    ).toBe(-1);
+  });
+
   it('uses the UI language with polite form and replacement display', () => {
     expect(createDefaultSettings('fr-FR')).toEqual(stored({ targetLanguage: 'fr' }));
     expect(DEFAULT_SETTINGS.targetLanguage).toBe('en');

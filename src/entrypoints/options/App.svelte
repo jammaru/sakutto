@@ -450,6 +450,7 @@
             <label class="field">
               <span>{t('idleLabel')}</span>
               <select value={String(current.idleMinutes)} onchange={changeIdle}>
+                <option value="-1">{t('idleImmediate')}</option>
                 <option value="1">{t('idle1')}</option>
                 <option value="5">{t('idle5')}</option>
                 <option value="15">{t('idle15')}</option>
