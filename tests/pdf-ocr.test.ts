@@ -1482,6 +1482,40 @@ describe('latest DSH review blockers', () => {
       ]);
     });
 
+    it('B1: two rows with a 6pt gutter corroborate two separate body columns', () => {
+      // A dense scan maps a 12px gutter to ~6pt. Each row alone is only a narrow two-piece
+      // row, but two rows sharing that gap prove the page has columns; the corroboration must
+      // accept MIN_COLUMN_GUTTER, not only the 10pt WIDE_COLUMN_GUTTER.
+      const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+      const left1 = region('left column prose words for the first row', quad(45, 100, 200, 20));
+      const right1 = region('right column prose words on the first row', quad(251, 100, 200, 20));
+      const left2 = region('more left column prose words in row two', quad(45, 130, 200, 20));
+      const right2 = region('more right column prose words in row two', quad(251, 130, 200, 20));
+      const result = ocrResult(
+        [left1, right1, left2, right2],
+        [readingLine('horizontal', [left1, right1]), readingLine('horizontal', [left2, right2])],
+      );
+
+      const lines = ocrResultToTextLines(result, options);
+      expect(lines.map((line) => line.text)).toEqual([
+        left1.text,
+        left2.text,
+        right1.text,
+        right2.text,
+      ]);
+      expect(lines).toHaveLength(4);
+      expect(lines.filter((line) => line.columnHint === 0)).toHaveLength(2);
+      expect(lines.filter((line) => line.columnHint === 1)).toHaveLength(2);
+
+      const layout = ocrResultToPageLayout(result, options);
+      expect(layout.blocks.map((block) => block.column)).toEqual([0, 1]);
+      // Each paragraph keeps only its column's measure instead of one full-width block.
+      expect(layout.blocks.map((block) => block.box.width)).toEqual([200, 200]);
+      expect(layout.blocks[0]!.box.x + layout.blocks[0]!.box.width).toBeLessThanOrEqual(
+        layout.blocks[1]!.box.x,
+      );
+    });
+
     it('B2: splits a merged body row by geometry, not by capitalisation', () => {
       const options = { pageIndex: 0, pageWidth: 595, pageHeight: 800 };
       for (const words of [

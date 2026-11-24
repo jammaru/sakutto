@@ -1134,7 +1134,7 @@ function twoColumnBodyRows(
       Math.max(...group.map((piece) => piece.box.x + piece.box.width)) -
       Math.min(...group.map((piece) => piece.box.x));
     if (
-      rightStart - leftEnd >= WIDE_COLUMN_GUTTER &&
+      rightStart - leftEnd >= MIN_COLUMN_GUTTER &&
       measure(left) >= resolved.pageWidth * 0.15 &&
       measure(right) >= resolved.pageWidth * 0.15 &&
       gutterCentred(leftEnd, rightStart, resolved.pageWidth)
