@@ -381,6 +381,34 @@ describe('OcrHost', () => {
     expect(runtime.release).toHaveBeenCalledOnce();
   });
 
+  it('cancels every tier before draining the queue on delete', async () => {
+    const manager = assets();
+    let recognitionStarted!: () => void;
+    const started = new Promise<void>((resolve) => {
+      recognitionStarted = resolve;
+    });
+    let highSignal: AbortSignal | undefined;
+    const runtime: OcrRuntimeLike = {
+      recognize: (_image, signal) => {
+        highSignal = signal;
+        recognitionStarted();
+        // A native run that ignores abort still settles the queue via withinSignal().
+        return new Promise(() => undefined);
+      },
+      release: vi.fn(),
+    };
+    const host = new OcrHost({
+      createAssetManager: async () => manager,
+      createRuntime: async () => runtime,
+    });
+
+    const high = host.recognize('slow-high', 'high', image);
+    await started;
+    await expect(host.delete('standard')).resolves.toMatchObject({ state: 'absent' });
+    expect(highSignal?.aborted).toBe(true);
+    await expect(high).rejects.toMatchObject({ code: 'aborted' });
+  });
+
   it('applies the host timeout to a stalled runtime load without blocking delete', async () => {
     const manager = assets();
     let loadStarted!: () => void;

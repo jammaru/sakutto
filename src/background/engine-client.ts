@@ -9,6 +9,7 @@ import { isOcrResult, isOcrStatus } from '@/shared/ocr';
 import {
   ENGINE_HOST_PORT,
   MODEL_STATUS_PROGRESS_ID,
+  OCR_DELETE_TIMEOUT_MS,
   ocrRecognitionTimeoutMs,
   errorFromPayload,
   isEngineHostMessage,
@@ -86,6 +87,8 @@ interface RequestOptions {
   retry?: boolean;
   /** Recreate the offscreen document when a host-gone response leaves attempts unused. */
   recover?: boolean;
+  /** Keep the port attached when a slow host response is mistaken for a host-gone error. */
+  keepPort?: boolean;
 }
 
 function createRequestId(): string {
@@ -177,7 +180,13 @@ export class EngineClient {
   }
 
   async deleteOcr(tier: OcrTier): Promise<AssetStatus<OcrTier>> {
-    const value = await this.request({ type: 'ocr-delete', tier }, { timeoutMs: 30_000 });
+    // The host cancels the shared queue before deleting, but a native run can still take the
+    // high-tier bound to settle. Retrying or dropping the port here would disconnect every
+    // other caller from a host that is still alive and still deleting.
+    const value = await this.request(
+      { type: 'ocr-delete', tier },
+      { timeoutMs: OCR_DELETE_TIMEOUT_MS, retry: false, recover: false, keepPort: true },
+    );
     if (!isOcrStatus(value)) throw hostError('The OCR host returned an invalid status.');
     return value;
   }
@@ -486,7 +495,7 @@ export class EngineClient {
         lastError = error;
         if (!isHostGone(error)) throw error;
 
-        this.dropPort();
+        if (!options.keepPort) this.dropPort();
         if (attempt + 1 >= attempts) throw error;
         if (options.recover !== false) await this.controller.recreate();
       }

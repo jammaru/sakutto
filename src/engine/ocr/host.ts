@@ -153,8 +153,10 @@ export class OcrHost {
   }
 
   async delete(tier: OcrTier): Promise<AssetStatus<OcrTier>> {
+    // The inference queue is shared by all tiers. Abort every pending request, not just this
+    // tier's: a slow high-tier recognition queued ahead of the delete would otherwise hold the
+    // queue (and its ORT session) until its own timeout.
     for (const [id, request] of this.requests) {
-      if (request.tier !== tier) continue;
       request.controller.abort();
       this.requests.delete(id);
     }

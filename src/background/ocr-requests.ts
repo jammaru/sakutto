@@ -31,6 +31,14 @@ export class OcrRecognitionRequests {
     }
   }
 
+  /** A tier deletion frees the shared host queue, so callers on every tier must settle. */
+  cancelAll(): void {
+    for (const [requestId, request] of this.requests) {
+      request.controller.abort();
+      this.requests.delete(requestId);
+    }
+  }
+
   finish(requestId: string, controller: AbortController): void {
     if (this.requests.get(requestId)?.controller === controller) {
       this.requests.delete(requestId);

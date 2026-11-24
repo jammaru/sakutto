@@ -31,6 +31,19 @@ describe('OcrRecognitionRequests', () => {
     expect(current.signal.aborted).toBe(true);
   });
 
+  it('cancelAll settles callers on every tier before a shared queue wait', () => {
+    const requests = new OcrRecognitionRequests();
+    const standard = requests.start('reader-a', 'standard');
+    const high = requests.start('reader-b', 'high');
+    if (!standard || !high) throw new Error('controllers were not created');
+
+    requests.cancelAll();
+
+    expect(standard.signal.aborted).toBe(true);
+    expect(high.signal.aborted).toBe(true);
+    expect(requests.start('reader-a', 'standard')).not.toBeNull();
+  });
+
   it('rejects duplicate identities instead of aborting the incumbent', () => {
     const requests = new OcrRecognitionRequests();
     const first = requests.start('same-id', 'high');

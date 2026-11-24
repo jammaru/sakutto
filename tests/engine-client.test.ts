@@ -2,6 +2,10 @@ import { describe, expect, it, vi } from 'vitest';
 import { browser } from 'wxt/browser';
 import { EngineClient } from '@/background/engine-client';
 import type { OffscreenController } from '@/background/offscreen-lifecycle';
+import {
+  OCR_DELETE_TIMEOUT_MS,
+  OCR_HIGH_RECOGNITION_TIMEOUT_MS,
+} from '@/engine/offscreen/protocol';
 import { DEFAULT_LOCAL_SERVER_PARALLEL } from '@/engine/local-server/url';
 import { DEFAULT_MODEL_ID, HIGH_QUALITY_MODEL_ID } from '@/engine/model/catalog';
 import type { TranslateOptions, TranslationChunk } from '@/engine/types';
@@ -414,6 +418,52 @@ describe('EngineClient', () => {
     await expect(pending).resolves.toMatchObject({
       model: { id: HIGH_QUALITY_MODEL_ID },
     });
+  });
+
+  it('bounds OCR deletion above high-tier recognition and keeps its port when slow', async () => {
+    expect(OCR_DELETE_TIMEOUT_MS).toBeGreaterThan(OCR_HIGH_RECOGNITION_TIMEOUT_MS);
+    vi.useFakeTimers();
+    try {
+      connect.mockClear();
+      const port = new FakePort();
+      connect.mockReturnValue(port.port);
+      const offscreen = controller();
+      const client = new EngineClient(offscreen);
+
+      const pending = client.deleteOcr('high');
+      await vi.advanceTimersByTimeAsync(0);
+      const deletion = port.messagesOfType('ocr-delete')[0] as { requestId: string } | undefined;
+      expect(deletion).toBeDefined();
+      if (!deletion) return;
+
+      let settled = false;
+      void pending.then(
+        () => {
+          settled = true;
+        },
+        () => {
+          settled = true;
+        },
+      );
+      await vi.advanceTimersByTimeAsync(OCR_HIGH_RECOGNITION_TIMEOUT_MS);
+      expect(settled).toBe(false);
+      expect(port.messagesOfType('ocr-delete')).toHaveLength(1);
+      expect(offscreen.recreate).not.toHaveBeenCalled();
+
+      const status = { id: 'high', state: 'absent', received: 0, total: 1, progress: 0 };
+      port.emit({ type: 'response', requestId: deletion.requestId, ok: true, value: status });
+      await expect(pending).resolves.toEqual(status);
+
+      // The slow delete did not disconnect the port: the next caller reuses it.
+      const next = client.ocrStatus('high');
+      await vi.advanceTimersByTimeAsync(0);
+      expect(connect).toHaveBeenCalledTimes(1);
+      const statusRequest = port.messagesOfType('ocr-status')[0] as { requestId: string };
+      port.emit({ type: 'response', requestId: statusRequest.requestId, ok: true, value: status });
+      await expect(next).resolves.toEqual(status);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('settles an aborted OCR download with an unresponsive host so its task entry clears', async () => {

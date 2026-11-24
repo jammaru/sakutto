@@ -372,6 +372,33 @@ describe('page-background raster filtering', () => {
     expect(withoutPageBackground(tiles, width, height).images).toEqual([]);
   });
 
+  it('keeps a lone full-bleed figure instead of reading it as a scan background', () => {
+    const fullBleed = { images: [{ x: 0, y: 0, width, height: 650 }] };
+    expect(rasterCoverage(fullBleed, width, height)).toBeGreaterThanOrEqual(
+      PAGE_BACKGROUND_COVERAGE,
+    );
+    // One raster touching the page edges is a drawing, not a scan: edge contact needs a
+    // second tile (or a near-page-size box) before it removes the image and its labels.
+    expect(withoutPageBackground(fullBleed, width, height)).toEqual(fullBleed);
+
+    const label = piece('Axis label drawn inside the full-bleed figure', 40, 300, 300);
+    const layout = layoutPage(
+      groupLines([label]),
+      withoutPageBackground(fullBleed, width, height),
+      { width, height, index: 0 },
+    );
+    expect(
+      layout.skipped.some((block) => block.role === 'figure-label' && block.text === label.text),
+    ).toBe(true);
+
+    // The same full-width raster is background once another tile joins it at the page edge.
+    const tiled = rasterAreas([
+      { x: 0, y: 0, width, height: 650 },
+      { x: 0, y: 650, width, height: 150 },
+    ]);
+    expect(withoutPageBackground(tiled, width, height).images).toEqual([]);
+  });
+
   it('keeps a partial figure when the inset scan alone misses the threshold', () => {
     const scan = rasterAreas([{ x: 0, y: 0, width: 420, height }]);
     const lines = groupLines([piece('Router', 300, 300, 60)]);

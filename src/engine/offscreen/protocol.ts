@@ -58,6 +58,11 @@ export function ocrPageTimeoutMs(tier: OcrTier): number {
 }
 /** High-tier alias for callers that do not track the requested tier. */
 export const OCR_PAGE_TIMEOUT_MS = ocrPageTimeoutMs('high');
+/**
+ * A delete waits for the host's shared recognition queue, so its client bound has to outlast
+ * even a high-tier run that is only cancelled after the delete request arrives.
+ */
+export const OCR_DELETE_TIMEOUT_MS = OCR_PAGE_TIMEOUT_MS;
 
 export type OcrFailureCode = 'model-missing' | 'timeout' | 'failed';
 

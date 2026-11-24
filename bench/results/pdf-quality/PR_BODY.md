@@ -99,12 +99,12 @@ PDF 翻訳を「動く」から「読める」に変えるため、抽出・段�
 
 | variant             |   CER |   WER | cross-column | lines | ms/page | model bytes |
 | ------------------- | ----: | ----: | -----------: | ----: | ------: | ----------: |
-| baseline-1x         | 66.7% | 94.8% |            0 |   100 |  23.2 s |    21.9 MiB |
-| shipped-baseline    | 11.6% | 16.8% |            0 |   105 |  26.9 s |    21.9 MiB |
-| default-1600        |  3.0% |  5.5% |            0 |   117 |  34.1 s |    21.9 MiB |
-| gray+contrast-1600  |  3.0% |  5.4% |            0 |   117 |  34.4 s |    21.9 MiB |
-| dpi300              |  3.0% |  5.5% |            0 |   116 |  36.1 s |    21.9 MiB |
-| sauvola             | 82.5% | 97.2% |            1 |    98 |  20.8 s |    21.9 MiB |
+| baseline-1x         | 66.7% | 94.8% |            0 |   100 |  23.4 s |    21.9 MiB |
+| shipped-baseline    | 11.6% | 16.8% |            0 |   105 |  26.2 s |    21.9 MiB |
+| default-1600        |  3.0% |  5.5% |            0 |   117 |  33.5 s |    21.9 MiB |
+| gray+contrast-1600  |  3.0% |  5.4% |            0 |   117 |  34.0 s |    21.9 MiB |
+| dpi300              |  3.0% |  5.5% |            0 |   116 |  35.2 s |    21.9 MiB |
+| sauvola             | 82.5% | 97.2% |            1 |    98 |  21.0 s |    21.9 MiB |
 | default-1600 (High) |  3.6% |  6.4% |            0 |   117 | 213.7 s |   132.2 MiB |
 
 **採用**: 2x 描画 + detection maxSide 1600 の Standard（tiny_det + small_rec）。実スキャン p1 の最新コミット値は **CER 3.0%、cross-column 0**（`report.json` と同期）。以前の 5.4% は文中の完全文を見出しと誤認して実ガター分割を塞いでいたためで、判定を改めて iteration-6 と同水準の行分割に戻しました。High tier は CER 面で有利な場合がある一方、約 6 倍遅く 6 倍サイズのため既定は Standard のままです。Binarization はこの小さなセリフ文字を潰すため既定では無効です。17 バリアントの全表は `bench/results/scan-ocr/report.md`。

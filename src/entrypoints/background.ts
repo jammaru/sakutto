@@ -630,8 +630,11 @@ export default defineBackground(() => {
 
     if (isOcrDeleteRequest(message)) {
       void (async () => {
-        ocrDownloads.get(message.tier)?.abort();
-        ocrRecognitions.cancelTier(message.tier);
+        // The offscreen recognition queue is shared by all tiers and is drained before the
+        // delete runs; settle callers on every tier before waiting for that queue.
+        for (const download of ocrDownloads.values()) download.abort();
+        ocrDownloads.clear();
+        ocrRecognitions.cancelAll();
         const status = await client.deleteOcr(message.tier).catch(() => null);
         if (status) await broadcast({ type: 'ocr:progress', status });
         sendResponse(status);
