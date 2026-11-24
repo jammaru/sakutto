@@ -28,6 +28,11 @@ export interface FitRequest {
   measure: (text: string, fontSize: number) => number;
   /** Role of the block, which decides how small body type may go. */
   role?: AnyBlockRole;
+  /**
+   * A figure box label is one line drawn inside a fixed rectangle. It is shrunk to fit that
+   * rectangle as a single line instead of wrapping into the drawing around it.
+   */
+  singleLine?: boolean | undefined;
 }
 
 export type FitResult =
@@ -138,6 +143,9 @@ export function fitText(
   const wrap = wrapBudget(request.width);
   const wrapAt = (size: number): string[] => {
     const measureAt = (value: string) => request.measure(value, size);
+    if (request.singleLine === true) {
+      return [text.replace(/\s+/gu, ' ').trim()];
+    }
     const lines = wrapText(text, wrap, measureAt, kinsoku);
     // wrapText already applies kinsoku. A second pass keeps marker text clean when every
     // candidate failed a head-forbidden start and we return `fits: false`.
@@ -150,6 +158,14 @@ export function fitText(
     // A wrap that still starts a line on `。` (or another head-forbidden mark) is not a fit:
     // painting it would show a broken line, so the block goes to a marker instead.
     if (kinsoku && hasKinsokuHeadViolation(lines)) continue;
+    // A single-line overlay has no wrap to rescue it: the shrink search must measure the line
+    // itself, or a long translation would be accepted and then clipped by the figure's box.
+    if (
+      request.singleLine === true &&
+      request.measure(lines[0] ?? '', size) > wrapBudget(request.width) + SLACK
+    ) {
+      continue;
+    }
     const layout = lineLayout(lines.length, size, leading, ceiling);
     if (layout.height <= ceiling + SLACK) {
       best = { fontSize: size, lines, height: layout.height, lineHeight: layout.lineHeight };

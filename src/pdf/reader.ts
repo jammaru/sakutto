@@ -1303,6 +1303,7 @@ export class PdfReader {
         };
 
     node.dataset.fitWidth = fit.width.toFixed(2);
+    node.dataset.figureLabel = block.singleLine === true ? 'true' : 'false';
     node.textContent = visible.join('\n');
     node.style.cssText = coverStyle(
       box,

@@ -24,7 +24,9 @@ export function isNoiseBlockText(text: string, role: string = 'prose'): boolean 
   if (SECTION_MARKER.test(trimmed) && content.length > 1) return false;
   // "る。" / "V" / "X": a one- or two-glyph fragment left by a line break or a figure arrow.
   if (content.length === 1 && !CJK_LETTER.test(content)) return true;
-  if (CJK_LETTER.test(content) && content.length <= 2 && /[。．.!?]$/u.test(trimmed)) return true;
+  // A one-to-three-glyph CJK tail ("る。", "ある。", "がある。") is the wrapped end of the
+  // paragraph above it, not a sentence a translator can translate on its own.
+  if (CJK_LETTER.test(content) && content.length <= 3 && /[。．.!?]$/u.test(trimmed)) return true;
   // Real short headings and labels are deliberately kept or translated elsewhere; only
   // free-standing prose debris is filtered here.
   if (['heading', 'caption', 'label', 'cell', 'figure-label', 'furniture'].includes(role)) {

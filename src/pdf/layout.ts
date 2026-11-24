@@ -66,6 +66,11 @@ export interface LayoutBlock {
    */
   titleRow?: boolean | undefined;
   /**
+   * A label drawn inside a figure box: its translation is one shrunk line fitted to `box`,
+   * never a wrapped paragraph painted over the artwork around it.
+   */
+  singleLine?: boolean | undefined;
+  /**
    * Length of the source along its writing direction, in points.
    *
    * After `/Rotate 90` or `/Rotate 270` the axis-aligned box has `width` equal to the em and
@@ -510,8 +515,8 @@ const SKIP_ROLES: ReadonlySet<AnyBlockRole> = new Set<AnyBlockRole>([
   'identity',
 ]);
 
-/** A caption opens with a figure, table, or algorithm number. */
-const CAPTION_START = /^(?:Fig(?:ure)?|Tab(?:le)?|Alg(?:orithm)?)\.?\s*\d/iu;
+/** A caption opens with a figure, table, or algorithm number, in either script. */
+const CAPTION_START = /^(?:(?:Fig(?:ure)?|Tab(?:le)?|Alg(?:orithm)?)\.?\s*\d|[図表]\s*\d)/iu;
 
 /** True when a line is a numbered caption rather than a table header or a paragraph. */
 export function isCaptionLine(text: string): boolean {

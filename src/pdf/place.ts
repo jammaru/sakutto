@@ -130,6 +130,7 @@ export function placePage(request: PlaceRequest): PlacedBlock[] {
         width,
         measure: measureAt,
         role: block.role,
+        singleLine: block.singleLine,
       },
       translation,
       request.target,
@@ -191,11 +192,17 @@ export function pageGrowBudget(
  * not have to wrap to a second line.
  */
 export function wrapWidth(
-  block: Pick<LayoutBlock, 'box' | 'room' | 'role' | 'advance' | 'writing'>,
+  block: Pick<
+    LayoutBlock,
+    'box' | 'room' | 'role' | 'advance' | 'writing' | 'singleLine' | 'lines' | 'column'
+  >,
   obstacles: readonly Box[] = [],
   pageWidth = 0,
 ): number {
   if (verticalWriting(block)) return Math.max(1, block.advance);
+  // A figure box label is fitted to the rectangle drawn on the page. Growing it into the
+  // artwork (or into a neighbouring column) would paint over the drawing it names.
+  if (block.singleLine === true) return Math.max(1, block.box.width);
   const base = Math.max(1, block.room.width, block.box.width, block.advance);
   const tight = Math.max(1, base * 0.96);
   if (block.role !== 'prose' && block.role !== 'caption' && block.role !== 'heading') {
@@ -203,6 +210,7 @@ export function wrapWidth(
   }
 
   let right = pageWidth > 0 ? pageWidth - GUTTER_CLEARANCE : Infinity;
+  let boundedByObstacle = false;
   const top = block.box.y;
   const bottom = block.box.y + block.box.height;
   // A neighbouring block just above can still grow down into this row, so it also bounds
@@ -216,6 +224,7 @@ export function wrapWidth(
     if (obstacle.y + obstacle.height < top - reach) continue;
     if (obstacle.y > bottom - 1) continue;
     right = Math.min(right, obstacle.x);
+    boundedByObstacle = true;
   }
   const extra = right - GUTTER_CLEARANCE - block.box.x;
   if (!Number.isFinite(extra) || extra <= tight) {
@@ -223,7 +232,15 @@ export function wrapWidth(
   }
   // Never take more than a modest share past the source measure, so a paragraph cannot
   // walk into the next column when that column's first line happens to sit lower.
-  return capToPage(Math.max(1, Math.min(extra, base * 1.28, tight * 1.22)), block.box.x, pageWidth);
+  const grown = Math.max(1, Math.min(extra, base * 1.28, tight * 1.22));
+  const capped = capToPage(grown, block.box.x, pageWidth);
+  // `drawnBox` caps a cover at the column wall, and wrapping even one word wider than that
+  // cap clips the last glyph at the gutter. When an obstacle actually bounds this row, wrap
+  // to the width that can be painted instead of the width the free-space search allowed.
+  if (boundedByObstacle && pageWidth > 0) {
+    return Math.max(1, capToColumn(capped, block.box.x, block, pageWidth));
+  }
+  return capped;
 }
 
 /** True when body text is only part of a line and must not paint across the full column. */
@@ -260,6 +277,14 @@ export function drawnBox(block: LayoutBlock, fit: FitResult, wrap = 0, pageWidth
   const height = fit.fits
     ? Math.max(block.box.height + descender, fit.height)
     : Math.max(block.box.height + descender, fit.visibleLines.length * fit.lineHeight);
+  if (block.singleLine === true) {
+    return {
+      x: block.box.x,
+      y: block.box.y,
+      width: capToPage(block.box.width, block.box.x, pageWidth),
+      height,
+    };
+  }
   const fragment = inlineProseFragment(block);
   const x = fragment ? block.box.x : Math.min(block.box.x, block.room.x);
   const baseWidth = fragment

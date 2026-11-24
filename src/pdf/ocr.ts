@@ -7,6 +7,7 @@ import { CJK_MAJORITY, cjkRatio } from './fonts';
 import { rasterCoverage, withoutPageBackground, type FigureAreas } from './figures';
 import { median, type Box } from './geometry';
 import {
+  isEquation,
   layoutPage,
   looksLikeCodeLine,
   type AnyBlockRole,
@@ -1847,7 +1848,8 @@ function twoColumnOrder(
   return ordered;
 }
 
-const CAPTION_LINE = /^(?:Fig(?:ure)?|Tab(?:le)?|Alg(?:orithm)?)\.?\s*\d/iu;
+const CAPTION_LINE =
+  /^(?:(?:Fig(?:ure)?|Tab(?:le)?|Alg(?:orithm)?)\.?\s*\d|[図表]\s*\d)/iu;
 // Japanese numbered headings use a CJK letter after the number, not a Latin capital.
 // Japanese headings are often printed as "1.はじめに" with no space after the dot, and the
 // separator may be full width. Both are the same section marker as "1. Introduction".
@@ -1941,9 +1943,29 @@ function hasCjkProse(text: string): boolean {
   // Numeric-only labels are rejected separately by groupRole before this point.
   return cjkRatio(text) >= CJK_MAJORITY && compact.length >= 2 && /\p{L}/u.test(compact);
 }
+/**
+ * A display formula OCRed as ordinary text: `CER = (S + D + I) / N` has no math font to
+ * go on, but it is short, centred and built out of variables and operators rather than words.
+ */
+const OCR_OPERATOR = /[=∈≈≤≥≠+−×÷∑∏∫√]/u;
+
+function isOcrFormula(line: OcrTextLine): boolean {
+  const text = line.text.trim();
+  if (text.length === 0 || text.length > 48) return false;
+  if (/[。．.!?]$/u.test(text) || cjkRatio(text) > 0.05) return false;
+  if (!OCR_OPERATOR.test(text)) return false;
+  const words = text.match(/\p{L}+/gu) ?? [];
+  if (words.length > 6) return false;
+  return (text.match(/[\d=∈≈≤≥≠+−×÷∑∏∫√()[\]/]/gu) ?? []).length >= 3;
+}
+
 function groupRole(group: readonly OcrTextLine[], bodySize: number): AnyBlockRole {
   const text = groupText(group);
   if (CAPTION_LINE.test(text)) return 'caption';
+  // A display formula on its own line is typesetting, not a sentence. It must be reported as
+  // its own block so the paragraph that follows can be translated without taking it along.
+  if (group.length === 1 && isOcrFormula(group[0]!)) return 'equation';
+  if (isEquation(group)) return 'equation';
   if (group.some((line) => looksLikeCodeLine(line.text) || looksLikeBareCodeLine(line.text))) {
     return 'code';
   }
@@ -2016,7 +2038,11 @@ function groupBlocks(
       looksLikeCodeLine(line.text) ||
       looksLikeBareCodeLine(line.text) ||
       looksLikeCodeLine(previous.text) ||
-      looksLikeBareCodeLine(previous.text);
+      looksLikeBareCodeLine(previous.text) ||
+      // A display equation and the prose around it are different kinds of thing even on the
+      // same pitch. The formula stays in the page's own type; the paragraph is translated.
+      isOcrFormula(previous) !== isOcrFormula(line) ||
+      isEquation([previous]) !== isEquation([line]);
     if (startsNew) {
       groups.push({
         lines: [line],
@@ -2028,7 +2054,52 @@ function groupBlocks(
     last.lines.push(line);
     last.role = groupRole(last.lines, bodySize);
   }
-  return groups;
+  return mergeTrailingFragments(groups);
+}
+
+/**
+ * True when a line is the wrapped tail of the paragraph above it: a one-to-six-glyph CJK run
+ * that closes a sentence. OCR splits a justified Japanese line at every few characters, and a
+ * size wobble can leave the last two glyphs as their own group. Translating that group on its
+ * own is where a hallucinated sentence such as "I need it." comes from.
+ */
+function isWrappedTail(line: OcrTextLine): boolean {
+  const trimmed = line.text.trim();
+  if (trimmed.length === 0 || trimmed.length > 8 || verticalLine(line)) return false;
+  if (SECTION_LINE.test(trimmed) || CAPTION_LINE.test(trimmed)) return false;
+  if (!/[。．.!?]$/u.test(trimmed)) return false;
+  const content = trimmed.replace(/[\s\p{P}\p{S}\p{N}]/gu, '');
+  return content.length >= 1 && content.length <= 6 && cjkRatio(content) >= 0.6;
+}
+
+/** Folds a wrapped sentence tail back into the paragraph it completes. */
+function mergeTrailingFragments(groups: readonly OcrBlockGroup[]): OcrBlockGroup[] {
+  const merged: OcrBlockGroup[] = [];
+  for (const group of groups) {
+    const previous = merged[merged.length - 1];
+    const tail = group.lines.length === 1 ? group.lines[0] : undefined;
+    const lastLine = previous?.lines[previous.lines.length - 1];
+    const gap =
+      previous && tail && lastLine
+        ? tail.box.y - (lastLine.box.y + lastLine.box.height)
+        : Number.POSITIVE_INFINITY;
+    const completesLine =
+      lastLine !== undefined && !/[。．.!?]$/u.test(lastLine.text.trimEnd());
+    if (
+      previous &&
+      tail &&
+      previous.role === 'prose' &&
+      previous.column === group.column &&
+      isWrappedTail(tail) &&
+      completesLine &&
+      gap <= Math.max(4, tail.height * 2.4)
+    ) {
+      previous.lines = [...previous.lines, tail];
+      continue;
+    }
+    merged.push({ ...group, lines: [...group.lines] });
+  }
+  return merged;
 }
 
 /** Blocks that share a horizontal band in short runs are table cells, not paragraphs. */
@@ -2058,6 +2129,144 @@ function detectTableRows(blocks: readonly OcrLayoutBlock[], bodySize: number): O
     .flat();
 }
 /**
+ * A single-letter OCR reading of the arrow between two flowchart boxes.
+ */
+const DIAGRAM_ARROW = /^[VvXx↓↑←→∨∧|｜]$/u;
+
+interface DiagramDetection {
+  labels: OcrTextLine[];
+  connectors: OcrTextLine[];
+  caption: OcrTextLine;
+  boxes: Box[];
+  column: number;
+  firstBaseline: number;
+}
+
+function centreX(line: OcrTextLine): number {
+  return line.box.x + line.box.width / 2;
+}
+
+/**
+ * Recognises a vertical flowchart whose box labels were OCRed as short, centred lines.
+ *
+ * The drawing itself is part of the page's scan, so there is no vector figure area to consult.
+ * What is left is the shape of the labels: three or more short lines on one centre line,
+ * separated by arrow fragments, with a numbered caption underneath. Each label then gets its
+ * own block fitted to an inferred rectangle, and the caption stays a separate block below the
+ * drawing instead of being merged into the last box's text.
+ */
+export function detectDiagram(
+  lines: readonly OcrTextLine[],
+  pageWidth: number,
+  bodySize: number,
+): DiagramDetection | null {
+  if (lines.length < 4 || bodySize <= 0) return null;
+  const sorted = [...lines].sort((left, right) => left.baseline - right.baseline);
+  const maxLabelWidth = Math.max(60, bodySize * 14);
+  const isConnector = (line: OcrTextLine): boolean =>
+    DIAGRAM_ARROW.test(line.text.trim()) && line.box.width <= bodySize * 1.5;
+  const isCandidate = (line: OcrTextLine): boolean => {
+    const text = line.text.trim();
+    if (text.length < 2 || text.length > 40) return false;
+    if (isConnector(line) || CAPTION_LINE.test(text) || SECTION_LINE.test(text)) return false;
+    if (/[。．.!?:：]$/u.test(text)) return false;
+    if (line.box.width > maxLabelWidth) return false;
+    return cjkRatio(text) >= 0.3 || /[A-Za-z]{3,}/u.test(text);
+  };
+
+  for (const first of sorted) {
+    if (!isCandidate(first)) continue;
+    const anchor = centreX(first);
+    const tolerance = Math.max(8, first.height * 0.6);
+    const labels: OcrTextLine[] = [first];
+    const connectors: OcrTextLine[] = [];
+    let last = first;
+    for (const line of sorted) {
+      if (line.baseline <= last.baseline) continue;
+      const gap = line.box.y - (last.box.y + last.box.height);
+      if (gap > Math.max(10, bodySize * 3)) break;
+      // Lines from the other column can sit between two boxes of the drawing. They do not
+      // break the stack; only a line on the drawing's own centre line can be a label.
+      if (Math.abs(centreX(line) - anchor) > tolerance) continue;
+      if (isConnector(line)) {
+        connectors.push(line);
+        last = line;
+        continue;
+      }
+      if (isCandidate(line) && labels.length < 8) {
+        labels.push(line);
+        last = line;
+      }
+    }
+    if (labels.length < 3 || connectors.length === 0) continue;
+    const caption = sorted.find(
+      (line) =>
+        line.baseline > last.baseline &&
+        CAPTION_LINE.test(line.text.trim()) &&
+        line.baseline - last.baseline <= Math.max(20, bodySize * 4) &&
+        Math.abs(centreX(line) - anchor) < bodySize * 12,
+    );
+    if (!caption) continue;
+
+    // The text quad is narrower than the drawn rectangle. Use a share of the widest label and
+    // of the column for the rectangle so a longer translation still fits on one line without
+    // covering the box rules or the arrow below it.
+    const widest = Math.max(...labels.map((line) => line.box.width));
+    const centre = median(labels.map(centreX));
+    const width = Math.min(widest * 1.7, Math.max(80, pageWidth * 0.36));
+    const fontSize = median(labels.map((line) => line.height));
+    const steps = labels.slice(1).map(
+      (line, index) => line.baseline - (labels[index]?.baseline ?? line.baseline),
+    );
+    const step = median(steps);
+    const height = Math.max(fontSize * 1.5, Math.min(step * 0.82, fontSize * 2.6));
+    const boxes = labels.map((line) => ({
+      x: centre - width / 2,
+      y: line.box.y - (height - line.box.height) / 2,
+      width,
+      height,
+    }));
+    const context = columnContext(lines, pageWidth);
+    return {
+      labels,
+      connectors,
+      caption,
+      boxes,
+      column: lineColumn(first, pageWidth, context),
+      firstBaseline: first.baseline,
+    };
+  }
+  return null;
+}
+
+/** One OCR line as a block, with the drawn figure box as its paint rectangle when fitted. */
+function diagramBlock(
+  line: OcrTextLine,
+  box: Box,
+  role: AnyBlockRole,
+  column: number,
+  singleLine: boolean,
+): OcrLayoutBlock {
+  return {
+    id: line.id + ':figure',
+    box: { ...box },
+    room: { ...box },
+    lines: [line],
+    text: line.text.trim(),
+    role,
+    fontSize: line.height,
+    lineHeight: 1.3,
+    align: singleLine ? 'center' : 'left',
+    bold: false,
+    italic: false,
+    column,
+    advance: box.width,
+    writing: 0,
+    singleLine: singleLine || undefined,
+  };
+}
+
+/**
  * Groups OCR reading lines into paragraphs, in the order the detector already established.
  *
  * One block per line made every translation fight for a box one line tall: long Japanese text
@@ -2070,7 +2279,13 @@ export function ocrLinesToLayoutBlocks(
   options: { pageWidth?: number; pageHeight?: number } = {},
 ): OcrLayoutBlock[] {
   const bodySize = bodyFontSize(lines);
-  return groupBlocks(lines, options.pageWidth ?? 0, bodySize).map((group, index) => {
+  const pageWidth = options.pageWidth ?? 0;
+  const diagram = detectDiagram(lines, pageWidth, bodySize);
+  const diagramLines = diagram
+    ? new Set<OcrTextLine>([...diagram.labels, ...diagram.connectors, ...(diagram.caption ? [diagram.caption] : [])])
+    : new Set<OcrTextLine>();
+  const body = diagramLines.size > 0 ? lines.filter((line) => !diagramLines.has(line)) : lines;
+  const blocks: OcrLayoutBlock[] = groupBlocks(body, pageWidth, bodySize).map((group, index) => {
     const first = group.lines[0];
     if (!first) throw new Error('an OCR block has no lines');
     const vertical = group.lines.every(verticalLine);
@@ -2110,7 +2325,7 @@ export function ocrLinesToLayoutBlocks(
       italic: group.lines.every(
         (line) => line.pieces.length > 0 && line.pieces.every((piece) => piece.italic),
       ),
-      titleRow: group.lines.every((line) => line.titleRow === true) || undefined,
+      titleRow: group.lines.every((line) => line.titleRow === true) ? true : undefined,
       // Keep -1 for spanning lines. Folding them into column 0 would let a full-width
       // title widen the left column's room across the gutter and clip its translation.
       column: group.column,
@@ -2118,6 +2333,42 @@ export function ocrLinesToLayoutBlocks(
       writing: vertical ? 90 : 0,
     };
   });
+  if (!diagram) return blocks;
+
+  const context = columnContext(body, pageWidth);
+  const figureBlocks = [
+    ...diagram.labels.map((line, index) =>
+      diagramBlock(
+        line,
+        diagram.boxes[index] ?? line.box,
+        'label',
+        lineColumn(line, pageWidth, context),
+        true,
+      ),
+    ),
+    ...diagram.connectors.map((line) =>
+      diagramBlock(line, line.box, 'label', diagram.column, false),
+    ),
+    diagramBlock(
+      diagram.caption,
+      diagram.caption.box,
+      'caption',
+      lineColumn(diagram.caption, pageWidth, context),
+      false,
+    ),
+  ].sort(
+    (left, right) =>
+      (left.lines[0]?.baseline ?? left.box.y) - (right.lines[0]?.baseline ?? right.box.y),
+  );
+  // `blocks` arrive in reading order (left column, then right). Insert the drawing where its
+  // own column reaches it, not at the first baseline lower down the page.
+  const insertAt = blocks.findIndex((block) => {
+    if (block.column > diagram.column) return true;
+    if (block.column !== diagram.column) return false;
+    return (block.lines[0]?.baseline ?? block.box.y) >= diagram.firstBaseline;
+  });
+  blocks.splice(insertAt < 0 ? blocks.length : insertAt, 0, ...figureBlocks);
+  return blocks;
 }
 
 export function ocrResultToLayoutBlocks(
@@ -2133,11 +2384,17 @@ function layoutFromLines(
 ): OcrPageLayout {
   const blocks = ocrLinesToLayoutBlocks(lines, options);
   const bodySize = bodyFontSize(lines);
-  // Code, numeric labels and small text attached to a figure caption are not prose. Keeping
-  // them in the skipped list leaves the scan's own drawing visible at those spots.
+  // Code, numeric labels, formulas and arrow fragments are not prose. A figure box label is a
+  // `label` too, but it carries a single-line paint rectangle: it stays in `blocks` so its
+  // translation overlays only that rectangle instead of the whole drawing.
   const skipped = blocks.filter(
-    (block) => block.role === 'code' || block.role === 'label' || block.role === 'furniture',
+    (block) =>
+      block.singleLine !== true &&
+      ['code', 'label', 'furniture', 'equation'].includes(block.role),
   );
+  const diagramBoxes = blocks
+    .filter((block) => block.singleLine === true)
+    .map((block) => ({ ...block.box }));
   const tableCells = detectTableRows(
     blocks.filter((block) => !skipped.includes(block)),
     bodySize,
@@ -2207,7 +2464,11 @@ function layoutFromLines(
     pageIndex: options.pageIndex,
     // Caption-adjacent small type sits inside the figure; give it to the fitter as a wall so a
     // neighbouring paragraph cannot wrap across the drawing.
-    obstacles: [...figureLabels, ...tableCells].map((block) => ({ ...block.box })),
+    obstacles: [
+      ...figureLabels.map((block) => ({ ...block.box })),
+      ...tableCells.map((block) => ({ ...block.box })),
+      ...diagramBoxes,
+    ],
   };
 }
 

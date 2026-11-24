@@ -860,6 +860,7 @@ export class PdfSession {
         width,
         measure: measureAt,
         role: block.role,
+        singleLine: block.singleLine,
       },
       state.translation,
       targetScript(this.target),

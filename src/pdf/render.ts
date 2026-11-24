@@ -265,6 +265,14 @@ export const READER_STYLE = `
   text-align: start;
 }
 
+/* A figure box label is a single fitted line over the drawing's own box. Its cover must stay
+   inside that rectangle: a wrapped or blurred line would sit on the arrows and box rules. */
+.sakutto-cover[data-figure-label="true"] {
+  white-space: pre;
+  overflow: hidden;
+  word-break: keep-all;
+}
+
 .sakutto-cover sup,
 .sakutto-cover sub {
   font-size: 0.75em;
