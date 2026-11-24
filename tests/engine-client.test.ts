@@ -509,6 +509,101 @@ describe('EngineClient', () => {
     await client.bootSource();
     await expect(pending).rejects.toMatchObject({ code: 'offscreen-unavailable' });
   });
+
+  it('keeps the port when status and ping polls time out during OCR recognition', async () => {
+    vi.useFakeTimers();
+    try {
+      connect.mockClear();
+      const port = new FakePort();
+      connect.mockReturnValue(port.port);
+      const disconnect = vi.spyOn(port.port, 'disconnect');
+      const offscreen = controller();
+      const client = new EngineClient(offscreen);
+
+      const recognition = client.recognizeOcr(
+        'standard',
+        { width: 1, height: 1, data: 'AAAA' },
+        new AbortController().signal,
+      );
+      await vi.advanceTimersByTimeAsync(0);
+      const ocr = port.messagesOfType('ocr-recognize')[0] as { requestId: string } | undefined;
+      expect(ocr).toBeDefined();
+      if (!ocr) return;
+
+      const status = client.status();
+      const ping = client.ping();
+      const statusRejection = expect(status).rejects.toMatchObject({
+        code: 'offscreen-unavailable',
+      });
+      const pingRejection = expect(ping).rejects.toMatchObject({
+        code: 'offscreen-unavailable',
+      });
+      await vi.advanceTimersByTimeAsync(15_000);
+      await statusRejection;
+      await pingRejection;
+      expect(offscreen.recreate).not.toHaveBeenCalled();
+      expect(disconnect).not.toHaveBeenCalled();
+      expect(connect).toHaveBeenCalledTimes(1);
+
+      port.emit({
+        type: 'response',
+        requestId: ocr.requestId,
+        ok: true,
+        value: { text: 'ok', regions: [], lines: [] },
+      });
+      await expect(recognition).resolves.toMatchObject({ text: 'ok' });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('extends ocr-status past the 15s bound while a recognition is active', async () => {
+    vi.useFakeTimers();
+    try {
+      const port = new FakePort();
+      connect.mockReturnValue(port.port);
+      const offscreen = controller();
+      const client = new EngineClient(offscreen);
+
+      const recognition = client.recognizeOcr(
+        'standard',
+        { width: 1, height: 1, data: 'AAAA' },
+        new AbortController().signal,
+      );
+      await vi.advanceTimersByTimeAsync(0);
+      const ocr = port.messagesOfType('ocr-recognize')[0] as { requestId: string } | undefined;
+      expect(ocr).toBeDefined();
+      if (!ocr) return;
+
+      const status = { id: 'standard', state: 'loaded', received: 1, total: 1, progress: 1 };
+      const pending = client.ocrStatus('standard');
+      let settled = false;
+      void pending.then(
+        () => {
+          settled = true;
+        },
+        () => {
+          settled = true;
+        },
+      );
+      await vi.advanceTimersByTimeAsync(15_000);
+      expect(settled).toBe(false);
+      const request = port.messagesOfType('ocr-status')[0] as { requestId: string };
+      port.emit({ type: 'response', requestId: request.requestId, ok: true, value: status });
+      await expect(pending).resolves.toEqual(status);
+      expect(offscreen.recreate).not.toHaveBeenCalled();
+
+      port.emit({
+        type: 'response',
+        requestId: ocr.requestId,
+        ok: true,
+        value: { text: 'ok', regions: [], lines: [] },
+      });
+      await expect(recognition).resolves.toMatchObject({ text: 'ok' });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
 
 function upgradedLocalServerSettings() {

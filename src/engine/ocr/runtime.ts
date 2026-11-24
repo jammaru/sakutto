@@ -29,6 +29,11 @@ function loadOrt(): Promise<OrtModule> {
       const ort = (await import(/* @vite-ignore */ moduleUrl)) as OrtModule;
       ort.env.wasm.wasmPaths = extensionAssetUrl(`${ORT_ASSET_DIRECTORY}/`);
       ort.env.wasm.numThreads = 1;
+      // WASM stays on this thread. ORT's proxy mode would move inference to a worker and
+      // change how the models and WASM paths resolve inside an extension; we keep the
+      // proven setup and instead let OcrPipeline yield a macrotask between text-box
+      // recognitions. That keeps the offscreen host's port responsive without touching
+      // recognition output (see docs/design/ocr-host-responsiveness.md).
       ort.env.wasm.proxy = false;
       return ort;
     })().catch((error: unknown) => {

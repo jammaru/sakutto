@@ -10,6 +10,7 @@ import {
   ENGINE_HOST_PORT,
   MODEL_STATUS_PROGRESS_ID,
   OCR_DELETE_TIMEOUT_MS,
+  OCR_PAGE_TIMEOUT_MS,
   ocrRecognitionTimeoutMs,
   errorFromPayload,
   isEngineHostMessage,
@@ -113,6 +114,26 @@ function hostError(message: string, cause?: unknown): EngineError {
   );
 }
 
+/**
+ * A host that did not answer in time is not the same as a host that went away. Callers still
+ * see the public offscreen-unavailable code, but the client can keep the port and the offscreen
+ * document attached instead of treating a slow OCR run as a dead host.
+ */
+class HostTimeoutError extends EngineError {
+  readonly timedOut = true;
+}
+
+function hostTimeoutError(): HostTimeoutError {
+  return new HostTimeoutError(
+    'offscreen-unavailable',
+    'The translation host did not respond in time.',
+  );
+}
+
+function isHostTimeout(error: unknown): boolean {
+  return error instanceof HostTimeoutError;
+}
+
 export class EngineClient {
   private port: Browser.runtime.Port | null = null;
   private connecting: Promise<Browser.runtime.Port> | null = null;
@@ -127,6 +148,8 @@ export class EngineClient {
   private runtimeKey = '';
   private pushedModelId: ModelId | null = null;
   private inbox: Promise<void> = Promise.resolve();
+  /** Recognitions whose result the host has not posted yet. */
+  private activeRecognitions = 0;
 
   constructor(private readonly controller: OffscreenController) {}
 
@@ -174,7 +197,11 @@ export class EngineClient {
 
   async ocrStatus(tier: OcrTier): Promise<AssetStatus<OcrTier>> {
     await this.ensureSource();
-    const value = await this.request({ type: 'ocr-status', tier }, { timeoutMs: 15_000 });
+    // A status poll is cheap, but an OCR run owns the host's main thread between pipeline
+    // yields. While one is in flight, wait for the page bound instead of racing it; the
+    // OCR-busy timeout guard in request() keeps the port attached in either case.
+    const timeoutMs = this.activeRecognitions > 0 ? OCR_PAGE_TIMEOUT_MS : 15_000;
+    const value = await this.request({ type: 'ocr-status', tier }, { timeoutMs });
     if (!isOcrStatus(value)) throw hostError('The OCR host returned an invalid status.');
     return value;
   }
@@ -416,6 +443,9 @@ export class EngineClient {
   ): Promise<OcrResult> {
     const requestId = createRequestId();
     const cancel = (): void => this.sendRaw({ type: 'ocr-cancel', requestId });
+    // Count from the start, including the source push: a status poll that races a slow
+    // connect must not drop the port underneath a recognition that is about to run.
+    this.activeRecognitions += 1;
     signal.addEventListener('abort', cancel, { once: true });
     try {
       await this.ensureSource();
@@ -432,6 +462,7 @@ export class EngineClient {
       if (signal.aborted || isAbortError(error)) throw abortError();
       throw error instanceof EngineError ? error : hostError('OCR recognition failed.', error);
     } finally {
+      this.activeRecognitions -= 1;
       signal.removeEventListener('abort', cancel);
     }
   }
@@ -495,6 +526,11 @@ export class EngineClient {
         lastError = error;
         if (!isHostGone(error)) throw error;
 
+        // A timeout while OCR is running means the WASM main thread has not yielded yet,
+        // not that the host died. Dropping the port or recreating the document here would
+        // abort the page in flight, so keep the live connection and surface the timeout.
+        if (this.activeRecognitions > 0 && isHostTimeout(error)) throw error;
+
         if (!options.keepPort) this.dropPort();
         if (attempt + 1 >= attempts) throw error;
         if (options.recover !== false) await this.controller.recreate();
@@ -515,6 +551,9 @@ export class EngineClient {
         await this.pushStoredSource(port);
         return port;
       } catch (error) {
+        // A settings/model push can time out while OCR owns the host thread. Keep the
+        // live port: reconnecting here would close the document running the page.
+        if (this.activeRecognitions > 0 && isHostTimeout(error)) return port;
         this.dropPort();
         if (!isHostGone(error)) throw error;
         await this.controller.recreate();
@@ -622,7 +661,7 @@ export class EngineClient {
       if (timeoutMs > 0) {
         timer = setTimeout(() => {
           this.pending.delete(message.requestId);
-          settle(() => reject(hostError('The translation host did not respond in time.')));
+          settle(() => reject(hostTimeoutError()));
         }, timeoutMs);
       }
 

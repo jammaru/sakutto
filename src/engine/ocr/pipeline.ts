@@ -21,6 +21,13 @@ export interface OcrPipelineConfig {
   readonly detectionPreprocess?: DetectionPreprocessOptions;
   readonly recognitionPreprocess?: RecognitionPreprocessOptions;
   readonly readingOrder?: ReadingOrderOptions;
+  /**
+   * Awaited between ONNX runs. ORT runs WASM on the offscreen document's main thread
+   * (`proxy: false`), so a macrotask boundary — not just a microtask await — is what
+   * lets that thread answer status/ping port messages while a page is being read.
+   * Injectable so tests can observe it without depending on timer scheduling.
+   */
+  readonly yieldBetweenRuns?: () => Promise<void>;
 }
 
 export function throwIfOcrAborted(signal?: AbortSignal): void {
@@ -29,6 +36,11 @@ export function throwIfOcrAborted(signal?: AbortSignal): void {
   const error = new Error('OCR operation was aborted');
   error.name = 'AbortError';
   throw error;
+}
+
+/** A macrotask boundary; microtask awaits alone do not let extension port messages through. */
+function yieldToEventLoop(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
 /** Pure orchestration around injected detection and recognition sessions. */
@@ -41,6 +53,7 @@ export class OcrPipeline {
 
   async run(image: ImageDataLike, signal?: AbortSignal): Promise<OcrResult> {
     throwIfOcrAborted(signal);
+    const yieldBetweenRuns = this.#config.yieldBetweenRuns ?? yieldToEventLoop;
     const detectionInput = preprocessDetection(
       image,
       this.#config.detectionPreprocess ?? PP_OCR_DET_NORMALIZATION,
@@ -55,6 +68,10 @@ export class OcrPipeline {
 
     const regions = [];
     for (const detection of detections) {
+      // One WASM call is short, but a scan has tens of boxes. Yield before each one so the
+      // host can drain queued port messages (status, inspect, ping) between recognitions
+      // instead of appearing dead and being torn down mid-page.
+      await yieldBetweenRuns();
       throwIfOcrAborted(signal);
       const crop = cropForRecognition(image, detection.quad, this.#config.detection?.verticalRatio);
       const recognitionInput = preprocessRecognition(

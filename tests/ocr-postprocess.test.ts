@@ -557,4 +557,65 @@ describe('OCR pipeline', () => {
     ).rejects.toBe(reason);
     expect(recognize).toHaveBeenCalledOnce();
   });
+
+  it('yields a macrotask before every text-box recognition', async () => {
+    const probabilityMap = mapWithRectangles(32, 16, [
+      { x: 2, y: 2, width: 8, height: 5, score: 0.95 },
+      { x: 15, y: 2, width: 8, height: 5, score: 0.9 },
+      { x: 2, y: 10, width: 8, height: 5, score: 0.85 },
+    ]);
+    const order: string[] = [];
+    const yieldBetweenRuns = vi.fn(async () => {
+      order.push('yield');
+    });
+    const detect = vi.fn(() => {
+      order.push('detect');
+      return probabilityMap;
+    });
+    const recognize = vi.fn(() => {
+      order.push('recognize');
+      return ctc([1], 2);
+    });
+    await runOcrPipeline(rgba(32, 16), {
+      runner: { detect, recognize },
+      dictionary: ['A'],
+      detection: detectionOptions,
+      yieldBetweenRuns,
+    });
+
+    expect(order).toEqual([
+      'detect',
+      'yield',
+      'recognize',
+      'yield',
+      'recognize',
+      'yield',
+      'recognize',
+    ]);
+    expect(yieldBetweenRuns).toHaveBeenCalledTimes(3);
+  });
+
+  it('lets queued host tasks run before the next recognition with the default yield', async () => {
+    const probabilityMap = mapWithRectangles(32, 16, [
+      { x: 2, y: 2, width: 8, height: 5, score: 0.95 },
+      { x: 15, y: 2, width: 8, height: 5, score: 0.9 },
+    ]);
+    let served = false;
+    setTimeout(() => {
+      served = true;
+    }, 0);
+    let firstRecognition = true;
+    const servedBeforeLaterRecognition: boolean[] = [];
+    const recognize = vi.fn(() => {
+      if (firstRecognition) firstRecognition = false;
+      else servedBeforeLaterRecognition.push(served);
+      return ctc([1], 2);
+    });
+    await runOcrPipeline(rgba(32, 16), {
+      runner: { detect: () => probabilityMap, recognize },
+      dictionary: ['A'],
+      detection: detectionOptions,
+    });
+    expect(servedBeforeLaterRecognition).toEqual([true]);
+  });
 });
