@@ -646,17 +646,21 @@ function pageRasters(figures: FigureAreas, pageWidth: number, pageHeight: number
  * Edge contact alone is not enough for a single raster: a full-bleed figure can span the
  * page's width and cover more than the background threshold while merely touching the top
  * edge. It is only a scan when a near-page-size box or a second edge-touching tile backs up
- * that reading.
+ * that reading. A raster painted wholly inside another is a drawing on it, not a second tile.
  */
 function isScanTile(
-  box: Box,
+  tile: PageRaster,
+  cluster: readonly PageRaster[],
   pageWidth: number,
   pageHeight: number,
-  hasAdjacentTiles: boolean,
 ): boolean {
+  const { box } = tile;
   if (box.width >= pageWidth * SCAN_PAGE_SHARE && box.height >= pageHeight * SCAN_PAGE_SHARE) {
     return true;
   }
+  // A smaller raster wholly inside this one is a figure drawn on it. It must not corroborate
+  // a lone full-bleed figure's edge contact as a multi-tile scan background.
+  const hasAdjacentTiles = cluster.some((other) => other !== tile && !contains(box, other.box));
   if (!hasAdjacentTiles) return false;
   return (
     Math.abs(box.x) <= SCAN_TILE_GAP ||
@@ -713,7 +717,7 @@ function pageBackgroundRasters(figures: FigureAreas, pageWidth: number, pageHeig
       ) {
         return false;
       }
-      return isScanTile(tile.box, pageWidth, pageHeight, cluster.length > 1);
+      return isScanTile(tile, cluster, pageWidth, pageHeight);
     });
     if (tiles.length === 0) continue;
     const coverage = coveredArea(tiles.map((tile) => tile.box)) / pageArea;

@@ -391,6 +391,25 @@ describe('page-background raster filtering', () => {
       layout.skipped.some((block) => block.role === 'figure-label' && block.text === label.text),
     ).toBe(true);
 
+    // A raster wholly inside the figure is a drawing on it, not a neighbouring scan tile: it
+    // must not turn the lone full-bleed figure into a two-tile scan background.
+    const withOverlay = rasterAreas([
+      { x: 0, y: 0, width, height: 650 },
+      { x: 100, y: 200, width: 50, height: 50 },
+    ]);
+    expect(withoutPageBackground(withOverlay, width, height)).toEqual(withOverlay);
+    const overlayLabel = piece('Caption inside the full-bleed figure', 120, 260, 200);
+    const overlayLayout = layoutPage(
+      groupLines([overlayLabel]),
+      withoutPageBackground(withOverlay, width, height),
+      { width, height, index: 0 },
+    );
+    expect(
+      overlayLayout.skipped.some(
+        (block) => block.role === 'figure-label' && block.text === overlayLabel.text,
+      ),
+    ).toBe(true);
+
     // The same full-width raster is background once another tile joins it at the page edge.
     const tiled = rasterAreas([
       { x: 0, y: 0, width, height: 650 },
