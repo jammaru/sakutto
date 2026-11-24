@@ -1134,6 +1134,7 @@ function twoColumnBodyRows(
       Math.max(...group.map((piece) => piece.box.x + piece.box.width)) -
       Math.min(...group.map((piece) => piece.box.x));
     if (
+      !wordSpaceGutter(pieces, rightStart - leftEnd) &&
       rightStart - leftEnd >= MIN_COLUMN_GUTTER &&
       measure(left) >= resolved.pageWidth * 0.15 &&
       measure(right) >= resolved.pageWidth * 0.15 &&

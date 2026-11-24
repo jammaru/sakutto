@@ -1516,6 +1516,31 @@ describe('latest DSH review blockers', () => {
       );
     });
 
+    it('B1: two single-column rows with a 6pt centred word gap stay in source order', () => {
+      // Two rows that merely leave one ordinary 6pt word space near the page midpoint must not
+      // corroborate each other as body columns. The gap is no wider than their other word gaps.
+      const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+      const row = (y: number, words: readonly string[]): readonly OcrRegion[] =>
+        words.map((word, index) => region(word, quad(45 + index * 86, y, 80, 20)));
+      const firstWords = ['Dense', 'scans', 'often', 'emit', 'word'];
+      const secondWords = ['boxes', 'with', 'equal', 'six', 'gaps.'];
+      const first = row(100, firstWords);
+      const second = row(130, secondWords);
+      const result = ocrResult(
+        [...first, ...second],
+        [readingLine('horizontal', first), readingLine('horizontal', second)],
+      );
+
+      const lines = ocrResultToTextLines(result, options);
+      expect(lines.map((line) => line.text)).toEqual([firstWords.join(' '), secondWords.join(' ')]);
+      expect(lines).toHaveLength(2);
+      expect(lines.every((line) => line.columnHint === undefined)).toBe(true);
+
+      const layout = ocrResultToPageLayout(result, options);
+      expect(layout.blocks.map((block) => block.text)).not.toContain('Dense scans often emit');
+      expect(layout.blocks.map((block) => block.text)).not.toContain('boxes with equal six');
+    });
+
     it('B2: splits a merged body row by geometry, not by capitalisation', () => {
       const options = { pageIndex: 0, pageWidth: 595, pageHeight: 800 };
       for (const words of [
