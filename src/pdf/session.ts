@@ -15,7 +15,9 @@ import {
   drawnBox,
   exceedsPage,
   fitBox,
+  inlineProseFragment,
   lineOverflows,
+  paintLineLimit,
   pageGrowBudget,
   resolveOverlaps,
   wrapWidth,
@@ -848,23 +850,34 @@ export class PdfSession {
     const block = state.block;
     const obstacles = this.neighbourBoxes(state, page);
     const pageWidth = this.pageWidths.get(page) ?? 0;
-    const width = wrapWidth(block, obstacles, pageWidth);
     const measureAt = (text: string, size: number) => this.measure(text, size, traitsOf(block));
-    state.fit = fitText(
-      {
-        box: fitBox(block, width),
-        growBudget:
-          verticalWriting(block) || block.role === 'label' ? 0 : this.growBudget(state, page),
-        fontSize: block.fontSize,
-        lineHeight: block.lineHeight,
-        width,
-        measure: measureAt,
-        role: block.role,
-        singleLine: block.singleLine,
-      },
-      state.translation,
-      targetScript(this.target),
-    );
+    const fitAt = (wrap: number): FitResult =>
+      fitText(
+        {
+          box: fitBox(block, wrap),
+          growBudget:
+            verticalWriting(block) || block.role === 'label' ? 0 : this.growBudget(state, page),
+          fontSize: block.fontSize,
+          lineHeight: block.lineHeight,
+          width: wrap,
+          measure: measureAt,
+          role: block.role,
+          singleLine: block.singleLine,
+        },
+        state.translation,
+        targetScript(this.target),
+      );
+    let width = wrapWidth(block, obstacles, pageWidth);
+    let fit = fitAt(width);
+    // A wrap wider than the painted cover's column wall cannot be drawn honestly. Refit to
+    // the wall first; only a text that still cannot fit there becomes an overflow marker.
+    const drawnX = inlineProseFragment(block) ? block.box.x : Math.min(block.box.x, block.room.x);
+    const limit = paintLineLimit(block, width, drawnX, pageWidth);
+    if (limit + 1 < width && lineOverflows(fit, limit, (text) => measureAt(text, fit.fontSize))) {
+      width = Math.max(1, limit);
+      fit = fitAt(width);
+    }
+    state.fit = fit;
     const pageHeight = this.pageHeights.get(page) ?? 0;
     const tooWide = lineOverflows(state.fit, width, (text) =>
       measureAt(text, state.fit?.fontSize ?? block.fontSize),

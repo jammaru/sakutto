@@ -117,24 +117,37 @@ export function placePage(request: PlaceRequest): PlacedBlock[] {
     if (translation.length === 0) {
       return { block, translation: '', fit: null, paint: false, overflow: false, drawn: null };
     }
-    const width = wrapWidth(block, obstacles, pageWidth);
     const measureAt = (text: string, size: number) => request.measure(block, text, size);
-    const fit = fitText(
-      {
-        box: fitBox(block, width),
-        growBudget: verticalWriting(block)
-          ? 0
-          : pageGrowBudget(block, obstacles, request.pageHeight),
-        fontSize: block.fontSize,
-        lineHeight: block.lineHeight,
-        width,
-        measure: measureAt,
-        role: block.role,
-        singleLine: block.singleLine,
-      },
-      translation,
-      request.target,
-    );
+    const fitAt = (wrap: number): FitResult =>
+      fitText(
+        {
+          box: fitBox(block, wrap),
+          growBudget: verticalWriting(block)
+            ? 0
+            : pageGrowBudget(block, obstacles, request.pageHeight),
+          fontSize: block.fontSize,
+          lineHeight: block.lineHeight,
+          width: wrap,
+          measure: measureAt,
+          role: block.role,
+          singleLine: block.singleLine,
+        },
+        translation,
+        request.target,
+      );
+    let width = wrapWidth(block, obstacles, pageWidth);
+    let fit = fitAt(width);
+    // A wrap the painted cover cannot honour is never painted: refit to the wall the cover
+    // will actually have instead of clipping the last glyph under `overflow: hidden`.
+    const drawnX = inlineProseFragment(block) ? block.box.x : Math.min(block.box.x, block.room.x);
+    const limit = paintLineLimit(block, width, drawnX, pageWidth);
+    if (
+      limit + WIDTH_SLACK < width &&
+      lineOverflows(fit, limit, (text) => measureAt(text, fit.fontSize))
+    ) {
+      width = Math.max(1, limit);
+      fit = fitAt(width);
+    }
     // A translation that does not fit is not shown in place. Cutting it short would be a
     // wrong translation. The full text is kept for a marker the reader can open.
     if (!fit.fits || lineOverflows(fit, width, (text) => measureAt(text, fit.fontSize))) {
@@ -181,15 +194,96 @@ export function pageGrowBudget(
   return 0;
 }
 
+const GUTTER_BAND = 0.14;
+const GUTTER_ROW_REACH = 2;
+
+/**
+ * Side of the printed gutter a block belongs to, taken from its own box rather than from
+ * `column` alone. OCR can label a right-column paragraph `0`, and native XY-cut can label a
+ * full-width title `0`; neither is a reliable wall on its own. A box that actually crosses
+ * the gutter is a genuinely spanning row and keeps its own measure.
+ */
+function columnSideFromBox(
+  block: Pick<LayoutBlock, 'box' | 'column' | 'writing'>,
+  pageWidth: number,
+): 0 | 1 | null {
+  if (pageWidth <= 0 || verticalWriting(block)) return null;
+  if (block.column !== 0 && block.column !== 1) return null;
+  const gutter = pageWidth * 0.49;
+  // A wide column measure can end a point or two past the page midpoint. Only a box that
+  // reaches well into the other half is a genuine spanning title.
+  const tolerance = Math.max(6, pageWidth * 0.08);
+  if (block.box.x < gutter && block.box.x + block.box.width <= gutter + tolerance) return 0;
+  if (block.box.x + block.box.width > gutter && block.box.x >= gutter - tolerance) return 1;
+  return null;
+}
+
+/**
+ * Physical gutter edge of a two-column page, from the boxes on the other side of the sheet.
+ * Real column walls repeat across rows; a lone box near the middle is ordinary whitespace
+ * unless it shares this row's vertical band. `null` means the page gives no column evidence
+ * and the legacy free-space search may still be used.
+ */
+function gutterEdgeFor(
+  side: 0 | 1,
+  block: Pick<LayoutBlock, 'box'>,
+  obstacles: readonly Box[],
+  pageWidth: number,
+): number | null {
+  const midpoint = pageWidth / 2;
+  const band = pageWidth * GUTTER_BAND;
+  const reach = Math.max(4, block.box.height * GUTTER_ROW_REACH);
+  const candidates = [] as { edge: number; onRow: boolean }[];
+  for (const box of obstacles) {
+    if (box === block.box || box.width <= 0) continue;
+    const edge = side === 0 ? box.x : box.x + box.width;
+    if (side === 0 ? edge <= block.box.x + 2 : edge >= block.box.x - 2) continue;
+    if (Math.abs(edge - midpoint) > band) continue;
+    const onRow =
+      box.y < block.box.y + block.box.height + reach && box.y + box.height > block.box.y - reach;
+    candidates.push({ edge, onRow });
+  }
+  const onRow = candidates.filter((candidate) => candidate.onRow);
+  const pool = onRow.length > 0 ? onRow : candidates.length >= 2 ? candidates : [];
+  if (pool.length === 0) return null;
+  const edges = pool.map((candidate) => candidate.edge);
+  return side === 0 ? Math.min(...edges) : Math.max(...edges);
+}
+
+/**
+ * Width of a body column's interior, in points. Prose must wrap here rather than into the
+ * free space beyond the source line: a cover is capped at the gutter, so a wider wrap is
+ * clipped under `overflow: hidden` instead of being shown to the reader.
+ */
+function columnInteriorCap(
+  block: Pick<LayoutBlock, 'box' | 'room' | 'column' | 'writing'>,
+  obstacles: readonly Box[],
+  pageWidth: number,
+): number | null {
+  const side = columnSideFromBox(block, pageWidth);
+  if (side === null) return null;
+  const room = block.room.width > 0 ? block.room.width : block.box.width;
+  const measure = Math.min(room, block.box.width);
+  // A single-column paragraph can be assigned to column 0 too; its measure and its box
+  // reach across the sheet, so there is no body column to stay inside.
+  if (measure <= 0 || measure > pageWidth * 0.55) return null;
+  const edge = gutterEdgeFor(side, block, obstacles, pageWidth);
+  if (edge === null) return null;
+  const wall =
+    side === 0 ? edge - GUTTER_CLEARANCE - block.box.x : pageWidth - GUTTER_CLEARANCE - block.box.x;
+  return Math.max(1, Math.min(measure, wall));
+}
+
 /**
  * Width the translation wraps to. A little narrower than the room, so a canvas measurement
  * that disagrees with the CSS shaper by a hair still lands inside the painted box instead of
  * overflowing it and being clipped. `fitText` then wraps to `HINTING_WRAP` of this width so
  * font hinting at the painted CSS size cannot clip the last glyph.
  *
- * Body text may also use unused space to the right — a column gutter, the side of a short
- * last line — up to the next obstacle, so a translation that is only slightly longer does
- * not have to wrap to a second line.
+ * A block that belongs to a body column wraps to that column's interior, never to the free
+ * space beyond it: the painted cover stops at the gutter, so a wider wrap would be cut off.
+ * On a page without column evidence, body text may still use unused space to the right —
+ * the side of a short last line — up to the next obstacle.
  */
 export function wrapWidth(
   block: Pick<
@@ -200,14 +294,21 @@ export function wrapWidth(
   pageWidth = 0,
 ): number {
   if (verticalWriting(block)) return Math.max(1, block.advance);
+  const columnCap = pageWidth > 0 ? columnInteriorCap(block, obstacles, pageWidth) : null;
   // A figure box label is fitted to the rectangle drawn on the page. Growing it into the
   // artwork (or into a neighbouring column) would paint over the drawing it names.
-  if (block.singleLine === true) return Math.max(1, block.box.width);
+  if (block.singleLine === true) {
+    return Math.max(1, Math.min(block.box.width, columnCap ?? Infinity));
+  }
   const base = Math.max(1, block.room.width, block.box.width, block.advance);
   const tight = Math.max(1, base * 0.96);
   if (block.role !== 'prose' && block.role !== 'caption' && block.role !== 'heading') {
-    return tight;
+    return Math.max(1, Math.min(tight, columnCap ?? Infinity));
   }
+  // The painted cover stops at the column wall. Wrapping even one word past it would put
+  // translated text under the neighbouring column or clip it under `overflow: hidden`.
+  // No free-space growth is allowed once the page proves the block sits in a body column.
+  if (columnCap !== null) return columnCap;
 
   let right = pageWidth > 0 ? pageWidth - GUTTER_CLEARANCE : Infinity;
   let boundedByObstacle = false;
@@ -357,7 +458,7 @@ export function coverPaintOriginX(
  * the page so a pad cannot walk into the next column's gutter.
  */
 export function coverPaintLayout(
-  block: Pick<LayoutBlock, 'align' | 'writing' | 'column' | 'box' | 'lines'>,
+  block: Pick<LayoutBlock, 'align' | 'writing' | 'column' | 'box' | 'room' | 'lines'>,
   fitWidth: number,
   drawn: Box,
   scale = DEFAULT_PAINT_SCALE,
@@ -566,58 +667,38 @@ function blockMergesColumns(block: LayoutBlock, pageWidth: number): boolean {
   });
 }
 
-/**
- * Column side for capping, from source geometry. Layout `column` can be 0 on a right-column
- * paragraph when the region tree stayed on the left branch; capping with metadata then paints
- * a one-point sliver and leaves English visible beside it.
- */
-function columnSideForCap(
-  block: Pick<LayoutBlock, 'column' | 'box' | 'lines'>,
-  x: number,
-  pageWidth: number,
-  allowSpanning = true,
-): number | null {
-  if (pageWidth <= 0 || (allowSpanning && blockSpansGutter(block, pageWidth))) return null;
-  const gutter = pageWidth * 0.49;
-  const left =
-    block.lines.length > 0 ? Math.min(...block.lines.map((line) => line.box.x)) : block.box.x;
-  const right =
-    block.lines.length > 0
-      ? Math.max(...block.lines.map((line) => line.box.x + line.box.width))
-      : block.box.x + block.box.width;
-  if (right <= gutter - GUTTER_CLEARANCE) return 0;
-  if (left >= gutter + GUTTER_CLEARANCE) return 1;
-  const mid = (left + right) / 2;
-  if (mid >= gutter) return 1;
-  if (mid <= gutter - GUTTER_CLEARANCE) return 0;
-  if (x >= gutter + GUTTER_CLEARANCE) return 1;
-  if (x + 8 < gutter) return 0;
-  return block.column;
-}
-
 /** Caps cover width so a translation cannot paint over the neighbour column. */
 function capToColumn(
   width: number,
   x: number,
-  block: Pick<LayoutBlock, 'column' | 'box' | 'lines'>,
+  block: Pick<LayoutBlock, 'box' | 'room' | 'column' | 'writing'>,
   pageWidth: number,
 ): number {
   const capped = capToPage(width, x, pageWidth);
-  if (pageWidth <= 0 || blockSpansGutter(block, pageWidth)) return capped;
-  const gutter = pageWidth * 0.49;
-  const side = columnSideForCap(block, x, pageWidth);
-  if (side === 0) {
-    const cappedLeft = Math.max(1, Math.min(capped, gutter - GUTTER_CLEARANCE - x));
-    if (cappedLeft < 8 && width > 24) return capped;
-    return cappedLeft;
-  }
-  if (side !== null && side > 0) {
-    const left = Math.max(x, gutter + GUTTER_CLEARANCE);
-    const cappedRight = Math.max(1, Math.min(capped, pageWidth - GUTTER_CLEARANCE - left));
-    if (cappedRight < 8 && width > 24) return capped;
-    return cappedRight;
-  }
-  return capped;
+  const side = columnSideFromBox(block, pageWidth);
+  if (side === null) return capped;
+  // The column interior is the wall both the wrap and the cover respect. Taking it from
+  // the block's own measure (and not from `column`) keeps a right-column paragraph whose
+  // region tree reported `0` from being cut to a gutter sliver.
+  const room = block.room.width > 0 ? block.room.width : block.box.width;
+  const interior = Math.min(room, block.box.width);
+  const wall =
+    side === 0 ? pageWidth * 0.49 - GUTTER_CLEARANCE - x : pageWidth - GUTTER_CLEARANCE - x;
+  return Math.max(1, Math.min(capped, interior, wall));
+}
+
+/**
+ * Line width the painted cover can actually honour. Called before painting so a wrap that
+ * the column wall would clip is refused (and offered as overflow) instead of being drawn
+ * with a truncated last glyph.
+ */
+export function paintLineLimit(
+  block: Pick<LayoutBlock, 'box' | 'room' | 'column' | 'writing'>,
+  width: number,
+  x: number,
+  pageWidth: number,
+): number {
+  return capToColumn(width, x, block, pageWidth);
 }
 
 const PAINT_MISMATCH_PT = 3;
@@ -641,8 +722,7 @@ export function crossColumnViolation(
   const gutter = pageWidth * 0.49;
   const paint = coverPaintLayout(block, entry.fit.width, entry.drawn, scale, pageWidth);
   const mergesColumns = blockMergesColumns(block, pageWidth);
-  const spansAsSource = blockSpansGutter(block, pageWidth) && block.column <= 0 && !mergesColumns;
-  const side = spansAsSource ? null : columnSideForCap(block, entry.drawn.x, pageWidth, false);
+  const side = columnSideFromBox(block, pageWidth);
   if (side === 0 && paint.x + paint.width > gutter + 2) return true;
   if (side !== null && side > 0 && paint.x < gutter - 2) return true;
   if (
@@ -684,8 +764,7 @@ export function paintIntegrityMetrics(
     // root), while OCR gives it -1. A right-column block (column 1) whose lines happen to reach
     // across the gutter is a mis-grouping, not a title, and must still be checked.
     const mergesColumns = blockMergesColumns(block, pageWidth);
-    const spansAsSource = blockSpansGutter(block, pageWidth) && block.column <= 0 && !mergesColumns;
-    const side = spansAsSource ? null : columnSideForCap(block, entry.drawn.x, pageWidth, false);
+    const side = columnSideFromBox(block, pageWidth);
     if (side === 0 && paint.x + paint.width > gutter + 2) crossColumnCovers += 1;
     if (side !== null && side > 0 && paint.x < gutter - 2) crossColumnCovers += 1;
     // A merged two-column reading line also spans the gutter geometrically, so it must never

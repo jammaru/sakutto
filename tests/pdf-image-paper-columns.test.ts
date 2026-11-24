@@ -3,7 +3,15 @@ import { describe, expect, it } from 'vitest';
 import type { OcrQuad, OcrRegion, OcrResult, ReadingLine } from '@/engine/ocr/types';
 import { ocrResultToPageLayout, ocrResultToTextLines } from '@/pdf/ocr';
 import { pageMetrics } from '@/pdf/metrics';
-import { pageObstacles, placePage, wrapWidth } from '@/pdf/place';
+import type { LayoutBlock, PageLayout } from '@/pdf/layout';
+import {
+  coverPaintLayout,
+  DEFAULT_PAINT_SCALE,
+  pageObstacles,
+  paintLineLimit,
+  placePage,
+  wrapWidth,
+} from '@/pdf/place';
 import { isNoiseBlockText } from '@/pdf/prose-detect';
 
 function quad(x: number, y: number, width: number, height: number): OcrQuad {
@@ -394,5 +402,139 @@ describe('image-only paper page 2: figure, fragments and formula', () => {
     expect(width).toBeLessThanOrEqual((placed?.drawn?.width ?? 0) + 1);
     expect(placed?.paint).toBe(true);
     expect(width + prose!.box.x).toBeLessThan(OPTIONS.pageWidth * 0.49 + 1);
+  });
+});
+
+describe('long English translations stay inside the left column', () => {
+  const translation =
+    'In PDFs that store textual information, strings and positional information are mapped back to the original layout while keeping the reading order of each column intact.';
+  const measure = (_block: unknown, text: string, size: number) => text.length * size * 0.45;
+  /** Printed right column starts near x=306 on a 595pt page; its left edge is the gutter wall. */
+  const GUTTER_EDGE = 306;
+
+  function pageOneRows(): OcrRegion[][] {
+    return [
+      [region('1. Introduction', 59, 270, 105), region('3. Local Inference', 306, 270, 160)],
+      ...twoColumnBody(297, 8),
+    ];
+  }
+
+  it('wraps left-column prose inside the column and keeps both section headings painted', () => {
+    const layout = ocrResultToPageLayout(resultFromLines(pageOneRows()), OPTIONS);
+    expect(
+      layout.blocks.filter((block) => block.role === 'heading').map((block) => block.text),
+    ).toEqual(expect.arrayContaining(['1. Introduction', '3. Local Inference']));
+    const obstacles = pageObstacles(layout);
+    const placed = placePage({
+      layout,
+      translationOf: (block) =>
+        block.role === 'prose' && block.column === 0 ? translation : block.text,
+      target: 'en',
+      measure,
+      pageWidth: OPTIONS.pageWidth,
+      pageHeight: OPTIONS.pageHeight,
+    });
+    const metrics = pageMetrics(layout, placed, {
+      x: 0,
+      y: 0,
+      width: OPTIONS.pageWidth,
+      height: OPTIONS.pageHeight,
+    });
+    expect(metrics.crossColumnCovers).toBe(0);
+
+    for (const entry of placed.filter((item) => item.block.role === 'heading')) {
+      expect(entry.paint).toBe(true);
+      expect(entry.translation.length).toBeGreaterThan(0);
+    }
+
+    const left = placed.filter((entry) => entry.block.role === 'prose' && entry.block.column === 0);
+    expect(left.length).toBeGreaterThan(0);
+    for (const entry of left) {
+      const block = entry.block;
+      expect(block.box.x).toBeCloseTo(59, 0);
+      expect(block.box.width).toBeCloseTo(220, 0);
+      expect(entry.paint).toBe(true);
+      expect(entry.fit).not.toBeNull();
+
+      const width = wrapWidth(block, obstacles, OPTIONS.pageWidth);
+      expect(width).toBeLessThanOrEqual(
+        Math.min(block.room.width, block.box.width, GUTTER_EDGE - block.box.x - 4) + 0.01,
+      );
+      expect(paintLineLimit(block, 400, block.box.x, OPTIONS.pageWidth)).toBeLessThanOrEqual(
+        width + 0.01,
+      );
+      for (const line of entry.fit!.lines) {
+        expect(measure(block, line, entry.fit!.fontSize)).toBeLessThanOrEqual(width + 1);
+      }
+
+      const paint = coverPaintLayout(
+        block,
+        entry.fit!.width,
+        entry.drawn!,
+        DEFAULT_PAINT_SCALE,
+        OPTIONS.pageWidth,
+      );
+      expect(paint.width).toBeLessThanOrEqual(width + 2);
+      expect(paint.x + paint.width).toBeLessThanOrEqual(GUTTER_EDGE + 1);
+    }
+  });
+
+  it('does not grow into the gutter when the neighbouring column is empty in that row', () => {
+    const left: LayoutBlock = {
+      box: { x: 59, y: 320, width: 220, height: 15 },
+      room: { x: 59, y: 320, width: 220, height: 15 },
+      lines: [],
+      text: '日本語の本文が左の欄に続いている行',
+      role: 'prose',
+      fontSize: 11,
+      lineHeight: 1.3,
+      align: 'left',
+      bold: false,
+      italic: false,
+      column: 0,
+      advance: 220,
+      writing: 0,
+    };
+    // Two aligned right-column boxes prove the gutter even though neither shares this row.
+    const obstacles = [
+      { x: GUTTER_EDGE, y: 100, width: 220, height: 15 },
+      { x: GUTTER_EDGE, y: 500, width: 220, height: 15 },
+    ];
+    const width = wrapWidth(left, obstacles, OPTIONS.pageWidth);
+    expect(width).toBeLessThanOrEqual(
+      Math.min(left.room.width, left.box.width, GUTTER_EDGE - left.box.x - 4) + 0.01,
+    );
+    expect(width).toBeLessThan(left.box.width * 1.28);
+
+    const layout: PageLayout = {
+      blocks: [left],
+      skipped: [],
+      obstacles,
+      bodySize: left.fontSize,
+      lineHeight: left.fontSize * left.lineHeight,
+      pageWidth: OPTIONS.pageWidth,
+      pageHeight: OPTIONS.pageHeight,
+      pageIndex: 0,
+    };
+    const entry = placePage({
+      layout,
+      translationOf: () => translation,
+      target: 'en',
+      measure,
+      pageWidth: OPTIONS.pageWidth,
+      pageHeight: OPTIONS.pageHeight,
+    })[0]!;
+    expect(entry.paint).toBe(true);
+    for (const line of entry.fit!.lines) {
+      expect(measure(left, line, entry.fit!.fontSize)).toBeLessThanOrEqual(width + 1);
+    }
+    const paint = coverPaintLayout(
+      left,
+      entry.fit!.width,
+      entry.drawn!,
+      DEFAULT_PAINT_SCALE,
+      OPTIONS.pageWidth,
+    );
+    expect(paint.x + paint.width).toBeLessThanOrEqual(GUTTER_EDGE + 1);
   });
 });
