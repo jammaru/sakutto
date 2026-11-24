@@ -303,7 +303,9 @@ describe('image-only paper page 2: figure, fragments and formula', () => {
       expect(source).toBeDefined();
       const centre = source!.box.x + source!.box.width / 2;
       expect(label.box.x).toBeLessThanOrEqual(source!.box.x);
-      expect(label.box.x + label.box.width).toBeGreaterThanOrEqual(source!.box.x + source!.box.width);
+      expect(label.box.x + label.box.width).toBeGreaterThanOrEqual(
+        source!.box.x + source!.box.width,
+      );
       expect(centre).toBeGreaterThan(label.box.x);
       expect(centre).toBeLessThan(label.box.x + label.box.width);
       expect(label.box.height).toBeGreaterThanOrEqual(source!.box.height);
@@ -314,14 +316,14 @@ describe('image-only paper page 2: figure, fragments and formula', () => {
     expect(caption?.text).toBe('図1画像PDFの翻訳処理（概念図）');
     expect(lastBox?.text).not.toContain('図1');
     expect(caption!.box.y).toBeGreaterThanOrEqual(lastBox!.box.y + lastBox!.box.height);
-    expect(layout.skipped.map((block) => block.text)).toEqual(
-      expect.arrayContaining(['V', 'X']),
-    );
+    expect(layout.skipped.map((block) => block.text)).toEqual(expect.arrayContaining(['V', 'X']));
   });
 
   it('shrinks a long figure label to one line inside its box', () => {
     const layout = ocrResultToPageLayout(resultFromLines(pageTwoRows()), OPTIONS);
-    const label = layout.blocks.find((block) => block.singleLine === true && block.text.includes('文字領域'));
+    const label = layout.blocks.find(
+      (block) => block.singleLine === true && block.text.includes('文字領域'),
+    );
     expect(label).toBeDefined();
     const placed = placePage({
       layout,
@@ -350,6 +352,20 @@ describe('image-only paper page 2: figure, fragments and formula', () => {
         (block) => block.text.includes('CER =') && block.text.includes('翻訳精度'),
       ),
     ).toBe(false);
+  });
+
+  it('translates short operator prose but still skips the CER formula', () => {
+    const rows = [
+      ...twoColumnBody(103, 4),
+      [region('Add A + B', 121, 462, 60)],
+      [region('CER = (S + D + I) / N', 121, 480, 107)],
+      ...twoColumnBody(504, 3),
+    ];
+    const layout = ocrResultToPageLayout(resultFromLines(rows), OPTIONS);
+    const prose = layout.blocks.find((block) => block.text.trim() === 'Add A + B');
+    expect(prose?.role).toBe('prose');
+    const formula = layout.skipped.find((block) => block.text.trim() === 'CER = (S + D + I) / N');
+    expect(formula?.role).toBe('equation');
   });
 
   it('wraps left-column prose inside the gutter instead of clipping it', () => {

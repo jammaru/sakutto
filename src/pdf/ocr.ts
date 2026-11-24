@@ -7,7 +7,6 @@ import { CJK_MAJORITY, cjkRatio } from './fonts';
 import { rasterCoverage, withoutPageBackground, type FigureAreas } from './figures';
 import { median, type Box } from './geometry';
 import {
-  isEquation,
   layoutPage,
   looksLikeCodeLine,
   type AnyBlockRole,
@@ -1848,8 +1847,7 @@ function twoColumnOrder(
   return ordered;
 }
 
-const CAPTION_LINE =
-  /^(?:(?:Fig(?:ure)?|Tab(?:le)?|Alg(?:orithm)?)\.?\s*\d|[図表]\s*\d)/iu;
+const CAPTION_LINE = /^(?:(?:Fig(?:ure)?|Tab(?:le)?|Alg(?:orithm)?)\.?\s*\d|[図表]\s*\d)/iu;
 // Japanese numbered headings use a CJK letter after the number, not a Latin capital.
 // Japanese headings are often printed as "1.はじめに" with no space after the dot, and the
 // separator may be full width. Both are the same section marker as "1. Introduction".
@@ -1964,8 +1962,10 @@ function groupRole(group: readonly OcrTextLine[], bodySize: number): AnyBlockRol
   if (CAPTION_LINE.test(text)) return 'caption';
   // A display formula on its own line is typesetting, not a sentence. It must be reported as
   // its own block so the paragraph that follows can be translated without taking it along.
+  // OCR pieces carry no font evidence, so the font-based `isEquation` would fall back to its
+  // display-shape rule and call any short operator line (`Add A + B`) an equation. Only the
+  // dedicated character-shape test may skip an OCR line from translation.
   if (group.length === 1 && isOcrFormula(group[0]!)) return 'equation';
-  if (isEquation(group)) return 'equation';
   if (group.some((line) => looksLikeCodeLine(line.text) || looksLikeBareCodeLine(line.text))) {
     return 'code';
   }
@@ -2003,7 +2003,11 @@ function groupRole(group: readonly OcrTextLine[], bodySize: number): AnyBlockRol
   ) {
     return 'heading';
   }
-  return hasSourceProse(text) || hasCjkProse(text) ? 'prose' : 'label';
+  // `Add A + B` is an instruction, not a formula: `isOcrFormula` rejects it for want of dense
+  // symbols, and a real word in an operator line is still language to translate rather than a
+  // numeric label to withhold.
+  const operatorProse = OCR_OPERATOR.test(text) && /\p{L}{3,}/u.test(text);
+  return hasSourceProse(text) || hasCjkProse(text) || operatorProse ? 'prose' : 'label';
 }
 
 function groupBlocks(
@@ -2041,8 +2045,7 @@ function groupBlocks(
       looksLikeBareCodeLine(previous.text) ||
       // A display equation and the prose around it are different kinds of thing even on the
       // same pitch. The formula stays in the page's own type; the paragraph is translated.
-      isOcrFormula(previous) !== isOcrFormula(line) ||
-      isEquation([previous]) !== isEquation([line]);
+      isOcrFormula(previous) !== isOcrFormula(line);
     if (startsNew) {
       groups.push({
         lines: [line],
@@ -2083,8 +2086,7 @@ function mergeTrailingFragments(groups: readonly OcrBlockGroup[]): OcrBlockGroup
       previous && tail && lastLine
         ? tail.box.y - (lastLine.box.y + lastLine.box.height)
         : Number.POSITIVE_INFINITY;
-    const completesLine =
-      lastLine !== undefined && !/[。．.!?]$/u.test(lastLine.text.trimEnd());
+    const completesLine = lastLine !== undefined && !/[。．.!?]$/u.test(lastLine.text.trimEnd());
     if (
       previous &&
       tail &&
@@ -2215,9 +2217,9 @@ export function detectDiagram(
     const centre = median(labels.map(centreX));
     const width = Math.min(widest * 1.7, Math.max(80, pageWidth * 0.36));
     const fontSize = median(labels.map((line) => line.height));
-    const steps = labels.slice(1).map(
-      (line, index) => line.baseline - (labels[index]?.baseline ?? line.baseline),
-    );
+    const steps = labels
+      .slice(1)
+      .map((line, index) => line.baseline - (labels[index]?.baseline ?? line.baseline));
     const step = median(steps);
     const height = Math.max(fontSize * 1.5, Math.min(step * 0.82, fontSize * 2.6));
     const boxes = labels.map((line) => ({
@@ -2282,7 +2284,11 @@ export function ocrLinesToLayoutBlocks(
   const pageWidth = options.pageWidth ?? 0;
   const diagram = detectDiagram(lines, pageWidth, bodySize);
   const diagramLines = diagram
-    ? new Set<OcrTextLine>([...diagram.labels, ...diagram.connectors, ...(diagram.caption ? [diagram.caption] : [])])
+    ? new Set<OcrTextLine>([
+        ...diagram.labels,
+        ...diagram.connectors,
+        ...(diagram.caption ? [diagram.caption] : []),
+      ])
     : new Set<OcrTextLine>();
   const body = diagramLines.size > 0 ? lines.filter((line) => !diagramLines.has(line)) : lines;
   const blocks: OcrLayoutBlock[] = groupBlocks(body, pageWidth, bodySize).map((group, index) => {
@@ -2389,8 +2395,7 @@ function layoutFromLines(
   // translation overlays only that rectangle instead of the whole drawing.
   const skipped = blocks.filter(
     (block) =>
-      block.singleLine !== true &&
-      ['code', 'label', 'furniture', 'equation'].includes(block.role),
+      block.singleLine !== true && ['code', 'label', 'furniture', 'equation'].includes(block.role),
   );
   const diagramBoxes = blocks
     .filter((block) => block.singleLine === true)
