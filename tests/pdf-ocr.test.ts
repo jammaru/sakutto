@@ -166,6 +166,24 @@ describe('shouldRunPdfOcr', () => {
     );
   });
 
+  it('checks gapped tiled scans by union coverage, not by their last strip', () => {
+    // Enough native text to be a text layer, yet too little to cover the page.
+    const native = nativeLine(
+      'A native paragraph with enough genuine prose to keep this scanned page from looking image only.',
+    );
+    const strips: FigureAreas = {
+      images: [0, 200, 400, 600].map((y) => ({ x: 0, y, width: PAGE.width, height: 199 })),
+    };
+    const bands: FigureAreas = {
+      images: [
+        { x: 0, y: 0, width: PAGE.width, height: 200 },
+        { x: 0, y: 400, width: PAGE.width, height: 200 },
+      ],
+    };
+    expect(shouldRunPdfOcr([native], strips, PAGE.width, PAGE.height)).toBe(true);
+    expect(shouldRunPdfOcr([native], bands, PAGE.width, PAGE.height)).toBe(true);
+  });
+
   it('does not OCR large vector figures as if they were a scan', () => {
     const figures: FigureAreas = {
       images: [

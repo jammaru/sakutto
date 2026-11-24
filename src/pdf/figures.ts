@@ -573,18 +573,19 @@ function coveredArea(boxes: readonly Box[]): number {
       .map((box) => ({ top: box.y, bottom: boxBottom(box) }))
       .sort((first, second) => first.top - second.top);
     let covered = 0;
-    let top = 0;
-    let bottom = 0;
+    let top = -Infinity;
+    let bottom = -Infinity;
     for (const span of spans) {
-      if (covered > 0 && span.top > bottom) {
+      if (span.top > bottom) {
+        // A gap closes the current interval: bank its length before starting the next one.
+        if (bottom > top) covered += bottom - top;
         top = span.top;
         bottom = span.bottom;
       } else {
-        if (covered === 0) top = span.top;
         bottom = Math.max(bottom, span.bottom);
       }
-      covered = bottom - top;
     }
+    if (bottom > top) covered += bottom - top;
     area += (right - left) * covered;
   }
   return area;

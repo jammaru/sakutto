@@ -332,6 +332,36 @@ describe('page-background raster filtering', () => {
     expect(layout.skipped.filter((block) => block.role === 'figure-label')).toHaveLength(0);
   });
 
+  it('sums disjoint vertical spans when raster tiles have hairline gaps', () => {
+    const gapped = {
+      images: [0, 200, 400, 600].map((y) => ({ x: 0, y, width, height: 199 })),
+    };
+    expect(rasterCoverage(gapped, width, height)).toBeCloseTo(0.995);
+
+    const bands = {
+      images: [
+        { x: 0, y: 0, width, height: 200 },
+        { x: 0, y: 400, width, height: 200 },
+      ],
+    };
+    expect(rasterCoverage(bands, width, height)).toBeCloseTo(0.5);
+  });
+
+  it('removes a gapped tiled scan so its native header stays translatable', () => {
+    const tiles = rasterAreas([0, 200, 400, 600].map((y) => ({ x: 0, y, width, height: 199 })));
+    expect(rasterCoverage(tiles, width, height)).toBeCloseTo(0.995);
+
+    const header = piece('Quarterly results and outlook for readers', 40, 40, 400);
+    const lines = groupLines([header]);
+    const cleaned = withoutPageBackground(tiles, width, height);
+    expect(cleaned.images).toEqual([]);
+    expect(cleaned.rasters).toEqual([]);
+
+    const layout = layoutPage(lines, cleaned, { width, height, index: 0 });
+    expect(layout.blocks.map((block) => block.text)).toContain(header.text);
+    expect(layout.skipped.filter((block) => block.role === 'figure-label')).toHaveLength(0);
+  });
+
   it('removes all overlapping scan tiles as one coherent cluster', () => {
     const tiles = rasterAreas([
       { x: 0, y: 0, width, height: 400 },
