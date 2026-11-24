@@ -1541,6 +1541,42 @@ describe('latest DSH review blockers', () => {
       expect(layout.blocks.map((block) => block.text)).not.toContain('boxes with equal six');
     });
 
+    it('B1: a 6pt centred gutter with two regions per column still splits', () => {
+      // The word-space guard must be geometry-aware: when each side of the centred 6pt gap is
+      // a two-word column measure, the gap is a printed gutter even though the word spaces on
+      // either side happen to be exactly as wide.
+      const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+      const row = (y: number, left: readonly string[], right: readonly string[]) => [
+        region(left[0]!, quad(45, y, 115, 20)),
+        region(left[1]!, quad(166, y, 115, 20)),
+        region(right[0]!, quad(287, y, 115, 20)),
+        region(right[1]!, quad(408, y, 115, 20)),
+      ];
+      const first = row(100, ['density values', 'of the'], ['remain stable', 'across runs']);
+      const second = row(
+        130,
+        ['optimal transport', 'converges'],
+        ['converges fast', 'in practice'],
+      );
+      const result = ocrResult(
+        [...first, ...second],
+        [readingLine('horizontal', first), readingLine('horizontal', second)],
+      );
+
+      const lines = ocrResultToTextLines(result, options);
+      expect(lines.map((line) => line.text)).toEqual([
+        [first[0]!.text, first[1]!.text].join(' '),
+        [second[0]!.text, second[1]!.text].join(' '),
+        [first[2]!.text, first[3]!.text].join(' '),
+        [second[2]!.text, second[3]!.text].join(' '),
+      ]);
+      expect(lines.filter((line) => line.columnHint === 0)).toHaveLength(2);
+      expect(lines.filter((line) => line.columnHint === 1)).toHaveLength(2);
+
+      const layout = ocrResultToPageLayout(result, options);
+      expect(layout.blocks.map((block) => block.column)).toEqual([0, 1]);
+    });
+
     it('B2: splits a merged body row by geometry, not by capitalisation', () => {
       const options = { pageIndex: 0, pageWidth: 595, pageHeight: 800 };
       for (const words of [

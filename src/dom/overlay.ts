@@ -484,7 +484,8 @@ export function uiShadow(host: Element | null | undefined): ShadowRoot | null {
   return uiShadows.get(host) ?? null;
 }
 
-function attachUiShadow(host: HTMLElement): ShadowRoot {
+/** Attaches a closed UI shadow and records it for `uiShadow()` (and other content-script UIs). */
+export function attachUiShadow(host: HTMLElement): ShadowRoot {
   const shadow = host.attachShadow({ mode: 'closed' });
   uiShadows.set(host, shadow);
   return shadow;

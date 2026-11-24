@@ -48,5 +48,5 @@ PP-OCRv6 と ONNX Runtime Web により、スキャン PDF・画像の文字認�
 
 ## 確認
 
-- CI: lint / format / typecheck / test (215 files, 3,118 passed, 1 skipped) / e2e
+- CI: lint / format / typecheck / test (215 files, 3,119 passed, 1 skipped) / e2e
 - `pnpm bench:ocr` / `pnpm bench:pdf:quality` / `pnpm bench:pdf:scan:ocr`（コミット済み結果あり）

@@ -79,6 +79,16 @@ export async function launchExtension(
     args,
   });
 
+  // Extension UIs attach closed shadow roots in production. Playwright locators and the
+  // page.evaluate helpers in these tests read those roots the way `openExtensionShadowRoots`
+  // does for injected content, so open them in the test browser before any page script runs.
+  await context.addInitScript(() => {
+    const original = Element.prototype.attachShadow;
+    Element.prototype.attachShadow = function (init: ShadowRootInit) {
+      return original.call(this, { ...init, mode: 'open' });
+    };
+  });
+
   const denied: string[] = [];
   await context.route('**/*', (route) => {
     const url = route.request().url();

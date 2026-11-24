@@ -9,6 +9,7 @@ import {
   topLevelImageCaptureGeometry,
   visibleImageRect,
 } from '@/dom/image-translation';
+import { uiShadow } from '@/dom/overlay';
 import type { OcrResult } from '@/engine/ocr/types';
 import { createDefaultSettings } from '@/shared/settings';
 
@@ -91,7 +92,10 @@ async function translatedController(options: { onWidthChange?: (width: number) =
   });
   await controller.start('https://example.test/scan.png');
   const host = document.querySelector<HTMLElement>('[data-sakutto-image-translation]');
-  const shadow = host?.shadowRoot;
+  // Closed like the selection bubble: the page's own shadowRoot is null and only the
+  // content script can reach the panel through uiShadow().
+  expect(host?.shadowRoot).toBeNull();
+  const shadow = uiShadow(host);
   return { controller, host, shadow, recognize, translate };
 }
 
@@ -337,7 +341,8 @@ describe('ImageTranslationController bubble', () => {
     });
     await controller.start('https://example.test/scan.png');
     const host = document.querySelector<HTMLElement>('[data-sakutto-image-translation]');
-    const shadow = host?.shadowRoot;
+    expect(host?.shadowRoot).toBeNull();
+    const shadow = uiShadow(host);
     const card = shadow?.querySelector<HTMLElement>('.card');
     expect(card?.style.width).toBe('20em');
     const handle = shadow?.querySelector<HTMLElement>('.resize-handle.right');

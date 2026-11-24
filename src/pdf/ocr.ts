@@ -248,14 +248,51 @@ interface PieceSplit {
 }
 
 /**
+ * Whether a centred gap that looks like a word space is actually the page's printed gutter.
+ *
+ * On a dense scan a 12px column gutter maps to about 6pt — the same as an ordinary word space.
+ * Width alone cannot tell the two apart, but geometry can: when the gap sits at the page midpoint
+ * and leaves two word regions on either side with comparable column measures, those four regions
+ * are two body columns, not a single long line. This is deliberately narrow (two regions per
+ * column): a longer run of equally spaced words stays ordinary spacing, as does a ragged split
+ * whose two halves are not comparable measures.
+ */
+function twoRegionsPerColumn(
+  pageWidth: number,
+  left: readonly OcrTextPiece[],
+  right: readonly OcrTextPiece[],
+  leftEnd: number,
+  rightStart: number,
+): boolean {
+  if (left.length !== 2 || right.length !== 2) return false;
+  if (!gutterCentred(leftEnd, rightStart, pageWidth)) return false;
+  const measure = (group: readonly OcrTextPiece[]): number =>
+    Math.max(...group.map((piece) => piece.box.x + piece.box.width)) -
+    Math.min(...group.map((piece) => piece.box.x));
+  const leftMeasure = measure(left);
+  const rightMeasure = measure(right);
+  return (
+    leftMeasure >= pageWidth * 0.15 &&
+    rightMeasure >= pageWidth * 0.15 &&
+    Math.min(leftMeasure, rightMeasure) >= Math.max(leftMeasure, rightMeasure) * 0.75
+  );
+}
+
+/**
  * Whether a candidate gutter is just one of several equal word spaces on a single row.
  *
  * A word-level detector emits a quad per word, so an ordinary one-column line can have several
  * 6-12pt gaps near the page midpoint. If the chosen gap is no wider than the other gaps on the
  * row, it is ordinary justification/OCR spacing, not a printed gutter. A real gutter stands out
  * from the word spaces (or is the row's only gap, in which case there is nothing to compare).
+ * Callers that know the row's split geometry pass it so a centred two-region-per-column split can
+ * override the equal-gap reading; callers without that evidence keep the conservative answer.
  */
-function wordSpaceGutter(pieces: readonly OcrTextPiece[], gutterGap: number): boolean {
+function wordSpaceGutter(
+  pieces: readonly OcrTextPiece[],
+  gutterGap: number,
+  split?: { pageWidth: number } & PieceSplit,
+): boolean {
   if (pieces.length < 3) return false;
   const byX = [...pieces].sort((a, b) => a.box.x - b.box.x);
   const gaps: number[] = [];
@@ -270,7 +307,11 @@ function wordSpaceGutter(pieces: readonly OcrTextPiece[], gutterGap: number): bo
   const chosen = gaps.findIndex((gap) => Math.abs(gap - gutterGap) < 0.01);
   if (chosen < 0) return false;
   const others = gaps.filter((_, index) => index !== chosen);
-  return gutterGap <= Math.max(...others) + 2;
+  if (gutterGap > Math.max(...others) + 2) return false;
+  return !(
+    split !== undefined &&
+    twoRegionsPerColumn(split.pageWidth, split.left, split.right, split.leftEnd, split.rightStart)
+  );
 }
 
 /**
@@ -1134,7 +1175,13 @@ function twoColumnBodyRows(
       Math.max(...group.map((piece) => piece.box.x + piece.box.width)) -
       Math.min(...group.map((piece) => piece.box.x));
     if (
-      !wordSpaceGutter(pieces, rightStart - leftEnd) &&
+      !wordSpaceGutter(pieces, rightStart - leftEnd, {
+        pageWidth: resolved.pageWidth,
+        left,
+        right,
+        leftEnd,
+        rightStart,
+      }) &&
       rightStart - leftEnd >= MIN_COLUMN_GUTTER &&
       measure(left) >= resolved.pageWidth * 0.15 &&
       measure(right) >= resolved.pageWidth * 0.15 &&

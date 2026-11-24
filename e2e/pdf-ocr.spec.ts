@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { loadExtension } from './extension';
-import { resetExtensionStorage } from './page';
+import { openExtensionShadowRoots, resetExtensionStorage } from './page';
 import { plantLicenseConsent } from './folder-model-helpers';
 import { openPdfTab, seedStandardOcrModels, setFileUrls, warmOcr } from './ocr-model-helpers';
 
@@ -209,6 +209,9 @@ test.describe('scanned PDF and image OCR in real Chromium', () => {
       const image = await extension.context.newPage();
       const imageUrl = fixtures.server.url('en-scan.png');
       await image.goto(imageUrl);
+      // The image panel is created later by the content script; make its closed root readable
+      // from this test before the context menu click builds it.
+      await openExtensionShadowRoots(extension.worker, image);
       await image.bringToFront();
       const tabId = await extension.worker.evaluate(async () => {
         const browser = (

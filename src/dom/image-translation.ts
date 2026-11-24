@@ -19,7 +19,7 @@ import {
 } from '@/shared/settings';
 import { translateViaBackground } from '@/shared/translation-client';
 import type { ImageCaptureRect, ImageCaptureRequest } from '@/shared/image';
-import { BUBBLE_STYLE, appendCopyIcons } from './overlay';
+import { BUBBLE_STYLE, appendCopyIcons, attachUiShadow, uiShadow } from './overlay';
 
 const MAX_IMAGE_SIDE = 2048;
 const POPUP_MARGIN_PX = 8;
@@ -639,9 +639,11 @@ export class ImageTranslationController {
     host.setAttribute('translate', 'no');
     host.style.position = 'fixed';
     host.style.zIndex = '2147483646';
-    // Keep the image popup's root open, as before this change: the file:// fallback page's
-    // existing test and assistive tooling can reach the translated text through it.
-    const shadow = host.attachShadow({ mode: 'open' });
+    // Match the selection bubble and status bar: a closed root keeps the page from reading
+    // or rewriting the popup. The content script retains it through uiShadow().
+    attachUiShadow(host);
+    const shadow = uiShadow(host);
+    if (!shadow) throw new Error('image translation shadow root is unavailable');
     const style = doc.createElement('style');
     style.textContent = IMAGE_BUBBLE_STYLE;
 
