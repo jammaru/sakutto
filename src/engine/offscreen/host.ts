@@ -412,7 +412,11 @@ export class EngineHost {
   /** Registered before lazy host/codec awaits so ocr-cancel cannot miss recognition. */
   private readonly ocrRequests = new Map<
     string,
-    { tier: OcrRecognizeRequest['tier']; controller: AbortController }
+    {
+      tier: OcrRecognizeRequest['tier'];
+      controller: AbortController;
+      port: Browser.runtime.Port;
+    }
   >();
 
   constructor(options: EngineHostOptions = {}) {
@@ -876,7 +880,7 @@ export class EngineHost {
     const controller = request.type === 'ocr-recognize' ? new AbortController() : null;
     if (controller && request.type === 'ocr-recognize') {
       this.ocrRequests.get(request.requestId)?.controller.abort();
-      this.ocrRequests.set(request.requestId, { tier: request.tier, controller });
+      this.ocrRequests.set(request.requestId, { tier: request.tier, controller, port });
     }
     try {
       const host = await this.ocrHost();
@@ -1238,6 +1242,17 @@ export class EngineHost {
       }
       request.controller.abort();
       this.requests.delete(requestId);
+    }
+
+    // OCR has its own queue, so aborting this.requests is not enough: a recognition
+    // started by the closing port would otherwise keep the shared runtime busy until its
+    // timeout and block the next caller. Cancel the lazy host too, since its runtime may
+    // still be loading and never saw the caller's signal.
+    for (const [requestId, request] of this.ocrRequests) {
+      if (request.port !== port) continue;
+      request.controller.abort();
+      this.ocrRequests.delete(requestId);
+      void this.ocrHostTask?.then((host) => host.cancel(requestId)).catch(() => undefined);
     }
 
     for (const download of this.downloads.values()) {

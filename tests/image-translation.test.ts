@@ -249,6 +249,55 @@ describe('image popup placement', () => {
     expect(host?.style.top).toBe('188px');
     controller.close();
   });
+
+  it('hides with display:none when the image scrolls away and re-anchors when it returns', async () => {
+    const target = image();
+    stubCanvas();
+    const rectAt = (top: number): DOMRect =>
+      ({
+        x: 100,
+        y: top,
+        left: 100,
+        right: 240,
+        top,
+        bottom: top + 60,
+        width: 140,
+        height: 60,
+        toJSON: () => ({}),
+      }) as DOMRect;
+    const bounds = vi.spyOn(target, 'getBoundingClientRect').mockReturnValue(rectAt(120));
+    const controller = new ImageTranslationController({
+      labels,
+      recognize: vi.fn(async () => ocr),
+      translate: vi.fn(async function* () {
+        yield { id: 'line-0', final: 'translated', engine: 'plamo' } as const;
+      }),
+      loadSettings: async () => settings(),
+    });
+    await controller.start(target.src);
+    const host = document.querySelector<HTMLElement>('[data-sakutto-image-translation]');
+    const currentAnchor = () =>
+      (controller as unknown as { currentAnchor(): { top: number } | null }).currentAnchor();
+
+    expect(host?.hidden).toBe(false);
+    expect(host?.style.display).toBe('block');
+    expect(host?.style.top).toBe('188px');
+    expect(currentAnchor()).toMatchObject({ top: 120 });
+
+    bounds.mockReturnValue(rectAt(window.innerHeight + 500));
+    window.dispatchEvent(new Event('scroll'));
+    expect(currentAnchor()).toBeNull();
+    expect(host?.hidden).toBe(true);
+    expect(host?.style.display).toBe('none');
+
+    bounds.mockReturnValue(rectAt(300));
+    window.dispatchEvent(new Event('scroll'));
+    expect(host?.hidden).toBe(false);
+    expect(host?.style.display).toBe('block');
+    expect(currentAnchor()).toMatchObject({ top: 300 });
+    expect(host?.style.top).toBe('368px');
+    controller.close();
+  });
 });
 
 describe('ImageTranslationController bubble', () => {

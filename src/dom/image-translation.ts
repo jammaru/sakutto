@@ -465,8 +465,11 @@ export class ImageTranslationController {
   private currentAnchor(): Pick<Box, 'left' | 'top' | 'right' | 'bottom'> | null {
     if (!this.anchorElement) return this.anchorRect;
     const rect = imageAnchorRect(this.anchorElement);
-    if (rect) this.anchorRect = rect;
-    return this.anchorRect;
+    // A scrolled-away or resized image is no longer a target. Keeping the last rect would
+    // pin the popup to a spot the reader cannot see.
+    if (!rect) return null;
+    this.anchorRect = rect;
+    return rect;
   }
 
   private readonly onViewportChange = (): void => this.reposition();
@@ -486,16 +489,21 @@ export class ImageTranslationController {
     const anchor = this.currentAnchor();
     const view = this.host.ownerDocument.defaultView;
     const viewport = { width: view?.innerWidth ?? 800, height: view?.innerHeight ?? 600 };
-    if (!anchor) {
-      this.host.hidden = true;
-      return;
-    }
     const offscreen =
+      !anchor ||
       anchor.bottom <= 0 ||
       anchor.top >= viewport.height ||
       anchor.right <= 0 ||
       anchor.left >= viewport.width;
-    this.host.hidden = offscreen;
+    if (offscreen) {
+      // Match PageOverlay: hidden alone can still leave a fixed element painting in some
+      // hosts. Take it out of layout until the image scrolls back into view.
+      this.host.hidden = true;
+      this.host.style.display = 'none';
+      return;
+    }
+    this.host.hidden = false;
+    this.host.style.display = 'block';
     const box = anchoredPopupBox(
       anchor,
       {
