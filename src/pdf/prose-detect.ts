@@ -30,8 +30,8 @@ export function isNoiseBlockText(text: string, role: string = 'prose'): boolean 
   if (['heading', 'caption', 'label', 'cell', 'figure-label', 'furniture'].includes(role)) {
     return false;
   }
-  if (!CJK_LETTER.test(trimmed) && trimmed.length <= 16) {
-    return (trimmed.match(/[A-Za-z]{3,}/gu)?.length ?? 0) <= 1;
-  }
-  return false;
+  // A two-glyph Latin fragment is a wrapped tail or an arrow read as a letter. A short
+  // sentence such as "I need it." or "We can do it." is real prose, however few long words
+  // it contains: word length is not evidence that a whole sentence should stay untranslated.
+  return !CJK_LETTER.test(content) && content.length <= 2;
 }

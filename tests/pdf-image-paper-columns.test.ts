@@ -206,3 +206,38 @@ describe('image-only Japanese paper: columns and spanning rows', () => {
     expect(metrics.overlapPairs).toBe(0);
   });
 });
+
+describe('section headings require an explicit separator', () => {
+  const options = { pageIndex: 0, pageWidth: 595, pageHeight: 842 };
+
+  function singleLineLayout(text: string) {
+    return ocrResultToPageLayout(resultFromLines([[region(text, 59, 100, 220)]]), options);
+  }
+
+  it.each(['1.はじめに', '3. ローカル推論基盤', '1. Introduction', '2.1 Runtime'])(
+    'keeps %s as a heading',
+    (text) => {
+      const block = singleLineLayout(text).blocks.find((candidate) => candidate.text === text);
+      expect(block?.role).toBe('heading');
+    },
+  );
+
+  it.each(['3Dプリンタの結果', '2024年度の報告', '3つの手法を比較する'])(
+    'does not promote the word %s to a heading',
+    (text) => {
+      const block = singleLineLayout(text).blocks.find((candidate) => candidate.text === text);
+      expect(block?.role).not.toBe('heading');
+    },
+  );
+
+  it('keeps consecutive digit-prefixed words in one paragraph', () => {
+    const rows = [
+      [region('3Dプリンタの結果を報告する', 59, 100, 220)],
+      [region('2024年度の実験データを示す', 59, 118, 220)],
+    ];
+    const layout = ocrResultToPageLayout(resultFromLines(rows), options);
+    expect(layout.blocks).toHaveLength(1);
+    expect(layout.blocks[0]?.text).toBe('3Dプリンタの結果を報告する 2024年度の実験データを示す');
+    expect(layout.blocks[0]?.role).toBe('prose');
+  });
+});

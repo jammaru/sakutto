@@ -1851,8 +1851,10 @@ const CAPTION_LINE = /^(?:Fig(?:ure)?|Tab(?:le)?|Alg(?:orithm)?)\.?\s*\d/iu;
 // Japanese numbered headings use a CJK letter after the number, not a Latin capital.
 // Japanese headings are often printed as "1.はじめに" with no space after the dot, and the
 // separator may be full width. Both are the same section marker as "1. Introduction".
+// The separator is mandatory: a bare number glued to its title ("3D printer", "2024年度",
+// "3つの手法") is a word, not a section heading.
 const SECTION_LINE =
-  /^\d+(?:\.\d+)*[.．]?\s*(?:\p{Lu}|\p{Script=Han}|\p{Script=Hiragana}|\p{Script=Katakana})/u;
+  /^\d+(?:\.\d+)*(?:[.．]\s*|\s+)(?:\p{Lu}|\p{Script=Han}|\p{Script=Hiragana}|\p{Script=Katakana})/u;
 /** Unambiguous section labels, sized like body text when OCR sees them on their own. */
 const HEADING_LABEL =
   /^(?:abstract|references?|introduction|conclusions?|acknowledge?ments?|bibliography|appendi(?:x|ces)|summary|overview|related work|background|methods?|results?|discussion|概要|要旨|抄録|参考文献|はじめに|序論|結論|まとめ|謝辞|付録|目次|関連研究)[.:：]?$/iu;

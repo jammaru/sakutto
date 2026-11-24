@@ -209,6 +209,8 @@ export class PdfReader {
   private static readonly MAX_OCR_PAGE_ATTEMPTS = 6;
   private ocrRetryTimer: ReturnType<typeof setTimeout> | null = null;
   private parsing: Promise<void> | null = null;
+  /** The page the single-flight parse owns, so idle prefetch never duplicates its get/extract. */
+  private parsingIndex: number | null = null;
   /** One idle-time page/extract prefetch, consumed by the next parse; never runs OCR early. */
   private prefetch: {
     index: number;
@@ -904,6 +906,7 @@ export class PdfReader {
 
     const pageStartedAt = performance.now();
     this.pageStartTimes.set(next, pageStartedAt);
+    this.parsingIndex = next;
     this.parsing = (async () => {
       let ocrAttempted = false;
       let fallback: {
@@ -999,7 +1002,7 @@ export class PdfReader {
           if (hybrid.lines.length > 0) textLines = [...extracted.lines, ...hybrid.lines];
         }
 
-        this.parsed.add(next);
+        this.markParsed(next);
         this.retryableOcr.delete(next);
         this.modelMissingOcr.delete(next);
         this.ocrRetryNotBefore.delete(next);
@@ -1031,7 +1034,7 @@ export class PdfReader {
         // Cancellation is control flow, including when a quick re-show happened before the
         // rejection arrived. The page remains unparsed so the re-show can start a clean run.
         if (isAbortError(error)) return;
-        this.parsed.add(next);
+        this.markParsed(next);
         if (ocrAttempted && fallback) {
           // Only a missing bundle is worth waiting for: a later readiness message re-queues
           // these pages even after the ordinary backoff budget is exhausted.
@@ -1093,10 +1096,17 @@ export class PdfReader {
       } finally {
         this.pageOcr = null;
         this.parsing = null;
+        this.parsingIndex = null;
         this.prefetchNext(next);
         void this.parseNext();
       }
     })();
+  }
+
+  /** A page is done only once its prefetch can no longer be mistaken for pending work. */
+  private markParsed(index: number): void {
+    this.parsed.add(index);
+    if (this.prefetch?.index === index) this.prefetch = null;
   }
 
   /**
@@ -1116,6 +1126,7 @@ export class PdfReader {
       !this.visible ||
       typeof idle !== 'function' ||
       this.parsed.has(next) ||
+      this.parsingIndex === next ||
       this.retryableOcr.has(next) ||
       (this.pageLimit !== null && next >= this.pageLimit)
     ) {
@@ -1123,7 +1134,13 @@ export class PdfReader {
     }
     idle(
       () => {
-        if (this.destroyed || !this.visible || this.prefetch !== null || this.parsed.has(next))
+        if (
+          this.destroyed ||
+          !this.visible ||
+          this.prefetch !== null ||
+          this.parsed.has(next) ||
+          this.parsingIndex === next
+        )
           return;
         const task = this.document
           .getPage(next + 1)

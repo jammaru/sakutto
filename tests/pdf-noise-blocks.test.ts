@@ -32,20 +32,23 @@ async function waitFor(check: () => boolean, timeoutMs = 1000): Promise<void> {
 }
 
 describe('OCR noise blocks never reach translation', () => {
-  it('recognises punctuation, arrow and wrapped-tail fragments but keeps real headings', () => {
+  it('recognises punctuation, arrow and wrapped-tail fragments but keeps real prose', () => {
     expect(isNoiseBlockText('')).toBe(true);
     expect(isNoiseBlockText('.')).toBe(true);
+    expect(isNoiseBlockText(',')).toBe(true);
     expect(isNoiseBlockText('V')).toBe(true);
     expect(isNoiseBlockText('X')).toBe(true);
+    expect(isNoiseBlockText('ab')).toBe(true);
     expect(isNoiseBlockText('る。', 'heading')).toBe(true);
-    expect(isNoiseBlockText('I need it.')).toBe(true);
+    expect(isNoiseBlockText('I need it.')).toBe(false);
+    expect(isNoiseBlockText('We can do it.')).toBe(false);
     expect(isNoiseBlockText('1. はじめに', 'heading')).toBe(false);
     expect(isNoiseBlockText('概要', 'heading')).toBe(false);
     expect(isNoiseBlockText('Oral', 'label')).toBe(false);
     expect(isNoiseBlockText('テキスト情報を保持するPDFでは')).toBe(false);
   });
 
-  it('does not call the engine for noise blocks while translating real prose', async () => {
+  it('does not call the engine for noise blocks but translates short real prose', async () => {
     const requested: string[] = [];
     const engine: PdfEngine = {
       translate: (segments: readonly { id: string; text: string }[]) => {
@@ -60,19 +63,14 @@ describe('OCR noise blocks never reach translation', () => {
     };
     const session = new PdfSession({
       engine,
-      targetLanguage: 'en',
+      targetLanguage: 'ja',
       form: 'polite',
       onChange: () => undefined,
       measure: (text, size) => text.length * size * 0.5,
       concurrency: 4,
     });
     const layout: PageLayout = {
-      blocks: [
-        block('I need it.'),
-        block('V'),
-        block('る。', 'heading'),
-        block('画像PDFを翻訳する場合の処理構成を図1に示す'),
-      ],
+      blocks: [block('I need it.'), block('V'), block('る。', 'heading'), block('We can do it.')],
       skipped: [],
       bodySize: 10,
       lineHeight: 12,
@@ -83,13 +81,13 @@ describe('OCR noise blocks never reach translation', () => {
     };
     session.addPage(0, layout, 842);
     await waitFor(() => session.pageBlocks(0).every(isPdfBlockSettled));
-    expect(requested).toEqual(['画像PDFを翻訳する場合の処理構成を図1に示す']);
-    expect(
-      session
-        .pageBlocks(0)
-        .slice(0, 3)
-        .map((state) => state.intentionallyKept),
-    ).toEqual([true, true, true]);
+    expect(requested).toEqual(['I need it.', 'We can do it.']);
+    expect(session.pageBlocks(0).map((state) => state.intentionallyKept)).toEqual([
+      false,
+      true,
+      true,
+      false,
+    ]);
     session.dispose();
   });
 });

@@ -48,6 +48,7 @@ public/licenses/pdf-lib-ThirdPartyNotices.txt
 public/licenses/MPLUS1p-OFL.txt
 public/licenses/onnxruntime-ThirdPartyNotices.txt
 public/ocr/ort/ort-wasm-simd-threaded.wasm
+public/ocr/ort/ort-wasm-simd-threaded.jsep.wasm
 bench/ocr/fixtures/*.rgba
 en.pdf
 traces/
