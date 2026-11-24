@@ -28,6 +28,7 @@ import {
   translationRepeatsSource,
 } from './language';
 import { protectInlineMath, restoreInlineMath, shouldSkipInlineMath } from './protect';
+import { isNoiseBlockText } from './prose-detect';
 
 /** What the reader shows about how fast the document is being translated. */
 export interface PdfRates {
@@ -686,6 +687,16 @@ export class PdfSession {
 
   private async run(job: Job, signal: AbortSignal, generation: number): Promise<void> {
     const { state } = job;
+    // OCR debris and wrapped one-glyph tails must not consume a translation request or paint a
+    // hallucinated cover. The source glyphs stay visible, as with other kept-as-is blocks.
+    // Whitespace-only blocks keep the existing failure path (they are not OCR debris).
+    if (
+      state.block.text.trim().length > 0 &&
+      isNoiseBlockText(state.block.text, state.block.role)
+    ) {
+      this.keepOriginal(state);
+      return;
+    }
     const pageLanguage = this.pageLanguages.get(job.page) ?? null;
     if (isSameLanguage(state.block.text, this.target, pageLanguage)) {
       this.keepOriginal(state);

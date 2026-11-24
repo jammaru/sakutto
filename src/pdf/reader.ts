@@ -21,7 +21,7 @@ import { layoutPage } from './layout';
 import { withoutPageBackground } from './figures';
 import { COVER_PAD_TOP_EM, HINTING_PAD_PX, coverPaintLayout, drawnBox } from './place';
 import { coverStyle, READER_STYLE, TextMeasurer } from './render';
-import { extractPage, renderPage, type PdfDocument } from './extract';
+import { extractPage, renderPage, type ExtractedPage, type PdfDocument } from './extract';
 import { pngBytesFromDataUrl, type ExportBlock, type ExportPage } from './export';
 import type { TextLine } from './lines';
 import { PdfSession, traitsOf, type BlockState, type PdfEngine } from './session';
@@ -127,6 +127,10 @@ export interface ReaderProgress {
   overflowed: number;
   /** Blocks whose translation stream failed, counted apart from ones that did not fit. */
   failed: number;
+  /** Last completed page OCR+layout time in milliseconds, when OCR ran. */
+  ocrMs?: number | null;
+  /** Time from starting a page to its first painted translation, in milliseconds. */
+  firstVisibleMs?: number | null;
 }
 
 /**
@@ -190,6 +194,12 @@ export class PdfReader {
   private readonly ops: Record<string, number> | null;
   private readonly ocr: { recognize: PdfOcrRecognize; tier?: OcrTier } | null;
   private pageOcr: PdfPageOcr | null = null;
+  /** OCR recognition is language-independent: keep one instance per page across scroll-back. */
+  private readonly pageOcrCache = new Map<number, PdfPageOcr>();
+  /** Page parse start, used for time-to-first-visible-translation telemetry. */
+  private readonly pageStartTimes = new Map<number, number>();
+  private readonly firstVisibleTimes = new Map<number, number>();
+  private readonly ocrDurations = new Map<number, number>();
   private readonly parsed = new Set<number>();
   private readonly retryableOcr = new Set<number>();
   /** Pages whose OCR pass failed because the bundle was missing, not because of a transient error. */
@@ -199,6 +209,11 @@ export class PdfReader {
   private static readonly MAX_OCR_PAGE_ATTEMPTS = 6;
   private ocrRetryTimer: ReturnType<typeof setTimeout> | null = null;
   private parsing: Promise<void> | null = null;
+  /** One idle-time page/extract prefetch, consumed by the next parse; never runs OCR early. */
+  private prefetch: {
+    index: number;
+    task: Promise<{ page: Awaited<ReturnType<PdfDocument['getPage']>>; extracted: ExtractedPage }>;
+  } | null = null;
   private visible = true;
   private scale = 1;
   private focus = 0;
@@ -575,7 +590,10 @@ export class PdfReader {
   /** Pauses translating while the tab is hidden, and resumes when it is shown again. */
   setVisible(visible: boolean): void {
     this.visible = visible;
-    if (!visible) this.pageOcr?.cancel();
+    if (!visible) {
+      this.pageOcr?.cancel();
+      for (const instance of this.pageOcrCache.values()) instance.cancel();
+    }
     if (visible) this.retryOcr();
   }
 
@@ -589,6 +607,7 @@ export class PdfReader {
     for (const page of this.modelMissingOcr) {
       this.retryableOcr.add(page);
       this.ocrRetryAttempts.delete(page);
+      this.pageOcrCache.delete(page);
     }
     for (const page of this.retryableOcr) this.ocrRetryNotBefore.set(page, 0);
     if (this.visible) void this.parseNext();
@@ -600,6 +619,8 @@ export class PdfReader {
     if (this.ocrRetryTimer !== null) clearTimeout(this.ocrRetryTimer);
     this.ocrRetryTimer = null;
     this.pageOcr?.cancel();
+    for (const instance of this.pageOcrCache.values()) instance.cancel();
+    this.pageOcrCache.clear();
     this.observer.disconnect();
     this.resizeObserver?.disconnect();
     document.removeEventListener('click', this.onDocumentClick);
@@ -881,6 +902,8 @@ export class PdfReader {
     const next = this.nextPageToParse();
     if (next === null) return;
 
+    const pageStartedAt = performance.now();
+    this.pageStartTimes.set(next, pageStartedAt);
     this.parsing = (async () => {
       let ocrAttempted = false;
       let fallback: {
@@ -890,8 +913,20 @@ export class PdfReader {
         empty: boolean;
       } | null = null;
       try {
-        const page = await this.document.getPage(next + 1);
-        const extracted = await extractPage(page, next, this.ops);
+        const prefetched = this.prefetch?.index === next ? this.prefetch : null;
+        if (prefetched) this.prefetch = null;
+        const prepared = prefetched
+          ? await prefetched.task.catch(() => null)
+          : await (async () => {
+              const preparedPage = await this.document.getPage(next + 1);
+              return {
+                page: preparedPage,
+                extracted: await extractPage(preparedPage, next, this.ops),
+              };
+            })();
+        if (this.destroyed) return;
+        const page = prepared?.page ?? (await this.document.getPage(next + 1));
+        const extracted = prepared?.extracted ?? (await extractPage(page, next, this.ops));
         if (this.destroyed) return;
         // A new page brings new unpainted prose, so the coverage sweep starts over for it.
         this.coverageSweepPass = 0;
@@ -932,17 +967,23 @@ export class PdfReader {
             maxDimension: MAX_OCR_DIMENSION,
           }).promise;
           if (this.destroyed || !this.visible) return;
-          const pageOcr = createPdfPageOcr({
-            pageIndex: next,
-            pageWidth: extracted.width,
-            pageHeight: extracted.height,
-            recognize: this.ocr.recognize,
-            // The timeout must follow the same live setting the recognize callback reads.
-            tier: () => this.ocr?.tier,
-            timeoutMessage: this.labels.ocrFailed,
-          });
+          let pageOcr = this.pageOcrCache.get(next);
+          if (!pageOcr) {
+            pageOcr = createPdfPageOcr({
+              pageIndex: next,
+              pageWidth: extracted.width,
+              pageHeight: extracted.height,
+              recognize: this.ocr.recognize,
+              // The timeout must follow the same live setting the recognize callback reads.
+              tier: () => this.ocr?.tier,
+              timeoutMessage: this.labels.ocrFailed,
+            });
+            this.pageOcrCache.set(next, pageOcr);
+          }
           this.pageOcr = pageOcr;
+          const ocrStartedAt = performance.now();
           const recognized = await pageOcr.run(canvas);
+          this.ocrDurations.set(next, performance.now() - ocrStartedAt);
           const hybrid = ocrResultToHybridPage(
             recognized.ocr,
             { ...extracted, figures: nativeFigures },
@@ -1052,9 +1093,50 @@ export class PdfReader {
       } finally {
         this.pageOcr = null;
         this.parsing = null;
+        this.prefetchNext(next);
         void this.parseNext();
       }
     })();
+  }
+
+  /**
+   * Warms only the next page object and its text extraction, never its canvas or OCR. One
+   * prefetch at a time keeps the main thread free for the translation stream; the single-flight
+   * parse guard still owns all page state changes.
+   */
+  private prefetchNext(current: number): void {
+    const next = current + 1;
+    const idle = (
+      globalThis as unknown as {
+        requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => void;
+      }
+    ).requestIdleCallback;
+    if (
+      this.destroyed ||
+      !this.visible ||
+      typeof idle !== 'function' ||
+      this.parsed.has(next) ||
+      this.retryableOcr.has(next) ||
+      (this.pageLimit !== null && next >= this.pageLimit)
+    ) {
+      return;
+    }
+    idle(
+      () => {
+        if (this.destroyed || !this.visible || this.prefetch !== null || this.parsed.has(next))
+          return;
+        const task = this.document
+          .getPage(next + 1)
+          .then((page) =>
+            extractPage(page, next, this.ops).then((extracted) => ({ page, extracted })),
+          );
+        this.prefetch = { index: next, task };
+        void task.catch(() => {
+          if (this.prefetch?.index === next) this.prefetch = null;
+        });
+      },
+      { timeout: 1500 },
+    );
   }
 
   private scheduleOcrRetry(): void {
@@ -1158,6 +1240,11 @@ export class PdfReader {
       node.setAttribute('translate', 'no');
       element.layer.append(node);
       element.covers.set(state, node);
+      if (!this.firstVisibleTimes.has(pageIndex)) {
+        const started = this.pageStartTimes.get(pageIndex);
+        if (started !== undefined)
+          this.firstVisibleTimes.set(pageIndex, performance.now() - started);
+      }
     }
 
     const block = state.block;
@@ -1361,6 +1448,8 @@ export class PdfReader {
       keptAsIs: [...this.skippedBlocks.values()].reduce((sum, count) => sum + count, 0),
       overflowed: progress.overflowed,
       failed: progress.failed,
+      ocrMs: this.ocrDurations.get(this.focus) ?? null,
+      firstVisibleMs: this.firstVisibleTimes.get(this.focus) ?? null,
     });
   }
 

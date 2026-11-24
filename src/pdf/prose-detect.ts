@@ -1,8 +1,37 @@
-/** A word long enough to be prose rather than a label, unit or notation mark. */
 const PROSE_WORD = /\p{L}{3,}/gu;
 const PROSE_WORDS = 3;
+const CJK_LETTER = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u;
+const SECTION_MARKER = /^\d+(?:\.\d+)*[.．]?\s*/u;
 
 /** True when a block carries enough real words to count as prose. */
 export function hasSourceProse(text: string): boolean {
   return (text.match(PROSE_WORD)?.length ?? 0) >= PROSE_WORDS;
+}
+
+/**
+ * OCR can emit stray detector boxes (an arrow head read as "V", a punctuation fragment) and a
+ * wrapped sentence tail can become its own one- or two-glyph block. Such blocks must not spend a
+ * translation request or paint a hallucinated cover; the original glyphs stay visible instead.
+ *
+ * Genuine short headings are exempt: numbered sections, CJK labels such as "概要", and role
+ * headings/captions still reach the engine.
+ */
+export function isNoiseBlockText(text: string, role: string = 'prose'): boolean {
+  const trimmed = text.trim();
+  if (trimmed.length === 0) return true;
+  const content = trimmed.replace(/[\s\p{P}\p{S}\p{N}]/gu, '');
+  if (content.length === 0) return true;
+  if (SECTION_MARKER.test(trimmed) && content.length > 1) return false;
+  // "る。" / "V" / "X": a one- or two-glyph fragment left by a line break or a figure arrow.
+  if (content.length === 1 && !CJK_LETTER.test(content)) return true;
+  if (CJK_LETTER.test(content) && content.length <= 2 && /[。．.!?]$/u.test(trimmed)) return true;
+  // Real short headings and labels are deliberately kept or translated elsewhere; only
+  // free-standing prose debris is filtered here.
+  if (['heading', 'caption', 'label', 'cell', 'figure-label', 'furniture'].includes(role)) {
+    return false;
+  }
+  if (!CJK_LETTER.test(trimmed) && trimmed.length <= 16) {
+    return (trimmed.match(/[A-Za-z]{3,}/gu)?.length ?? 0) <= 1;
+  }
+  return false;
 }

@@ -13,7 +13,20 @@ import type { OcrResult, OcrRunner } from './types';
 type OrtModule = typeof import('onnxruntime-web/wasm');
 type OrtSession = import('onnxruntime-web/wasm').InferenceSession;
 
-let ortTask: Promise<OrtModule> | null = null;
+type OrtProvider = 'wasm' | 'webgpu';
+const ortTasks = new Map<OrtProvider, Promise<OrtModule>>();
+
+/** Feature probe: GPU adapters are optional and Firefox extension pages do not expose one. */
+async function supportsWebGpu(): Promise<boolean> {
+  const gpu = (globalThis as { navigator?: { gpu?: { requestAdapter(): Promise<unknown> } } })
+    .navigator?.gpu;
+  if (!gpu) return false;
+  try {
+    return (await gpu.requestAdapter()) !== null;
+  } catch {
+    return false;
+  }
+}
 
 function extensionAssetUrl(path: string): string {
   return (browser.runtime.getURL as (asset: string) => string)(
@@ -22,26 +35,31 @@ function extensionAssetUrl(path: string): string {
 }
 
 /** Loads only extension-origin code and WASM; MV3 never fetches a remote runtime. */
-function loadOrt(): Promise<OrtModule> {
-  if (!ortTask) {
-    ortTask = (async () => {
-      const moduleUrl = extensionAssetUrl(`${ORT_ASSET_DIRECTORY}/ort.wasm.min.mjs`);
-      const ort = (await import(/* @vite-ignore */ moduleUrl)) as OrtModule;
-      ort.env.wasm.wasmPaths = extensionAssetUrl(`${ORT_ASSET_DIRECTORY}/`);
-      ort.env.wasm.numThreads = 1;
-      // WASM stays on this thread. ORT's proxy mode would move inference to a worker and
-      // change how the models and WASM paths resolve inside an extension; we keep the
-      // proven setup and instead let OcrPipeline yield a macrotask between text-box
-      // recognitions. That keeps the offscreen host's port responsive without touching
-      // recognition output (see docs/design/ocr-host-responsiveness.md).
-      ort.env.wasm.proxy = false;
-      return ort;
-    })().catch((error: unknown) => {
-      ortTask = null;
-      throw error;
-    });
-  }
-  return ortTask;
+function loadOrt(provider: OrtProvider = 'wasm'): Promise<OrtModule> {
+  const cached = ortTasks.get(provider);
+  if (cached) return cached;
+  const task = (async () => {
+    const moduleName = provider === 'webgpu' ? 'ort.webgpu.min.mjs' : 'ort.wasm.min.mjs';
+    const moduleUrl = extensionAssetUrl(`${ORT_ASSET_DIRECTORY}/${moduleName}`);
+    const ort = (await import(/* @vite-ignore */ moduleUrl)) as OrtModule;
+    // The WebGPU build ships a JSEP WASM for its CPU fallback; the plain WASM build keeps the
+    // smaller standard binary. Both stay on extension origin and on one thread.
+    ort.env.wasm.wasmPaths = extensionAssetUrl(`${ORT_ASSET_DIRECTORY}/`);
+    ort.env.wasm.numThreads = 1;
+    // WASM stays on this thread. ORT's proxy mode would move inference to a worker and
+    // change how the models and WASM paths resolve inside an extension; we keep the
+    // proven setup and instead let OcrPipeline yield a macrotask between text-box
+    // recognitions. That keeps the offscreen host's port responsive without touching
+    // recognition output (see docs/design/ocr-host-responsiveness.md).
+    ort.env.wasm.proxy = false;
+    ort.env.logLevel = 'error';
+    return ort;
+  })().catch((error: unknown) => {
+    ortTasks.delete(provider);
+    throw error;
+  });
+  ortTasks.set(provider, task);
+  return task;
 }
 
 function loadDictionary(signal: AbortSignal): string[] {
@@ -132,52 +150,71 @@ export class OcrRuntime {
     if (__SAKUTTO_FAKE_ENGINE__) return fakeRuntime(signal);
 
     const entry = OCR_TIER_CATALOG[tier];
-    let det: OrtSession | null = null;
-    let rec: OrtSession | null = null;
     try {
-      const [ort, detBlob, recBlob, dictionary] = await Promise.all([
-        loadOrt(),
+      const [detBlob, recBlob, dictionary] = await Promise.all([
         assets.readFile(tier, `${entry.det.id}.onnx`, signal),
         assets.readFile(tier, `${entry.rec.id}.onnx`, signal),
         loadDictionary(signal),
       ]);
       throwIfOcrAborted(signal);
-      det = await ort.InferenceSession.create(new Uint8Array(await detBlob.arrayBuffer()), {
-        executionProviders: ['wasm'],
-      });
+      const detBytes = new Uint8Array(await detBlob.arrayBuffer());
+      const recBytes = new Uint8Array(await recBlob.arrayBuffer());
       throwIfOcrAborted(signal);
-      rec = await ort.InferenceSession.create(new Uint8Array(await recBlob.arrayBuffer()), {
-        executionProviders: ['wasm'],
-      });
-      throwIfOcrAborted(signal);
-      const pipeline = new OcrPipeline({
-        runner: makeRunner(ort, det, rec),
-        dictionary,
-        useSpaceChar: true,
-        detection: {
-          threshold: 0.2,
-          boxThreshold: tier === 'standard' ? 0.4 : 0.45,
-          unclipRatio: 1.4,
-          maxCandidates: 3000,
-          minSize: 3,
-          verticalRatio: 1.5,
-        },
-        // PDF OCR rasters are rendered at 2x page scale. A 960px cap threw that detail away
-        // before detection; 1600 keeps a full A4 scan (about 1224x1584) at native resolution.
-        detectionPreprocess: { maxSide: 1600, multiple: 32 },
-        recognitionPreprocess: { height: 48, maxWidth: DEFAULT_RECOGNITION_MAX_WIDTH },
-      });
-      return new OcrRuntime(det, rec, pipeline);
-    } catch (error) {
-      if (det) await det.release().catch(() => undefined);
-      if (rec && rec !== det) await rec.release().catch(() => undefined);
-      if (isAbortError(error) || signal.aborted) throw abortError();
-      if (isEngineError(error)) throw error;
-      const message = error instanceof Error ? error.message : String(error);
+      // WebGPU is opportunistic: a missing adapter, a failed session or an unsupported kernel
+      // all fall through to the proven WASM sessions. Only extension-origin runtime files load.
+      const providers: readonly OrtProvider[] = (await supportsWebGpu())
+        ? ['webgpu', 'wasm']
+        : ['wasm'];
+      let lastError: unknown;
+      for (const provider of providers) {
+        let det: OrtSession | null = null;
+        let rec: OrtSession | null = null;
+        try {
+          const ort = await loadOrt(provider);
+          throwIfOcrAborted(signal);
+          const options: import('onnxruntime-web/wasm').InferenceSession.SessionOptions = {
+            executionProviders: provider === 'webgpu' ? ['webgpu', 'wasm'] : ['wasm'],
+            graphOptimizationLevel: 'all',
+          };
+          det = await ort.InferenceSession.create(detBytes, options);
+          throwIfOcrAborted(signal);
+          rec = await ort.InferenceSession.create(recBytes, options);
+          throwIfOcrAborted(signal);
+          const pipeline = new OcrPipeline({
+            runner: makeRunner(ort, det, rec),
+            dictionary,
+            useSpaceChar: true,
+            detection: {
+              threshold: 0.2,
+              boxThreshold: tier === 'standard' ? 0.4 : 0.45,
+              unclipRatio: 1.4,
+              maxCandidates: 3000,
+              minSize: 3,
+              verticalRatio: 1.5,
+            },
+            // PDF OCR rasters are rendered at 2x page scale. A 960px cap threw that detail away
+            // before detection; 1600 keeps a full A4 scan (about 1224x1584) at native resolution.
+            detectionPreprocess: { maxSide: 1600, multiple: 32 },
+            recognitionPreprocess: { height: 48, maxWidth: DEFAULT_RECOGNITION_MAX_WIDTH },
+          });
+          return new OcrRuntime(det, rec, pipeline);
+        } catch (error) {
+          lastError = error;
+          if (det) await det.release().catch(() => undefined);
+          if (rec && rec !== det) await rec.release().catch(() => undefined);
+          if (isAbortError(error) || signal.aborted) throw abortError();
+        }
+      }
+      if (isEngineError(lastError)) throw lastError;
+      const message = lastError instanceof Error ? lastError.message : String(lastError);
       throw new EngineError('model-load-failed', `OCR runtime could not start: ${message}`, {
-        cause: error,
+        cause: lastError,
         retryable: true,
       });
+    } catch (error) {
+      if (isAbortError(error) || signal.aborted) throw abortError();
+      if (isEngineError(error)) throw error;
+      throw error;
     }
   }
 

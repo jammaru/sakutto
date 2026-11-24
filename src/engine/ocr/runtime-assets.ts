@@ -14,4 +14,18 @@ export const ORT_ASSETS = Object.freeze({
     size: 14_848_852,
     sha256: '4b884c203b0fa48d057be3332c65513ff85aa3c5bddd6946acc0fab7ecda001d',
   },
+  // WebGPU EP build. It is loaded only when navigator.gpu exposes an adapter; the standard
+  // WASM assets above remain the fallback and stay the default everywhere else.
+  'ort.webgpu.min.mjs': {
+    size: 70_742,
+    sha256: '329cd956772397a1aedd668e911195d39afefb182f6fc14aafa4f08ac8d8f379',
+  },
+  'ort-wasm-simd-threaded.jsep.mjs': {
+    size: 47_250,
+    sha256: '7838b4b2e77d6f1a739cd0de800e7f18a089328b365e6af4d416a88a94fd7fd3',
+  },
+  'ort-wasm-simd-threaded.jsep.wasm': {
+    size: 29_520_971,
+    sha256: '5ab8361783822d02a57d1e97cf2514bceb451a628f2b29ae0d7b6e618201ff8f',
+  },
 });

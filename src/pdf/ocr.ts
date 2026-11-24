@@ -1066,20 +1066,10 @@ export function ocrResultToTextLines(
     const otherBodyGeometry = twoColumnGeometry.filter(
       (_row, index) => twoColumnRows[index] !== lineIndex,
     );
-    // A top row set apart from the body by type size or whitespace is a heading even when it
-    // shares the body's column edges, or when its own wide CJK row was counted as body evidence.
-    const titleGeometry =
-      rowsAbove.length === 0 &&
-      topRowTitleGeometry(
-        pieces,
-        otherBodyGeometry,
-        resolved.pageWidth,
-        twoColumnRows.includes(lineIndex),
-      );
-    // A corroborated row that shares the page's column edges is itself a body row (including the
-    // topmost one): it must not promote itself to a title just because it was excluded from the
-    // evidence. A wide CJK title above the body does not share those edges, so it can be lifted
-    // out of the corroborated set and keep its own whitespace.
+    // Page-level column edges must be known before title promotion: a pair of short Japanese
+    // section headings printed above the body shares those edges, so its central whitespace is
+    // the gutter rather than title spacing. The same applies to an equation in one column beside
+    // prose in the other.
     const pageColumns = corroboratedPageColumns(lines, otherColumnRows, resolved);
     const sharesColumns = sharesCorroboratedColumns(
       leftPieces,
@@ -1088,6 +1078,63 @@ export function ocrResultToTextLines(
       pageColumns,
       resolved.pageWidth,
     );
+    const headingPair = numberedHeadingPair(
+      leftPieces,
+      rightPieces,
+      leftEnd,
+      rightStart,
+      pageColumns,
+      resolved.pageWidth,
+    );
+    const anchoredInterior = insideCorroboratedColumns(
+      leftPieces,
+      leftEnd,
+      rightStart,
+      pageColumns,
+      resolved.pageWidth,
+    );
+    // An equation printed inside the left measure beside CJK prose in the right measure is a
+    // body row. A title, by contrast, starts at the column edge; requiring an interior left
+    // start keeps the existing title merges intact.
+    const leftTextEarly = leftPieces
+      .map((piece) => piece.text)
+      .join(' ')
+      .trim();
+    const rightTextEarly = rightPieces
+      .map((piece) => piece.text)
+      .join(' ')
+      .trim();
+    const leftStartEarly =
+      leftPieces.length > 0 ? Math.min(...leftPieces.map((piece) => piece.box.x)) : Infinity;
+    const equationBesideProse =
+      anchoredInterior &&
+      pageColumns !== null &&
+      leftStartEarly > pageColumns.leftStart + Math.max(6, resolved.pageWidth * 0.03) &&
+      /[=＝]/u.test(leftTextEarly) &&
+      leftTextEarly.length <= 60 &&
+      /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u.test(rightTextEarly);
+    // A top row set apart from the body by type size or whitespace is a heading only when it is
+    // not anchored to both corroborated columns. Distinctly larger type still wins: that is the
+    // shape of a real title, not of a section heading set in body type.
+    const topTitleGeometry = topRowTitleGeometry(
+      pieces,
+      otherBodyGeometry,
+      resolved.pageWidth,
+      twoColumnRows.includes(lineIndex),
+    );
+    const largerThanBody =
+      otherBodyGeometry.length > 0 &&
+      median(pieces.map((piece) => piece.box.height)) >=
+        median(otherBodyGeometry.map((row) => row.height)) * 1.25;
+    const titleGeometry =
+      rowsAbove.length === 0 &&
+      !headingPair &&
+      !equationBesideProse &&
+      (largerThanBody || topTitleGeometry);
+    // A corroborated row that shares the page's column edges is itself a body row (including the
+    // topmost one): it must not promote itself to a title just because it was excluded from the
+    // evidence. A wide CJK title above the body does not share those edges, so it can be lifted
+    // out of the corroborated set and keep its own whitespace.
     const topRowSharesBodyColumns =
       rowsAbove.length === 0 &&
       sharesColumns &&
@@ -1128,6 +1175,8 @@ export function ocrResultToTextLines(
     // accident and is promoted to a spanning title (review blockers 2a/2b).
     const titleAboveBody =
       !corroboratedBodyGeometry &&
+      !headingPair &&
+      !equationBesideProse &&
       (centredHeadingBetweenBody ||
         (twoColumnTops.length > 0 &&
           (aboveAllBodyRows ||
@@ -1282,13 +1331,25 @@ export function ocrResultToTextLines(
       (pageTwoColumn || lineWidth >= resolved.pageWidth * 0.82) &&
       pieces.some((piece) => piece.box.width >= resolved.pageWidth * 0.3) &&
       !titleWordGap;
+    // A row anchored to both corroborated column measures is body text even when its halves
+    // look like a title: two section headings, or an equation beside a paragraph. Full-width
+    // title/abstract rows are not anchored this way, so they still keep their own measure.
+    const columnAnchoredBodyRow =
+      !positiveTitleEvidence &&
+      (headingPair || equationBesideProse) &&
+      gutterGap >= MIN_COLUMN_GUTTER &&
+      gutterEvidence;
     const crossesGutter =
       !uniformPhraseRow &&
       resolved.pageWidth > 0 &&
       !pieceVertical &&
       gutterGap >= MIN_COLUMN_GUTTER &&
       gutterEvidence &&
-      (narrowTwoColumnLine || wideTwoColumnLine || shortHeadingBesideBody || wideLineRegionMerge);
+      (narrowTwoColumnLine ||
+        wideTwoColumnLine ||
+        shortHeadingBesideBody ||
+        wideLineRegionMerge ||
+        columnAnchoredBodyRow);
     const pushLine = (
       selected: OcrTextPiece[],
       id: string,
@@ -1497,6 +1558,61 @@ function sharesCorroboratedColumns(
     leftEnd - leftStart < pageWidth * 0.15 &&
     rightStart - leftEnd >
       Math.max(WIDE_COLUMN_GUTTER * 2, (pageColumns.rightStart - pageColumns.leftEnd) * 2)
+  );
+}
+
+/**
+ * Two numbered section headings printed side by side are body text, even when the row sits
+ * above the first corroborated body band. Their starts share the page's column edges; the
+ * whitespace between them is the gutter, not a title's internal spacing.
+ */
+function numberedHeadingPair(
+  left: readonly OcrTextPiece[],
+  right: readonly OcrTextPiece[],
+  leftEnd: number,
+  rightStart: number,
+  columns: PageColumnGeometry | null,
+  pageWidth: number,
+): boolean {
+  if (columns === null || left.length === 0 || right.length === 0) return false;
+  const text = (group: readonly OcrTextPiece[]): string =>
+    group
+      .map((piece) => piece.text)
+      .join(' ')
+      .trim();
+  if (!SECTION_LINE.test(text(left)) || !SECTION_LINE.test(text(right))) return false;
+  const tolerance = Math.max(6, pageWidth * 0.03);
+  const leftStart = Math.min(...left.map((piece) => piece.box.x));
+  const rightLeft = Math.min(...right.map((piece) => piece.box.x));
+  return (
+    Math.abs(leftStart - columns.leftStart) <= tolerance &&
+    Math.abs(rightLeft - columns.rightStart) <= tolerance &&
+    rightStart - leftEnd >= MIN_COLUMN_GUTTER
+  );
+}
+
+/**
+ * A row whose left and right pieces stay inside the corroborated column measures is body text
+ * (for example an equation in the left column beside prose in the right one), not a spanning
+ * title. Unlike `sharesCorroboratedColumns`, this allows a left piece that starts inside the
+ * column, as equations and centred labels do.
+ */
+function insideCorroboratedColumns(
+  left: readonly OcrTextPiece[],
+  leftEnd: number,
+  rightStart: number,
+  columns: PageColumnGeometry | null,
+  pageWidth: number,
+): boolean {
+  if (columns === null || left.length === 0) return false;
+  const tolerance = Math.max(6, pageWidth * 0.03);
+  const leftStart = Math.min(...left.map((piece) => piece.box.x));
+  const leftMeasure = leftEnd - leftStart;
+  return (
+    leftStart >= columns.leftStart - tolerance &&
+    leftEnd <= columns.leftEnd + tolerance &&
+    rightStart >= columns.rightStart - tolerance &&
+    leftMeasure >= pageWidth * 0.15
   );
 }
 
@@ -1733,8 +1849,10 @@ function twoColumnOrder(
 
 const CAPTION_LINE = /^(?:Fig(?:ure)?|Tab(?:le)?|Alg(?:orithm)?)\.?\s*\d/iu;
 // Japanese numbered headings use a CJK letter after the number, not a Latin capital.
+// Japanese headings are often printed as "1.はじめに" with no space after the dot, and the
+// separator may be full width. Both are the same section marker as "1. Introduction".
 const SECTION_LINE =
-  /^\d+(?:\.\d+)*\.?\s+(?:\p{Lu}|\p{Script=Han}|\p{Script=Hiragana}|\p{Script=Katakana})/u;
+  /^\d+(?:\.\d+)*[.．]?\s*(?:\p{Lu}|\p{Script=Han}|\p{Script=Hiragana}|\p{Script=Katakana})/u;
 /** Unambiguous section labels, sized like body text when OCR sees them on their own. */
 const HEADING_LABEL =
   /^(?:abstract|references?|introduction|conclusions?|acknowledge?ments?|bibliography|appendi(?:x|ces)|summary|overview|related work|background|methods?|results?|discussion|概要|要旨|抄録|参考文献|はじめに|序論|結論|まとめ|謝辞|付録|目次|関連研究)[.:：]?$/iu;

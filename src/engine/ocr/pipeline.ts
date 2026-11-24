@@ -12,6 +12,14 @@ import {
 import { groupReadingLines, type ReadingOrderOptions } from './order';
 import type { ImageDataLike, OcrResult, OcrRunner } from './types';
 
+export type OcrPhase =
+  | 'preprocess-detection'
+  | 'detect'
+  | 'decode-boxes'
+  | 'recognize'
+  | 'decode-text'
+  | 'reading-order';
+
 export interface OcrPipelineConfig {
   readonly runner: OcrRunner;
   /** PP-OCR dictionary order; class 1 is dictionary[0], and class 0 is reserved for blank. */
@@ -28,6 +36,10 @@ export interface OcrPipelineConfig {
    * Injectable so tests can observe it without depending on timer scheduling.
    */
   readonly yieldBetweenRuns?: () => Promise<void>;
+  /** Optional telemetry: phase durations in milliseconds. Default is a no-op. */
+  readonly onPhase?: (phase: OcrPhase, ms: number) => void;
+  /** Optional progressive UX hook: number of text boxes recognised so far. */
+  readonly onRegions?: (count: number) => void;
 }
 
 export function throwIfOcrAborted(signal?: AbortSignal): void {
@@ -54,17 +66,27 @@ export class OcrPipeline {
   async run(image: ImageDataLike, signal?: AbortSignal): Promise<OcrResult> {
     throwIfOcrAborted(signal);
     const yieldBetweenRuns = this.#config.yieldBetweenRuns ?? yieldToEventLoop;
+    const phaseStart = performance.now();
+    const mark = (phase: OcrPhase, since: number = phaseStart): void => {
+      this.#config.onPhase?.(phase, performance.now() - since);
+    };
     const detectionInput = preprocessDetection(
       image,
       this.#config.detectionPreprocess ?? PP_OCR_DET_NORMALIZATION,
     );
+    mark('preprocess-detection');
     throwIfOcrAborted(signal);
+    const detectStart = performance.now();
     const probabilityMap = await this.#config.runner.detect(detectionInput.tensor, signal);
+    mark('detect', detectStart);
     throwIfOcrAborted(signal);
+    const boxesStart = performance.now();
     const detections = decodeDbProbabilityMap(probabilityMap, {
       ...this.#config.detection,
       transform: detectionInput.transform,
     });
+    mark('decode-boxes', boxesStart);
+    const recognizeStart = performance.now();
 
     const regions = [];
     for (const detection of detections) {
@@ -91,10 +113,16 @@ export class OcrPipeline {
         recognitionConfidence: decoded.confidence,
         symbolScores: decoded.symbolScores,
       });
+      this.#config.onRegions?.(regions.length);
     }
+    mark('recognize', recognizeStart);
+    const decodeStart = performance.now();
 
     throwIfOcrAborted(signal);
+    mark('decode-text', decodeStart);
+    const orderStart = performance.now();
     const lines = groupReadingLines(regions, this.#config.readingOrder);
+    mark('reading-order', orderStart);
     const lineTexts = lines.map((line) => {
       const separator = line.orientation === 'horizontal' ? ' ' : '';
       return line.items
