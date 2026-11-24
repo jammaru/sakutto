@@ -615,6 +615,7 @@ describe('locale messages', () => {
       'ocrDownloadInline',
       'ocrDownloadProgress',
       'ocrDownloadFailed',
+      'onboardingOcrDownloading',
     ]);
     for (const locale of catalogs) {
       for (const [key, entry] of Object.entries(readMessages(locale))) {
@@ -660,6 +661,49 @@ describe('locale messages', () => {
       expect(readMessages(locale).ocrDownloadRequired?.message, locale).toContain('PDF');
       expect(readMessages(locale).ocrDownloadRequired?.message, locale).not.toContain('PDFs');
     }
+  });
+
+  /**
+   * Reinstalling with PLaMo already on disk leaves only the OCR bundle to fetch. Its line must
+   * name the purpose and size of that extra download and carry its own percent progress, while
+   * the PLaMo line says the translation model is already there.
+   */
+  it('labels the two onboarding downloads separately', () => {
+    expect(ja.onboardingPlamoReady?.message).toBe('翻訳モデル（PLaMo）：取得済み');
+    expect(ja.onboardingOcrDownloading?.message).toBe(
+      'OCRモデル（スキャンPDF・画像用、約$SIZE$）をダウンロードしています（$PERCENT$%）',
+    );
+    expect(ja.onboardingOcrReady?.message).toBe('OCRモデル：取得済み');
+
+    for (const locale of catalogs) {
+      const messages = readMessages(locale);
+      for (const key of [
+        'onboardingPlamoReady',
+        'onboardingOcrDownloading',
+        'onboardingOcrReady',
+      ]) {
+        expect(messages[key]?.message, `${locale} ${key}`).toBeTruthy();
+      }
+      expect(messages.onboardingOcrDownloading?.message, locale).toContain('$SIZE$');
+      expect(messages.onboardingOcrDownloading?.message, locale).toContain('$PERCENT$');
+      expect(messages.onboardingPlamoReady?.message, locale).not.toBe(
+        messages.onboardingOcrReady?.message,
+      );
+    }
+
+    for (const locale of ['ja', 'zh_CN', 'zh_TW']) {
+      expect(readMessages(locale).onboardingOcrDownloading?.message, locale).toContain('PDF');
+      expect(readMessages(locale).onboardingOcrDownloading?.message, locale).not.toContain('PDFs');
+    }
+
+    // Both lines are rendered in the download panel, so an already-stored PLaMo cannot hide
+    // the OCR transfer behind a single combined progress sentence.
+    const onboarding = readFileSync(
+      new URL('../src/entrypoints/onboarding/App.svelte', import.meta.url),
+      'utf8',
+    );
+    expect(onboarding).toContain('{setupLines.plamo}');
+    expect(onboarding).toContain('{setupLines.ocr}');
   });
 
   it('has no copy left for a try control during the download', () => {

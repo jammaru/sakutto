@@ -1872,5 +1872,25 @@
   "imageTranslationPermission": {
     "message": "Der Browser konnte nicht auf dieses Bild zugreifen. Versuchen Sie stattdessen, die sichtbare Seite aufzunehmen.",
     "description": "Shown when image pixels cannot be read without extra permissions."
+  },
+  "onboardingPlamoReady": {
+    "message": "Übersetzungsmodell (PLaMo): bereits auf diesem Gerät",
+    "description": "PLaMo line of the onboarding download status, shown when the translation model is already stored."
+  },
+  "onboardingOcrDownloading": {
+    "message": "OCR-Modell wird heruntergeladen (für gescannte PDFs und Bilder, ca. $SIZE$): $PERCENT$%",
+    "description": "OCR line of the onboarding download status, with the selected tier's size and its own percent progress.",
+    "placeholders": {
+      "size": {
+        "content": "$1"
+      },
+      "percent": {
+        "content": "$2"
+      }
+    }
+  },
+  "onboardingOcrReady": {
+    "message": "OCR-Modell: bereits auf diesem Gerät",
+    "description": "OCR line of the onboarding download status, shown when the OCR model is already stored."
   }
 }

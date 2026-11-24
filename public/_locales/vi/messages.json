@@ -1872,5 +1872,25 @@
   "pdfFileAccessBody": {
     "message": "Sakutto không đọc được PDF này từ trang. Mở chrome://extensions, chọn Sakutto và bật “Allow access to file URLs”. Bạn cũng có thể chọn PDF bên dưới và mở trong trình đọc này.",
     "description": "Guidance when a local PDF cannot be read from a file:// tab."
+  },
+  "onboardingPlamoReady": {
+    "message": "Mô hình dịch (PLaMo): đã được tải xuống trên thiết bị này",
+    "description": "PLaMo line of the onboarding download status, shown when the translation model is already stored."
+  },
+  "onboardingOcrDownloading": {
+    "message": "Đang tải mô hình OCR (cho PDF và hình ảnh được quét, khoảng $SIZE$): $PERCENT$%",
+    "description": "OCR line of the onboarding download status, with the selected tier's size and its own percent progress.",
+    "placeholders": {
+      "size": {
+        "content": "$1"
+      },
+      "percent": {
+        "content": "$2"
+      }
+    }
+  },
+  "onboardingOcrReady": {
+    "message": "Mô hình OCR: đã được tải xuống trên thiết bị này",
+    "description": "OCR line of the onboarding download status, shown when the OCR model is already stored."
   }
 }

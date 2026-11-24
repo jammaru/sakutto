@@ -1881,5 +1881,25 @@
   "imageTranslationPermission": {
     "message": "ブラウザがこの画像にアクセスできませんでした。表示中のページをキャプチャしてみてください。",
     "description": "Shown when image pixels cannot be read without extra permissions."
+  },
+  "onboardingPlamoReady": {
+    "message": "翻訳モデル（PLaMo）：取得済み",
+    "description": "PLaMo line of the onboarding download status, shown when the translation model is already stored."
+  },
+  "onboardingOcrDownloading": {
+    "message": "OCRモデル（スキャンPDF・画像用、約$SIZE$）をダウンロードしています（$PERCENT$%）",
+    "description": "OCR line of the onboarding download status, with the selected tier's size and its own percent progress.",
+    "placeholders": {
+      "size": {
+        "content": "$1"
+      },
+      "percent": {
+        "content": "$2"
+      }
+    }
+  },
+  "onboardingOcrReady": {
+    "message": "OCRモデル：取得済み",
+    "description": "OCR line of the onboarding download status, shown when the OCR model is already stored."
   }
 }

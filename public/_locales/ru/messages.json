@@ -1872,5 +1872,25 @@
   "pdfFileAccessBody": {
     "message": "Sakutto не может прочитать этот PDF со страницы. Откройте chrome://extensions, выберите Sakutto и включите «Разрешить доступ к URL файлов». Вы также можете выбрать PDF ниже и открыть его в этом ридере.",
     "description": "Guidance when a local PDF cannot be read from a file:// tab."
+  },
+  "onboardingPlamoReady": {
+    "message": "Модель перевода (PLaMo): уже загружена на это устройство",
+    "description": "PLaMo line of the onboarding download status, shown when the translation model is already stored."
+  },
+  "onboardingOcrDownloading": {
+    "message": "Загрузка модели OCR (для отсканированных PDF и изображений, около $SIZE$): $PERCENT$%",
+    "description": "OCR line of the onboarding download status, with the selected tier's size and its own percent progress.",
+    "placeholders": {
+      "size": {
+        "content": "$1"
+      },
+      "percent": {
+        "content": "$2"
+      }
+    }
+  },
+  "onboardingOcrReady": {
+    "message": "Модель OCR: уже загружена на это устройство",
+    "description": "OCR line of the onboarding download status, shown when the OCR model is already stored."
   }
 }

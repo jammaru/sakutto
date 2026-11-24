@@ -1872,5 +1872,25 @@
   "pdfFileAccessBody": {
     "message": "Sakutto อ่าน PDF นี้จากหน้าเว็บไม่ได้ เปิด chrome://extensions เลือก Sakutto แล้วเปิด “Allow access to file URLs” หรือเลือก PDF ด้านล่างเพื่อเปิดในโปรแกรมอ่านนี้",
     "description": "Guidance when a local PDF cannot be read from a file:// tab."
+  },
+  "onboardingPlamoReady": {
+    "message": "โมเดลแปลภาษา (PLaMo): ดาวน์โหลดลงบนอุปกรณ์นี้แล้ว",
+    "description": "PLaMo line of the onboarding download status, shown when the translation model is already stored."
+  },
+  "onboardingOcrDownloading": {
+    "message": "กำลังดาวน์โหลดโมเดล OCR (สำหรับ PDF และภาพที่สแกน ประมาณ $SIZE$): $PERCENT$%",
+    "description": "OCR line of the onboarding download status, with the selected tier's size and its own percent progress.",
+    "placeholders": {
+      "size": {
+        "content": "$1"
+      },
+      "percent": {
+        "content": "$2"
+      }
+    }
+  },
+  "onboardingOcrReady": {
+    "message": "โมเดล OCR: ดาวน์โหลดลงบนอุปกรณ์นี้แล้ว",
+    "description": "OCR line of the onboarding download status, shown when the OCR model is already stored."
   }
 }

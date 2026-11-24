@@ -1872,5 +1872,25 @@
   "pdfFileAccessBody": {
     "message": "Sakutto tidak dapat membaca PDF ini dari halaman. Buka chrome://extensions, pilih Sakutto, dan aktifkan “Allow access to file URLs”. Anda juga dapat memilih PDF di bawah dan membukanya di pembaca ini.",
     "description": "Guidance when a local PDF cannot be read from a file:// tab."
+  },
+  "onboardingPlamoReady": {
+    "message": "Model terjemahan (PLaMo): sudah diunduh di perangkat ini",
+    "description": "PLaMo line of the onboarding download status, shown when the translation model is already stored."
+  },
+  "onboardingOcrDownloading": {
+    "message": "Mengunduh model OCR (untuk PDF dan gambar hasil pindai, sekitar $SIZE$): $PERCENT$%",
+    "description": "OCR line of the onboarding download status, with the selected tier's size and its own percent progress.",
+    "placeholders": {
+      "size": {
+        "content": "$1"
+      },
+      "percent": {
+        "content": "$2"
+      }
+    }
+  },
+  "onboardingOcrReady": {
+    "message": "Model OCR: sudah diunduh di perangkat ini",
+    "description": "OCR line of the onboarding download status, shown when the OCR model is already stored."
   }
 }

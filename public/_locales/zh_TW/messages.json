@@ -1872,5 +1872,25 @@
   "pdfFileAccessBody": {
     "message": "Sakutto 無法從頁面讀取此 PDF。請開啟 chrome://extensions，選擇 Sakutto 並開啟「允許存取檔案網址」（Allow access to file URLs）。也可以在下方選擇 PDF 並在此閱讀器中開啟。",
     "description": "Guidance when a local PDF cannot be read from a file:// tab."
+  },
+  "onboardingPlamoReady": {
+    "message": "翻譯模型（PLaMo）：已在此裝置上下載",
+    "description": "PLaMo line of the onboarding download status, shown when the translation model is already stored."
+  },
+  "onboardingOcrDownloading": {
+    "message": "正在下載 OCR 模型（用於掃描 PDF 和圖片，約 $SIZE$）：$PERCENT$%",
+    "description": "OCR line of the onboarding download status, with the selected tier's size and its own percent progress.",
+    "placeholders": {
+      "size": {
+        "content": "$1"
+      },
+      "percent": {
+        "content": "$2"
+      }
+    }
+  },
+  "onboardingOcrReady": {
+    "message": "OCR 模型：已在此裝置上下載",
+    "description": "OCR line of the onboarding download status, shown when the OCR model is already stored."
   }
 }

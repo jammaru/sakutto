@@ -1882,5 +1882,25 @@
   "imageTranslationPermission": {
     "message": "The browser could not access this image. Try capturing the visible page instead.",
     "description": "Shown when image pixels cannot be read without extra permissions."
+  },
+  "onboardingPlamoReady": {
+    "message": "Translation model (PLaMo): already on this device",
+    "description": "PLaMo line of the onboarding download status, shown when the translation model is already stored."
+  },
+  "onboardingOcrDownloading": {
+    "message": "Downloading the OCR model (for scanned PDFs and images, about $SIZE$): $PERCENT$%",
+    "description": "OCR line of the onboarding download status, with the selected tier's size and its own percent progress.",
+    "placeholders": {
+      "size": {
+        "content": "$1"
+      },
+      "percent": {
+        "content": "$2"
+      }
+    }
+  },
+  "onboardingOcrReady": {
+    "message": "OCR model: already on this device",
+    "description": "OCR line of the onboarding download status, shown when the OCR model is already stored."
   }
 }

@@ -1872,5 +1872,25 @@
   "pdfFileAccessBody": {
     "message": "Sakutto ne peut pas lire ce PDF depuis la page. Ouvrez chrome://extensions, choisissez Sakutto et activez « Autoriser l’accès aux URL de fichiers ». Vous pouvez aussi choisir le PDF ci-dessous et l’ouvrir dans ce lecteur.",
     "description": "Guidance when a local PDF cannot be read from a file:// tab."
+  },
+  "onboardingPlamoReady": {
+    "message": "Modèle de traduction (PLaMo) : déjà téléchargé sur cet appareil",
+    "description": "PLaMo line of the onboarding download status, shown when the translation model is already stored."
+  },
+  "onboardingOcrDownloading": {
+    "message": "Téléchargement du modèle OCR (pour les PDF et images scannés, environ $SIZE$) : $PERCENT$%",
+    "description": "OCR line of the onboarding download status, with the selected tier's size and its own percent progress.",
+    "placeholders": {
+      "size": {
+        "content": "$1"
+      },
+      "percent": {
+        "content": "$2"
+      }
+    }
+  },
+  "onboardingOcrReady": {
+    "message": "Modèle OCR : déjà téléchargé sur cet appareil",
+    "description": "OCR line of the onboarding download status, shown when the OCR model is already stored."
   }
 }

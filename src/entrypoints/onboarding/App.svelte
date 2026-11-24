@@ -81,6 +81,7 @@
   import { pickDirectoryFiles } from '@/ui/folder-input';
   import { estimateRemainingMs, type ByteMark } from '@/ui/download-eta';
   import { formatByteSize, formatByteSizeList } from '@/ui/format';
+  import { onboardingSetupLines } from '@/ui/onboarding-ocr-label';
   import {
     onboardingCanTry,
     onboardingErrorMessage,
@@ -187,6 +188,7 @@
     if (seconds < 90) return t('downloadEtaSeconds', [String(seconds)]);
     return t('downloadEtaMinutes', [String(Math.max(1, Math.round(seconds / 60)))]);
   });
+  let setupLines = $derived(onboardingSetupLines(lastStatus, lastOcrStatus, ocrTier));
   /** received/total come from combinedSetupProgress: PLaMo bytes plus the OCR bundle. */
   let statusText = $derived.by(() => {
     if (modelState === 'verifying') {
@@ -770,7 +772,12 @@
       >
         <span style="width: {percent}%"></span>
       </div>
-      <p>{statusText}</p>
+      {#if phase === 'downloading' || phase === 'paused'}
+        <p class="setup-line">{setupLines.plamo}</p>
+        <p class="setup-line">{setupLines.ocr}</p>
+      {:else}
+        <p>{statusText}</p>
+      {/if}
       {#if etaLabel}
         <p>{etaLabel}</p>
       {/if}
@@ -1132,6 +1139,10 @@
   .progress {
     display: grid;
     gap: var(--space-2);
+  }
+
+  .progress p {
+    margin: 0;
   }
 
   .actions {
