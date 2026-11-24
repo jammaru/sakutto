@@ -89,6 +89,7 @@ async function main(): Promise<void> {
       width: record.pageWidth,
       height: record.pageHeight,
       image,
+      texts: blocks.map((block) => block.translation),
       blocks,
     });
   }

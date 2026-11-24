@@ -23,7 +23,8 @@ import { withoutPageBackground } from './figures';
 import { COVER_PAD_TOP_EM, HINTING_PAD_PX, coverPaintLayout, drawnBox } from './place';
 import { coverStyle, READER_STYLE, TextMeasurer } from './render';
 import { extractPage, renderPage, type ExtractedPage, type PdfDocument } from './extract';
-import { pngBytesFromDataUrl, type ExportBlock, type ExportPage } from './export';
+import { pngBytesFromDataUrl, type ExportPage } from './export';
+import { rasterizeStage } from './raster-export';
 import type { TextLine } from './lines';
 import { PdfSession, traitsOf, type BlockState, type PdfEngine } from './session';
 
@@ -1700,53 +1701,72 @@ export class PdfReader {
   }
 
   /**
-   * Snapshots every page: pdf.js's own bitmap plus the translation boxes the reader painted.
+   * Snapshots what the translated pane paints, for every page, as full-page PNGs.
    *
-   * The page limit is not consulted here; if a page was never parsed it is exported as the
-   * original, which is why `prepareExport` must complete first. OCR pages need no special case:
-   * their boxes came from the same OCR layout the viewer used.
+   * This is the only source of visible text in the exported file: the page bitmap comes from
+   * pdf.js, the translated covers come from the reader's own DOM, and both are composited at
+   * the same resolution. No second font or second line breaker is involved, so a heading that
+   * the viewer shows is in the file and the type keeps the size the reader fitted.
+   *
+   * The page limit is not consulted here; `prepareExport` must have completed first so every
+   * session block has a translation. OCR pages need no special case: their covers came from
+   * the same OCR layout the viewer used.
    */
-  async exportPages(scale = 2): Promise<ExportPage[]> {
+  async exportRasterPages(
+    options: { scale?: number | undefined; signal?: AbortSignal | undefined } = {},
+  ): Promise<ExportPage[]> {
+    if (this.destroyed) throw new Error('the reader is closed');
+    const exportScale = Math.max(2, options.scale ?? this.scale);
+    // A cover's computed font must be settled before canvas paints its lines.
+    if (globalThis.document?.fonts?.ready) await globalThis.document.fonts.ready;
+    // Pages parsed while off-screen still paint their covers; refresh once so the snapshot
+    // sees the same boxes the reader shows, including late-arriving streaming text.
+    this.paint();
+
     const pages: ExportPage[] = [];
     for (const geometry of this.geometries) {
-      if (this.destroyed) throw new Error('the reader is closed');
+      if (options.signal?.aborted) throw new DOMException('Export cancelled', 'AbortError');
+      // Bring the viewer's own canvas up to date as well as the high-resolution copy below.
+      await this.drawPage(geometry.index);
+      const element = this.pageElements.get(geometry.index);
+      if (!element) continue;
+
+      // Re-render the original at export resolution rather than stretching the on-screen
+      // bitmap. Cover geometry is in viewer CSS pixels, so it is scaled by the same factor.
       const page = await this.document.getPage(geometry.index + 1);
-      const canvas = document.createElement('canvas');
-      await renderPage(page, scale, canvas, { maxDimension: 4096 }).promise;
-      const image = pngBytesFromDataUrl(canvas.toDataURL('image/png'));
-      const blocks: ExportBlock[] = [];
-      for (const state of this.session.pageBlocks(geometry.index)) {
-        const translation = state.translation.trim();
-        const fit = state.fit;
-        if (translation.length === 0 || fit === null || state.intentionallyKept === true) continue;
-        const lines = fit.lines;
-        if (lines.length === 0) continue;
-        // An overflowed block has no painted cover in the reader; its full translation is still
-        // written into the file, with a cover that grows to hold every line.
-        const drawn = state.paint ? drawnBox(state.block, fit, fit.width, geometry.width) : null;
-        blocks.push({
-          source: state.block.box,
-          drawn,
-          translation,
-          lines,
-          fontSize: fit.fontSize,
-          lineHeight: fit.lineHeight,
-          align: state.block.align,
-          traits: traitsOf(state.block),
-          writing: state.block.writing,
-          role: state.block.role,
-          singleLine: state.block.singleLine,
-        });
-      }
+      const base = document.createElement('canvas');
+      await renderPage(page, exportScale, base, { maxDimension: 4096 }).promise;
+      const pixelRatio =
+        geometry.width > 0 && base.width > 0 ? base.width / geometry.width : exportScale;
+      const stage = rasterizeStage({
+        stage: element.translatedStage,
+        base,
+        pageWidth: geometry.width,
+        pageHeight: geometry.height,
+        pixelRatio,
+        viewerScale: this.scale,
+      });
+      const image = pngBytesFromDataUrl(stage.toDataURL('image/png'));
+      // Every translation belongs in the search layer and in the snapshot, including ones
+      // that did not fit and are shown through a marker rather than a painted cover.
+      const texts = this.session
+        .pageBlocks(geometry.index)
+        .map((state) => state.translation.trim())
+        .filter((text) => text.length > 0);
       pages.push({
         index: geometry.index,
         width: geometry.width,
         height: geometry.height,
         image,
-        blocks,
+        texts,
       });
     }
     return pages;
+  }
+
+  /** @deprecated Kept for callers of the old snapshot API; use exportRasterPages. */
+  async exportPages(scale = 2): Promise<ExportPage[]> {
+    return this.exportRasterPages({ scale });
   }
 }
 

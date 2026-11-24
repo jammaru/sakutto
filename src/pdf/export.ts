@@ -1,5 +1,5 @@
 import fontkit from '@pdf-lib/fontkit';
-import { PDFDocument, degrees, type PDFPage, type PDFFont, rgb } from 'pdf-lib';
+import { PDFDocument } from 'pdf-lib';
 import type { Box } from './geometry';
 import {
   BODY_MIN_FONT_SIZE,
@@ -44,14 +44,17 @@ export interface ExportPage {
   index: number;
   width: number;
   height: number;
-  /** The original page, rasterized by pdf.js as a PNG. */
+  /** Full-page PNG of the translated stage: page bitmap plus the reader painted covers. */
   image: Uint8Array;
-  blocks: readonly ExportBlock[];
+  /** Every non-empty session translation on the page, including overflowed blocks. */
+  texts: readonly string[];
+  /** Kept for cached bench layouts; the PDF writer no longer uses blocks to draw. */
+  blocks?: readonly ExportBlock[] | undefined;
 }
 
 export interface TranslatedPdfOptions {
   pages: readonly ExportPage[];
-  /** Bytes of the bundled Japanese-capable OTF font. */
+  /** Bytes of the bundled Japanese-capable face, used only by the invisible search layer. */
   font: Uint8Array;
   targetLanguage: string;
   title?: string | undefined;
@@ -196,11 +199,46 @@ export function layoutExportText(request: ExportTextRequest): ExportTextLayout {
 }
 
 /**
- * Writes a real PDF with the original page appearance and translated text over it.
+ * Checks that every translated block in a session made it into the snapshot.
  *
- * Every resource comes from the caller: the page bitmaps were drawn by pdf.js from the open
- * document, and the font is a packaged file. Nothing here fetches a URL, so a document that is
- * already on the device stays on the device.
+ * Export pages carry all non-empty session translations, including blocks that only have a
+ * marker because they did not fit. The PDF writer uses the same array for its search-only
+ * text, so this also checks what a reader can find in the saved file.
+ */
+export interface SessionTextBlock {
+  translation?: string | undefined;
+}
+
+export function missingExportTranslations(
+  pages: readonly Pick<ExportPage, 'texts'>[],
+  sessionBlocks: readonly SessionTextBlock[],
+): string[] {
+  const present = new Set<string>();
+  for (const page of pages) {
+    for (const text of page.texts) {
+      const trimmed = text.trim();
+      if (trimmed.length > 0) present.add(trimmed);
+    }
+  }
+  return sessionBlocks
+    .map((block) => (block.translation ?? '').trim())
+    .filter((text) => text.length > 0 && !present.has(text));
+}
+
+export function exportIncludesAllTranslations(
+  pages: readonly Pick<ExportPage, 'texts'>[],
+  sessionBlocks: readonly SessionTextBlock[],
+): boolean {
+  return missingExportTranslations(pages, sessionBlocks).length === 0;
+}
+
+/**
+ * Writes a real PDF whose visible page is the raster the reader painted.
+ *
+ * Every visible mark comes from the exported page image: pdf.js drew the original and the
+ * reader composited its own translated covers onto it. The bundled face is embedded only
+ * for an invisible text layer so a reader can still search and copy a translation. Nothing
+ * here fetches a URL or re-lays text out, so a document already on the device stays there.
  */
 export async function buildTranslatedPdf(options: TranslatedPdfOptions): Promise<Uint8Array> {
   const document = await PDFDocument.create();
@@ -209,8 +247,8 @@ export async function buildTranslatedPdf(options: TranslatedPdfOptions): Promise
   if (options.pages.length === 0) throw new Error('no pages to export');
 
   // The whole face is embedded, rather than a runtime subset: fontkit's subsetter silently
-  // mis-maps some CJK glyphs in the faces that cover both kana and Latin, which is worse than
-  // the 1.7 MB this compact font adds to the file. It stays entirely inside the extension.
+  // mis-maps some CJK glyphs in the faces that cover both kana and Latin. It is never used
+  // to paint a visible glyph, only to make the search layer extractable.
   const font = await document.embedFont(options.font, { subset: false });
 
   for (const source of options.pages) {
@@ -218,121 +256,28 @@ export async function buildTranslatedPdf(options: TranslatedPdfOptions): Promise
     const image = await document.embedPng(source.image);
     page.drawImage(image, { x: 0, y: 0, width: source.width, height: source.height });
 
-    for (const block of source.blocks) {
-      if (block.lines.length === 0) continue;
-      const cover = block.drawn ?? block.source;
-      const vertical = block.writing === 90 || block.writing === 270;
-      const grow =
-        block.drawn === null
-          ? Math.min(
-              source.height - cover.y,
-              Math.max(cover.height, block.lines.length * Math.max(1, block.lineHeight)),
-            )
-          : cover.height;
-      // Both the cover and the glyphs are clipped to the page as well as to the source box.
-      const x = Math.max(0, cover.x);
-      const y = Math.max(0, cover.y);
-      const box: Box = {
-        x,
-        y,
-        width: Math.max(1, Math.min(source.width, cover.x + cover.width) - x),
-        height: Math.max(1, Math.min(source.height, cover.y + grow) - y),
-      };
-      if (box.width <= 1 || box.height <= 1) continue;
-
-      const layout = layoutExportText({
-        translation: block.translation,
-        lines: block.lines,
-        fontSize: block.fontSize,
-        lineHeight: block.lineHeight,
-        width: vertical ? box.height : box.width,
-        height: vertical ? box.width : box.height,
-        targetLanguage: options.targetLanguage,
-        role: block.role,
-        singleLine: block.singleLine,
-        measure: (text, fontSize) => font.widthOfTextAtSize(text, fontSize),
-      });
-      if (layout.lines.length === 0) continue;
-
-      // The translated cover is opaque on screen so the source glyphs underneath cannot show
-      // through. The PDF does the same before it lays down its own text.
-      page.drawRectangle({
-        x: box.x,
-        y: source.height - box.y - box.height,
-        width: box.width,
-        height: box.height,
-        color: rgb(1, 1, 1),
-      });
-
-      if (vertical) {
-        drawVertical(page, source.height, block, box, font, layout);
-        continue;
-      }
-      for (const [index, line] of layout.lines.entries()) {
-        if (line.length === 0) continue;
-        const width = font.widthOfTextAtSize(line, layout.fontSize);
-        if (width > box.width) continue;
-        let textX = box.x;
-        if (block.align === 'center') textX += (box.width - width) / 2;
-        if (block.align === 'right') textX += box.width - width;
-        textX = Math.max(box.x, Math.min(textX, box.x + box.width - width));
-        // CSS puts the first baseline inside its line box. The 0.82em ascent is a close
-        // approximation for the bundled Gothic face, and avoids clipping the top of kanji.
-        const baseline =
-          box.y +
-          layout.fontSize * 0.82 +
-          (layout.lineHeight - layout.fontSize) / 2 +
-          index * layout.lineHeight;
-        // Only the descender sits below the baseline; a full em would reject a one-line label
-        // whose box is exactly one em tall.
-        if (baseline + layout.fontSize * 0.25 > box.y + box.height + EPSILON) break;
-        page.drawText(line, {
-          x: textX,
-          y: source.height - baseline,
-          size: layout.fontSize,
+    // Search/copy support only. Opacity zero leaves the raster as the single visible source
+    // of truth; the positions are approximate because the screenshot owns the layout.
+    const texts: readonly string[] = source.texts ?? [];
+    for (const [index, translation] of texts.entries()) {
+      const text = translation.trim();
+      if (text.length === 0) continue;
+      try {
+        page.drawText(text, {
+          x: 1,
+          y: Math.max(0.5, source.height - 1 - (index % 8)),
+          size: 1,
           font,
-          color: rgb(0, 0, 0),
+          opacity: 0,
         });
+      } catch {
+        // A glyph outside the face cannot be encoded; the raster still shows it.
       }
     }
   }
   return document.save();
 }
 
-/** Places a wrapped Japanese column back on the page when the source was set vertically. */
-function drawVertical(
-  page: PDFPage,
-  pageHeight: number,
-  block: ExportBlock,
-  box: Box,
-  font: PDFFont,
-  layout: ExportTextLayout,
-): void {
-  const clockwise = block.writing === 90;
-  const size = layout.fontSize;
-  const leading = layout.lineHeight;
-  for (const [index, line] of layout.lines.entries()) {
-    if (line.length === 0) continue;
-    const width = font.widthOfTextAtSize(line, size);
-    if (width > box.height + EPSILON) continue;
-    // A rotated run starts at its baseline; the offset keeps it inside the column it occupied.
-    const x = clockwise ? box.x + index * leading : box.x + box.width - size - index * leading;
-    if (x < box.x - EPSILON || x + size > box.x + box.width + EPSILON) break;
-    const y = clockwise
-      ? pageHeight - box.y - box.height + Math.min(size, width)
-      : pageHeight - box.y - size;
-    page.drawText(line, {
-      x,
-      y,
-      size,
-      font,
-      color: rgb(0, 0, 0),
-      rotate: degrees(clockwise ? -90 : 90),
-    });
-  }
-}
-
-/** Converts a canvas `toDataURL('image/png')` result into the bytes pdf-lib embeds. */
 export function pngBytesFromDataUrl(dataUrl: string): Uint8Array {
   const comma = dataUrl.indexOf(',');
   if (comma < 0 || !dataUrl.startsWith('data:image/png;base64,')) {

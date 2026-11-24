@@ -191,7 +191,9 @@
     exportController = controller;
     try {
       await reader.prepareExport({ signal: controller.signal });
-      const pages = await reader.exportPages();
+      // The visible page is the viewer's own raster. The font below is only for the
+      // invisible search layer written into the PDF.
+      const pages = await reader.exportRasterPages();
       const response = await fetch(
         resolveExportFontUrl((path) => browser.runtime.getURL(path as never)),
       );
