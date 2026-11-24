@@ -142,7 +142,12 @@ export type Formality = 'polite' | 'plain';
 export type DisplayMode = 'replace' | 'bilingual';
 export type TierPreference = 'auto' | 'g' | 'c8' | 'c4' | 'c1';
 export type TranslationPace = 'fast' | 'quality';
-export type IdleMinutes = 0 | 1 | 5 | 15;
+/**
+ * How long to keep the loaded model in memory after the last translation.
+ * `-1` releases as soon as translation work becomes idle (manual/on-demand mode).
+ * `0` keeps the model loaded until the engine host is restarted.
+ */
+export type IdleMinutes = -1 | 0 | 1 | 5 | 15;
 export const COMPOSE_PLACEMENTS = ['above', 'below', 'corner', 'free'] as const;
 export type ComposePlacement = (typeof COMPOSE_PLACEMENTS)[number];
 export type ComposeFreePoint = { x: number; y: number };
@@ -475,7 +480,7 @@ export function isTierPreference(value: unknown): value is TierPreference {
 }
 
 export function isIdleMinutes(value: unknown): value is IdleMinutes {
-  return value === 0 || value === 1 || value === 5 || value === 15;
+  return value === -1 || value === 0 || value === 1 || value === 5 || value === 15;
 }
 
 export function normalizeSettings(value: unknown, uiLanguage: string): Settings {

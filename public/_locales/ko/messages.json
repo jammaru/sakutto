@@ -1725,5 +1725,8 @@
   },
   "allSitesPopupEnable": {
     "message": "켜기"
+  },
+  "idleImmediate": {
+    "message": "번역 후 즉시 (수동)"
   }
 }

@@ -133,6 +133,8 @@ interface RuntimePrefs {
 }
 
 function idleHoldMs(minutes: IdleMinutes): number {
+  // -1: manual mode, release as soon as work is idle. 0: keep loaded.
+  if (minutes === -1) return 1;
   return minutes === 0 ? 0 : minutes * 60_000;
 }
 
@@ -1731,8 +1733,19 @@ export class EngineHost {
       await services.disposeRetryRuntime?.();
       await services.manager.unload();
       await services.chrome.dispose();
+      // Manual mode (-1) releases immediately after work. Tell the service worker so it can
+      // close the engine document and reclaim sticky WASM/WebGPU memory; the host will be
+      // recreated on the next explicit translation.
+      if (this.idleFromPush() <= 1) this.notifyHostIdle();
     } catch {
       // Releasing early is best effort; the next request loads again.
+    }
+  }
+
+  private notifyHostIdle(): void {
+    if (this.requests.size > 0) return;
+    for (const port of this.ports) {
+      this.post(port, { type: 'host-idle' });
     }
   }
 

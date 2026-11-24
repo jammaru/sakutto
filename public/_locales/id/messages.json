@@ -1725,5 +1725,8 @@
   },
   "allSitesPopupEnable": {
     "message": "Aktifkan"
+  },
+  "idleImmediate": {
+    "message": "Setelah menerjemahkan (manual)"
   }
 }

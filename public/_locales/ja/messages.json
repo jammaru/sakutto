@@ -1734,5 +1734,8 @@
   "allSitesPopupEnable": {
     "message": "オンにする",
     "description": "Button in the toolbar popup that turns on all-sites access."
+  },
+  "idleImmediate": {
+    "message": "翻訳後すぐ（手動）"
   }
 }

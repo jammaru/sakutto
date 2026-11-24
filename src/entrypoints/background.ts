@@ -268,11 +268,17 @@ export default defineBackground(() => {
 
   let warmStarted = false;
 
+  /**
+   * Warm the selected model only when the user opted into keeping it loaded. In manual mode
+   * (idleMinutes === -1) startup warmup is skipped so PLaMo is loaded only on explicit
+   * translation actions, avoiding large always-on resident memory.
+   */
   async function warmStoredModel(): Promise<void> {
     if (warmStarted) return;
     warmStarted = true;
     const settings = await ensureSettings();
     if (!hasLicenseConsent(settings)) return;
+    if (settings.idleMinutes === -1) return;
     const status = await client
       .modelStatus(normalizeSelectedModelId(settings.selectedModelId))
       .catch(() => null);

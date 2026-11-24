@@ -126,9 +126,14 @@ export class ModelDownloads {
       const current = await this.client.status().catch(() => null);
       if (!this.isCurrent(modelId, download)) return;
       if (shouldWarmDownloadedModel(status, current?.model ?? null)) {
-        const warmed = await this.client.warmModel().catch(() => null);
-        if (warmed && this.isCurrent(modelId, download)) {
-          await this.broadcast({ type: 'model:progress', status: warmed });
+        // Respect manual mode: do not eagerly load PLaMo after download unless the user
+        // chose to keep it loaded.
+        const settings = await import('@/shared/storage').then((m) => m.loadSettings()).catch(() => null);
+        if (settings?.idleMinutes !== -1) {
+          const warmed = await this.client.warmModel().catch(() => null);
+          if (warmed && this.isCurrent(modelId, download)) {
+            await this.broadcast({ type: 'model:progress', status: warmed });
+          }
         }
       }
     } catch (error) {

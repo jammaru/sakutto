@@ -1725,5 +1725,8 @@
   },
   "allSitesPopupEnable": {
     "message": "Activer"
+  },
+  "idleImmediate": {
+    "message": "Après la traduction (manuel)"
   }
 }

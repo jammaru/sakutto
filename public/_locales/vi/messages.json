@@ -1725,5 +1725,8 @@
   },
   "allSitesPopupEnable": {
     "message": "Bật"
+  },
+  "idleImmediate": {
+    "message": "Sau khi dịch (thủ công)"
   }
 }

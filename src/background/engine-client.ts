@@ -556,6 +556,13 @@ export class EngineClient {
     }
 
     switch (message.type) {
+      case 'host-idle': {
+        // Manual mode: host released runtime; close the document to reclaim sticky WASM memory.
+        if (this.pending.size === 0 && this.streams.size === 0) {
+          void this.controller.close().catch(() => undefined);
+        }
+        return;
+      }
       case 'chunk': {
         this.streams.get(message.requestId)?.push(message.chunk);
         return;

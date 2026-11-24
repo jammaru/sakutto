@@ -1725,5 +1725,8 @@
   },
   "allSitesPopupEnable": {
     "message": "เปิดใช้งาน"
+  },
+  "idleImmediate": {
+    "message": "หลังแปลเสร็จ (กำหนดเอง)"
   }
 }

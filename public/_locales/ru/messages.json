@@ -1725,5 +1725,8 @@
   },
   "allSitesPopupEnable": {
     "message": "Включить"
+  },
+  "idleImmediate": {
+    "message": "После перевода (вручную)"
   }
 }
