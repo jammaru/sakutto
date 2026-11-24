@@ -11,6 +11,7 @@ import {
   vodWallHorizonMs,
   type VodCaptionTranslationAdapter,
   type VodDebugEvent,
+  type VodTranslationResult,
 } from '@/captions/vod-prefetch';
 
 const baseOptions: CaptionTranslateOptions = {
@@ -33,8 +34,8 @@ interface FakeCall {
   cue: CaptionCue;
   options: CaptionTranslateOptions;
   priority: number;
-  promise: Promise<string | null>;
-  resolve: (value: string | null) => void;
+  promise: Promise<VodTranslationResult>;
+  resolve: (value: VodTranslationResult) => void;
   settled: boolean;
 }
 
@@ -62,7 +63,7 @@ class FakeTranslator implements VodCaptionTranslationAdapter {
     cue: CaptionCue,
     options: CaptionTranslateOptions,
     priority: number,
-  ): Promise<string | null> {
+  ): Promise<VodTranslationResult> {
     const previous = this.calls.find(
       (call) =>
         !call.settled &&
@@ -75,8 +76,8 @@ class FakeTranslator implements VodCaptionTranslationAdapter {
       previous.resolve(null);
     }
 
-    let resolve!: (value: string | null) => void;
-    const promise = new Promise<string | null>((accept) => {
+    let resolve!: (value: VodTranslationResult) => void;
+    const promise = new Promise<VodTranslationResult>((accept) => {
       resolve = accept;
     });
     const call: FakeCall = { cue, options, priority, promise, resolve, settled: false };
@@ -307,6 +308,28 @@ describe('VodPrefetchController', () => {
     expect(
       events.filter((event) => event.type === 'cancel' && event.generation === 1),
     ).toHaveLength(2);
+  });
+
+  it('does not mark a seek-aborted translation as a terminal failure', async () => {
+    const adapter = new FakeTranslator();
+    const events: VodDebugEvent[] = [];
+    const controller = new VodPrefetchController({
+      cues: cuesAt(0),
+      adapter,
+      options: baseOptions,
+      policy: { maxOutstanding: 1 },
+      onDebug: (event) => events.push(event),
+    });
+    // CaptionTranslator reports a null after translator.seek() as an abort, not an engine error.
+    adapter.calls[0]?.resolve({ aborted: true });
+    await flush();
+    await flush();
+
+    expect(events.some((event) => event.type === 'error')).toBe(false);
+    expect(controller.hasFailed('c0')).toBe(false);
+    expect(controller.getState().failedCueIds).toEqual([]);
+    // The still-planned cue is eligible again instead of being pinned as failed.
+    expect(adapter.calls.length).toBeGreaterThan(1);
   });
 
   it('uses the shared context key for warm cache hits at construction and paint', () => {

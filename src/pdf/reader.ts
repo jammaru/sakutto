@@ -1026,6 +1026,27 @@ export class PdfReader {
           // It stays retryable instead of leaving the final page stuck at N-1/N forever.
           this.report();
           this.scheduleOcrRetry();
+        } else {
+          // A getPage/extract/layout failure before recognition leaves the page with
+          // no fallback. If it was already retryable, its deadline may still be in
+          // the past (a ready message zeroes it), so parseNext in the finally block
+          // would immediately re-enter this same page in a tight loop. Consume a
+          // retry attempt and put real time between tries, or retire the page once
+          // the budget is spent.
+          if (this.retryableOcr.has(next)) {
+            const attempt = (this.ocrRetryAttempts.get(next) ?? 0) + 1;
+            this.ocrRetryAttempts.set(next, attempt);
+            if (attempt >= PdfReader.MAX_OCR_PAGE_ATTEMPTS) {
+              this.retryableOcr.delete(next);
+              this.ocrRetryNotBefore.delete(next);
+            } else {
+              this.ocrRetryNotBefore.set(
+                next,
+                Date.now() + Math.min(30_000, 1000 * 2 ** Math.min(attempt - 1, 5)),
+              );
+              this.scheduleOcrRetry();
+            }
+          }
         }
       } finally {
         this.pageOcr = null;

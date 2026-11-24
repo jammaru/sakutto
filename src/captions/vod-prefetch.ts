@@ -40,6 +40,12 @@ export interface VodPlannedCue extends VodPlayhead {
 }
 
 /**
+ * A null engine result is terminal for the prefetcher, so cancellation must say so
+ * explicitly: a translation aborted by a seek is retried, not marked as failed.
+ */
+export type VodTranslationResult = string | null | { readonly aborted: true };
+
+/**
  * The structural subset of CaptionTranslator used by VOD prefetch. In particular,
  * translateCue must reuse/promote an existing request for the same cue and options.
  */
@@ -49,7 +55,7 @@ export interface VodCaptionTranslationAdapter {
     cue: CaptionCue,
     options: CaptionTranslateOptions,
     priority: number,
-  ): Promise<string | null>;
+  ): Promise<VodTranslationResult>;
   cancelText(text: string, options: CaptionTranslateOptions): void;
 }
 
@@ -396,7 +402,7 @@ export class VodPrefetchController {
   ): void {
     const options = this.requestOptions[item.index];
     if (!options) return;
-    let promise: Promise<string | null>;
+    let promise: Promise<VodTranslationResult>;
     try {
       promise = this.adapter.translateCue(item.cue, options, priority);
     } catch (error) {
@@ -421,7 +427,7 @@ export class VodPrefetchController {
   private finish(
     entry: OutstandingEntry,
     item: VodPlannedCue,
-    translation: string | null,
+    translation: VodTranslationResult,
     error: Error | null,
   ): void {
     if (this.outstanding.get(entry.index) !== entry) {
@@ -429,7 +435,12 @@ export class VodPrefetchController {
       return;
     }
     this.outstanding.delete(entry.index);
-    if (error || translation === null) {
+    if (translation !== null && typeof translation === 'object') {
+      // Cancelled by a seek or rate change: the generation changed under this
+      // request. It is not a terminal engine failure, so leave the cue eligible
+      // for the reconcile below to submit again at the new playhead.
+      this.emit('ignore', item, entry.priority, null, 'stale');
+    } else if (error || translation === null) {
       this.failed.add(entry.index);
       this.emit('error', item, entry.priority, null, 'completion');
     } else {

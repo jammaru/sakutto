@@ -986,6 +986,73 @@ describe('PdfReader viewport observer', () => {
     reader.destroy();
   });
 
+  it('backs off a retryable page when getPage throws before OCR is attempted', async () => {
+    vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver);
+    vi.stubGlobal('ResizeObserver', FakeResizeObserver);
+    ocrCanvas();
+    let recognizeCalls = 0;
+    const recognize = vi.fn(() => {
+      recognizeCalls += 1;
+      if (recognizeCalls === 1) return Promise.reject(new Error('first OCR failure'));
+      return Promise.resolve(scannedResult);
+    });
+    const requested: number[] = [];
+    let failFirstPage = false;
+    const renders = { count: 0 };
+    const textPage: PdfPage = {
+      ...fakePage(renders),
+      getTextContent: async () => ({
+        items: [
+          {
+            str: 'A paragraph of selectable source text on this page.',
+            transform: [10, 0, 0, 10, 40, 200],
+            width: 160,
+            height: 10,
+            fontName: 'F1',
+          },
+        ],
+        styles: {},
+      }),
+    };
+    const document_: PdfDocument = {
+      numPages: 2,
+      getPage: async (number) => {
+        requested.push(number);
+        if (failFirstPage && number === 1) throw new Error('page load failed before OCR');
+        return number === 1 ? fullPageScanPage(renders) : textPage;
+      },
+      getMetadata: async () => null,
+      destroy: async () => undefined,
+    };
+    const root = document.createElement('div');
+    Object.defineProperty(root, 'clientWidth', { configurable: true, get: () => 520 });
+    document.body.append(root);
+    const reader = new PdfReader(root, geometries(2), {
+      document: document_,
+      engine: silentEngine,
+      labels,
+      targetLanguage: 'ja',
+      form: 'plain',
+      onProgress: () => undefined,
+      ocr: { recognize },
+      ops: { transform: 1, paintImageXObject: 2 },
+    });
+
+    reader.start();
+    await vi.waitFor(() => expect(recognizeCalls).toBe(1));
+    await vi.waitFor(() => expect(pageHost(root, 0).dataset.ocrFailed).toBe('true'));
+    // The first failure makes page zero retryable; a fresh getPage failure on that
+    // retry used to re-enter parseNext immediately in the same turn, forever.
+    failFirstPage = true;
+    const before = requested.filter((number) => number === 1).length;
+    reader.retryOcr();
+    await new Promise((resolve) => setTimeout(resolve, 120));
+    expect(requested.filter((number) => number === 1).length - before).toBeLessThanOrEqual(2);
+    // The backed-off page must not starve the page behind it.
+    expect(requested).toContain(2);
+    reader.destroy();
+  });
+
   it('re-queues a model-missing page after its retry budget runs out and OCR becomes ready', async () => {
     vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver);
     vi.stubGlobal('ResizeObserver', FakeResizeObserver);

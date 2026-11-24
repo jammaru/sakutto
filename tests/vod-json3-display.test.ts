@@ -135,6 +135,23 @@ describe('VOD cue-start display scheduler', () => {
     });
   });
 
+  it('selects the seek destination while paused but freezes dwell advancement', () => {
+    const scheduler = new VodDisplayScheduler();
+    scheduler.reset(cues);
+    scheduler.update(0, 0, translated);
+    scheduler.seek(700);
+    expect(scheduler.update(700, 1_000, translated, true)).toMatchObject({
+      type: 'show',
+      paint: { cue: { id: 'b' } },
+    });
+    // Wall-clock dwell must not walk through the queue while the playhead is frozen.
+    expect(scheduler.update(700, 2_500, translated, true)).toBeNull();
+    expect(scheduler.update(1_200, 2_501, translated)).toMatchObject({
+      type: 'show',
+      paint: { cue: { id: 'c' } },
+    });
+  });
+
   it('keeps the final cue through minimum dwell and silence hold', () => {
     const scheduler = new VodDisplayScheduler();
     scheduler.reset([cues[0]!]);
