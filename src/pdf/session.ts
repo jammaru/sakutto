@@ -12,6 +12,7 @@ import { translationConcurrencyFor } from '@/dom/priority';
 import { fitText, type FitResult } from './fit';
 import { verticalWriting, type AnyBlockRole, type LayoutBlock, type PageLayout } from './layout';
 import {
+  columnRefitEligible,
   drawnBox,
   exceedsPage,
   fitBox,
@@ -872,7 +873,9 @@ export class PdfSession {
     // A wrap wider than the painted cover's column wall cannot be drawn honestly. Refit to
     // the wall first; only a text that still cannot fit there becomes an overflow marker.
     const drawnX = inlineProseFragment(block) ? block.box.x : Math.min(block.box.x, block.room.x);
-    const limit = paintLineLimit(block, width, drawnX, pageWidth);
+    const limit = columnRefitEligible(block, pageWidth)
+      ? paintLineLimit(block, width, drawnX, pageWidth)
+      : width;
     if (limit + 1 < width && lineOverflows(fit, limit, (text) => measureAt(text, fit.fontSize))) {
       width = Math.max(1, limit);
       fit = fitAt(width);

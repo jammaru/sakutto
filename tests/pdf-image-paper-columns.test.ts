@@ -5,6 +5,7 @@ import { ocrResultToPageLayout, ocrResultToTextLines } from '@/pdf/ocr';
 import { pageMetrics } from '@/pdf/metrics';
 import type { LayoutBlock, PageLayout } from '@/pdf/layout';
 import {
+  columnRefitEligible,
   coverPaintLayout,
   DEFAULT_PAINT_SCALE,
   pageObstacles,
@@ -536,5 +537,53 @@ describe('long English translations stay inside the left column', () => {
       OPTIONS.pageWidth,
     );
     expect(paint.x + paint.width).toBeLessThanOrEqual(GUTTER_EDGE + 1);
+  });
+});
+
+describe('full-width rows keep their measure', () => {
+  it('does not refit a full-width block labelled column 0 to the gutter wall', () => {
+    const pageWidth = OPTIONS.pageWidth;
+    const gutter = pageWidth * 0.49;
+    const block: LayoutBlock = {
+      box: { x: gutter - 18, y: 70, width: 46, height: 17 },
+      room: { x: gutter - 18, y: 70, width: 46, height: 17 },
+      lines: [],
+      text: 'Model',
+      role: 'prose',
+      fontSize: 12,
+      lineHeight: 1.2,
+      align: 'left',
+      bold: false,
+      italic: false,
+      column: 0,
+      advance: 46,
+      writing: 0,
+    };
+    // A box from another row near the midpoint still proves a gutter to the old column cap.
+    const obstacles = [{ x: gutter - 6, y: 100, width: 220, height: 12 }];
+    const layout: PageLayout = {
+      blocks: [block],
+      skipped: [],
+      obstacles,
+      bodySize: block.fontSize,
+      lineHeight: block.fontSize * block.lineHeight,
+      pageWidth,
+      pageHeight: OPTIONS.pageHeight,
+      pageIndex: 0,
+    };
+    expect(columnRefitEligible(block, pageWidth)).toBe(false);
+
+    const placed = placePage({
+      layout,
+      translationOf: () => 'モデル',
+      target: 'ja',
+      measure: (_block, text, size) => text.length * size,
+      pageWidth,
+      pageHeight: OPTIONS.pageHeight,
+    })[0]!;
+
+    expect(placed.paint).toBe(true);
+    expect(placed.fit?.width ?? 0).toBeGreaterThan(gutter - block.box.x + 10);
+    expect(placed.drawn?.width ?? 0).toBeGreaterThan(gutter - block.box.x + 10);
   });
 });

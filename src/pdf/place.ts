@@ -140,7 +140,9 @@ export function placePage(request: PlaceRequest): PlacedBlock[] {
     // A wrap the painted cover cannot honour is never painted: refit to the wall the cover
     // will actually have instead of clipping the last glyph under `overflow: hidden`.
     const drawnX = inlineProseFragment(block) ? block.box.x : Math.min(block.box.x, block.room.x);
-    const limit = paintLineLimit(block, width, drawnX, pageWidth);
+    const limit = columnRefitEligible(block, pageWidth)
+      ? paintLineLimit(block, width, drawnX, pageWidth)
+      : width;
     if (
       limit + WIDTH_SLACK < width &&
       lineOverflows(fit, limit, (text) => measureAt(text, fit.fontSize))
@@ -219,6 +221,36 @@ function columnSideFromBox(
 }
 
 /**
+ * Side of a body column the block really occupies. A full-width title or a fragment of one
+ * can still carry `column: 0`; its box crosses the gutter, so there is no interior wall to
+ * wrap or refit to. Gutter integrity checks use `columnSideFromBox` instead: a mis-grouped
+ * right-column block must still be caught when it paints over the left column.
+ */
+function columnInteriorSide(
+  block: Pick<LayoutBlock, 'box' | 'column' | 'writing'>,
+  pageWidth: number,
+): 0 | 1 | null {
+  const side = columnSideFromBox(block, pageWidth);
+  if (side === null || pageWidth <= 0) return null;
+  const gutter = pageWidth * 0.49;
+  if (
+    block.box.x + GUTTER_CLEARANCE < gutter &&
+    block.box.x + block.box.width > gutter + GUTTER_CLEARANCE
+  ) {
+    return null;
+  }
+  return side;
+}
+
+/** Whether the pre-paint wrap may be narrowed to a body column's wall. */
+export function columnRefitEligible(
+  block: Pick<LayoutBlock, 'box' | 'column' | 'writing'>,
+  pageWidth: number,
+): boolean {
+  return columnInteriorSide(block, pageWidth) !== null;
+}
+
+/**
  * Physical gutter edge of a two-column page, from the boxes on the other side of the sheet.
  * Real column walls repeat across rows; a lone box near the middle is ordinary whitespace
  * unless it shares this row's vertical band. `null` means the page gives no column evidence
@@ -260,7 +292,7 @@ function columnInteriorCap(
   obstacles: readonly Box[],
   pageWidth: number,
 ): number | null {
-  const side = columnSideFromBox(block, pageWidth);
+  const side = columnInteriorSide(block, pageWidth);
   if (side === null) return null;
   const room = block.room.width > 0 ? block.room.width : block.box.width;
   const measure = Math.min(room, block.box.width);
@@ -675,7 +707,7 @@ function capToColumn(
   pageWidth: number,
 ): number {
   const capped = capToPage(width, x, pageWidth);
-  const side = columnSideFromBox(block, pageWidth);
+  const side = columnInteriorSide(block, pageWidth);
   if (side === null) return capped;
   // The column interior is the wall both the wrap and the cover respect. Taking it from
   // the block's own measure (and not from `column`) keeps a right-column paragraph whose
@@ -710,6 +742,19 @@ export interface PaintIntegrityMetrics {
   drawnPaintMismatches: number;
 }
 
+/**
+ * Column side used by the gutter integrity checks. A left-labelled box crossing the gutter
+ * is a full-width row and may paint across it; a right-labelled one is a mis-grouping and
+ * must still be reported when its cover reaches into the left column.
+ */
+function integrityColumnSide(
+  block: Pick<LayoutBlock, 'box' | 'column' | 'writing'>,
+  pageWidth: number,
+): 0 | 1 | null {
+  const side = columnSideFromBox(block, pageWidth);
+  return side === 0 && columnInteriorSide(block, pageWidth) === null ? null : side;
+}
+
 /** Layout-only checks for painted covers vs source lines and column bounds. */
 export function crossColumnViolation(
   entry: PlacedBlock,
@@ -722,7 +767,7 @@ export function crossColumnViolation(
   const gutter = pageWidth * 0.49;
   const paint = coverPaintLayout(block, entry.fit.width, entry.drawn, scale, pageWidth);
   const mergesColumns = blockMergesColumns(block, pageWidth);
-  const side = columnSideFromBox(block, pageWidth);
+  const side = integrityColumnSide(block, pageWidth);
   if (side === 0 && paint.x + paint.width > gutter + 2) return true;
   if (side !== null && side > 0 && paint.x < gutter - 2) return true;
   if (
@@ -764,7 +809,7 @@ export function paintIntegrityMetrics(
     // root), while OCR gives it -1. A right-column block (column 1) whose lines happen to reach
     // across the gutter is a mis-grouping, not a title, and must still be checked.
     const mergesColumns = blockMergesColumns(block, pageWidth);
-    const side = columnSideFromBox(block, pageWidth);
+    const side = integrityColumnSide(block, pageWidth);
     if (side === 0 && paint.x + paint.width > gutter + 2) crossColumnCovers += 1;
     if (side !== null && side > 0 && paint.x < gutter - 2) crossColumnCovers += 1;
     // A merged two-column reading line also spans the gutter geometrically, so it must never
