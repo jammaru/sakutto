@@ -1577,6 +1577,39 @@ describe('latest DSH review blockers', () => {
       expect(layout.blocks.map((block) => block.column)).toEqual([0, 1]);
     });
 
+    it('B1: a preposition flowing into the right pair stays in source order', () => {
+      // Identical 6pt gaps and aligned x positions, but each row is one sentence cut into
+      // four phrase boxes: the right pair's "with" attaches to the left pair's "boxes".
+      const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+      const row = (y: number, phrases: readonly string[]) => [
+        region(phrases[0]!, quad(45, y, 115, 20)),
+        region(phrases[1]!, quad(166, y, 115, 20)),
+        region(phrases[2]!, quad(287, y, 115, 20)),
+        region(phrases[3]!, quad(408, y, 115, 20)),
+      ];
+      const phrases = ['Dense scans often', 'emit word boxes', 'with equal six', 'gaps for every'];
+      const first = row(100, phrases);
+      const second = row(130, phrases);
+      const result = ocrResult(
+        [...first, ...second],
+        [readingLine('horizontal', first), readingLine('horizontal', second)],
+      );
+
+      const lines = ocrResultToTextLines(result, options);
+      expect(lines.map((line) => line.text)).toEqual([
+        first.map((item) => item.text).join(' '),
+        second.map((item) => item.text).join(' '),
+      ]);
+      expect(lines).toHaveLength(2);
+      expect(lines.every((line) => line.columnHint === undefined)).toBe(true);
+
+      const layout = ocrResultToPageLayout(result, options);
+      expect(layout.blocks.every((block) => block.column === 0)).toBe(true);
+      expect(layout.blocks.map((block) => block.text).join(' ')).toBe(
+        [...first, ...second].map((item) => item.text).join(' '),
+      );
+    });
+
     it('B1: identical 2+2 geometry with one sentence per row stays in source order', () => {
       // Exactly the positive case's x positions (45/166/287/408, 6pt gaps, aligned edges), but
       // each row is one sentence cut into four phrase boxes. The right pair completes the left

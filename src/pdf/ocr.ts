@@ -233,6 +233,10 @@ const OPEN_PHRASE_TAIL =
 const CLAUSE_VERB =
   /^(?:is|are|was|were|be|been|being|has|have|had|do|does|did|can|could|will|would|may|might|must|should|shall|remain|remains|become|becomes|seem|seems|appear|appears|show|shows|suggest|suggests|indicate|indicates|demonstrate|demonstrates|provide|provides|yield|yields|produce|produces|give|gives|make|makes|take|takes|require|requires|allow|allows|help|helps|use|uses|find|finds|observe|observes|report|reports|describe|describes|define|defines|contain|contains|include|includes|support|supports|increase|increases|decrease|decreases|affect|affects|depend|depends|vary|varies|occur|occurs|result|results|lead|leads|converge|converges|continue|continues|change|changes|improve|improves|reduce|reduces|reveal|reveals|confirm|confirms)\b/iu;
 
+/** Prepositions/conjunctions that attach the right pair to the left noun phrase. */
+const PHRASE_CONTINUATION_HEAD =
+  /^(?:with|and|or|of|in|to|for|on|at|by|from|as|into|through|between|among|about|over|under|during|before|after|without|within|across|via|per|but|while|because|although|than|if|unless)\b/iu;
+
 const WORD_RUN = /[\p{L}\p{N}]+(?:['’-][\p{L}\p{N}]+)*/gu;
 
 function phraseText(pieces: readonly OcrTextPiece[]): string {
@@ -257,8 +261,9 @@ function edgeWord(text: string, last = false): string {
  * sentence either leaves an unfinished phrase at the gutter (a determiner/preposition
  * that the next phrase completes with a noun), or hands a subject over to a lowercase
  * predicate. Separate column snippets close their clause, open a new sentence, or start
- * with a term already used on their side of the gutter. CJK lines have no word classes
- * to inspect, so geometry keeps the deciding vote there.
+ * with a term already used on their side of the gutter. A right pair that opens with a
+ * preposition or conjunction instead attaches to the left noun phrase. CJK lines have no word
+ * classes to inspect, so geometry keeps the deciding vote there.
  */
 function independentColumnSnippets(
   left: readonly OcrTextPiece[],
@@ -274,6 +279,9 @@ function independentColumnSnippets(
   const leftTail = edgeWord(leftText, true);
   const rightHead = edgeWord(rightText);
   if (leftTail.length === 0 || rightHead.length === 0) return true;
+  // "... word boxes with equal six ..." is one noun phrase flowing across the gutter, not
+  // two column snippets. A preposition/conjunction head binds the right pair to the left one.
+  if (PHRASE_CONTINUATION_HEAD.test(rightHead)) return false;
   // Parallel columns routinely open different snippets with the same term at a line break.
   if (leftWords.includes(rightHead)) return true;
 
