@@ -1,4 +1,5 @@
-import type { OcrTier } from '@/engine/ocr/catalog';
+import type { AssetStatus } from '@/engine/model/asset';
+import { DEFAULT_OCR_TIER, type OcrTier } from '@/engine/ocr/catalog';
 import type { Formality } from '@/shared/settings';
 import { isAbortError } from '@/engine/errors';
 import { MAX_OCR_DIMENSION, MAX_OCR_PIXELS } from '@/engine/offscreen/protocol';
@@ -72,6 +73,10 @@ export interface ReaderLabels {
   /** OCR status on a page whose text layer is absent or negligible. */
   ocrReading: (page: number, of: number) => string;
   ocrFailed: string;
+  /** Optional inline prompt on a scanned page whose OCR bundle is missing. */
+  ocrDownload?: string | undefined;
+  ocrDownloadFailed?: string | undefined;
+  ocrDownloadProgress?: ((status: AssetStatus<OcrTier>) => string) | undefined;
 }
 
 export interface ReaderOptions {
@@ -105,6 +110,8 @@ export interface ReaderOptions {
   onProgress: (state: ReaderProgress) => void;
   /** Optional scanned-page fallback. Construction does not load or download OCR models. */
   ocr?: { recognize: PdfOcrRecognize; tier?: OcrTier } | undefined;
+  /** Starts the inline download on click. The reader never downloads on its own. */
+  onOcrDownload?: ((tier: OcrTier) => Promise<boolean> | boolean) | undefined;
 }
 
 export interface ReaderProgress {
@@ -204,6 +211,8 @@ export class PdfReader {
   private readonly retryableOcr = new Set<number>();
   /** Pages whose OCR pass failed because the bundle was missing, not because of a transient error. */
   private readonly modelMissingOcr = new Set<number>();
+  private ocrDownloadBusy = false;
+  private readonly onOcrDownload: ReaderOptions['onOcrDownload'];
   private readonly ocrRetryNotBefore = new Map<number, number>();
   private readonly ocrRetryAttempts = new Map<number, number>();
   private static readonly MAX_OCR_PAGE_ATTEMPTS = 6;
@@ -243,6 +252,7 @@ export class PdfReader {
       options.pageLimit !== undefined && options.pageLimit > 0 ? options.pageLimit : null;
     this.ops = options.ops ?? null;
     this.ocr = options.ocr ?? null;
+    this.onOcrDownload = options.onOcrDownload;
     this.target = options.targetLanguage;
     this.form = options.form;
     this.engine = options.engine;
@@ -610,10 +620,117 @@ export class PdfReader {
       this.retryableOcr.add(page);
       this.ocrRetryAttempts.delete(page);
       this.pageOcrCache.delete(page);
+      delete this.pageElements.get(page)?.host.dataset.ocrModelMissing;
     }
     for (const page of this.retryableOcr) this.ocrRetryNotBefore.set(page, 0);
     if (this.visible) void this.parseNext();
     else this.scheduleOcrRetry();
+  }
+
+  /**
+   * Mirrors an `ocr:progress` message on the pages waiting for the bundle. The reader only
+   * renders the state; the caller owns the decision to start the download.
+   */
+  updateOcrDownload(status: AssetStatus<OcrTier> | null): void {
+    if (!status || this.modelMissingOcr.size === 0) return;
+    if (status.id !== (this.ocr?.tier ?? DEFAULT_OCR_TIER)) return;
+    const busy = status.state === 'downloading' || status.state === 'verifying';
+    const finished = status.state === 'ready' || status.state === 'loaded';
+    this.ocrDownloadBusy = busy;
+    for (const page of this.modelMissingOcr) {
+      const element = this.pageElements.get(page);
+      if (element?.host.dataset.ocrModelMissing !== 'true') continue;
+      const button = element.missing.querySelector<HTMLButtonElement>('.sakutto-ocr-download');
+      if (button) button.disabled = busy || finished;
+      if (status.state === 'error' && this.labels.ocrDownloadFailed) {
+        const text = element.missing.querySelector<HTMLElement>('.sakutto-ocr-message');
+        if (text) text.textContent = this.labels.ocrDownloadFailed;
+      }
+      const progress = element.missing.querySelector<HTMLElement>('.sakutto-ocr-progress');
+      if (!progress) continue;
+      progress.hidden = !busy || this.labels.ocrDownloadProgress === undefined;
+      if (!progress.hidden && this.labels.ocrDownloadProgress) {
+        progress.textContent = this.labels.ocrDownloadProgress(status);
+      }
+    }
+  }
+
+  /** Keeps the prompt's size in step with a tier changed in Settings while the reader is open. */
+  setOcrDownloadLabel(label: string): void {
+    for (const page of this.modelMissingOcr) {
+      const button = this.pageElements
+        .get(page)
+        ?.missing.querySelector<HTMLButtonElement>('.sakutto-ocr-download');
+      if (button) button.textContent = label;
+    }
+  }
+
+  private async startOcrDownload(): Promise<void> {
+    if (!this.onOcrDownload || this.ocrDownloadBusy) return;
+    this.ocrDownloadBusy = true;
+    this.setOcrDownloadBusy(true);
+    let started: boolean;
+    try {
+      started = (await this.onOcrDownload(this.ocr?.tier ?? DEFAULT_OCR_TIER)) !== false;
+    } catch {
+      started = false;
+    }
+    if (started) return;
+    this.ocrDownloadBusy = false;
+    this.setOcrDownloadBusy(false);
+    const message = this.labels.ocrDownloadFailed;
+    if (!message) return;
+    for (const page of this.modelMissingOcr) {
+      const text = this.pageElements
+        .get(page)
+        ?.missing.querySelector<HTMLElement>('.sakutto-ocr-message');
+      if (text) text.textContent = message;
+    }
+  }
+
+  private setOcrDownloadBusy(busy: boolean): void {
+    for (const page of this.modelMissingOcr) {
+      const button = this.pageElements
+        .get(page)
+        ?.missing.querySelector<HTMLButtonElement>('.sakutto-ocr-download');
+      if (button) button.disabled = busy;
+    }
+  }
+
+  private paintOcrDownloadPrompt(element: PageElement, message: string): void {
+    element.host.dataset.ocrModelMissing = 'true';
+    const prompt = document.createElement('div');
+    prompt.className = 'sakutto-ocr-prompt';
+    const text = document.createElement('span');
+    text.className = 'sakutto-ocr-message';
+    text.textContent = message;
+    prompt.append(text);
+    if (this.labels.ocrDownload) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'sakutto-ocr-download';
+      button.dataset.sakutto = 'ocr-download';
+      button.textContent = this.labels.ocrDownload;
+      button.disabled = this.ocrDownloadBusy || this.onOcrDownload === undefined;
+      button.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        void this.startOcrDownload();
+      });
+      prompt.append(button);
+    }
+    const progress = document.createElement('span');
+    progress.className = 'sakutto-ocr-progress';
+    progress.hidden = true;
+    progress.setAttribute('role', 'status');
+    prompt.append(progress);
+    element.missing.replaceChildren(prompt);
+  }
+
+  private clearOcrModelMissing(index: number, element?: PageElement | null): void {
+    this.modelMissingOcr.delete(index);
+    const host = element?.host ?? this.pageElements.get(index)?.host;
+    if (host) delete host.dataset.ocrModelMissing;
   }
 
   destroy(): void {
@@ -1004,7 +1121,7 @@ export class PdfReader {
 
         this.markParsed(next);
         this.retryableOcr.delete(next);
-        this.modelMissingOcr.delete(next);
+        this.clearOcrModelMissing(next, element);
         this.ocrRetryNotBefore.delete(next);
         this.ocrRetryAttempts.delete(next);
         this.session.replacePage(next, pageLayout, extracted.height);
@@ -1039,7 +1156,7 @@ export class PdfReader {
           // Only a missing bundle is worth waiting for: a later readiness message re-queues
           // these pages even after the ordinary backoff budget is exhausted.
           if (error instanceof PdfOcrModelMissingError) this.modelMissingOcr.add(next);
-          else this.modelMissingOcr.delete(next);
+          else this.clearOcrModelMissing(next);
           const attempt = (this.ocrRetryAttempts.get(next) ?? 0) + 1;
           this.ocrRetryAttempts.set(next, attempt);
           if (attempt >= PdfReader.MAX_OCR_PAGE_ATTEMPTS) {
@@ -1063,8 +1180,15 @@ export class PdfReader {
             // and the reader would never learn that its OCR pass failed. The CSS shows the
             // overlay for either state; pages that never ran OCR keep the old behaviour.
             element.host.dataset.ocrFailed = 'true';
-            element.missing.textContent =
-              error instanceof OcrUserMessageError ? error.message : this.labels.ocrFailed;
+            if (error instanceof PdfOcrModelMissingError) {
+              this.paintOcrDownloadPrompt(
+                element,
+                error.message.length > 0 ? error.message : this.labels.ocrFailed,
+              );
+            } else {
+              element.missing.textContent =
+                error instanceof OcrUserMessageError ? error.message : this.labels.ocrFailed;
+            }
             this.paintTextLayer(element, fallback.lines);
           }
           // Even a failed OCR attempt is a reported page with a usable native/empty fallback.

@@ -1804,8 +1804,30 @@
     "description": "Shown when a scanned PDF page cannot be recognized."
   },
   "ocrDownloadRequired": {
-    "message": "Laden Sie die OCR-Modelle in den Einstellungen herunter, um Text in gescannten PDFs und Bildern zu erkennen.",
+    "message": "Zum Erkennen von Text in gescannten PDFs und Bildern sind OCR-Modelle erforderlich.",
     "description": "Shown when OCR is unavailable or its model download fails."
+  },
+  "ocrDownloadInline": {
+    "message": "OCR-Modell herunterladen (ca. $SIZE$)",
+    "description": "Inline button that downloads the selected OCR tier.",
+    "placeholders": {
+      "size": {
+        "content": "$1"
+      }
+    }
+  },
+  "ocrDownloadProgress": {
+    "message": "OCR-Modell wird heruntergeladen: $PERCENT$ %",
+    "description": "Inline progress shown while the OCR model downloads.",
+    "placeholders": {
+      "percent": {
+        "content": "$1"
+      }
+    }
+  },
+  "ocrDownloadFailed": {
+    "message": "Das OCR-Modell konnte nicht heruntergeladen werden. Bitte versuchen Sie es erneut.",
+    "description": "Shown when an inline OCR model download fails."
   },
   "imageFileAccessHeading": {
     "message": "Lokales Bild übersetzen",

@@ -1800,8 +1800,30 @@
     "description": "Shown when a scanned PDF page cannot be recognized."
   },
   "ocrDownloadRequired": {
-    "message": "스캔한 PDFs와 이미지의 텍스트를 인식하려면 설정에서 OCR 모델을 다운로드하세요.",
+    "message": "스캔한 PDF와 이미지의 텍스트를 인식하려면 OCR 모델이 필요합니다.",
     "description": "Shown when OCR is unavailable or its model download fails."
+  },
+  "ocrDownloadInline": {
+    "message": "OCR 모델 다운로드 (약 $SIZE$)",
+    "description": "Inline button that downloads the selected OCR tier.",
+    "placeholders": {
+      "size": {
+        "content": "$1"
+      }
+    }
+  },
+  "ocrDownloadProgress": {
+    "message": "OCR 모델 다운로드 중: $PERCENT$%",
+    "description": "Inline progress shown while the OCR model downloads.",
+    "placeholders": {
+      "percent": {
+        "content": "$1"
+      }
+    }
+  },
+  "ocrDownloadFailed": {
+    "message": "OCR 모델을 다운로드하지 못했습니다. 다시 시도해 주세요.",
+    "description": "Shown when an inline OCR model download fails."
   },
   "imageFileAccessHeading": {
     "message": "로컬 이미지 번역",

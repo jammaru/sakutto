@@ -3,7 +3,6 @@
   import { browser } from 'wxt/browser';
   import { ocrReadyToRetry } from '@/background/ocr-readiness';
   import { DEFAULT_MODEL_ID } from '@/engine/model/catalog';
-  import { DEFAULT_OCR_TIER } from '@/engine/ocr/catalog';
   import { encodeOcrImage } from '@/engine/ocr/codec';
   import { abortError } from '@/engine/errors';
   import { readerEngine } from './engine';
@@ -27,12 +26,14 @@
     requestEngineStatus,
     requestEngineWarm,
     requestModelDownload,
+    requestOcrDownload,
     requestOcrRecognizeDetailed,
   } from '@/shared/messages';
   import { MAX_PDF_BYTES, PDF_ID_PARAM } from '@/shared/pdf';
   import type { Settings } from '@/shared/settings';
   import { loadSettings, saveSettings, subscribeSettings } from '@/shared/storage';
   import { readStoredPdf, storedPdfName } from '@/background/pdf-store';
+  import { ocrDownloadLabel, ocrDownloadProgressLabel, ocrTierOf } from '@/ui/ocr-download';
   import LanguageField from '@/ui/LanguageField.svelte';
 
   type Phase =
@@ -289,6 +290,7 @@
     const root = document.getElementById('pages');
     if (!root) return;
     root.replaceChildren();
+    const ocrTier = ocrTierOf(settings?.selectedOcrTier);
 
     reader = new PdfReader(root, geometries, {
       document: document_,
@@ -317,14 +319,17 @@
         pdfBilingual: t('pdfBilingual'),
         ocrReading: (page, of) => t('pdfOcrReading', [String(page), String(of)]),
         ocrFailed: t('pdfOcrFailed'),
+        ocrDownload: ocrDownloadLabel(ocrTier),
+        ocrDownloadFailed: t('ocrDownloadFailed'),
+        ocrDownloadProgress: (status) => ocrDownloadProgressLabel(status),
       },
       onProgress: (state) => {
         progress = state;
       },
       ocr: {
-        tier: settings?.selectedOcrTier ?? DEFAULT_OCR_TIER,
+        tier: ocrTier,
         recognize: async (image, signal) => {
-          const tier = settings?.selectedOcrTier ?? DEFAULT_OCR_TIER;
+          const tier = ocrTierOf(settings?.selectedOcrTier);
           const outcome = await requestOcrRecognizeDetailed(tier, encodeOcrImage(image), signal);
           if (signal.aborted) throw abortError();
           if (outcome.error === 'model-missing') {
@@ -336,6 +341,7 @@
           return outcome.result;
         },
       },
+      onOcrDownload: (tier) => requestOcrDownload(tier),
       pageLimit,
     });
     if (compare) reader.setCompare(true);
@@ -430,13 +436,16 @@
       reader?.setGlossary(next.glossary);
       reader?.setTargetLanguage(next.targetLanguage, next.form);
       reader?.setOcrTier(next.selectedOcrTier);
+      reader?.setOcrDownloadLabel(ocrDownloadLabel(ocrTierOf(next.selectedOcrTier)));
     });
 
     const onMessage = (message: unknown) => {
       if (isOcrProgressMessage(message)) {
-        // `ready` is when a finished download first makes recognition possible. Waiting only
-        // for `loaded` left pages that failed while the bundle was missing stuck untranslated
-        // whenever no recognition ran to warm the runtime afterwards.
+        // Pages waiting on a bundle show the same progress the settings page does. `ready` is
+        // when a finished download first makes recognition possible; waiting only for `loaded`
+        // left pages that failed while the bundle was missing stuck untranslated whenever no
+        // recognition ran to warm the runtime afterwards.
+        reader?.updateOcrDownload(message.status);
         if (ocrReadyToRetry(message.status)) reader?.retryOcr();
         return;
       }

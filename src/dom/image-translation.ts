@@ -1,4 +1,6 @@
 import { browser } from 'wxt/browser';
+import type { AssetStatus } from '@/engine/model/asset';
+import type { OcrTier } from '@/engine/ocr/catalog';
 import { copyTextToClipboard } from '@/shared/clipboard-copy';
 import { encodeOcrImage } from '@/engine/ocr/codec';
 import type { OcrResult, ImageDataLike } from '@/engine/ocr/types';
@@ -9,7 +11,7 @@ import {
   ocrRecognitionTimeoutMs,
   type OcrImagePayload,
 } from '@/engine/offscreen/protocol';
-import { requestOcrRecognizeDetailed } from '@/shared/messages';
+import { requestOcrDownload, requestOcrRecognizeDetailed } from '@/shared/messages';
 import { loadSettings, saveSettings } from '@/shared/storage';
 import {
   normalizeTranslationPopupWidth,
@@ -19,6 +21,7 @@ import {
 } from '@/shared/settings';
 import { translateViaBackground } from '@/shared/translation-client';
 import type { ImageCaptureRect, ImageCaptureRequest } from '@/shared/image';
+import { ocrDownloadLabel, ocrDownloadProgressLabel, ocrTierOf } from '@/ui/ocr-download';
 import { BUBBLE_STYLE, appendCopyIcons, attachUiShadow, uiShadow } from './overlay';
 
 const MAX_IMAGE_SIDE = 2048;
@@ -51,6 +54,7 @@ export interface ImageTranslationLabels {
   resize: string;
   /** Optional actionable message when OCR models have not been downloaded. */
   ocrMissing?: string;
+  ocrDownloadFailed?: string;
 }
 
 interface ImageTranslationOptions {
@@ -63,6 +67,11 @@ interface ImageTranslationOptions {
   ) => AsyncIterable<TranslationChunk>;
   /** Persists a drag/keyboard width change; defaults to Settings storage. */
   onWidthChange?: (widthEm: number) => void;
+  /** Starts the inline download on click; defaults to the background request. */
+  requestOcrDownload?: (tier: OcrTier) => Promise<boolean> | boolean;
+  /** Copy for the inline prompt, built from the same tier the request will use. */
+  ocrDownloadLabel?: (tier: OcrTier) => string;
+  ocrDownloadProgress?: (status: AssetStatus<OcrTier>) => string;
 }
 
 type Box = {
@@ -282,6 +291,10 @@ const IMAGE_BUBBLE_STYLE =
     '.card.image summary { cursor: pointer; }',
     '.card.image .source { margin-top: 0.4em; white-space: pre-wrap; overflow-wrap: anywhere; }',
     '.card.image .copy-note[hidden] { display: none; }',
+    '.card.image .body[hidden], .card.image .ocr-prompt[hidden], .card.image .ocr-progress[hidden] { display: none; }',
+    '.card.image .ocr-message { margin: 0; }',
+    '.card.image .ocr-download { white-space: nowrap; }',
+    '.card.image .ocr-progress { display: block; margin-top: 0.333em; color: #5b6675; font-variant-numeric: tabular-nums; }',
     '@media (prefers-color-scheme: dark) {',
     '  .card.image details { color: #b7c2cf; }',
     '  .card.image .body.error { color: #fca5a5; }',
@@ -292,6 +305,10 @@ interface PanelParts {
   host: HTMLElement;
   card: HTMLElement;
   body: HTMLElement;
+  ocrPrompt: HTMLElement;
+  ocrMessage: HTMLElement;
+  ocrDownload: HTMLButtonElement;
+  ocrProgress: HTMLElement;
   details: HTMLDetailsElement;
   source: HTMLElement;
   copy: HTMLButtonElement;
@@ -321,6 +338,11 @@ export class ImageTranslationController {
   private copyText = '';
   private copyTimer: ReturnType<typeof setTimeout> | null = null;
   private resize: ResizeState | null = null;
+  private ocrTier: OcrTier | null = null;
+  private ocrDownloadBusy = false;
+  /** The last image is kept so a completed download can retry that exact translation. */
+  private lastSourceUrl: string | null = null;
+  private lastAnchor: Pick<Box, 'left' | 'top' | 'right' | 'bottom'> | null = null;
 
   constructor(private readonly options: ImageTranslationOptions) {}
 
@@ -345,6 +367,9 @@ export class ImageTranslationController {
     anchor?: Pick<Box, 'left' | 'top' | 'right' | 'bottom'> | null,
   ): Promise<void> {
     this.close();
+    this.lastSourceUrl = sourceUrl;
+    this.lastAnchor = anchor ?? null;
+    this.ocrDownloadBusy = false;
     const generation = this.generation;
     const controller = new AbortController();
     this.controller = controller;
@@ -361,6 +386,7 @@ export class ImageTranslationController {
     try {
       const settings = await (this.options.loadSettings ?? loadSettings)();
       if (generation !== this.generation) return;
+      this.ocrTier = ocrTierOf(settings.selectedOcrTier);
       this.applyWidth(settings.imagePopupWidth);
       const pixels = await this.readPixels(sourceUrl);
       this.throwIfStale(generation, controller.signal);
@@ -438,17 +464,87 @@ export class ImageTranslationController {
         this.paintText(this.options.labels.failed, true);
         return;
       }
+      const ocrMissing = error instanceof OcrModelMissingError && this.options.labels.ocrMissing;
+      if (ocrMissing) {
+        this.paintOcrMissing(ocrMissing);
+        return;
+      }
       this.paintText(
         error instanceof ImageCapturePermissionError
           ? this.options.labels.permission
-          : error instanceof OcrModelMissingError && this.options.labels.ocrMissing
-            ? this.options.labels.ocrMissing
-            : this.options.labels.failed,
+          : this.options.labels.failed,
         true,
       );
     } finally {
       if (this.controller === controller) this.controller = null;
     }
+  }
+
+  /** Mirrors an `ocr:progress` message on the popup and retries this image when it is ready. */
+  updateOcrDownload(status: AssetStatus<OcrTier> | null): void {
+    const parts = this.parts;
+    if (!status || !parts || parts.ocrPrompt.hidden) return;
+    if (status.id !== (this.ocrTier ?? ocrTierOf(undefined))) return;
+    const busy = status.state === 'downloading' || status.state === 'verifying';
+    const finished = status.state === 'ready' || status.state === 'loaded';
+    this.ocrDownloadBusy = busy;
+    parts.ocrDownload.disabled = busy || finished;
+    if (status.state === 'error' && this.options.labels.ocrDownloadFailed) {
+      parts.ocrMessage.textContent = this.options.labels.ocrDownloadFailed;
+    }
+    const progress = this.options.ocrDownloadProgress ?? ocrDownloadProgressLabel;
+    parts.ocrProgress.hidden = !busy;
+    if (!parts.ocrProgress.hidden) parts.ocrProgress.textContent = progress(status);
+    this.reposition();
+    if (finished) this.retryImage();
+  }
+
+  private retryImage(): void {
+    const url = this.lastSourceUrl;
+    if (url !== null) void this.start(url, this.lastAnchor ?? null);
+  }
+
+  private async startOcrDownload(): Promise<void> {
+    const parts = this.parts;
+    if (!parts || this.ocrDownloadBusy || this.ocrTier === null) return;
+    const generation = this.generation;
+    const tier = this.ocrTier;
+    this.ocrDownloadBusy = true;
+    parts.ocrDownload.disabled = true;
+    parts.ocrProgress.hidden = true;
+    let started: boolean;
+    try {
+      const request = this.options.requestOcrDownload ?? requestOcrDownload;
+      started = (await request(tier)) !== false;
+    } catch {
+      started = false;
+    }
+    if (generation !== this.generation || this.parts !== parts) return;
+    if (started) return;
+    this.ocrDownloadBusy = false;
+    parts.ocrDownload.disabled = false;
+    const failed = this.options.labels.ocrDownloadFailed;
+    if (failed) parts.ocrMessage.textContent = failed;
+  }
+
+  private paintOcrMissing(message: string): void {
+    const parts = this.parts;
+    if (!parts) return;
+    this.copyText = '';
+    parts.card.setAttribute('aria-busy', 'false');
+    parts.body.hidden = true;
+    parts.body.textContent = '';
+    parts.details.hidden = true;
+    parts.copy.disabled = true;
+    parts.ocrPrompt.hidden = false;
+    parts.ocrMessage.textContent = message;
+    const label = this.options.ocrDownloadLabel ?? ocrDownloadLabel;
+    parts.ocrDownload.textContent = label(this.ocrTier ?? ocrTierOf(undefined));
+    parts.ocrDownload.disabled = false;
+    parts.ocrProgress.hidden = true;
+    parts.ocrProgress.textContent = '';
+    this.resetCopyFeedback();
+    this.reposition();
   }
 
   private throwIfStale(generation: number, signal: AbortSignal): void {
@@ -672,6 +768,25 @@ export class ImageTranslationController {
     const body = doc.createElement('p');
     body.className = 'body translation';
     body.setAttribute('aria-live', 'polite');
+    const ocrPrompt = doc.createElement('div');
+    ocrPrompt.className = 'ocr-prompt';
+    ocrPrompt.hidden = true;
+    const ocrMessage = doc.createElement('p');
+    ocrMessage.className = 'ocr-message';
+    ocrMessage.setAttribute('role', 'status');
+    const ocrDownload = doc.createElement('button');
+    ocrDownload.type = 'button';
+    ocrDownload.className = 'ocr-download';
+    ocrDownload.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      void this.startOcrDownload();
+    });
+    const ocrProgress = doc.createElement('span');
+    ocrProgress.className = 'ocr-progress';
+    ocrProgress.hidden = true;
+    ocrProgress.setAttribute('role', 'status');
+    ocrPrompt.append(ocrMessage, ocrDownload, ocrProgress);
     const details = doc.createElement('details');
     details.hidden = true;
     const summary = doc.createElement('summary');
@@ -731,11 +846,25 @@ export class ImageTranslationController {
     };
     const resizeLeft = makeHandle('left');
     const resizeRight = makeHandle('right');
-    card.append(kicker, body, details, copyNote, controls, resizeLeft, resizeRight);
+    card.append(kicker, body, ocrPrompt, details, copyNote, controls, resizeLeft, resizeRight);
     shadow.append(style, card);
     return {
       host,
-      parts: { host, card, body, details, source, copy, copyNote, resizeLeft, resizeRight },
+      parts: {
+        host,
+        card,
+        body,
+        ocrPrompt,
+        ocrMessage,
+        ocrDownload,
+        ocrProgress,
+        details,
+        source,
+        copy,
+        copyNote,
+        resizeLeft,
+        resizeRight,
+      },
     };
   }
 
@@ -776,8 +905,10 @@ export class ImageTranslationController {
     if (!parts) return;
     this.copyText = '';
     parts.card.setAttribute('aria-busy', 'true');
+    parts.body.hidden = false;
     parts.body.className = 'body translation';
     parts.body.textContent = this.options.labels.pending;
+    parts.ocrPrompt.hidden = true;
     parts.details.hidden = true;
     parts.copy.disabled = true;
     this.resetCopyFeedback();
@@ -788,8 +919,10 @@ export class ImageTranslationController {
     if (!parts) return;
     this.copyText = error ? '' : text;
     parts.card.setAttribute('aria-busy', 'false');
+    parts.body.hidden = false;
     parts.body.className = error ? 'body translation error' : 'body translation';
     parts.body.textContent = text;
+    parts.ocrPrompt.hidden = true;
     parts.copy.disabled = error || text.trim().length === 0;
     parts.details.hidden = !source;
     if (source) parts.source.textContent = source;

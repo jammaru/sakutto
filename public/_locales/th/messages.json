@@ -1800,8 +1800,30 @@
     "description": "Shown when a scanned PDF page cannot be recognized."
   },
   "ocrDownloadRequired": {
-    "message": "ดาวน์โหลดโมเดล OCR ในการตั้งค่าเพื่อจดจำข้อความใน PDFs ที่สแกนและรูปภาพ",
+    "message": "ต้องใช้โมเดล OCR เพื่อจดจำข้อความใน PDF ที่สแกนและรูปภาพ",
     "description": "Shown when OCR is unavailable or its model download fails."
+  },
+  "ocrDownloadInline": {
+    "message": "ดาวน์โหลดโมเดล OCR (ประมาณ $SIZE$)",
+    "description": "Inline button that downloads the selected OCR tier.",
+    "placeholders": {
+      "size": {
+        "content": "$1"
+      }
+    }
+  },
+  "ocrDownloadProgress": {
+    "message": "กำลังดาวน์โหลดโมเดล OCR: $PERCENT$%",
+    "description": "Inline progress shown while the OCR model downloads.",
+    "placeholders": {
+      "percent": {
+        "content": "$1"
+      }
+    }
+  },
+  "ocrDownloadFailed": {
+    "message": "ดาวน์โหลดโมเดล OCR ไม่สำเร็จ กรุณาลองอีกครั้ง",
+    "description": "Shown when an inline OCR model download fails."
   },
   "imageFileAccessHeading": {
     "message": "แปลรูปภาพในเครื่อง",

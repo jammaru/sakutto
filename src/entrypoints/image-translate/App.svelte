@@ -1,8 +1,10 @@
 <script lang="ts">
   import { ImageTranslationController, type ImageTranslationLabels } from '@/dom/image-translation';
   import { t } from '@/shared/i18n';
+  import { isOcrProgressMessage } from '@/shared/messages';
   import { saveSettings } from '@/shared/storage';
-  import { tick } from 'svelte';
+  import { browser } from 'wxt/browser';
+  import { onMount, tick } from 'svelte';
   import { imageTranslateEngine } from './engine';
 
   const labels: ImageTranslationLabels = {
@@ -18,6 +20,7 @@
     copyFailed: t('selectionCopyFailed'),
     resize: t('selectionResizeHandle'),
     ocrMissing: t('ocrDownloadRequired'),
+    ocrDownloadFailed: t('ocrDownloadFailed'),
   };
 
   let controller: ImageTranslationController | null = null;
@@ -25,6 +28,14 @@
   let imageElement: HTMLImageElement | null = null;
   let fileName = $state('');
   let busy = $state(false);
+
+  onMount(() => {
+    const onMessage = (message: unknown) => {
+      if (isOcrProgressMessage(message)) controller?.updateOcrDownload(message.status);
+    };
+    browser.runtime.onMessage.addListener(onMessage);
+    return () => browser.runtime.onMessage.removeListener(onMessage);
+  });
 
   /** The chosen file becomes an object URL in this extension page, which OCR can read directly. */
   async function chooseImage(event: Event): Promise<void> {

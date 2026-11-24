@@ -612,6 +612,9 @@ describe('locale messages', () => {
       'ocrModelsDescription',
       'onboardingOcrNote',
       'ocrDownloadRequired',
+      'ocrDownloadInline',
+      'ocrDownloadProgress',
+      'ocrDownloadFailed',
     ]);
     for (const locale of catalogs) {
       for (const [key, entry] of Object.entries(readMessages(locale))) {
@@ -628,6 +631,34 @@ describe('locale messages', () => {
       for (const [key, entry] of Object.entries(readMessages(locale))) {
         expect(entry.message, `${locale} ${key}`).not.toMatch(/[Ａ-Ｚａ-ｚ０-９]/u);
       }
+    }
+  });
+
+  /**
+   * A missing OCR bundle is actionable in the page and the popup, not only in Settings. The
+   * prompt therefore states the need without telling the reader where to go, and carries a
+   * button with the selected tier's size plus a percent-only progress line.
+   */
+  it('shows an inline OCR download prompt with half-width placeholders', () => {
+    expect(ja.ocrDownloadRequired?.message).toBe(
+      'スキャンしたPDFや画像の文字を認識するには、OCRモデルが必要です。',
+    );
+    expect(ja.ocrDownloadInline?.message).toBe('OCRモデルをダウンロード（約$SIZE$）');
+    expect(ja.ocrDownloadProgress?.message).toBe('OCRモデルをダウンロード中：$PERCENT$%');
+    for (const locale of catalogs) {
+      const messages = readMessages(locale);
+      for (const key of ['ocrDownloadRequired', 'ocrDownloadInline', 'ocrDownloadProgress']) {
+        expect(messages[key]?.message, `${locale} ${key}`).not.toMatch(
+          /設定で|設定内|in Settings/i,
+        );
+      }
+      expect(messages.ocrDownloadInline?.message, locale).toContain('$SIZE$');
+      expect(messages.ocrDownloadProgress?.message, locale).toContain('$PERCENT$');
+      expect(messages.ocrDownloadFailed?.message, locale).toBeTruthy();
+    }
+    for (const locale of ['ja', 'zh_CN', 'zh_TW']) {
+      expect(readMessages(locale).ocrDownloadRequired?.message, locale).toContain('PDF');
+      expect(readMessages(locale).ocrDownloadRequired?.message, locale).not.toContain('PDFs');
     }
   });
 

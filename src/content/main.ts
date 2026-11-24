@@ -61,6 +61,7 @@ import {
 } from '@/shared/shortcuts';
 import {
   isModelProgressMessage,
+  isOcrProgressMessage,
   isPageCommandRequest,
   isPageInfoRequest,
   isPageStateRequest,
@@ -853,6 +854,7 @@ export function contentMain(): void {
           copyFailed: t('selectionCopyFailed'),
           resize: t('selectionResizeHandle'),
           ocrMissing: t('ocrDownloadRequired'),
+          ocrDownloadFailed: t('ocrDownloadFailed'),
         },
         onWidthChange: (width) => void saveSettings({ imagePopupWidth: width }),
       });
@@ -877,6 +879,10 @@ export function contentMain(): void {
     }
     if (isPageInfoRequest(message)) {
       sendResponse({ lang: document.documentElement.lang } satisfies PageInfo);
+      return;
+    }
+    if (isOcrProgressMessage(message)) {
+      imageTranslation?.updateOcrDownload(message.status);
       return;
     }
     if (isModelProgressMessage(message)) {

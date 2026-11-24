@@ -1813,8 +1813,30 @@
     "description": "Shown when a scanned PDF page cannot be recognized."
   },
   "ocrDownloadRequired": {
-    "message": "スキャンしたPDFや画像の文字を認識するには、設定でOCRモデルをダウンロードしてください。",
+    "message": "スキャンしたPDFや画像の文字を認識するには、OCRモデルが必要です。",
     "description": "Shown when OCR is unavailable or its model download fails."
+  },
+  "ocrDownloadInline": {
+    "message": "OCRモデルをダウンロード（約$SIZE$）",
+    "description": "Inline button that downloads the selected OCR tier.",
+    "placeholders": {
+      "size": {
+        "content": "$1"
+      }
+    }
+  },
+  "ocrDownloadProgress": {
+    "message": "OCRモデルをダウンロード中：$PERCENT$%",
+    "description": "Inline progress shown while the OCR model downloads.",
+    "placeholders": {
+      "percent": {
+        "content": "$1"
+      }
+    }
+  },
+  "ocrDownloadFailed": {
+    "message": "OCRモデルのダウンロードに失敗しました。もう一度お試しください。",
+    "description": "Shown when an inline OCR model download fails."
   },
   "imageFileAccessHeading": {
     "message": "ローカル画像を翻訳",

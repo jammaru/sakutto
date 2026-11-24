@@ -322,6 +322,40 @@ export const READER_STYLE = `
   display: grid;
 }
 
+/* Only a page whose OCR pass found no bundle gets an action: the reader never offers to
+   download a model for a page that already has readable text. */
+.sakutto-ocr-prompt {
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+  max-width: 320px;
+}
+
+.sakutto-ocr-download {
+  padding: 7px 12px;
+  border: 1px solid #3157c8;
+  border-radius: 6px;
+  background: #3157c8;
+  color: #ffffff;
+  font: inherit;
+  cursor: pointer;
+}
+
+.sakutto-ocr-download:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.sakutto-ocr-progress {
+  color: #536173;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.sakutto-ocr-progress[hidden] {
+  display: none;
+}
+
 .sakutto-page__render-failed {
   position: absolute;
   inset: 0;

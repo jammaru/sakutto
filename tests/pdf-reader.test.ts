@@ -30,6 +30,9 @@ const labels: ReaderLabels = {
   pdfBilingual: 'Bilingual',
   ocrReading: (page, of) => `OCR ${String(page)}/${String(of)}`,
   ocrFailed: 'OCR failed',
+  ocrDownload: 'Download OCR (23 MB)',
+  ocrDownloadFailed: 'Download failed',
+  ocrDownloadProgress: (status) => `${String(Math.round(status.progress * 100))}%`,
 };
 
 type ObserverRecord = {
@@ -1095,6 +1098,72 @@ describe('PdfReader viewport observer', () => {
     reader.destroy();
   });
 
+  it('offers an inline OCR download on a missing page without downloading on its own', async () => {
+    vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver);
+    vi.stubGlobal('ResizeObserver', FakeResizeObserver);
+    ocrCanvas();
+    const recognize = vi.fn(() => {
+      throw new PdfOcrModelMissingError('Need OCR models');
+    });
+    const download = vi.fn(async () => true);
+    const root = document.createElement('div');
+    Object.defineProperty(root, 'clientWidth', { configurable: true, get: () => 520 });
+    document.body.append(root);
+    const reader = new PdfReader(root, geometries(1), {
+      document: fakeDocument({ count: 0 }, 1),
+      engine: silentEngine,
+      labels,
+      targetLanguage: 'ja',
+      form: 'plain',
+      onProgress: () => undefined,
+      ocr: { recognize, tier: 'standard' },
+      onOcrDownload: download,
+    });
+
+    reader.start();
+    await vi.waitFor(() => expect(pageHost(root, 0).dataset.ocrModelMissing).toBe('true'));
+    const overlay = pageHost(root, 0).querySelector<HTMLElement>('.sakutto-page__missing');
+    expect(overlay?.textContent).toContain('Need OCR models');
+    const button = overlay?.querySelector<HTMLButtonElement>('button.sakutto-ocr-download');
+    expect(button?.textContent).toBe(labels.ocrDownload);
+    expect(button?.getAttribute('data-sakutto')).toBe('ocr-download');
+    expect(download).not.toHaveBeenCalled();
+
+    button?.click();
+    await vi.waitFor(() => expect(download).toHaveBeenCalledWith('standard'));
+
+    reader.updateOcrDownload({
+      id: 'standard',
+      state: 'downloading',
+      received: 5,
+      total: 10,
+      progress: 0.5,
+    });
+    expect(overlay?.querySelector('.sakutto-ocr-progress')?.textContent).toBe('50%');
+    expect(button?.disabled).toBe(true);
+
+    reader.updateOcrDownload({
+      id: 'high',
+      state: 'downloading',
+      received: 9,
+      total: 10,
+      progress: 0.9,
+    });
+    expect(overlay?.querySelector('.sakutto-ocr-progress')?.textContent).toBe('50%');
+    reader.updateOcrDownload({
+      id: 'standard',
+      state: 'error',
+      received: 0,
+      total: 0,
+      progress: 0,
+      error: 'offline',
+    });
+    expect(overlay?.textContent).toContain(labels.ocrDownloadFailed);
+
+    reader.retryOcr();
+    await vi.waitFor(() => expect(pageHost(root, 0).dataset.ocrModelMissing).toBeUndefined());
+    reader.destroy();
+  });
   it('surfaces a failed OCR pass on a mixed page but not on a page that never ran OCR', async () => {
     vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver);
     vi.stubGlobal('ResizeObserver', FakeResizeObserver);
