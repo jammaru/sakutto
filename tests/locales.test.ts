@@ -604,15 +604,29 @@ describe('locale messages', () => {
       expect(messages.typedDetectSource?.message).toBeTruthy();
       expect(messages.typedResultEmpty?.message).not.toMatch(/^The translation appears here\.$/);
     }
-    // Nothing promises a document importer or a dictionary. The PDF reader is a real feature,
-    // so its own labels are excluded from the check: what must not appear is copy for a
-    // document converter this build does not have (Word, PowerPoint, a dictionary).
+    // Nothing promises a document importer or a dictionary. The PDF reader and its OCR
+    // flow are real features, so their labels are excluded from the check: what must not
+    // appear is copy for a document converter this build does not have (Word, PowerPoint,
+    // a dictionary).
+    const scannedPdfKeys = new Set([
+      'ocrModelsDescription',
+      'onboardingOcrNote',
+      'ocrDownloadRequired',
+    ]);
     for (const locale of catalogs) {
       for (const [key, entry] of Object.entries(readMessages(locale))) {
-        if (key.toLowerCase().includes('pdf')) continue;
+        if (key.toLowerCase().includes('pdf') || scannedPdfKeys.has(key)) continue;
         expect(entry.message, `${locale} ${key}`).not.toMatch(
           /\bPDF\b|Word file|PowerPoint|辞書/iu,
         );
+      }
+    }
+  });
+
+  it('writes Latin letters and digits in UI messages at half width', () => {
+    for (const locale of catalogs) {
+      for (const [key, entry] of Object.entries(readMessages(locale))) {
+        expect(entry.message, `${locale} ${key}`).not.toMatch(/[Ａ-Ｚａ-ｚ０-９]/u);
       }
     }
   });
