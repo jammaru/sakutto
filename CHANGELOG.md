@@ -2,6 +2,56 @@
 
 Release sections are added by `pnpm release`. Each section lists commit subjects since the previous `vX.Y.Z` tag.
 
+## [1.10.0] - 2026-11-24
+
+### Features
+
+- **Scanned PDFs are now translated with on-device OCR.** The PDF reader recognizes the text of image-only pages with PP-OCRv6 (ONNX Runtime Web, WebGPU when available, otherwise WASM) and translates it, entirely in your browser. PDFs that already have a text layer are translated directly, as before, and are never held back by OCR: on pages that mix text and images, the text is translated first and decorative images such as logos are skipped. The "recognizing scanned page" message only appears on image-only pages. (#160, building on the OCR work in #154)
+- **Download the translated PDF.** A new button saves the translation exactly as it looks in the reader, rendered at high resolution with an invisible text layer so the result stays searchable. The export waits until every page is translated. (#160)
+- **The OCR model (about 23 MB) is set up with the translation model.** New installs get it during onboarding, which now shows PLaMo and OCR progress on separate rows. Existing users who already have PLaMo are not sent a download on update; when OCR is first needed, the reader and image translation show an inline "Download OCR model" button with progress, and recognition resumes automatically once it finishes. (#160)
+- **Redesigned YouTube caption translation.** On recorded videos, including auto-generated captions, Sakutto now reads the player's timed-text track, translates ahead of playback and shows each sentence in sync with the video, removing the multi-second lag and dropped lines. Sentences are no longer cut mid-word or inside numbers such as `5.5`, short captions stay on screen for at least about 1.2 s, and the original line is shown while a translation is still on its way. Live streams get a two-line original/translation overlay that translates the rolling captions incrementally. Pure sound tags such as `[Music]` are no longer translated. (#147)
+
+### Improvements
+
+- **Page translations no longer make the page jump.** Instead of rewriting a paragraph token by token, which kept pushing the text below it around, page translation now shows each sentence as soon as it is translated and keeps the block's height until the paragraph is done, so the first translated text appears as quickly as before while the layout stays calm. A new "How page translations appear" setting also offers swapping in each paragraph once it is finished, in one short motion, and the previous token-by-token display. Menus and tables still fill in line by line, and with reduced motion enabled, translations fade in without movement. (#159, with thanks to sabopura)
+- **Better PDF layout for two-column papers.** Left and right columns are handled separately and translations wrap inside their own column, so they no longer overlap the neighboring column. Headings from the two columns are no longer merged, words like `3D` or `2024年度` are no longer mistaken for headings, figure labels stay inside their figures with the caption placed below as its own block, formula lines are kept as they are instead of being translated, and stray OCR fragments are merged into the previous paragraph or dropped. (#160)
+- **Faster-feeling PDF reading.** The page you are looking at is loaded, recognized and translated first, translations appear as they arrive, and OCR results are cached and prefetched. (#160)
+- The Japanese UI now writes "PDF" in half-width characters, and the new strings are translated into all 14 locales. (#160)
+
+### Bug Fixes
+
+- On X (x.com), bilingual translations no longer disappear right after a page translation finishes, line breaks and blank lines in logged-in timeline posts are preserved instead of being collapsed into one paragraph, and replies are translated too. (#165, fixes #161 — thanks to ninenine0425-commits for the report)
+- Local server: streaming responses framed with CRLF or CR line endings (common on aiohttp/httpx-based OpenAI-compatible servers) now arrive token by token instead of all at once when the stream ends. (#107, closes #106, with thanks to Seyamalam)
+- PDFs served with both `filename` and `filename*` in `Content-Disposition` now show the UTF-8 file name, following RFC 6266. (#164, fixes #151 — thanks to Seyamalam for the report)
+
+### Maintenance
+
+- Development dependencies were updated and the Svelte sources reformatted for the new Prettier plugin; no runtime, manifest or permission changes. (#166, follow-up to #163)
+
+### Thanks
+
+- Thank you to everyone who contributed to this release.
+- @sabopura — calmer page translation reveal (#159)
+- @Seyamalam — local server SSE line-ending fix (#107), and the reports behind #106 and #151
+- @ninenine0425-commits — the X timeline bug report (#161)
+
+### 日本語
+
+- **スキャンPDFを端末内OCRで翻訳できるようになりました。** PDFリーダーが画像だけのページの文字を PP-OCRv6（ONNX Runtime Web。WebGPU が使えれば WebGPU、使えなければ WASM）で読み取り、ブラウザー内だけで翻訳します。テキスト層があるPDFは従来どおりそのまま翻訳し、OCRを待たせません。テキストと画像が混在するページではテキストを先に翻訳し、ロゴなどの装飾画像はOCRしません。「スキャンしたページを文字認識しています」の表示は画像だけのページでのみ出ます。(#160、#154 のOCR実装をもとにしています)
+- **翻訳後のPDFをダウンロードできるようになりました。** リーダーに表示している訳文を見た目そのまま高解像度でPDFに書き出します。見えないテキスト層を重ねているので検索もできます。書き出しはすべてのページの翻訳完了を待ってから行います。(#160)
+- **OCRモデル（約23 MB）を翻訳モデルと一緒にセットアップします。** 新規インストールではオンボーディングで入り、PLaMo とOCRモデルの進捗を別々の行で表示します。すでに PLaMo を入れている方は、アップデートしただけで自動ダウンロードされることはありません。OCRが必要になったとき、リーダーと画像翻訳に「OCRモデルをダウンロード」ボタンが出て、進捗を表示し、完了すると自動で認識を再開します。(#160)
+- **YouTube 字幕翻訳を刷新しました。** 録画（自動生成字幕を含む）では、プレイヤーの字幕トラックを読み込んで再生より先に翻訳し、文ごとに動画と同期して表示します。数秒の遅れや字幕の欠落がなくなりました。単語の途中や `5.5` のような数値の中で文を切らず、短い字幕も約 1.2 秒は表示し、訳が間に合わない間は原文を表示します。ライブ配信では、流れる字幕を逐次翻訳し、原文・訳文の2行で表示します。`[Music]` のような効果音タグだけの行は翻訳しません。(#147)
+- **ページ翻訳で画面ががたつかなくなりました。** 訳文をトークンごとに書き込んで下の文章を押し下げ続けるのをやめ、訳された文ごとにすぐ表示し、段落が終わるまでブロックの高さを保つようにしました。最初の訳が出る速さは従来と同等のまま、レイアウトが落ち着きます。新しい設定「ページの訳文の出し方」では、段落の訳ができてから短い動きで1回だけ入れ替える方式と、従来どおりできた分から表示する方式も選べます。メニューや表は1行ずつ表示し、視差効果を減らす設定のときは動かさずフェードだけにします。(#159、sabopura さんの貢献)
+- **二段組の論文PDFのレイアウトを改善しました。** 左右の段を分けて扱い、訳文を段の中で折り返すので、隣の段に重なりません。左右の見出しがつながらないようにし、`3D` や `2024年度` のような語を見出しと誤認しないようにしました。図の中のラベルは枠内に収め、キャプションは図の下に独立したブロックとして表示します。数式の行は翻訳せずそのまま残し、OCRのちぎれた断片は直前の段落につなげるか削除します。(#160)
+- **PDFの体感速度を上げました。** 表示中のページを優先して読み込み・OCR・翻訳し、訳文は届いた順に表示します。OCRの結果はキャッシュし、先読みもします。(#160)
+- 日本語UIの「PDF」表記を半角に統一し、追加した文言を14ロケールに翻訳しました。(#160)
+- X（x.com）で、ページ翻訳の完了直後に対訳が消えて原文に戻る問題を修正しました。ログイン時のタイムラインの投稿で改行や空行が1段落につながる問題も直し、返信も翻訳されるようになりました。(#165、#161 を解決。ninenine0425-commits さん、報告ありがとうございます)
+- ローカルサーバー: CRLF や CR の改行で区切られたストリーミング応答（aiohttp/httpx 系の OpenAI 互換サーバーで一般的）が、ストリーム終了時にまとめてではなく、トークンごとに届くようになりました。(#107、#106 を解決。Seyamalam さんの貢献)
+- `Content-Disposition` に `filename` と `filename*` の両方があるPDFで、RFC 6266 に従い UTF-8 のファイル名を表示するようにしました。(#164、#151 を解決。Seyamalam さん、報告ありがとうございます)
+- 開発用の依存パッケージを更新し、新しい Prettier プラグインに合わせて Svelte のソースを整形しました。実行時の動作・manifest・権限に変更はありません。(#166、#163 の後継)
+
+- 謝辞: このリリースに貢献してくださった @sabopura さん（#159）、@Seyamalam さん（#107、#106・#151 の報告）、@ninenine0425-commits さん（#161 の報告）、ありがとうございました。
+
 ## [1.9.1] - 2026-11-21
 
 - オンボーディングのモデルダウンロード進捗が通知途絶後に止まったままになる不具合を修正 (#149) (#150)
