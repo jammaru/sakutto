@@ -1577,6 +1577,45 @@ describe('latest DSH review blockers', () => {
       expect(layout.blocks.map((block) => block.column)).toEqual([0, 1]);
     });
 
+    it('B1: equal 6pt phrase gaps with unaligned edges stay two single-column rows', () => {
+      // Four phrase regions per row can look like two 2-word columns when every gap is 6pt. Without
+      // column edges that line up across rows (or a central gap wider than the internal ones), the
+      // 2+2 reading is ordinary dense-scan spacing: keep both rows whole, in source order.
+      const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+      const first = [
+        region('dense scans emit', quad(45, 100, 110, 20)),
+        region('many word boxes', quad(161, 100, 110, 20)),
+        region('with equal six', quad(277, 100, 110, 20)),
+        region('point gaps here', quad(393, 100, 110, 20)),
+      ];
+      // Same 6pt spacing, but the four phrases sit 30pt further right: neither column edge lines
+      // up with the row above, so the two rows cannot corroborate a shared page gutter.
+      const second = [
+        region('ordinary single column', quad(75, 130, 100, 20)),
+        region('rows can look', quad(181, 130, 120, 20)),
+        region('like two columns', quad(307, 130, 110, 20)),
+        region('when gaps match', quad(423, 130, 100, 20)),
+      ];
+      const result = ocrResult(
+        [...first, ...second],
+        [readingLine('horizontal', first), readingLine('horizontal', second)],
+      );
+
+      const lines = ocrResultToTextLines(result, options);
+      expect(lines.map((line) => line.text)).toEqual([
+        first.map((item) => item.text).join(' '),
+        second.map((item) => item.text).join(' '),
+      ]);
+      expect(lines).toHaveLength(2);
+      expect(lines.every((line) => line.columnHint === undefined)).toBe(true);
+
+      const layout = ocrResultToPageLayout(result, options);
+      expect(layout.blocks.map((block) => block.column)).toEqual([0]);
+      expect(layout.blocks.map((block) => block.text).join(' ')).toBe(
+        [...first, ...second].map((item) => item.text).join(' '),
+      );
+    });
+
     it('B2: splits a merged body row by geometry, not by capitalisation', () => {
       const options = { pageIndex: 0, pageWidth: 595, pageHeight: 800 };
       for (const words of [
