@@ -8,14 +8,16 @@ import { DEFAULT_OCR_TIER, OCR_TIER_CATALOG } from '../src/engine/ocr/catalog';
 import { formatByteSize } from '../src/ui/format';
 import { FIXTURE_ORIGIN } from './page';
 
-// Onboarding tracks the PLaMo translation model and the default OCR bundle as one
-// byte-weighted download (573 MB + ~23 MB = 596 MB). The 0% snapshot is transient,
-// so match any percentage while pinning that combined total.
-const ONBOARDING_TOTAL_LABEL = formatByteSize(
-  getModel(DEFAULT_MODEL_ID).size + OCR_TIER_CATALOG[DEFAULT_OCR_TIER].size,
-);
+// Onboarding shows two lines while downloading: PLaMo's own byte progress and the OCR
+// tier's size plus its own percent. The 0% snapshot is transient, so match any percentage
+// while pinning each bundle's size.
+const ONBOARDING_PLAMO_SIZE = formatByteSize(getModel(DEFAULT_MODEL_ID).size);
 const ONBOARDING_DOWNLOADING = new RegExp(
-  `^Downloading \\d+% \\(\\d+ MB / ${ONBOARDING_TOTAL_LABEL}\\)$`,
+  `^Downloading \\d+% \\(\\d+ MB / ${ONBOARDING_PLAMO_SIZE}\\)$`,
+);
+const ONBOARDING_OCR_SIZE = formatByteSize(OCR_TIER_CATALOG[DEFAULT_OCR_TIER].size);
+const ONBOARDING_OCR_DOWNLOADING = new RegExp(
+  `^Downloading the OCR model \\(for scanned PDFs and images, about ${ONBOARDING_OCR_SIZE}\\): \\d+%$`,
 );
 
 const PICKER_HINT =
@@ -285,7 +287,7 @@ test.describe('shared model folder', () => {
       const page = await extension.context.newPage();
       await page.goto(`chrome-extension://${extension.extensionId}/onboarding.html`);
       await mockEmptySharedFolder(page);
-      // The setup copy names both bundles; the progress total below adds their sizes.
+      // The setup copy names both bundles; each download line below reports its own size.
       await expect(
         page.getByText(
           `Also downloads the standard on-device OCR models (${formatByteSize(
@@ -301,6 +303,9 @@ test.describe('shared model folder', () => {
       await expect(page.getByText(PICKER_HINT)).toHaveCount(0);
       await page.getByRole('button', { name: 'Agree to the license and start' }).click();
       await expect(page.getByText(ONBOARDING_DOWNLOADING)).toBeVisible({
+        timeout: 30_000,
+      });
+      await expect(page.getByText(ONBOARDING_OCR_DOWNLOADING)).toBeVisible({
         timeout: 30_000,
       });
       await expect
@@ -327,6 +332,9 @@ test.describe('shared model folder', () => {
       await expect(page.getByText(PICKER_HINT)).toBeVisible();
       await page.getByRole('button', { name: 'Agree to the license and start' }).click();
       await expect(page.getByText(ONBOARDING_DOWNLOADING)).toBeVisible({
+        timeout: 30_000,
+      });
+      await expect(page.getByText(ONBOARDING_OCR_DOWNLOADING)).toBeVisible({
         timeout: 30_000,
       });
       await expect
@@ -436,6 +444,9 @@ test.describe('shared model folder', () => {
       await page.getByRole('radio', { name: BROWSER_RADIO }).check();
       await page.getByRole('button', { name: 'Agree to the license and start' }).click();
       await expect(page.getByText(ONBOARDING_DOWNLOADING)).toBeVisible({
+        timeout: 30_000,
+      });
+      await expect(page.getByText(ONBOARDING_OCR_DOWNLOADING)).toBeVisible({
         timeout: 30_000,
       });
       await expect

@@ -183,9 +183,12 @@ test.describe('scanned PDF and image OCR in real Chromium', () => {
       const opened = await openPdfTab(extension, pdf, pdfUrl);
       expect(opened.reason).toBeNull();
       try {
-        await expect(
-          opened.page.getByText('設定でOCRモデルをダウンロードしてください'),
-        ).toBeVisible({ timeout: 20_000 });
+        // The reader must surface the actionable missing-model copy and its inline download
+        // button instead of silently waiting for OCR assets that are not installed.
+        await expect(opened.page.getByText(/OCRモデルが必要/u)).toBeVisible({ timeout: 20_000 });
+        const download = opened.page.locator('[data-sakutto="ocr-download"]');
+        await expect(download).toBeVisible({ timeout: 20_000 });
+        await expect(download).toHaveText(/OCRモデルをダウンロード/u, { timeout: 20_000 });
       } catch (error) {
         console.log(
           'missing-model reader text:',

@@ -9,13 +9,12 @@ import { shouldRunPdfOcr } from '@/pdf/ocr';
 import { loadPdfjs, openPdfBytes } from './support/open-fixture-pdf';
 
 const root = resolve(import.meta.dirname, '..');
-const cMaps = resolve(root, 'public/vendor/pdfjs/cmaps') + '/';
 
 describe('J-STAGE advance-publication cover', () => {
   it('has a native text layer and never gates translation on OCR', async () => {
     const bytes = new Uint8Array(await readFile(resolve(root, 'bench/pdf/jstage-cover.pdf')));
     const { OPS } = await loadPdfjs();
-    const document = await openPdfBytes(bytes, cMaps);
+    const document = await openPdfBytes(bytes);
     try {
       expect(document.numPages).toBe(6);
       const page = (await document.getPage(1)) as PdfPage;
