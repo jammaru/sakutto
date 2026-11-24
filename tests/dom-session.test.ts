@@ -7078,4 +7078,40 @@ describe('X logged-in pre-wrap bodies', () => {
       'Translated line 3.',
     ]);
   });
+
+  it('keeps the blank line bytes on the preceding source line in replace mode', async () => {
+    document.documentElement.lang = 'ja';
+    const lines = [
+      '最初の行には十分な長さの日本語の本文を用意しています。',
+      '二行目も同じように長い文章を書いています。',
+      '三行目まで空白行をはさんで訳文が並ぶことを確認します。',
+    ];
+    document.body.innerHTML =
+      '<article><div id="logged" data-testid="tweetText" lang="ja" class="r-whitespace-pre-wrap">' +
+      lines.join('\n\n') +
+      '</div></article>';
+
+    const seen: string[] = [];
+    const session = start(
+      document,
+      engineOf(async function* (segments) {
+        for (const segment of segments) {
+          seen.push(segment.text);
+          yield {
+            id: segment.id,
+            final: `Translated ${String(seen.length)}.`,
+            engine: 'plamo' as const,
+          };
+        }
+      }),
+      { targetLanguage: 'en', display: 'replace', auto: 'always' },
+    );
+    await session.translate();
+    await session.whenIdle();
+
+    expect(seen).toEqual(lines);
+    expect(document.querySelector('#logged')?.textContent).toBe(
+      'Translated 1.\n\nTranslated 2.\n\nTranslated 3.',
+    );
+  });
 });

@@ -324,6 +324,31 @@ describe('ImageTranslationController bubble', () => {
     expect(copy?.dataset.state).toBeUndefined();
   });
 
+  it('reports an error final as failed instead of painting the OCR source', async () => {
+    image();
+    stubCanvas();
+    const translate = vi.fn(async function* () {
+      // Engines send the source text as the final of a failed line. It must never be
+      // presented as if the image had been translated.
+      yield { id: 'line-0', final: 'Hello', error: true, engine: 'plamo' } as const;
+    });
+    const controller = new ImageTranslationController({
+      labels,
+      recognize: vi.fn(async () => ocr),
+      translate,
+      loadSettings: async () => settings(),
+    });
+    await controller.start('https://example.test/scan.png');
+
+    const host = document.querySelector<HTMLElement>('[data-sakutto-image-translation]');
+    const shadow = uiShadow(host);
+    const body = shadow?.querySelector<HTMLElement>('.body');
+    expect(body?.textContent).toBe(labels.failed);
+    expect(body?.classList.contains('error')).toBe(true);
+    expect(shadow?.querySelector<HTMLButtonElement>('button.copy')?.disabled).toBe(true);
+    controller.close();
+  });
+
   it('applies a saved width, persists a drag, and resets on double-click', async () => {
     image();
     stubCanvas();

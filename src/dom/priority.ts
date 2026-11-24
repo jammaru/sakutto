@@ -1,4 +1,5 @@
 import { hasSentenceTerminator } from '@/engine/text/sentences';
+import { shouldPreserveNewlines } from './x-post';
 
 export type VisibilityBand = 'visible' | 'near' | 'far';
 
@@ -106,7 +107,11 @@ export function contentKind(block: Element): ContentKind {
 export function isBodyProse(block: Element | undefined): boolean {
   if (!block || isChromeBlock(block) || isMetadataBlock(block)) return false;
   const tag = block.localName;
-  if (!PROSE_TAGS.has(tag)) return false;
+  // X post copy is a div, not a prose tag. Its body carries the tweetText id (logged in)
+  // or paints raw pre-wrap newlines (guest); both are the lead a sentence-mode reader waits
+  // for, and treating them as chrome pushes them behind bylines and tabs on the page.
+  const xBody = block.matches('[data-testid="tweetText"]') || shouldPreserveNewlines(block);
+  if (!PROSE_TAGS.has(tag) && !xBody) return false;
   const text = (block.textContent ?? '').trim();
   if (HEADING.test(tag)) return text.length > 0;
   if (text.length >= PARAGRAPH_CHARS) return true;

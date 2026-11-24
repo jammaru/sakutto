@@ -411,6 +411,12 @@ export class ImageTranslationController {
         signal: controller.signal,
       })) {
         this.throwIfStale(generation, controller.signal);
+        if (chunk.error === true) {
+          // An error final carries the source bytes so the caller can leave a block in
+          // place. It is not a translation: fail the popup instead of painting the
+          // recognized source as if OCR and translation had both succeeded.
+          throw new Error('Translation failed');
+        }
         const previous = translations.get(chunk.id) ?? '';
         if (chunk.textDelta !== undefined) {
           translations.set(
