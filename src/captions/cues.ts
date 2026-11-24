@@ -555,8 +555,11 @@ function dedupeRollingCaptionCues(cues: readonly CaptionCue[]): CaptionCue[] {
         // Only the growth beyond the previous raw window is new. The last fragment may be a
         // slide delta ("D" after "A B C" -> "B C D"), not the whole old window, so replacing it
         // with the new window would duplicate every retained word ("B C D E" -> "A B C B C D E").
+        // Append the raw growth, not a joined fragment: growing a partial word ("walk" ->
+        // "walking", "E" -> "E's") must not get a separator inserted inside the word. The growth
+        // already carries its own leading space when it starts a new word ("D" -> " E").
         const grown = text.slice(previousRaw.length);
-        previous.text = normalizeSentenceUnitText(joinCaptionFragments(previous.text, grown));
+        previous.text = normalizeSentenceUnitText(previous.text + grown);
         previous.endMs = Math.max(previous.endMs, cue.endMs);
         previousRaw = text;
         previousRawEndMs = Math.max(previousRawEndMs, cue.endMs);

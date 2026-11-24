@@ -227,8 +227,15 @@ function sharesBaseline(left: readonly OcrTextPiece[], right: readonly OcrTextPi
 
 /** White gap that separates two printed columns. Dense scans map a 12px gutter to ~6pt. */
 const MIN_COLUMN_GUTTER = 6;
-/** Tolerance for OCR jitter when comparing neighbouring white gaps on one row. */
-const GAP_EPSILON = 0.5;
+/**
+ * OCR jitter margin: a central gap must clear every internal word gap by at least this much to be
+ * column evidence on its own. Sub-point nudges are ordinary quad noise, not a printed gutter.
+ */
+const GUTTER_JITTER_MARGIN = 2;
+/** Jitter allowed when recognising the same printed phrase grid on several rows. */
+const PHRASE_GRID_JITTER = 1;
+/** Uniform-gap 2+2 rows need this many peers on shared column edges before they prove columns. */
+const ALIGNED_UNIFORM_ROWS = 3;
 /** A same-baseline row split by this much white is two body columns, not one wide line. */
 const WIDE_COLUMN_GUTTER = 10;
 
@@ -252,11 +259,13 @@ interface PieceSplit {
 /** Split evidence for a centred gap that may be a printed gutter. */
 interface GutterSplitEvidence extends PieceSplit {
   readonly pageWidth: number;
+  /** The row won column evidence from aligned uniform 2+2 peers rather than a wider gap. */
+  readonly alignedUniform?: boolean;
 }
 
-/** White gaps between successive pieces inside one side of a split. */
-function internalPieceGaps(group: readonly OcrTextPiece[]): number[] {
-  const byX = [...group].sort((a, b) => a.box.x - b.box.x);
+/** White gaps between successive pieces on one row, in reading order. */
+function pieceGaps(pieces: readonly OcrTextPiece[]): number[] {
+  const byX = [...pieces].sort((a, b) => a.box.x - b.box.x);
   const gaps: number[] = [];
   for (let index = 1; index < byX.length; index += 1) {
     const previous = byX[index - 1]!;
@@ -266,14 +275,23 @@ function internalPieceGaps(group: readonly OcrTextPiece[]): number[] {
   return gaps;
 }
 
+/** White gaps between successive pieces inside one side of a split. */
+function internalPieceGaps(group: readonly OcrTextPiece[]): number[] {
+  return pieceGaps(group);
+}
+
+/** A phrase grid has no standout gap: every white space on the row is the same within jitter. */
+function uniformGaps(gaps: readonly number[]): boolean {
+  return gaps.length > 0 && Math.max(...gaps) - Math.min(...gaps) <= PHRASE_GRID_JITTER;
+}
+
 /**
  * Whether a 2+2 split's central gap is structurally distinct from its word spacing.
  *
  * Four equally spaced phrase boxes describe one column wrapped into phrases, not two columns:
- * "keeps the same | six point gaps" has the same 6pt geometry as a real dense-scan gutter, and
- * two such rows repeat the exact same x/width layout. That row continuity is evidence of a
- * repeated phrase grid, never of a page gutter. Only a central gap wider than both internal
- * word gaps can start column evidence; no word or verb list is involved.
+ * "keeps the same | six point gaps" has the same 6pt geometry as a real dense-scan gutter. Only a
+ * central gap clear of both internal word gaps by the OCR jitter margin can start column evidence.
+ * A 0.5-2pt nudge from quad noise is never enough; no word or verb list is involved.
  */
 function structurallyDistinctGutter(
   left: readonly OcrTextPiece[],
@@ -282,7 +300,130 @@ function structurallyDistinctGutter(
 ): boolean {
   if (left.length !== 2 || right.length !== 2) return false;
   const internal = [...internalPieceGaps(left), ...internalPieceGaps(right)];
-  return internal.length === 2 && gutterGap > Math.max(...internal) + GAP_EPSILON;
+  return internal.length === 2 && gutterGap >= Math.max(...internal) + GUTTER_JITTER_MARGIN;
+}
+
+/** Geometry of one reading line that could carry a centred 2+2 gutter. */
+interface GutterRowGeometry extends PieceSplit {
+  readonly index: number;
+  readonly pieces: OcrTextPiece[];
+  readonly gutterGap: number;
+  readonly starts: readonly number[];
+  readonly widths: readonly number[];
+  readonly uniformGrid: boolean;
+  readonly twoByTwo: boolean;
+}
+
+/**
+ * Collect candidate rows once so the page can compare their geometry. Phrase-grid detection and
+ * column corroboration are both cross-row decisions, so they must see the same jittered quads.
+ */
+function gutterRowGeometries(
+  lines: readonly ReadingLine<OcrRegion>[],
+  resolved: ResolvedConversion,
+): GutterRowGeometry[] {
+  const rows: GutterRowGeometry[] = [];
+  for (const [lineIndex, readingLine] of lines.entries()) {
+    const pieces: OcrTextPiece[] = [];
+    for (const [itemIndex, region] of readingLine.items.entries()) {
+      if (region.text.trim().length === 0) continue;
+      const detectorIndex = readingLine.indices[itemIndex];
+      const regionIndex =
+        detectorIndex !== undefined && Number.isSafeInteger(detectorIndex) && detectorIndex >= 0
+          ? detectorIndex
+          : itemIndex;
+      const id =
+        'ocr:p' +
+        String(resolved.pageIndex) +
+        ':l' +
+        String(lineIndex) +
+        ':r' +
+        String(regionIndex);
+      pieces.push(regionPiece(region, region.vertical, id, resolved.scaleX, resolved.scaleY));
+    }
+    if (pieces.length < 2 || pieces.some((piece) => piece.displayed === 90)) continue;
+    if (isCentredHeadingRow(pieces, resolved.pageWidth)) continue;
+    // A CJK two-piece row cannot be discarded as a title on text shape alone: Japanese body
+    // lines have the same glyph shape. Geometry below decides whether the page has columns.
+    if (!cjkTextRow(pieces) && onePrintedTitleRow(pieces, resolved.pageWidth, true)) continue;
+    if (singleSentenceRow(pieces, resolved.pageWidth)) continue;
+    const { left, right, leftEnd, rightStart } = splitAtGutter(pieces, resolved.pageWidth);
+    if (left.length === 0 || right.length === 0) continue;
+    const gutterGap = rightStart - leftEnd;
+    if (gutterGap < MIN_COLUMN_GUTTER) continue;
+    const byX = [...pieces].sort((a, b) => a.box.x - b.box.x);
+    const gaps = pieceGaps(byX);
+    rows.push({
+      index: lineIndex,
+      pieces,
+      left,
+      right,
+      leftEnd,
+      rightStart,
+      gutterGap,
+      starts: byX.map((piece) => piece.box.x),
+      widths: byX.map((piece) => piece.box.width),
+      uniformGrid: uniformGaps(gaps),
+      twoByTwo: left.length === 2 && right.length === 2,
+    });
+  }
+  return rows;
+}
+
+/**
+ * Two rows with the same phrase count, the same region starts and widths within 1pt, and uniform
+ * gaps on each row are one sentence wrapped into phrase boxes. Even a 1pt wider centre gap is OCR
+ * jitter on that grid; such rows neither split nor corroborate page columns.
+ */
+function samePhraseGrid(a: GutterRowGeometry, b: GutterRowGeometry): boolean {
+  if (!a.twoByTwo || !b.twoByTwo || !a.uniformGrid || !b.uniformGrid) return false;
+  if (a.starts.length !== b.starts.length) return false;
+  return a.starts.every(
+    (start, index) =>
+      Math.abs(start - (b.starts[index] ?? 0)) <= PHRASE_GRID_JITTER &&
+      Math.abs((a.widths[index] ?? 0) - (b.widths[index] ?? 0)) <= PHRASE_GRID_JITTER,
+  );
+}
+
+/** Row indices belonging to any repeated uniform phrase grid. */
+function phraseWrapRows(rows: readonly GutterRowGeometry[]): Set<number> {
+  const flagged = new Set<number>();
+  for (let first = 0; first < rows.length; first += 1) {
+    for (let second = first + 1; second < rows.length; second += 1) {
+      if (samePhraseGrid(rows[first]!, rows[second]!)) {
+        flagged.add(rows[first]!.index);
+        flagged.add(rows[second]!.index);
+      }
+    }
+  }
+  return flagged;
+}
+
+/**
+ * Uniform-gap 2+2 rows can still be real columns when several of them share column edges. The
+ * phrase-grid fingerprint must not fire on those rows: measured word boxes vary by more than 1pt,
+ * so a repeated phrase grid never vouches for a gutter here.
+ */
+function alignedUniformRows(
+  rows: readonly GutterRowGeometry[],
+  pageWidth: number,
+  phraseRows: ReadonlySet<number>,
+): Set<number> {
+  const eligible = rows.filter(
+    (row) => row.twoByTwo && row.uniformGrid && !phraseRows.has(row.index),
+  );
+  const tolerance = Math.max(6, pageWidth * 0.03);
+  const aligned = new Set<number>();
+  for (const row of eligible) {
+    const peers = eligible.filter(
+      (other) =>
+        Math.abs((other.starts[0] ?? 0) - (row.starts[0] ?? 0)) <= tolerance &&
+        Math.abs(other.leftEnd - row.leftEnd) <= tolerance &&
+        Math.abs(other.rightStart - row.rightStart) <= tolerance,
+    );
+    if (peers.length >= ALIGNED_UNIFORM_ROWS) aligned.add(row.index);
+  }
+  return aligned;
 }
 
 /**
@@ -293,8 +434,8 @@ function structurallyDistinctGutter(
  * leaves two word regions on either side with comparable column measures, and is wider than the
  * row's own word gaps, those four regions can be two body columns. This is deliberately narrow
  * (two regions per column): a longer run of equally spaced words stays ordinary spacing, as does
- * a ragged split whose two halves are not comparable measures. Identical layouts on several rows
- * cannot promote equal gaps: repeated phrase wrapping is not aligned column evidence.
+ * a ragged split whose two halves are not comparable measures. A repeated phrase grid is never
+ * evidence; only measured columns aligned across several rows can promote uniform gaps.
  */
 function twoRegionsPerColumn(
   pageWidth: number,
@@ -303,8 +444,9 @@ function twoRegionsPerColumn(
   leftEnd: number,
   rightStart: number,
   gutterGap: number,
+  alignedUniform = false,
 ): boolean {
-  if (!structurallyDistinctGutter(left, right, gutterGap)) return false;
+  if (!alignedUniform && !structurallyDistinctGutter(left, right, gutterGap)) return false;
   if (!gutterCentred(leftEnd, rightStart, pageWidth)) return false;
   const measure = (group: readonly OcrTextPiece[]): number =>
     Math.max(...group.map((piece) => piece.box.x + piece.box.width)) -
@@ -329,8 +471,9 @@ function twoRegionsPerColumn(
  * row, it is ordinary justification/OCR spacing, not a printed gutter. A real gutter stands out
  * from the word spaces (or is the row's only gap, in which case there is nothing to compare).
  * Callers that know the row's split geometry pass it so a centred 2+2 split can override the
- * equal-gap reading, but only when the central gap is structurally wider than both internal word
- * gaps. Callers without that evidence keep the conservative answer.
+ * equal-gap reading: either the central gap is structurally wider than both internal word gaps, or
+ * several non-phrase rows on shared column edges prove the uniform gaps are a printed gutter.
+ * Callers without that evidence keep the conservative answer.
  */
 function wordSpaceGutter(
   pieces: readonly OcrTextPiece[],
@@ -338,13 +481,7 @@ function wordSpaceGutter(
   split?: GutterSplitEvidence,
 ): boolean {
   if (pieces.length < 3) return false;
-  const byX = [...pieces].sort((a, b) => a.box.x - b.box.x);
-  const gaps: number[] = [];
-  for (let index = 1; index < byX.length; index += 1) {
-    const previous = byX[index - 1]!;
-    const current = byX[index]!;
-    gaps.push(current.box.x - (previous.box.x + previous.box.width));
-  }
+  const gaps = pieceGaps(pieces);
   if (gaps.length < 2 || gaps.some((gap) => gap < 0 || gap > WIDE_COLUMN_GUTTER + 2)) {
     return false;
   }
@@ -361,6 +498,7 @@ function wordSpaceGutter(
       split.leftEnd,
       split.rightStart,
       gutterGap,
+      split.alignedUniform ?? false,
     )
   );
 }
@@ -839,8 +977,13 @@ export function ocrResultToTextLines(
   const output: OcrTextLine[] = [];
   const lines = readingLines(result);
   // A dense scan can put a real column gutter only 6pt from a word space. Decide from the rest
-  // of the page whether two body columns exist before judging a single row's centre gap.
-  const twoColumnRows = twoColumnBodyRows(lines, resolved);
+  // of the page whether two body columns exist before judging a single row's centre gap. The
+  // phrase-wrap fingerprint is computed on the same geometry so it also vetoes a split here when
+  // another page row happens to establish columns.
+  const geometries = gutterRowGeometries(lines, resolved);
+  const phraseRows = phraseWrapRows(geometries);
+  const alignedUniform = alignedUniformRows(geometries, resolved.pageWidth, phraseRows);
+  const twoColumnRows = twoColumnBodyRows(geometries, resolved, phraseRows, alignedUniform);
   const pageTwoColumn = twoColumnRows.length >= 2;
   const twoColumnGeometry = twoColumnRows.map((index) => {
     const boxes = (lines[index]?.items ?? [])
@@ -866,6 +1009,9 @@ export function ocrResultToTextLines(
       pieces.push(regionPiece(region, region.vertical, id, resolved.scaleX, resolved.scaleY));
     }
     if (pieces.length === 0) continue;
+    // A repeated uniform phrase grid is one wrapped column, even when another row on the page
+    // establishes real body columns. Its middle gap must never become a split or gutter evidence.
+    const uniformPhraseRow = phraseRows.has(lineIndex);
     const pieceVertical = pieces.every((piece) => piece.displayed === 90);
     const middle = resolved.pageWidth / 2;
     const lineWidth =
@@ -1096,6 +1242,7 @@ export function ocrResultToTextLines(
       (gutterGap <= WIDE_COLUMN_GUTTER + 2 || wideGapTitleRow) &&
       (!pageTwoColumn || positiveTitleEvidence);
     const wideTwoColumnLine =
+      !uniformPhraseRow &&
       lineWidth >= resolved.pageWidth * 0.82 &&
       leftWidth > resolved.pageWidth * 0.18 &&
       rightWidth > resolved.pageWidth * 0.18 &&
@@ -1106,6 +1253,7 @@ export function ocrResultToTextLines(
     // word spaces on one printed line are not a gutter; only a gap far wider than every other
     // gap on the row (a short left column beside a right body) can stand on its own.
     const narrowTwoColumnLine =
+      !uniformPhraseRow &&
       lineWidth < resolved.pageWidth * 0.82 &&
       !titleWordGap &&
       ((pageTwoColumn && gutterGap >= MIN_COLUMN_GUTTER) ||
@@ -1129,11 +1277,13 @@ export function ocrResultToTextLines(
     // when the merged row really spans the page; on a narrow single-column line a wide phrase
     // quad beside an ordinary 6pt word gap is not a gutter.
     const wideLineRegionMerge =
+      !uniformPhraseRow &&
       lineWidth >= resolved.pageWidth * 0.6 &&
       (pageTwoColumn || lineWidth >= resolved.pageWidth * 0.82) &&
       pieces.some((piece) => piece.box.width >= resolved.pageWidth * 0.3) &&
       !titleWordGap;
     const crossesGutter =
+      !uniformPhraseRow &&
       resolved.pageWidth > 0 &&
       !pieceVertical &&
       gutterGap >= MIN_COLUMN_GUTTER &&
@@ -1157,7 +1307,12 @@ export function ocrResultToTextLines(
         titleRow: titleRow || undefined,
       });
     };
-    if (resolved.pageWidth > 0 && !pieceVertical && lineWidth >= resolved.pageWidth * 0.82) {
+    if (
+      !uniformPhraseRow &&
+      resolved.pageWidth > 0 &&
+      !pieceVertical &&
+      lineWidth >= resolved.pageWidth * 0.82
+    ) {
       const rows = splitMergedBodyLine(pieces, resolved.pageWidth);
       if (rows) {
         pushLine(rows[0], lineId + ':left', 0);
@@ -1186,87 +1341,64 @@ interface GutterRowCandidate extends PieceSplit {
   readonly index: number;
   readonly pieces: OcrTextPiece[];
   readonly gutterGap: number;
+  readonly alignedUniform: boolean;
 }
 
 /**
  * Page-wide column evidence from the raw reading lines. A dense scan can place a real gutter only
- * 6pt from an ordinary word space, so the width of one gap is not enough on its own: two or more
- * rows with comparable measures on both sides of a centred gap prove the page has body columns.
- * A 2+2 row qualifies only when its central gap is structurally wider than both internal word
- * gaps: four equal gaps, even repeated at the same x positions on several rows, are one column
- * wrapped into phrases and must never corroborate a gutter. A lone single-column row (including
- * a centred title or a merged two-column row) has no corroboration and keeps its ordinary word
- * gaps. The row indices let a title above the body keep its own whitespace even when the page as
- * a whole is two-column.
+ * 6pt from an ordinary word space, so the width of one gap is not enough on its own: several rows
+ * with comparable measures on both sides of a centred gap prove the page has body columns.
+ *
+ * A 2+2 row qualifies structurally in one of two ways: its central gap clears every internal word
+ * gap by the OCR jitter margin, or it has uniform gaps and shares column edges with at least three
+ * measured rows. A repeated phrase grid — the same piece count, starts and widths within 1pt and
+ * uniform gaps on each row — is one wrapped column and never corroborates a gutter, even when its
+ * centre gap is a point wider from OCR jitter. Other piece layouts keep the conservative
+ * word-space test. The row indices let a title above the body keep its own whitespace.
  */
 function twoColumnBodyRows(
-  lines: readonly ReadingLine<OcrRegion>[],
+  rows: readonly GutterRowGeometry[],
   resolved: ResolvedConversion,
+  phraseRows: ReadonlySet<number>,
+  alignedUniform: ReadonlySet<number>,
 ): readonly number[] {
   const candidates: GutterRowCandidate[] = [];
-  for (const [lineIndex, readingLine] of lines.entries()) {
-    const pieces: OcrTextPiece[] = [];
-    for (const [itemIndex, region] of readingLine.items.entries()) {
-      if (region.text.trim().length === 0) continue;
-      const detectorIndex = readingLine.indices[itemIndex];
-      const regionIndex =
-        detectorIndex !== undefined && Number.isSafeInteger(detectorIndex) && detectorIndex >= 0
-          ? detectorIndex
-          : itemIndex;
-      const id =
-        'ocr:p' +
-        String(resolved.pageIndex) +
-        ':l' +
-        String(lineIndex) +
-        ':r' +
-        String(regionIndex);
-      pieces.push(regionPiece(region, region.vertical, id, resolved.scaleX, resolved.scaleY));
-    }
-    if (pieces.length < 2 || pieces.some((piece) => piece.displayed === 90)) continue;
-    if (isCentredHeadingRow(pieces, resolved.pageWidth)) continue;
-    // A CJK two-piece row cannot be discarded as a title on text shape alone: Japanese body
-    // lines have the same glyph shape. Geometry below decides whether the page has columns,
-    // and a lone CJK row still keeps its title treatment in the main conversion pass.
-    if (!cjkTextRow(pieces) && onePrintedTitleRow(pieces, resolved.pageWidth, true)) continue;
-    if (singleSentenceRow(pieces, resolved.pageWidth)) continue;
-    const { left, right, leftEnd, rightStart } = splitAtGutter(pieces, resolved.pageWidth);
-    if (left.length === 0 || right.length === 0) continue;
-    const gutterGap = rightStart - leftEnd;
-    if (gutterGap < MIN_COLUMN_GUTTER) continue;
-    // Four equal gaps describe one sentence wrapped into phrase boxes. Repeated identical
-    // x/width layouts on later rows are row continuity, not aligned column edges.
-    if (
-      left.length === 2 &&
-      right.length === 2 &&
-      !structurallyDistinctGutter(left, right, gutterGap)
-    ) {
-      continue;
+  for (const row of rows) {
+    let aligned = false;
+    if (row.twoByTwo) {
+      if (phraseRows.has(row.index)) continue;
+      const internal = [...internalPieceGaps(row.left), ...internalPieceGaps(row.right)];
+      const distinct =
+        internal.length === 2 && row.gutterGap >= Math.max(...internal) + GUTTER_JITTER_MARGIN;
+      aligned = row.uniformGrid && alignedUniform.has(row.index);
+      if (!distinct && !aligned) continue;
     }
     const measure = (group: readonly OcrTextPiece[]): number =>
       Math.max(...group.map((piece) => piece.box.x + piece.box.width)) -
       Math.min(...group.map((piece) => piece.box.x));
     if (
-      measure(left) < resolved.pageWidth * 0.15 ||
-      measure(right) < resolved.pageWidth * 0.15 ||
-      !gutterCentred(leftEnd, rightStart, resolved.pageWidth)
+      measure(row.left) < resolved.pageWidth * 0.15 ||
+      measure(row.right) < resolved.pageWidth * 0.15 ||
+      !gutterCentred(row.leftEnd, row.rightStart, resolved.pageWidth)
     ) {
       continue;
     }
     candidates.push({
-      index: lineIndex,
-      pieces,
-      left,
-      right,
-      leftEnd,
-      rightStart,
-      gutterGap,
+      index: row.index,
+      pieces: row.pieces,
+      left: row.left,
+      right: row.right,
+      leftEnd: row.leftEnd,
+      rightStart: row.rightStart,
+      gutterGap: row.gutterGap,
+      alignedUniform: aligned,
     });
   }
 
-  // A word-space-wide gap can still be a gutter, but only for rows whose geometry passed the
-  // structural 2+2 test above (or that have a different piece layout). Candidate rows are judged
-  // independently: identical phrase grids never vouch for one another as column edges.
-  const rows: number[] = [];
+  // A word-space-wide gap can still be a gutter, but only for rows that passed the structural 2+2
+  // test above (or that have a different piece layout). Candidate rows are judged independently:
+  // identical phrase grids never vouch for one another as column edges.
+  const result: number[] = [];
   for (const candidate of candidates) {
     if (
       !wordSpaceGutter(candidate.pieces, candidate.gutterGap, {
@@ -1275,12 +1407,13 @@ function twoColumnBodyRows(
         right: candidate.right,
         leftEnd: candidate.leftEnd,
         rightStart: candidate.rightStart,
+        alignedUniform: candidate.alignedUniform,
       })
     ) {
-      rows.push(candidate.index);
+      result.push(candidate.index);
     }
   }
-  return rows;
+  return result;
 }
 
 /**

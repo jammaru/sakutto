@@ -1541,37 +1541,53 @@ describe('latest DSH review blockers', () => {
       expect(layout.blocks.map((block) => block.text)).not.toContain('boxes with equal six');
     });
 
-    it('B1: a structurally wider centred gutter with two regions per column still splits', () => {
-      // A real 2-column scan keeps its internal word spaces at 6pt but opens the central gutter
-      // to 8pt. The wider central gap is geometry evidence a phrase-wrapped single column cannot
-      // fake, even when both rows share the same x/width layout.
+    it('B1: dense-scan 6pt four-region rows with three aligned peers still split', () => {
+      // The original dense-scan geometry: 45/166/287/408 with 115pt regions and a 6pt gutter —
+      // no inflated 8pt centre gap. Three measured rows share the column edges; their region
+      // widths differ by more than the 1pt phrase-grid jitter, so this is not a repeated phrase
+      // grid and the uniform gaps are real column whitespace.
       const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
-      const row = (y: number, left: readonly string[], right: readonly string[]) => [
-        region(left[0]!, quad(45, y, 115, 20)),
-        region(left[1]!, quad(166, y, 115, 20)),
-        region(right[0]!, quad(289, y, 115, 20)),
-        region(right[1]!, quad(410, y, 115, 20)),
-      ];
-      const first = row(100, ['density values', 'of the'], ['remain stable', 'across runs']);
+      const row = (y: number, width: number, left: readonly string[], right: readonly string[]) => {
+        let x = 45;
+        const place = (text: string) => {
+          const item = region(text, quad(x, y, width, 20));
+          x += width + 6;
+          return item;
+        };
+        return [place(left[0]!), place(left[1]!), place(right[0]!), place(right[1]!)];
+      };
+      const first = row(100, 115, ['density values', 'of the'], ['remain stable', 'across runs']);
       const second = row(
         130,
+        112,
         ['optimal transport', 'converges'],
         ['converges fast', 'in practice'],
       );
-      const result = ocrResult(
-        [...first, ...second],
-        [readingLine('horizontal', first), readingLine('horizontal', second)],
+      const third = row(
+        160,
+        109,
+        ['measured values', 'stay stable'],
+        ['transport models', 'converge well'],
       );
+      const rows = [first, second, third];
+      const result = ocrResult(
+        rows.flat(),
+        rows.map((items) => readingLine('horizontal', items)),
+      );
+      const pairText = (items: readonly ReturnType<typeof region>[], from: number) =>
+        [items[from]!.text, items[from + 1]!.text].join(' ');
 
       const lines = ocrResultToTextLines(result, options);
       expect(lines.map((line) => line.text)).toEqual([
-        [first[0]!.text, first[1]!.text].join(' '),
-        [second[0]!.text, second[1]!.text].join(' '),
-        [first[2]!.text, first[3]!.text].join(' '),
-        [second[2]!.text, second[3]!.text].join(' '),
+        pairText(first, 0),
+        pairText(second, 0),
+        pairText(third, 0),
+        pairText(first, 2),
+        pairText(second, 2),
+        pairText(third, 2),
       ]);
-      expect(lines.filter((line) => line.columnHint === 0)).toHaveLength(2);
-      expect(lines.filter((line) => line.columnHint === 1)).toHaveLength(2);
+      expect(lines.filter((line) => line.columnHint === 0)).toHaveLength(3);
+      expect(lines.filter((line) => line.columnHint === 1)).toHaveLength(3);
 
       const layout = ocrResultToPageLayout(result, options);
       expect(layout.blocks.map((block) => block.column)).toEqual([0, 1]);
@@ -1623,6 +1639,43 @@ describe('latest DSH review blockers', () => {
       ];
       const first = row(100, ['The measured', 'density values', 'remain stable', 'across runs.']);
       const second = row(130, ['Repeated scans', 'of the sample', 'yield similar', 'results.']);
+      const result = ocrResult(
+        [...first, ...second],
+        [readingLine('horizontal', first), readingLine('horizontal', second)],
+      );
+
+      const lines = ocrResultToTextLines(result, options);
+      expect(lines.map((line) => line.text)).toEqual([
+        first.map((item) => item.text).join(' '),
+        second.map((item) => item.text).join(' '),
+      ]);
+      expect(lines).toHaveLength(2);
+      expect(lines.every((line) => line.columnHint === undefined)).toBe(true);
+
+      const layout = ocrResultToPageLayout(result, options);
+      expect(layout.blocks.every((block) => block.column === 0)).toBe(true);
+      expect(layout.blocks.map((block) => block.text).join(' ')).toBe(
+        [...first, ...second].map((item) => item.text).join(' '),
+      );
+    });
+
+    it('B1: a 1pt OCR jitter in the central gap keeps one sentence per row whole', () => {
+      // Review reproduction: the negative sentence geometry with only the right pair shifted 1pt.
+      // Internal gaps stay 6pt, the central gap is 7pt, but both rows keep the same piece count,
+      // widths and starts within 1pt — a repeated phrase grid, not a printed gutter.
+      const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+      const first = [
+        region('The measured', quad(45, 100, 115, 20)),
+        region('density values', quad(166, 100, 115, 20)),
+        region('remain stable', quad(287, 100, 115, 20)),
+        region('across runs.', quad(408, 100, 115, 20)),
+      ];
+      const second = [
+        region('Repeated scans', quad(45, 130, 115, 20)),
+        region('of the sample', quad(166, 130, 115, 20)),
+        region('yield similar', quad(288, 130, 115, 20)),
+        region('results.', quad(409, 130, 115, 20)),
+      ];
       const result = ocrResult(
         [...first, ...second],
         [readingLine('horizontal', first), readingLine('horizontal', second)],
@@ -1713,6 +1766,47 @@ describe('latest DSH review blockers', () => {
       expect(layout.blocks.map((block) => block.text).join(' ')).toBe(
         [...first, ...second].map((item) => item.text).join(' '),
       );
+    });
+
+    it('B1: a phrase grid stays whole even when other rows prove two columns', () => {
+      // The fingerprint vetoes the split on the phrase rows themselves; page-wide column evidence
+      // from unrelated 2-piece rows must not leak across and cut one wrapped sentence into four.
+      const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+      const left1 = region('left column prose words for the first row', quad(45, 100, 200, 20));
+      const right1 = region('right column prose words on the first row', quad(251, 100, 200, 20));
+      const left2 = region('more left column prose words in row two', quad(45, 130, 200, 20));
+      const right2 = region('more right column prose words in row two', quad(251, 130, 200, 20));
+      const grid = (y: number) => [
+        region('Another line of', quad(45, y, 115, 20)),
+        region('ordinary prose', quad(166, y, 115, 20)),
+        region('keeps the same', quad(287, y, 115, 20)),
+        region('six point gaps', quad(408, y, 115, 20)),
+      ];
+      const grid1 = grid(160);
+      const grid2 = grid(190);
+      const result = ocrResult(
+        [left1, right1, left2, right2, ...grid1, ...grid2],
+        [
+          readingLine('horizontal', [left1, right1]),
+          readingLine('horizontal', [left2, right2]),
+          readingLine('horizontal', grid1),
+          readingLine('horizontal', grid2),
+        ],
+      );
+
+      const lines = ocrResultToTextLines(result, options);
+      // The whole phrase rows span the page, so column ordering places them after the two
+      // corroborated body columns; what matters is that neither was cut at its middle gap.
+      expect(lines.map((line) => line.text)).toEqual([
+        left1.text,
+        left2.text,
+        right1.text,
+        right2.text,
+        grid1.map((item) => item.text).join(' '),
+        grid2.map((item) => item.text).join(' '),
+      ]);
+      expect(lines.filter((line) => line.columnHint === 0)).toHaveLength(2);
+      expect(lines.filter((line) => line.columnHint === 1)).toHaveLength(2);
     });
 
     it('B2: splits a merged body row by geometry, not by capitalisation', () => {
