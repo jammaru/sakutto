@@ -2,9 +2,16 @@ import { browser, type Browser } from 'wxt/browser';
 import { bindPortDisconnectCleanup, readRuntimeLastError } from '@/shared/runtime-last-error';
 import { abortError, EngineError, isAbortError } from '@/engine/errors';
 import type { ModelId } from '@/engine/model/catalog';
+import type { OcrTier } from '@/engine/ocr/catalog';
+import type { OcrResult } from '@/engine/ocr/types';
+import type { AssetStatus } from '@/engine/model/asset';
+import { isOcrResult, isOcrStatus } from '@/shared/ocr';
 import {
   ENGINE_HOST_PORT,
   MODEL_STATUS_PROGRESS_ID,
+  OCR_DELETE_TIMEOUT_MS,
+  OCR_PAGE_TIMEOUT_MS,
+  ocrRecognitionTimeoutMs,
   errorFromPayload,
   isEngineHostMessage,
   serializeTranslateOptions,
@@ -20,6 +27,10 @@ import {
   type ModelStatusRequest,
   type ModelUseRequest,
   type ModelWarmRequest,
+  type OcrDeleteRequest,
+  type OcrDownloadRequest,
+  type OcrRecognizeRequest,
+  type OcrStatusRequest,
   type PingRequest,
   type RuntimeSetRequest,
   type SourceSetRequest,
@@ -51,6 +62,8 @@ type RequestWithoutId =
   | Omit<ModelUseRequest, 'requestId'>
   | Omit<ModelWarmRequest, 'requestId'>
   | Omit<ModelStatusRequest, 'requestId'>
+  | Omit<OcrStatusRequest, 'requestId'>
+  | Omit<OcrDeleteRequest, 'requestId'>
   | Omit<CacheClearRequest, 'requestId'>
   | Omit<TierSetRequest, 'requestId'>
   | Omit<SourceSetRequest, 'requestId'>
@@ -75,6 +88,8 @@ interface RequestOptions {
   retry?: boolean;
   /** Recreate the offscreen document when a host-gone response leaves attempts unused. */
   recover?: boolean;
+  /** Keep the port attached when a slow host response is mistaken for a host-gone error. */
+  keepPort?: boolean;
 }
 
 function createRequestId(): string {
@@ -99,18 +114,42 @@ function hostError(message: string, cause?: unknown): EngineError {
   );
 }
 
+/**
+ * A host that did not answer in time is not the same as a host that went away. Callers still
+ * see the public offscreen-unavailable code, but the client can keep the port and the offscreen
+ * document attached instead of treating a slow OCR run as a dead host.
+ */
+class HostTimeoutError extends EngineError {
+  readonly timedOut = true;
+}
+
+function hostTimeoutError(): HostTimeoutError {
+  return new HostTimeoutError(
+    'offscreen-unavailable',
+    'The translation host did not respond in time.',
+  );
+}
+
+function isHostTimeout(error: unknown): boolean {
+  return error instanceof HostTimeoutError;
+}
+
 export class EngineClient {
   private port: Browser.runtime.Port | null = null;
   private connecting: Promise<Browser.runtime.Port> | null = null;
   private readonly pending = new Map<string, PendingRequest>();
   private readonly streams = new Map<string, ChunkStream<TranslationChunk>>();
   private readonly progress = new Map<string, (status: ModelStatus) => void>();
+  private readonly ocrProgress = new Map<string, (status: AssetStatus<OcrTier>) => void>();
+  private readonly ocrStatusListeners = new Set<(status: AssetStatus<OcrTier>) => void>();
   private readonly modelMarks = new Map<string, ModelStatus>();
   private readonly modelStatusListeners = new Set<(status: ModelStatus) => void>();
   private sourceKey = '';
   private runtimeKey = '';
   private pushedModelId: ModelId | null = null;
   private inbox: Promise<void> = Promise.resolve();
+  /** Recognitions whose result the host has not posted yet. */
+  private activeRecognitions = 0;
 
   constructor(private readonly controller: OffscreenController) {}
 
@@ -154,6 +193,34 @@ export class EngineClient {
     const value = await this.request({ type: 'model-status', modelId }, { timeoutMs: 15_000 });
     if (!isModelStatus(value)) throw hostError('The engine host returned an invalid status.');
     return value;
+  }
+
+  async ocrStatus(tier: OcrTier): Promise<AssetStatus<OcrTier>> {
+    await this.ensureSource();
+    // A status poll is cheap, but an OCR run owns the host's main thread between pipeline
+    // yields. While one is in flight, wait for the page bound instead of racing it; the
+    // OCR-busy timeout guard in request() keeps the port attached in either case.
+    const timeoutMs = this.activeRecognitions > 0 ? OCR_PAGE_TIMEOUT_MS : 15_000;
+    const value = await this.request({ type: 'ocr-status', tier }, { timeoutMs });
+    if (!isOcrStatus(value)) throw hostError('The OCR host returned an invalid status.');
+    return value;
+  }
+
+  async deleteOcr(tier: OcrTier): Promise<AssetStatus<OcrTier>> {
+    // The host cancels the shared queue before deleting, but a native run can still take the
+    // high-tier bound to settle. Retrying or dropping the port here would disconnect every
+    // other caller from a host that is still alive and still deleting.
+    const value = await this.request(
+      { type: 'ocr-delete', tier },
+      { timeoutMs: OCR_DELETE_TIMEOUT_MS, retry: false, recover: false, keepPort: true },
+    );
+    if (!isOcrStatus(value)) throw hostError('The OCR host returned an invalid status.');
+    return value;
+  }
+
+  onOcrStatus(listener: (status: AssetStatus<OcrTier>) => void): () => void {
+    this.ocrStatusListeners.add(listener);
+    return () => this.ocrStatusListeners.delete(listener);
   }
 
   /** Cancel by model ID so a new service worker can stop an older worker's attachment. */
@@ -340,6 +407,66 @@ export class EngineClient {
       : hostError('The model download failed.', lastError);
   }
 
+  async downloadOcr(
+    tier: OcrTier,
+    options: { signal: AbortSignal; onProgress?: (status: AssetStatus<OcrTier>) => void },
+  ): Promise<AssetStatus<OcrTier>> {
+    const requestId = createRequestId();
+    if (options.onProgress) this.ocrProgress.set(requestId, options.onProgress);
+    const cancel = (): void => this.sendRaw({ type: 'ocr-cancel', requestId });
+    options.signal.addEventListener('abort', cancel, { once: true });
+    try {
+      await raceWithAbort(this.ensureSource(), options.signal);
+      const port = await raceWithAbort(this.connect(), options.signal);
+      if (options.signal.aborted) throw abortError();
+      const value = await this.roundTrip(
+        port,
+        { type: 'ocr-download', requestId, tier } satisfies OcrDownloadRequest,
+        0,
+        options.signal,
+      );
+      if (!isOcrStatus(value)) throw hostError('The OCR host returned an invalid status.');
+      return value;
+    } catch (error) {
+      if (options.signal.aborted || isAbortError(error)) throw abortError();
+      throw error instanceof EngineError ? error : hostError('The OCR download failed.', error);
+    } finally {
+      options.signal.removeEventListener('abort', cancel);
+      this.ocrProgress.delete(requestId);
+    }
+  }
+
+  async recognizeOcr(
+    tier: OcrTier,
+    image: OcrRecognizeRequest['image'],
+    signal: AbortSignal,
+  ): Promise<OcrResult> {
+    const requestId = createRequestId();
+    const cancel = (): void => this.sendRaw({ type: 'ocr-cancel', requestId });
+    // Count from the start, including the source push: a status poll that races a slow
+    // connect must not drop the port underneath a recognition that is about to run.
+    this.activeRecognitions += 1;
+    signal.addEventListener('abort', cancel, { once: true });
+    try {
+      await this.ensureSource();
+      const port = await this.connect();
+      if (signal.aborted) throw abortError();
+      const value = await this.roundTrip(
+        port,
+        { type: 'ocr-recognize', requestId, tier, image } satisfies OcrRecognizeRequest,
+        ocrRecognitionTimeoutMs(tier),
+      );
+      if (!isOcrResult(value)) throw hostError('The OCR host returned an invalid result.');
+      return value;
+    } catch (error) {
+      if (signal.aborted || isAbortError(error)) throw abortError();
+      throw error instanceof EngineError ? error : hostError('OCR recognition failed.', error);
+    } finally {
+      this.activeRecognitions -= 1;
+      signal.removeEventListener('abort', cancel);
+    }
+  }
+
   async *translate(
     segments: readonly TranslateSegment[],
     options: TranslateOptions,
@@ -399,7 +526,12 @@ export class EngineClient {
         lastError = error;
         if (!isHostGone(error)) throw error;
 
-        this.dropPort();
+        // A timeout while OCR is running means the WASM main thread has not yielded yet,
+        // not that the host died. Dropping the port or recreating the document here would
+        // abort the page in flight, so keep the live connection and surface the timeout.
+        if (this.activeRecognitions > 0 && isHostTimeout(error)) throw error;
+
+        if (!options.keepPort) this.dropPort();
         if (attempt + 1 >= attempts) throw error;
         if (options.recover !== false) await this.controller.recreate();
       }
@@ -419,6 +551,9 @@ export class EngineClient {
         await this.pushStoredSource(port);
         return port;
       } catch (error) {
+        // A settings/model push can time out while OCR owns the host thread. Keep the
+        // live port: reconnecting here would close the document running the page.
+        if (this.activeRecognitions > 0 && isHostTimeout(error)) return port;
         this.dropPort();
         if (!isHostGone(error)) throw error;
         await this.controller.recreate();
@@ -526,7 +661,7 @@ export class EngineClient {
       if (timeoutMs > 0) {
         timer = setTimeout(() => {
           this.pending.delete(message.requestId);
-          settle(() => reject(hostError('The translation host did not respond in time.')));
+          settle(() => reject(hostTimeoutError()));
         }, timeoutMs);
       }
 
@@ -594,6 +729,19 @@ export class EngineClient {
         }
         return;
       }
+      case 'ocr-progress': {
+        this.ocrProgress.get(message.requestId)?.(message.status);
+        if (message.requestId === `ocr:${message.status.id}`) {
+          for (const listener of this.ocrStatusListeners) {
+            try {
+              listener(message.status);
+            } catch {
+              // A status subscriber must not break the host inbox.
+            }
+          }
+        }
+        return;
+      }
       case 'response': {
         const pending = this.pending.get(message.requestId);
         if (!pending) return;
@@ -616,6 +764,9 @@ export class EngineClient {
     const port = this.port;
     this.port = null;
     this.clearPushedSettings();
+    // The disconnect handler ignores a port that is no longer current, so settle every
+    // pending request here. Otherwise an unresponsive host can wedge a download forever.
+    this.failAll(hostError('The translation host was closed.'));
     try {
       port?.disconnect();
     } catch {
@@ -639,6 +790,7 @@ export class EngineClient {
     for (const stream of this.streams.values()) stream.fail(error);
     this.streams.clear();
     this.progress.clear();
+    this.ocrProgress.clear();
   }
 
   private sendRaw(message: EngineHostRequest): void {

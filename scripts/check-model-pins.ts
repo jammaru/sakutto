@@ -20,6 +20,7 @@ import {
   MODEL_CATALOG,
   type ModelEntry,
 } from '../src/engine/model/catalog.ts';
+import { OCR_MODEL_CATALOG } from '../src/engine/ocr/catalog.ts';
 
 export interface ModelPinTarget {
   id: string;
@@ -170,6 +171,16 @@ export function pinnedModelTargets(): ModelPinTarget[] {
   }));
 }
 
+/** The OCR bundle pins have a single official revision each, unlike PLaMo's moving main. */
+export function pinnedOcrModelTargets(): ModelPinTarget[] {
+  return Object.values(OCR_MODEL_CATALOG).map((entry) => ({
+    id: entry.id,
+    url: entry.url,
+    size: entry.size,
+    sha256: entry.sha256,
+  }));
+}
+
 function isDirectRun(): boolean {
   const entry = process.argv[1];
   if (!entry) return false;
@@ -177,7 +188,7 @@ function isDirectRun(): boolean {
 }
 
 if (isDirectRun()) {
-  const targets = pinnedModelTargets();
+  const targets = [...pinnedModelTargets(), ...pinnedOcrModelTargets()];
   checkModelPins(targets, fetch)
     .then(() => {
       for (const target of targets) {

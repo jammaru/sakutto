@@ -4,7 +4,21 @@ import { join } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 import { launchExtension, loadExtension, type LoadedExtension } from './extension';
 import { DEFAULT_MODEL_ID, getModel } from '../src/engine/model/catalog';
+import { DEFAULT_OCR_TIER, OCR_TIER_CATALOG } from '../src/engine/ocr/catalog';
+import { formatByteSize } from '../src/ui/format';
 import { FIXTURE_ORIGIN } from './page';
+
+// Onboarding shows two lines while downloading: PLaMo's own byte progress and the OCR
+// tier's size plus its own percent. The 0% snapshot is transient, so match any percentage
+// while pinning each bundle's size.
+const ONBOARDING_PLAMO_SIZE = formatByteSize(getModel(DEFAULT_MODEL_ID).size);
+const ONBOARDING_DOWNLOADING = new RegExp(
+  `^Downloading \\d+% \\(\\d+ MB / ${ONBOARDING_PLAMO_SIZE}\\)$`,
+);
+const ONBOARDING_OCR_SIZE = formatByteSize(OCR_TIER_CATALOG[DEFAULT_OCR_TIER].size);
+const ONBOARDING_OCR_DOWNLOADING = new RegExp(
+  `^Downloading the OCR model \\(for scanned PDFs and images, about ${ONBOARDING_OCR_SIZE}\\): \\d+%$`,
+);
 
 const PICKER_HINT =
   'After you press start, a folder dialog opens in Documents. Create or choose Documents/Sakutto, or choose the existing folder if another browser already has the models. Any folder you can write to also works.';
@@ -220,7 +234,7 @@ test.describe('shared model folder', () => {
     }
   });
 
-  test('onboarding uses a verified shared file and does not download', async () => {
+  test('onboarding uses a verified shared file and skips only the PLaMo download', async () => {
     const extension = await loadExtension('en-US');
     const hits = await interceptGguf(extension, 'hang');
     try {
@@ -273,11 +287,25 @@ test.describe('shared model folder', () => {
       const page = await extension.context.newPage();
       await page.goto(`chrome-extension://${extension.extensionId}/onboarding.html`);
       await mockEmptySharedFolder(page);
+      // The setup copy names both bundles; each download line below reports its own size.
+      await expect(
+        page.getByText(
+          `Also downloads the standard on-device OCR models (${formatByteSize(
+            OCR_TIER_CATALOG[DEFAULT_OCR_TIER].size,
+          )}) for scanned PDFs and images.`,
+        ),
+      ).toBeVisible();
+      await expect(
+        page.getByText(/Page translation and scanned-document OCR run on this device by default/),
+      ).toBeVisible();
       await expect(page.getByRole('radio', { name: BROWSER_RADIO })).toBeChecked();
       await expect(page.getByRole('radio', { name: FOLDER_RADIO })).not.toBeChecked();
       await expect(page.getByText(PICKER_HINT)).toHaveCount(0);
       await page.getByRole('button', { name: 'Agree to the license and start' }).click();
-      await expect(page.getByText('Downloading 0% (0 MB / 573 MB)')).toBeVisible({
+      await expect(page.getByText(ONBOARDING_DOWNLOADING)).toBeVisible({
+        timeout: 30_000,
+      });
+      await expect(page.getByText(ONBOARDING_OCR_DOWNLOADING)).toBeVisible({
         timeout: 30_000,
       });
       await expect
@@ -303,7 +331,10 @@ test.describe('shared model folder', () => {
       await page.getByRole('radio', { name: FOLDER_RADIO }).check();
       await expect(page.getByText(PICKER_HINT)).toBeVisible();
       await page.getByRole('button', { name: 'Agree to the license and start' }).click();
-      await expect(page.getByText('Downloading 0% (0 MB / 573 MB)')).toBeVisible({
+      await expect(page.getByText(ONBOARDING_DOWNLOADING)).toBeVisible({
+        timeout: 30_000,
+      });
+      await expect(page.getByText(ONBOARDING_OCR_DOWNLOADING)).toBeVisible({
         timeout: 30_000,
       });
       await expect
@@ -412,7 +443,10 @@ test.describe('shared model folder', () => {
       await expect(page.locator('[data-folder-picker-hint]')).toHaveCount(0);
       await page.getByRole('radio', { name: BROWSER_RADIO }).check();
       await page.getByRole('button', { name: 'Agree to the license and start' }).click();
-      await expect(page.getByText('Downloading 0% (0 MB / 573 MB)')).toBeVisible({
+      await expect(page.getByText(ONBOARDING_DOWNLOADING)).toBeVisible({
+        timeout: 30_000,
+      });
+      await expect(page.getByText(ONBOARDING_OCR_DOWNLOADING)).toBeVisible({
         timeout: 30_000,
       });
       await expect
@@ -499,7 +533,7 @@ test.describe('shared model folder', () => {
     }
   });
 
-  test('onboarding skips the download when Sakutto already has a verified file', async () => {
+  test('onboarding skips the PLaMo download when Sakutto already has a verified file', async () => {
     const extension = await loadExtension('en-US');
     const hits = await interceptGguf(extension, 'hang');
     try {

@@ -6,7 +6,11 @@ import {
 } from '@/shared/runtime-last-error';
 import { defineBackground } from 'wxt/utils/define-background';
 import { EngineClient } from '@/background/engine-client';
+import { OcrRecognitionRequests } from '@/background/ocr-requests';
+import { ocrReadyForRecognition } from '@/background/ocr-readiness';
+import { captureActiveSenderTab } from '@/background/image-capture';
 import { ModelDownloads } from '@/background/model-downloads';
+import { ocrRecognitionTimeoutMs, type OcrFailureResponse } from '@/engine/offscreen/protocol';
 import { createEngineHostController } from '@/background/engine-host-document';
 import {
   injectCaptionPages,
@@ -41,6 +45,7 @@ import {
   type PdfOpenResult,
 } from '@/shared/pdf';
 import { tabServesPdf } from '@/background/pdf-detect';
+import { isImageCaptureRequest } from '@/shared/image';
 import { sendExtensionModelProgress } from '@/background/extension-progress-sink';
 import { broadcastModelProgress } from '@/background/progress-broadcast';
 import { measureQuality } from '@/background/quality';
@@ -50,6 +55,8 @@ import { hasAllSitesAccess, syncAllSitesContentScripts } from '@/dom/all-sites';
 import { settleMailEnableIntent, syncMailContentScripts } from '@/dom/mail-sites';
 import { grantOriginsFor } from '@/dom/sites';
 import type { ModelId } from '@/engine/model/catalog';
+import { OCR_TIER_CATALOG, type OcrTier } from '@/engine/ocr/catalog';
+import type { AssetStatus } from '@/engine/model/asset';
 import { normalizeSelectedModelId } from '@/engine/model/selection';
 import { hasLicenseConsent } from '@/shared/agreement';
 import type { EngineCapabilities } from '@/shared/capabilities';
@@ -77,10 +84,16 @@ import {
   isModelFolderToBrowserRequest,
   isModelInspectRequest,
   isModelUseRequest,
+  isOcrCancelRequest,
+  isOcrDeleteRequest,
+  isOcrDownloadRequest,
+  isOcrInspectRequest,
+  isOcrRecognizeRequest,
   isQualitySampleRequest,
   isWebGpuDebugQuery,
   requestEngineProbe,
   type ModelProgressMessage,
+  type OcrProgressMessage,
 } from '@/shared/messages';
 import { resolveShortcutQuery, restoreEmptyCommandShortcuts } from '@/shared/shortcut-assignment';
 import {
@@ -119,10 +132,16 @@ export default defineBackground(() => {
   installPageActionListeners(client);
   const broker = new TranslationBroker(client);
   const downloads = new ModelDownloads(client, broadcast);
+  const ocrDownloads = new Map<OcrTier, AbortController>();
+  const ocrDownloadTasks = new Map<OcrTier, Promise<AssetStatus<OcrTier>>>();
+  const ocrRecognitions = new OcrRecognitionRequests();
   let capabilitiesCache: EngineCapabilities | null = null;
 
   client.onModelStatus((status) => {
     void broadcast({ type: 'model:progress', status });
+  });
+  client.onOcrStatus((status) => {
+    void broadcast({ type: 'ocr:progress', status });
   });
 
   broker.start();
@@ -220,7 +239,7 @@ export default defineBackground(() => {
     return null;
   }
 
-  async function broadcast(message: ModelProgressMessage): Promise<void> {
+  async function broadcast(message: ModelProgressMessage | OcrProgressMessage): Promise<void> {
     await broadcastModelProgress(message, {
       sendExtension: sendExtensionModelProgress,
       listTabs: () => browser.tabs.query({}),
@@ -229,6 +248,60 @@ export default defineBackground(() => {
         readRuntimeLastError();
       },
     });
+  }
+
+  function startOcrDownload(tier: OcrTier): boolean {
+    if (ocrDownloadTasks.has(tier)) return true;
+    const controller = new AbortController();
+    const total = OCR_TIER_CATALOG[tier].size;
+    let received = 0;
+    ocrDownloads.set(tier, controller);
+    const task = (async () => {
+      try {
+        const status = await client.downloadOcr(tier, {
+          signal: controller.signal,
+          onProgress: (progress) => {
+            received = progress.received;
+            void broadcast({ type: 'ocr:progress', status: progress });
+          },
+        });
+        await broadcast({ type: 'ocr:progress', status });
+        return status;
+      } catch (error) {
+        if (controller.signal.aborted) {
+          const status = await client.ocrStatus(tier).catch(() => null);
+          if (status) await broadcast({ type: 'ocr:progress', status });
+          throw error;
+        }
+        const status: AssetStatus<OcrTier> = {
+          id: tier,
+          state: 'error',
+          received,
+          total,
+          progress: Math.min(1, received / total),
+          error: error instanceof Error ? error.message : String(error),
+        };
+        await broadcast({ type: 'ocr:progress', status });
+        throw error;
+      } finally {
+        ocrDownloads.delete(tier);
+        ocrDownloadTasks.delete(tier);
+      }
+    })();
+    // The map owns rejection handling for fire-and-forget downloads. Recognition callers await
+    // this same task, so a first scanned page never starts a duplicate bundle transfer.
+    void task.catch(() => undefined);
+    ocrDownloadTasks.set(tier, task);
+    return true;
+  }
+
+  async function ensureOcrReady(tier: OcrTier): Promise<void> {
+    const status = await client.ocrStatus(tier);
+    if (ocrReadyForRecognition(status)) return;
+    // On-demand downloads used to leave the first scanned page waiting on a 23 MB transfer
+    // with no visible error when that transfer could not start. Onboarding already offers the
+    // bundle; if it is missing, ask the reader to say so instead of waiting forever.
+    throw new Error('OCR models are not downloaded.');
   }
 
   async function deleteModel(modelId: ModelId) {
@@ -339,6 +412,13 @@ export default defineBackground(() => {
           },
           () => sendResponse(''),
         );
+      return true;
+    }
+
+    if (isImageCaptureRequest(message)) {
+      // The image context-menu click supplies activeTab. Capture is only a fallback after the
+      // content-side canvas read failed, so no broad image-origin permission is requested.
+      void captureActiveSenderTab(sender).then(sendResponse);
       return true;
     }
 
@@ -513,6 +593,93 @@ export default defineBackground(() => {
 
     if (isModelInspectRequest(message)) {
       void client.modelStatus(message.modelId).then(sendResponse, () => sendResponse(null));
+      return true;
+    }
+
+    if (isOcrInspectRequest(message)) {
+      void client.ocrStatus(message.tier).then(sendResponse, () => sendResponse(null));
+      return true;
+    }
+
+    if (isOcrDownloadRequest(message)) {
+      void ensureSettings().then(
+        (settings) => {
+          if (!hasLicenseConsent(settings)) {
+            sendResponse(false);
+            return;
+          }
+          sendResponse(startOcrDownload(message.tier));
+        },
+        () => sendResponse(false),
+      );
+      return true;
+    }
+
+    if (isOcrCancelRequest(message)) {
+      if (message.requestId === undefined) {
+        // Download cancellation is a deliberate settings action for the shared tier transfer.
+        // It must not abort unrelated recognition callers using the already-loaded model.
+        ocrDownloads.get(message.tier)?.abort();
+        ocrDownloads.delete(message.tier);
+      } else {
+        ocrRecognitions.cancel(message.tier, message.requestId);
+      }
+      sendResponse(true);
+      return false;
+    }
+
+    if (isOcrDeleteRequest(message)) {
+      void (async () => {
+        // The offscreen recognition queue is shared by all tiers and is drained before the
+        // delete runs; settle callers on every tier before waiting for that queue.
+        for (const download of ocrDownloads.values()) download.abort();
+        ocrDownloads.clear();
+        ocrRecognitions.cancelAll();
+        const status = await client.deleteOcr(message.tier).catch(() => null);
+        if (status) await broadcast({ type: 'ocr:progress', status });
+        sendResponse(status);
+      })();
+      return true;
+    }
+
+    if (isOcrRecognizeRequest(message)) {
+      const controller = ocrRecognitions.start(message.requestId, message.tier);
+      if (!controller) {
+        sendResponse(null);
+        return false;
+      }
+      void (async () => {
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        const timedOut = new Promise<OcrFailureResponse>((resolve) => {
+          timer = setTimeout(() => {
+            // Abort both the local and the offscreen side, then answer instead of hanging.
+            controller.abort();
+            resolve({ __ocrError: 'timeout' });
+          }, ocrRecognitionTimeoutMs(message.tier));
+        });
+        const work = (async (): Promise<unknown> => {
+          try {
+            await ensureOcrReady(message.tier);
+            return await client.recognizeOcr(message.tier, message.image, controller.signal);
+          } catch (error) {
+            (globalThis as { console: Console }).console.error('OCR recognition failed:', error);
+            if (controller.signal.aborted) return null;
+            // A missing or unusable OCR bundle is actionable; other failures stay generic.
+            const fromReadiness =
+              error instanceof Error &&
+              /OCR model consent|not downloaded|model-missing/iu.test(error.message);
+            return fromReadiness
+              ? ({ __ocrError: 'model-missing' } satisfies OcrFailureResponse)
+              : null;
+          }
+        })();
+        try {
+          sendResponse(await Promise.race([work, timedOut]));
+        } finally {
+          if (timer !== undefined) clearTimeout(timer);
+          ocrRecognitions.finish(message.requestId, controller);
+        }
+      })();
       return true;
     }
 

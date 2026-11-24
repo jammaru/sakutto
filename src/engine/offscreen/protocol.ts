@@ -1,5 +1,7 @@
 import { EngineError, isEngineErrorCode, type EngineErrorCode } from '../errors';
 import { isModelId, type ModelId } from '../model/catalog';
+import { isOcrTier, type OcrTier } from '../ocr/catalog';
+import type { AssetStatus } from '../model/asset';
 import { isTranslationChunk } from '../types';
 import type {
   Formality,
@@ -30,6 +32,52 @@ export const TRANSLATION_PORT = 'sakutto:translate';
  * loading/loaded transitions so every open surface can refresh itself.
  */
 export const MODEL_STATUS_PROGRESS_ID = 'sakutto:model-status';
+
+/**
+ * OCR is the only host operation with no streaming progress. A recognition that never posts a
+ * result (stalled WASM init, a lost port, a wedged session) must not leave the reader pending
+ * forever. Standard tier measures ~35.5 s/page on the committed real scan (2x render, maxSide 1600), so a
+ * bound below that aborts a healthy recognition before it can produce an overlay. Leave
+ * headroom for slower devices but keep a hard stop for a wedged WASM session.
+ */
+export const OCR_RECOGNITION_TIMEOUT_MS = 60_000;
+/** High tier measures ~214 s/page on the same scan with the larger detector/recognizer. */
+export const OCR_HIGH_RECOGNITION_TIMEOUT_MS = 240_000;
+/** The caller's bound must follow the tier it actually asked the host to run. */
+export function ocrRecognitionTimeoutMs(tier: OcrTier): number {
+  return tier === 'high' ? OCR_HIGH_RECOGNITION_TIMEOUT_MS : OCR_RECOGNITION_TIMEOUT_MS;
+}
+/**
+ * Local page/UI safety net for the tier actually requested. It sits above the matching host
+ * bound, so the typed host timeout arrives first; it only fires when the host timer is lost.
+ * Defaulting every page to the high-tier bound would leave a standard-tier scan 'reading' for
+ * about four minutes when that fallback is the only timer left.
+ */
+export function ocrPageTimeoutMs(tier: OcrTier): number {
+  return ocrRecognitionTimeoutMs(tier) + 2_000;
+}
+/** High-tier alias for callers that do not track the requested tier. */
+export const OCR_PAGE_TIMEOUT_MS = ocrPageTimeoutMs('high');
+/**
+ * A delete waits for the host's shared recognition queue, so its client bound has to outlast
+ * even a high-tier run that is only cancelled after the delete request arrives.
+ */
+export const OCR_DELETE_TIMEOUT_MS = OCR_PAGE_TIMEOUT_MS;
+
+export type OcrFailureCode = 'model-missing' | 'timeout' | 'failed';
+
+export interface OcrFailureResponse {
+  __ocrError: OcrFailureCode;
+}
+
+export function isOcrFailureResponse(value: unknown): value is OcrFailureResponse {
+  return (
+    isRecord(value) &&
+    (value.__ocrError === 'model-missing' ||
+      value.__ocrError === 'timeout' ||
+      value.__ocrError === 'failed')
+  );
+}
 
 export interface SerializedTranslateOptions {
   src?: string;
@@ -152,6 +200,44 @@ export interface ModelStatusRequest {
   modelId: ModelId;
 }
 
+export interface OcrImagePayload {
+  width: number;
+  height: number;
+  /** Base64-encoded RGBA bytes, row-major with no stride. */
+  data: string;
+}
+
+export interface OcrRecognizeRequest {
+  type: 'ocr-recognize';
+  requestId: string;
+  tier: OcrTier;
+  image: OcrImagePayload;
+}
+
+export interface OcrCancelRequest {
+  type: 'ocr-cancel';
+  /** Request id of the recognition or model download to abort. */
+  requestId: string;
+}
+
+export interface OcrStatusRequest {
+  type: 'ocr-status';
+  requestId: string;
+  tier: OcrTier;
+}
+
+export interface OcrDownloadRequest {
+  type: 'ocr-download';
+  requestId: string;
+  tier: OcrTier;
+}
+
+export interface OcrDeleteRequest {
+  type: 'ocr-delete';
+  requestId: string;
+  tier: OcrTier;
+}
+
 export interface CacheClearRequest {
   type: 'cache-clear';
   requestId: string;
@@ -241,6 +327,11 @@ export type EngineHostRequest =
   | ModelUseRequest
   | ModelWarmRequest
   | ModelStatusRequest
+  | OcrRecognizeRequest
+  | OcrCancelRequest
+  | OcrStatusRequest
+  | OcrDownloadRequest
+  | OcrDeleteRequest
   | CacheClearRequest
   | TierSetRequest
   | SourceSetRequest
@@ -275,6 +366,12 @@ export interface ModelProgressEvent {
   status: ModelStatus;
 }
 
+export interface OcrProgressEvent {
+  type: 'ocr-progress';
+  requestId: string;
+  status: AssetStatus<OcrTier>;
+}
+
 export interface ResponseEvent {
   type: 'response';
   requestId: string;
@@ -305,6 +402,7 @@ export type EngineHostMessage =
   | DoneEvent
   | ErrorEvent
   | ModelProgressEvent
+  | OcrProgressEvent
   | ResponseEvent
   | ResponseErrorEvent
   | ModelPersistEvent;
@@ -343,6 +441,8 @@ export type TranslationClientMessage = TranslationStartRequest | TranslationCanc
 export type TranslationServerMessage =
   TranslationChunkEvent | TranslationDoneEvent | TranslationErrorEvent;
 
+export const MAX_OCR_PIXELS = 16_777_216;
+export const MAX_OCR_DIMENSION = 16_384;
 const MAX_SEGMENTS = 2000;
 const MAX_SEGMENT_ID = 200;
 /**
@@ -429,6 +529,53 @@ function isSegments(value: unknown): value is TranslateSegment[] {
   );
 }
 
+function isOcrImagePayload(value: unknown): value is OcrImagePayload {
+  if (!isRecord(value)) return false;
+  if (!Number.isSafeInteger(value.width) || !Number.isSafeInteger(value.height)) return false;
+  const width = value.width as number;
+  const height = value.height as number;
+  if (width < 1 || height < 1 || width > MAX_OCR_DIMENSION || height > MAX_OCR_DIMENSION) {
+    return false;
+  }
+  const pixels = width * height;
+  if (pixels > MAX_OCR_PIXELS || typeof value.data !== 'string') return false;
+  const bytes = pixels * 4;
+  const expectedLength = Math.ceil(bytes / 3) * 4;
+  return (
+    value.data.length === expectedLength &&
+    /^[A-Za-z0-9+/]*={0,2}$/u.test(value.data) &&
+    !value.data.slice(0, -2).includes('=')
+  );
+}
+
+function isAssetStatus(value: unknown): value is AssetStatus<OcrTier> {
+  if (!isRecord(value) || !isOcrTier(value.id)) return false;
+  if (
+    typeof value.state !== 'string' ||
+    ![
+      'absent',
+      'partial',
+      'downloading',
+      'verifying',
+      'ready',
+      'loading',
+      'loaded',
+      'error',
+    ].includes(value.state)
+  ) {
+    return false;
+  }
+  return (
+    typeof value.received === 'number' &&
+    Number.isFinite(value.received) &&
+    typeof value.total === 'number' &&
+    Number.isFinite(value.total) &&
+    typeof value.progress === 'number' &&
+    Number.isFinite(value.progress) &&
+    (value.error === undefined || typeof value.error === 'string')
+  );
+}
+
 export function isEngineHostRequest(value: unknown): value is EngineHostRequest {
   if (!isRecord(value) || !isRequestId(value)) return false;
 
@@ -438,6 +585,7 @@ export function isEngineHostRequest(value: unknown): value is EngineHostRequest 
     case 'status':
     case 'ping':
     case 'cancel':
+    case 'ocr-cancel':
     case 'model-warm':
       return true;
     case 'model-cancel':
@@ -451,6 +599,12 @@ export function isEngineHostRequest(value: unknown): value is EngineHostRequest 
     case 'model-use':
     case 'model-status':
       return isModelId(value.modelId);
+    case 'ocr-recognize':
+      return isOcrTier(value.tier) && isOcrImagePayload(value.image);
+    case 'ocr-status':
+    case 'ocr-download':
+    case 'ocr-delete':
+      return isOcrTier(value.tier);
     case 'cache-clear':
     case 'benchmark':
       return true;
@@ -512,6 +666,8 @@ export function isEngineHostMessage(value: unknown): value is EngineHostMessage 
       return isErrorPayload(value.error);
     case 'model-progress':
       return isModelStatus(value.status);
+    case 'ocr-progress':
+      return isAssetStatus(value.status);
     case 'response':
       return (
         typeof value.ok === 'boolean' && (value.ok ? 'value' in value : isErrorPayload(value.error))

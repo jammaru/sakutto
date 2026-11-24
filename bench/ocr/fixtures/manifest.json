@@ -1,0 +1,1232 @@
+{
+  "schema": 1,
+  "license": "CC0-1.0",
+  "attribution": "Generated for the Sakutto PP-OCRv6 benchmark; no third-party text or images.",
+  "generator": "scripts/bench/ocr-render.ts",
+  "fixtures": [
+    {
+      "id": "en-scan",
+      "title": "English scan",
+      "width": 900,
+      "height": 650,
+      "orientation": "horizontal",
+      "lines": [
+        {
+          "id": "line-01",
+          "text": "LOCAL TRANSLATION NOTES",
+          "quad": [
+            {
+              "x": 75,
+              "y": 60
+            },
+            {
+              "x": 490,
+              "y": 60
+            },
+            {
+              "x": 490,
+              "y": 99
+            },
+            {
+              "x": 75,
+              "y": 99
+            }
+          ]
+        },
+        {
+          "id": "line-02",
+          "text": "A private tool for every reader.",
+          "quad": [
+            {
+              "x": 75,
+              "y": 123
+            },
+            {
+              "x": 495,
+              "y": 123
+            },
+            {
+              "x": 495,
+              "y": 158.1
+            },
+            {
+              "x": 75,
+              "y": 158.1
+            }
+          ]
+        },
+        {
+          "id": "line-03",
+          "text": "Open a page and choose a language.",
+          "quad": [
+            {
+              "x": 75,
+              "y": 178
+            },
+            {
+              "x": 545,
+              "y": 178
+            },
+            {
+              "x": 545,
+              "y": 213.1
+            },
+            {
+              "x": 75,
+              "y": 213.1
+            }
+          ]
+        },
+        {
+          "id": "line-04",
+          "text": "The text stays on this device.",
+          "quad": [
+            {
+              "x": 75,
+              "y": 233
+            },
+            {
+              "x": 475,
+              "y": 233
+            },
+            {
+              "x": 475,
+              "y": 268.1
+            },
+            {
+              "x": 75,
+              "y": 268.1
+            }
+          ]
+        },
+        {
+          "id": "line-05",
+          "text": "No account is required.",
+          "quad": [
+            {
+              "x": 75,
+              "y": 288
+            },
+            {
+              "x": 395,
+              "y": 288
+            },
+            {
+              "x": 395,
+              "y": 323.1
+            },
+            {
+              "x": 75,
+              "y": 323.1
+            }
+          ]
+        },
+        {
+          "id": "line-06",
+          "text": "Version 2.4  March 2026",
+          "quad": [
+            {
+              "x": 75,
+              "y": 360
+            },
+            {
+              "x": 425,
+              "y": 360
+            },
+            {
+              "x": 425,
+              "y": 392.5
+            },
+            {
+              "x": 75,
+              "y": 392.5
+            }
+          ]
+        },
+        {
+          "id": "line-07",
+          "text": "Please keep this receipt.",
+          "quad": [
+            {
+              "x": 75,
+              "y": 413
+            },
+            {
+              "x": 425,
+              "y": 413
+            },
+            {
+              "x": 425,
+              "y": 448.1
+            },
+            {
+              "x": 75,
+              "y": 448.1
+            }
+          ]
+        }
+      ],
+      "groundTruth": "LOCAL TRANSLATION NOTES\nA private tool for every reader.\nOpen a page and choose a language.\nThe text stays on this device.\nNo account is required.\nVersion 2.4  March 2026\nPlease keep this receipt."
+    },
+    {
+      "id": "ja-horizontal",
+      "title": "Japanese horizontal document",
+      "width": 900,
+      "height": 650,
+      "orientation": "horizontal",
+      "lines": [
+        {
+          "id": "line-01",
+          "text": "ローカル翻訳のご案内",
+          "quad": [
+            {
+              "x": 80,
+              "y": 66
+            },
+            {
+              "x": 300.8,
+              "y": 66
+            },
+            {
+              "x": 300.8,
+              "y": 110.2
+            },
+            {
+              "x": 80,
+              "y": 110.2
+            }
+          ]
+        },
+        {
+          "id": "line-02",
+          "text": "この文章は端末の中で処理します。",
+          "quad": [
+            {
+              "x": 80,
+              "y": 145
+            },
+            {
+              "x": 387.6,
+              "y": 145
+            },
+            {
+              "x": 387.6,
+              "y": 184
+            },
+            {
+              "x": 80,
+              "y": 184
+            }
+          ]
+        },
+        {
+          "id": "line-03",
+          "text": "翻訳する言語を選んでください。",
+          "quad": [
+            {
+              "x": 80,
+              "y": 215
+            },
+            {
+              "x": 369,
+              "y": 215
+            },
+            {
+              "x": 369,
+              "y": 254
+            },
+            {
+              "x": 80,
+              "y": 254
+            }
+          ]
+        },
+        {
+          "id": "line-04",
+          "text": "画像から文字を読み取ります。",
+          "quad": [
+            {
+              "x": 80,
+              "y": 285
+            },
+            {
+              "x": 350.4,
+              "y": 285
+            },
+            {
+              "x": 350.4,
+              "y": 324
+            },
+            {
+              "x": 80,
+              "y": 324
+            }
+          ]
+        },
+        {
+          "id": "line-05",
+          "text": "結果を確認してから共有できます。",
+          "quad": [
+            {
+              "x": 80,
+              "y": 355
+            },
+            {
+              "x": 387.6,
+              "y": 355
+            },
+            {
+              "x": 387.6,
+              "y": 394
+            },
+            {
+              "x": 80,
+              "y": 394
+            }
+          ]
+        },
+        {
+          "id": "line-06",
+          "text": "静かな場所でも利用できます。",
+          "quad": [
+            {
+              "x": 80,
+              "y": 425
+            },
+            {
+              "x": 350.4,
+              "y": 425
+            },
+            {
+              "x": 350.4,
+              "y": 464
+            },
+            {
+              "x": 80,
+              "y": 464
+            }
+          ]
+        }
+      ],
+      "groundTruth": "ローカル翻訳のご案内\nこの文章は端末の中で処理します。\n翻訳する言語を選んでください。\n画像から文字を読み取ります。\n結果を確認してから共有できます。\n静かな場所でも利用できます。"
+    },
+    {
+      "id": "ja-vertical",
+      "title": "Japanese vertical document",
+      "width": 900,
+      "height": 650,
+      "orientation": "vertical",
+      "lines": [
+        {
+          "id": "line-01",
+          "text": "地域の声を未来へつなぐ",
+          "quad": [
+            {
+              "x": 736.2,
+              "y": 66
+            },
+            {
+              "x": 783.8000000000001,
+              "y": 66
+            },
+            {
+              "x": 783.8000000000001,
+              "y": 448
+            },
+            {
+              "x": 736.2,
+              "y": 448
+            }
+          ]
+        },
+        {
+          "id": "line-02",
+          "text": "小さな発見を記録する",
+          "quad": [
+            {
+              "x": 596.2,
+              "y": 86
+            },
+            {
+              "x": 643.8000000000001,
+              "y": 86
+            },
+            {
+              "x": 643.8000000000001,
+              "y": 434
+            },
+            {
+              "x": 596.2,
+              "y": 434
+            }
+          ]
+        },
+        {
+          "id": "line-03",
+          "text": "言葉の意味を確かめる",
+          "quad": [
+            {
+              "x": 456.2,
+              "y": 66
+            },
+            {
+              "x": 503.79999999999995,
+              "y": 66
+            },
+            {
+              "x": 503.79999999999995,
+              "y": 414
+            },
+            {
+              "x": 456.2,
+              "y": 414
+            }
+          ]
+        },
+        {
+          "id": "line-04",
+          "text": "新しい翻訳を試す",
+          "quad": [
+            {
+              "x": 316.2,
+              "y": 106
+            },
+            {
+              "x": 363.79999999999995,
+              "y": 106
+            },
+            {
+              "x": 363.79999999999995,
+              "y": 386
+            },
+            {
+              "x": 316.2,
+              "y": 386
+            }
+          ]
+        },
+        {
+          "id": "line-05",
+          "text": "毎日の読書を支える",
+          "quad": [
+            {
+              "x": 176.2,
+              "y": 76
+            },
+            {
+              "x": 223.79999999999998,
+              "y": 76
+            },
+            {
+              "x": 223.79999999999998,
+              "y": 390
+            },
+            {
+              "x": 176.2,
+              "y": 390
+            }
+          ]
+        }
+      ],
+      "groundTruth": "地域の声を未来へつなぐ\n小さな発見を記録する\n言葉の意味を確かめる\n新しい翻訳を試す\n毎日の読書を支える"
+    },
+    {
+      "id": "slides",
+      "title": "Presentation slide",
+      "width": 1000,
+      "height": 700,
+      "orientation": "horizontal",
+      "lines": [
+        {
+          "id": "line-01",
+          "text": "DESIGN FOR EVERYONE",
+          "quad": [
+            {
+              "x": 75,
+              "y": 63
+            },
+            {
+              "x": 655,
+              "y": 63
+            },
+            {
+              "x": 655,
+              "y": 117.6
+            },
+            {
+              "x": 75,
+              "y": 117.6
+            }
+          ]
+        },
+        {
+          "id": "line-02",
+          "text": "Fast, local, accessible",
+          "quad": [
+            {
+              "x": 80,
+              "y": 171
+            },
+            {
+              "x": 490,
+              "y": 171
+            },
+            {
+              "x": 490,
+              "y": 215.2
+            },
+            {
+              "x": 80,
+              "y": 215.2
+            }
+          ]
+        },
+        {
+          "id": "line-03",
+          "text": "01  Capture the page",
+          "quad": [
+            {
+              "x": 95,
+              "y": 310
+            },
+            {
+              "x": 460,
+              "y": 310
+            },
+            {
+              "x": 460,
+              "y": 349
+            },
+            {
+              "x": 95,
+              "y": 349
+            }
+          ]
+        },
+        {
+          "id": "line-04",
+          "text": "02  Read the text",
+          "quad": [
+            {
+              "x": 95,
+              "y": 385
+            },
+            {
+              "x": 415,
+              "y": 385
+            },
+            {
+              "x": 415,
+              "y": 424
+            },
+            {
+              "x": 95,
+              "y": 424
+            }
+          ]
+        },
+        {
+          "id": "line-05",
+          "text": "03  Translate privately",
+          "quad": [
+            {
+              "x": 95,
+              "y": 460
+            },
+            {
+              "x": 475,
+              "y": 460
+            },
+            {
+              "x": 475,
+              "y": 499
+            },
+            {
+              "x": 95,
+              "y": 499
+            }
+          ]
+        },
+        {
+          "id": "line-06",
+          "text": "sakutto.example / 2026",
+          "quad": [
+            {
+              "x": 585,
+              "y": 603
+            },
+            {
+              "x": 915,
+              "y": 603
+            },
+            {
+              "x": 915,
+              "y": 631.6
+            },
+            {
+              "x": 585,
+              "y": 631.6
+            }
+          ]
+        }
+      ],
+      "groundTruth": "DESIGN FOR EVERYONE\nFast, local, accessible\n01  Capture the page\n02  Read the text\n03  Translate privately\nsakutto.example / 2026"
+    },
+    {
+      "id": "low-res-skew",
+      "title": "Low resolution skewed scan",
+      "width": 900,
+      "height": 650,
+      "orientation": "horizontal",
+      "lines": [
+        {
+          "id": "line-01",
+          "text": "FIELD REPORT 07",
+          "quad": [
+            {
+              "x": 105.6667086117828,
+              "y": 131.5482374291795
+            },
+            {
+              "x": 320.142979417645,
+              "y": 116.55059557419253
+            },
+            {
+              "x": 322.138014566727,
+              "y": 145.08092741162352
+            },
+            {
+              "x": 107.66174376086478,
+              "y": 160.0785692666105
+            }
+          ]
+        },
+        {
+          "id": "line-02",
+          "text": "Rain stopped before dawn.",
+          "quad": [
+            {
+              "x": 111.10771356382457,
+              "y": 209.35823334944578
+            },
+            {
+              "x": 380.4500071339771,
+              "y": 190.52398543853192
+            },
+            {
+              "x": 382.172992035457,
+              "y": 215.16381747994959
+            },
+            {
+              "x": 112.83069846530447,
+              "y": 233.99806539086345
+            }
+          ]
+        },
+        {
+          "id": "line-03",
+          "text": "The north road is open.",
+          "quad": [
+            {
+              "x": 115.29310198847209,
+              "y": 269.2120763650353
+            },
+            {
+              "x": 374.65975505602637,
+              "y": 251.07539319156265
+            },
+            {
+              "x": 376.38273995750626,
+              "y": 275.7152252329803
+            },
+            {
+              "x": 117.01608688995198,
+              "y": 293.8519084064529
+            }
+          ]
+        },
+        {
+          "id": "line-04",
+          "text": "Battery level: 82 percent",
+          "quad": [
+            {
+              "x": 119.4784904131196,
+              "y": 329.0659193806247
+            },
+            {
+              "x": 393.8086042345713,
+              "y": 309.8828891009902
+            },
+            {
+              "x": 395.5315891360512,
+              "y": 334.5227211424079
+            },
+            {
+              "x": 121.2014753145995,
+              "y": 353.70575142204234
+            }
+          ]
+        },
+        {
+          "id": "line-05",
+          "text": "Return by Friday evening.",
+          "quad": [
+            {
+              "x": 123.66387883776713,
+              "y": 388.91976239621414
+            },
+            {
+              "x": 402.98181291051793,
+              "y": 369.38794974785907
+            },
+            {
+              "x": 404.7047978119978,
+              "y": 394.02778178927673
+            },
+            {
+              "x": 125.38686373924702,
+              "y": 413.5595944376318
+            }
+          ]
+        },
+        {
+          "id": "line-06",
+          "text": "Recorded by M. Tanaka",
+          "quad": [
+            {
+              "x": 127.91902373615878,
+              "y": 449.7711694620634
+            },
+            {
+              "x": 377.31003630111485,
+              "y": 432.3320510260321
+            },
+            {
+              "x": 378.9423377867274,
+              "y": 455.67504980211197
+            },
+            {
+              "x": 129.5513252217713,
+              "y": 473.1141682381433
+            }
+          ]
+        }
+      ],
+      "groundTruth": "FIELD REPORT 07\nRain stopped before dawn.\nThe north road is open.\nBattery level: 82 percent\nReturn by Friday evening.\nRecorded by M. Tanaka"
+    },
+    {
+      "id": "two-column",
+      "title": "Two-column newsletter",
+      "width": 1000,
+      "height": 720,
+      "orientation": "horizontal",
+      "lines": [
+        {
+          "id": "line-01",
+          "text": "COMMUNITY GARDEN",
+          "quad": [
+            {
+              "x": 60,
+              "y": 65
+            },
+            {
+              "x": 410,
+              "y": 65
+            },
+            {
+              "x": 410,
+              "y": 97.5
+            },
+            {
+              "x": 60,
+              "y": 97.5
+            }
+          ]
+        },
+        {
+          "id": "line-02",
+          "text": "Spring planting begins.",
+          "quad": [
+            {
+              "x": 60,
+              "y": 137
+            },
+            {
+              "x": 390,
+              "y": 137
+            },
+            {
+              "x": 390,
+              "y": 166.9
+            },
+            {
+              "x": 60,
+              "y": 166.9
+            }
+          ]
+        },
+        {
+          "id": "line-03",
+          "text": "Volunteers meet at nine.",
+          "quad": [
+            {
+              "x": 60,
+              "y": 197
+            },
+            {
+              "x": 410,
+              "y": 197
+            },
+            {
+              "x": 410,
+              "y": 226.9
+            },
+            {
+              "x": 60,
+              "y": 226.9
+            }
+          ]
+        },
+        {
+          "id": "line-04",
+          "text": "Bring gloves and water.",
+          "quad": [
+            {
+              "x": 60,
+              "y": 257
+            },
+            {
+              "x": 390,
+              "y": 257
+            },
+            {
+              "x": 390,
+              "y": 286.9
+            },
+            {
+              "x": 60,
+              "y": 286.9
+            }
+          ]
+        },
+        {
+          "id": "line-05",
+          "text": "CITY LIBRARY NEWS",
+          "quad": [
+            {
+              "x": 540,
+              "y": 65
+            },
+            {
+              "x": 890,
+              "y": 65
+            },
+            {
+              "x": 890,
+              "y": 97.5
+            },
+            {
+              "x": 540,
+              "y": 97.5
+            }
+          ]
+        },
+        {
+          "id": "line-06",
+          "text": "New books arrive Monday.",
+          "quad": [
+            {
+              "x": 540,
+              "y": 137
+            },
+            {
+              "x": 890,
+              "y": 137
+            },
+            {
+              "x": 890,
+              "y": 166.9
+            },
+            {
+              "x": 540,
+              "y": 166.9
+            }
+          ]
+        },
+        {
+          "id": "line-07",
+          "text": "Reading club welcomes all.",
+          "quad": [
+            {
+              "x": 540,
+              "y": 197
+            },
+            {
+              "x": 900,
+              "y": 197
+            },
+            {
+              "x": 900,
+              "y": 226.9
+            },
+            {
+              "x": 540,
+              "y": 226.9
+            }
+          ]
+        },
+        {
+          "id": "line-08",
+          "text": "Return books by Friday.",
+          "quad": [
+            {
+              "x": 540,
+              "y": 257
+            },
+            {
+              "x": 880,
+              "y": 257
+            },
+            {
+              "x": 880,
+              "y": 286.9
+            },
+            {
+              "x": 540,
+              "y": 286.9
+            }
+          ]
+        }
+      ],
+      "groundTruth": "COMMUNITY GARDEN\nSpring planting begins.\nVolunteers meet at nine.\nBring gloves and water.\nCITY LIBRARY NEWS\nNew books arrive Monday.\nReading club welcomes all.\nReturn books by Friday."
+    },
+    {
+      "id": "mixed-ja-en",
+      "title": "Mixed Japanese and English guide",
+      "width": 900,
+      "height": 650,
+      "orientation": "horizontal",
+      "lines": [
+        {
+          "id": "line-01",
+          "text": "Sakutto 翻訳ガイド",
+          "quad": [
+            {
+              "x": 70,
+              "y": 66
+            },
+            {
+              "x": 354.04,
+              "y": 66
+            },
+            {
+              "x": 354.04,
+              "y": 110.2
+            },
+            {
+              "x": 70,
+              "y": 110.2
+            }
+          ]
+        },
+        {
+          "id": "line-02",
+          "text": "START を押して開始します。",
+          "quad": [
+            {
+              "x": 70,
+              "y": 150
+            },
+            {
+              "x": 377.6,
+              "y": 150
+            },
+            {
+              "x": 377.6,
+              "y": 189
+            },
+            {
+              "x": 70,
+              "y": 189
+            }
+          ]
+        },
+        {
+          "id": "line-03",
+          "text": "English と日本語を読み取ります。",
+          "quad": [
+            {
+              "x": 70,
+              "y": 226
+            },
+            {
+              "x": 439.6,
+              "y": 226
+            },
+            {
+              "x": 439.6,
+              "y": 263.7
+            },
+            {
+              "x": 70,
+              "y": 263.7
+            }
+          ]
+        },
+        {
+          "id": "line-04",
+          "text": "Privacy first: 外部送信なし。",
+          "quad": [
+            {
+              "x": 70,
+              "y": 301
+            },
+            {
+              "x": 475.56,
+              "y": 301
+            },
+            {
+              "x": 475.56,
+              "y": 338.7
+            },
+            {
+              "x": 70,
+              "y": 338.7
+            }
+          ]
+        },
+        {
+          "id": "line-05",
+          "text": "OCR version 6 を使用します。",
+          "quad": [
+            {
+              "x": 70,
+              "y": 376
+            },
+            {
+              "x": 457.58,
+              "y": 376
+            },
+            {
+              "x": 457.58,
+              "y": 413.7
+            },
+            {
+              "x": 70,
+              "y": 413.7
+            }
+          ]
+        },
+        {
+          "id": "line-06",
+          "text": "詳細は README をご覧ください。",
+          "quad": [
+            {
+              "x": 70,
+              "y": 451
+            },
+            {
+              "x": 421.62,
+              "y": 451
+            },
+            {
+              "x": 421.62,
+              "y": 488.7
+            },
+            {
+              "x": 70,
+              "y": 488.7
+            }
+          ]
+        }
+      ],
+      "groundTruth": "Sakutto 翻訳ガイド\nSTART を押して開始します。\nEnglish と日本語を読み取ります。\nPrivacy first: 外部送信なし。\nOCR version 6 を使用します。\n詳細は README をご覧ください。"
+    },
+    {
+      "id": "small-text",
+      "title": "Small text and captions",
+      "width": 1000,
+      "height": 720,
+      "orientation": "horizontal",
+      "lines": [
+        {
+          "id": "line-01",
+          "text": "QUICK REFERENCE",
+          "quad": [
+            {
+              "x": 65,
+              "y": 61
+            },
+            {
+              "x": 280,
+              "y": 61
+            },
+            {
+              "x": 280,
+              "y": 85.7
+            },
+            {
+              "x": 65,
+              "y": 85.7
+            }
+          ]
+        },
+        {
+          "id": "line-02",
+          "text": "Select the source language.",
+          "quad": [
+            {
+              "x": 65,
+              "y": 120
+            },
+            {
+              "x": 300,
+              "y": 120
+            },
+            {
+              "x": 300,
+              "y": 139.5
+            },
+            {
+              "x": 65,
+              "y": 139.5
+            }
+          ]
+        },
+        {
+          "id": "line-03",
+          "text": "Drop an image on the page.",
+          "quad": [
+            {
+              "x": 65,
+              "y": 170
+            },
+            {
+              "x": 300,
+              "y": 170
+            },
+            {
+              "x": 300,
+              "y": 189.5
+            },
+            {
+              "x": 65,
+              "y": 189.5
+            }
+          ]
+        },
+        {
+          "id": "line-04",
+          "text": "Check names and numbers.",
+          "quad": [
+            {
+              "x": 65,
+              "y": 220
+            },
+            {
+              "x": 295,
+              "y": 220
+            },
+            {
+              "x": 295,
+              "y": 239.5
+            },
+            {
+              "x": 65,
+              "y": 239.5
+            }
+          ]
+        },
+        {
+          "id": "line-05",
+          "text": "Small captions remain legible.",
+          "quad": [
+            {
+              "x": 65,
+              "y": 271
+            },
+            {
+              "x": 315,
+              "y": 271
+            },
+            {
+              "x": 315,
+              "y": 289.2
+            },
+            {
+              "x": 65,
+              "y": 289.2
+            }
+          ]
+        },
+        {
+          "id": "line-06",
+          "text": "Zoom in when the print is faint.",
+          "quad": [
+            {
+              "x": 65,
+              "y": 321
+            },
+            {
+              "x": 330,
+              "y": 321
+            },
+            {
+              "x": 330,
+              "y": 339.2
+            },
+            {
+              "x": 65,
+              "y": 339.2
+            }
+          ]
+        },
+        {
+          "id": "line-07",
+          "text": "Support: help@example.test",
+          "quad": [
+            {
+              "x": 65,
+              "y": 371
+            },
+            {
+              "x": 295,
+              "y": 371
+            },
+            {
+              "x": 295,
+              "y": 389.2
+            },
+            {
+              "x": 65,
+              "y": 389.2
+            }
+          ]
+        },
+        {
+          "id": "line-08",
+          "text": "Document ID: SA-006-2026",
+          "quad": [
+            {
+              "x": 65,
+              "y": 422
+            },
+            {
+              "x": 280,
+              "y": 422
+            },
+            {
+              "x": 280,
+              "y": 438.9
+            },
+            {
+              "x": 65,
+              "y": 438.9
+            }
+          ]
+        }
+      ],
+      "groundTruth": "QUICK REFERENCE\nSelect the source language.\nDrop an image on the page.\nCheck names and numbers.\nSmall captions remain legible.\nZoom in when the print is faint.\nSupport: help@example.test\nDocument ID: SA-006-2026"
+    }
+  ]
+}

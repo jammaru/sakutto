@@ -16,6 +16,11 @@ export const LICENSE_FILE_COPIES = [
   'PLaMo-Community-License-en.txt',
   'PLaMo-Community-License-ja.txt',
   'svelte-LICENSE.txt',
+  'onnxruntime-LICENSE.txt',
+  'onnxruntime-ThirdPartyNotices.txt',
+  'PaddleOCR-Apache-2.0.txt',
+  'pdf-lib-ThirdPartyNotices.txt',
+  'MPLUS1p-OFL.txt',
 ] as const;
 
 const UTF8_BOM = Buffer.from([0xef, 0xbb, 0xbf]);

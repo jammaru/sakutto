@@ -15,6 +15,207 @@ import { joinPieces, lineFrom, type TextLine, type TextPiece } from './lines';
  * tags are reused here so a PDF sentence is not a new prompt shape. A translation that drops
  * or invents a tag is refused, and the original sentence stays on the page.
  */
+/**
+ * A second pass for notation a typesetter set in an ordinary text face.
+ *
+ * Font detection handles LaTeX's math faces, but papers also write short expressions such as
+ * `Q ∈ R d` or `×d k` in italic Times. Left in the prompt they come back rewritten, which is
+ * worse than leaving the equation alone. A span is protected only when it contains a strong
+ * mathematical operator; neighbouring prose words are never swallowed.
+ *
+ * Every operand is a whole word (`\p{L}` included in the lookarounds): without the bounds a
+ * short variable could start inside `speedup` or steal the `s` from `matrices`, asking the
+ * model to translate a misspelled word and leaving only the tail in the prompt.
+ */
+const TEXT_NOTATION =
+  /(?<![\p{L}\p{N}_])(?:[\p{Lu}\p{N}_^][\p{L}\p{N}_^]{0,4}|[a-z][\p{N}_^]{0,3})(?![\p{L}\p{N}_])(?:\s+(?:\p{Lu}[\p{L}\p{N}_^]{0,4}|[a-z][\p{N}_^]{0,3}|[\p{N}_^]{1,4})(?![\p{L}\p{N}_])){0,4}(?:\s*(?:∈|×|÷|≈|≤|≥|≠|∑|∏|∫|∂|∇|\^)\s*(?:[\p{Lu}\p{N}_^][\p{L}\p{N}_^]{0,6}|[a-z][\p{N}_^]{0,3})(?![\p{L}\p{N}_])){1,8}/gu;
+
+/**
+ * A whole dimension expression such as `Q ∈ R d model × d k`.
+ *
+ * The generic operator pattern stops at the operator's right operand, which left `model`
+ * and `d k` visible to the model and let them be translated into Japanese. Dimension names
+ * are short lowercase technical words, so they can be consumed safely when they follow an
+ * operator or a `d` and stay close to another multiplication. Ordinary English words around
+ * the formula are deliberately not matched.
+ */
+const DIMENSION_WORD = String.raw`(?:model|hd|out|in|dim|size|[a-z][\p{N}_^]{0,3})(?![\p{L}\p{N}_])`;
+const NOTATION_OPERAND = String.raw`(?:[\p{Lu}\p{N}_^][\p{L}\p{N}_^]{0,6}|[a-z][\p{N}_^]{0,3})(?![\p{L}\p{N}_])`;
+const DIMENSION_CHAIN = new RegExp(
+  String.raw`(?<![\p{L}\p{N}_])${NOTATION_OPERAND}(?:\s+${NOTATION_OPERAND}){0,3}` +
+    String.raw`\s*(?:∈|×|÷|≈|≤|≥|≠)\s*${NOTATION_OPERAND}` +
+    String.raw`(?:\s+${DIMENSION_WORD}){0,3}` +
+    // A chained expression can continue with another bare operand ("3 × 3 × 3", "A × B × C"),
+    // not only with a named dimension. Without this branch the first pass protects only the
+    // prefix and the inserted placeholder stops a second pass from reaching the tail.
+    String.raw`(?:\s*(?:×|÷)\s*(?:${DIMENSION_WORD}|${NOTATION_OPERAND})(?:\s+${DIMENSION_WORD})?){0,6}`,
+  'gu',
+);
+
+/**
+ * Leading tokens that are unmistakably notation rather than ordinary prose.
+ *
+ * The notation patterns accept a leading word (`A ∈ R`) or an article before a size
+ * (`a 3 × 3`) to cover symbols set in an ordinary text face. Instead of listing every prose word
+ * that can occupy that position (a list that broke on `Small`, `Large`, `Deep`, `More`, `Fewer`,
+ * `Double`, ...), decide from the token's shape: a single letter (including Greek), a number, a
+ * letter carrying a digit/subscript/superscript, or a flattened subscripted identifier whose
+ * chain continues with an operator (`Wi ∈ R ...`) is a variable; everything else is prose and
+ * belongs in the prompt. `a`/`A` immediately before a number is an article, not a variable,
+ * and a two-letter English word (`If`, `As`, `At`, `In`, ...) is a sentence opener even when a
+ * variable follows it (`If Q ∈ R ...`).
+ */
+const LEAD_TOKEN = /^([^\s]+)(\s+)/u;
+const NOTATION_HEAD = /^(?:\p{L}[\p{N}_^]{0,3}|[\p{N}_^]+)$/u;
+/**
+ * PDF extraction flattens a subscripted matrix name (`W_i`, `W_q`, `W_k`, `W_v`) into `Wi`,
+ * `Wq`, `Wk`, `Wv`. Such an identifier is a capital plus exactly one lowercase letter, with
+ * optional subscript marks; a prose adjective (`Small`, `Large`, `Deep`, ...) has a longer
+ * lowercase tail and never matches. Shape alone is not enough for two-letter words such as
+ * `In`, so the identifier only counts as notation when an operator follows its chain:
+ * `Wi ∈ R ...`, `Wk × d k`, or `We ∈ R ...` with the operator directly after it. An operand
+ * between the token and the operator makes it a prose opener, whatever the token's spelling.
+ */
+const FLATTENED_IDENTIFIER = /^\p{Lu}\p{Ll}[\p{N}_^]{0,3}$/u;
+/** Flattened subscripted matrix names: W_i, W_q, W_k, W_v and W_o are notation by shape. */
+const FLATTENED_MATRIX_NAME = /^W[iqkvo][\p{N}_^]{0,3}$/u;
+/** Flattened W_o is indistinguishable by shape from the German opener "Wo Q ∈ ...". */
+const FLATTENED_OUTPUT_MATRIX = /^Wo[\p{N}_^]{0,3}$/u;
+/** A clause boundary before the token: the German "Wo" opens a clause, W_o does not. */
+const CLAUSE_BOUNDARY = /[.!?;:。、]$/u;
+// Only a delimiter immediately before the token opens a clause. A bracket or bullet at the
+// head of a block does not: in "(The projection Wo Q ...)" the matrix follows prose.
+const CLAUSE_OPENER_TAIL = /["（「『“‘„«([{•\-—]\s*$/u;
+function startsClause(preceding: string): boolean {
+  const before = preceding.trimEnd();
+  if (before.length === 0) return true;
+  if (CLAUSE_BOUNDARY.test(before)) return true;
+  const openerAtEnd = CLAUSE_OPENER_TAIL.exec(before);
+  if (openerAtEnd) {
+    const beforeOpener = before.slice(0, openerAtEnd.index).trimEnd();
+    return beforeOpener.length === 0 || !/\p{L}$/u.test(beforeOpener);
+  }
+  return false;
+}
+const IDENTIFIER_OPERATOR = /^\s*(?:\p{Lu}[\p{N}_^]{0,3}\s+)?[∈×÷]\s+\S/u;
+/**
+ * Another operand between a two-letter token and the operator: `If Q ∈`, `As W ∈`, `Si Q ∈`.
+ * The token is then a sentence opener and belongs in the prompt, whatever language it came from.
+ * A flattened identifier has the operator directly after it (`We ∈`, `In ∈`) and keeps the
+ * whole expression in one slot.
+ */
+const OPENER_BEFORE_OPERAND = /^\p{Lu}[\p{N}_^]{0,3}\s+[∈×÷]\s+\S/u;
+const LEADING_NUMBER = /^[\p{N}]/u;
+
+function isNotationHead(token: string, following = '', preceding = ''): boolean {
+  if (NOTATION_HEAD.test(token)) {
+    // An article before a size is prose even though `a`/`A` fits the single-letter shape.
+    return !(/^[Aa]$/u.test(token) && LEADING_NUMBER.test(following));
+  }
+  if (!FLATTENED_IDENTIFIER.test(token) || !IDENTIFIER_OPERATOR.test(following)) return false;
+  // Position alone decides, for every two-letter token whatever language it came from: another
+  // operand before the operator makes it a sentence opener (`If Q ∈`, `Si Q ∈`, `Et Q ∈`, ...),
+  // while the operator directly after it makes it the flattened matrix name (`We ∈`, `In ∈`).
+  // Flattened W-subscript names (`Wi Q ∈`, `Wq Q ∈`) are notation in either position, so the
+  // model never sees a matrix name rewritten as prose. The one ambiguous shape is `Wo`: it is
+  // W_o in "The projection Wo Q ∈ ..." but the German opener in "Wo Q ∈ ... gilt". Clause
+  // position disambiguates: a clause-initial `Wo` is prose, a preceded one is the matrix.
+  if (!OPENER_BEFORE_OPERAND.test(following)) return true;
+  if (!FLATTENED_MATRIX_NAME.test(token)) return false;
+  return !(FLATTENED_OUTPUT_MATRIX.test(token) && startsClause(preceding));
+}
+
+/**
+ * Peels every leading prose token off a notation match.
+ *
+ * The guard below only protects a chain whose first remaining operand is clearly a variable, so
+ * the peeled words are always text the model must translate. No growing vocabulary list is
+ * involved: an adjective the report has not seen yet is stripped exactly like a determiner or a
+ * sentence opener, and a chain that starts with an English word is left alone. Two-letter words
+ * are ambiguous with flattened identifiers by shape alone, so their position in the chain (an
+ * operand before the operator, not the operator itself) decides whether they are peeled.
+ */
+function splitProseLead(value: string, preceding = ''): { lead: string; value: string } {
+  let lead = '';
+  let rest = value;
+  for (;;) {
+    const match = LEAD_TOKEN.exec(rest);
+    if (!match?.[1] || !match[2]) break;
+    const token = match[1];
+    const following = rest.slice(match[0].length);
+    if (isNotationHead(token, following, preceding + lead)) break;
+    lead += match[0];
+    rest = following;
+  }
+  return { lead, value: rest };
+}
+/**
+ * Prose words that look like dimension names to DIMENSION_CHAIN.
+ *
+ * "Q ∈ R in this paper" is notation followed by a preposition, not part of the formula.
+ * A real dimension chain continues with a multiplication ("Q ∈ R d model × d k"), which is
+ * the only case where these short words belong inside the protected slot.
+ */
+const TRAILING_PROSE_DIMENSION = /(?:\s+(?:model|hd|out|in|dim|size))+$/iu;
+
+/** An ordinary lowercase word after the match: a preposition, not more notation. */
+const PROSE_CONTINUATION = /^\s+\p{Ll}{2,}/u;
+/** End of a sentence, clause or block: the trailing prose word is not part of the notation. */
+const EXPRESSION_END = /^\s*(?:$|[.,;:!?)\]]|。|、)/u;
+
+/**
+ * Trims a trailing prose word that the dimension pattern mistook for a dimension name.
+ *
+ * `Q ∈ R in` is notation plus a preposition and so is `3 × 3 in`. With a multiplication sign
+ * the word is kept only when the expression continues as notation (`d model × d k`): the
+ * following text then starts with another operator or a slot, never with a lowercase English
+ * word such as `this` or `the`.
+ */
+function trimProseDimensionSuffix(match: string, following: string): string {
+  const prose = TRAILING_PROSE_DIMENSION.exec(match);
+  if (!prose) return match;
+  if (
+    /[×÷]/u.test(match) &&
+    !PROSE_CONTINUATION.test(following) &&
+    !EXPRESSION_END.test(following)
+  ) {
+    return match;
+  }
+  return match.slice(0, prose.index);
+}
+
+function protectSpan(
+  match: string,
+  slots: ProtectedSlot[],
+  following: string,
+  preceding = '',
+): string {
+  const raw = match.trim();
+  const trimmed = trimProseDimensionSuffix(raw, following);
+  // The trimmed preposition stays in the prompt outside the placeholder.
+  const tail = raw.slice(trimmed.length);
+  const { lead, value } = splitProseLead(trimmed, preceding);
+  const first = value.split(/\s+/u)[0] ?? '';
+  // Only a chain that starts with a variable or a number is notation. An English adjective or
+  // noun (`Small × Large`, `Model × Time`) is prose even when it fits the loose operand shape.
+  // A flattened identifier needs the same operator evidence the lead peeler used, so pass the
+  // rest of the chain instead of an empty following string here.
+  if (value.length < 4 || !isNotationHead(first, value.slice(first.length), preceding)) return raw;
+  const index = slots.length;
+  slots.push({ text: value, script: 'none' });
+  return lead + PLACEHOLDER(index) + tail;
+}
+
+function protectTextNotation(text: string, slots: ProtectedSlot[]): string {
+  return text
+    .replace(DIMENSION_CHAIN, (match, offset: number, whole: string) =>
+      protectSpan(match, slots, whole.slice(offset + match.length), whole.slice(0, offset)),
+    )
+    .replace(TEXT_NOTATION, (match, offset: number, whole: string) =>
+      protectSpan(match, slots, whole.slice(offset + match.length), whole.slice(0, offset)),
+    );
+}
+
 export type ScriptRole = 'super' | 'sub' | 'none';
 
 export interface ProtectedSlot {
@@ -109,8 +310,10 @@ export function protectInlineMath(block: LayoutBlock): ProtectedText {
     parts.push(protectedLine);
   }
 
+  const joined = parts.join(' ').replace(/\s+/gu, ' ').trim();
+  const protectedText = protectTextNotation(joined, slots);
   if (slots.length === 0) return { text: block.text, slots: [] };
-  return { text: parts.join(' ').replace(/\s+/gu, ' ').trim(), slots };
+  return { text: protectedText, slots };
 }
 
 function protectLine(line: TextLine, slots: ProtectedSlot[]): string {
@@ -440,7 +643,11 @@ function scriptShiftThreshold(piece: TextPiece, lineHeight: number): number {
 }
 
 function isShiftedScript(piece: TextPiece, lineHeight: number, baseline: number): boolean {
-  const core = scriptCoreText(piece.text);
+  const trimmed = piece.text.trim();
+  // scriptCoreText takes the first few characters of a run. A whole sentence starting with
+  // "Exp" is not a superscript just because its baseline differs from another merged line.
+  if (trimmed.length === 0 || trimmed.length > 4) return false;
+  const core = scriptCoreText(trimmed);
   if (core.length === 0 || core.length > 3) return false;
   return Math.abs(piece.baseline - baseline) > scriptShiftThreshold(piece, lineHeight);
 }
@@ -529,7 +736,12 @@ export function restoreInlineMath(
   if (normalized.length === 0) return translated;
   const seen = new Set<number>();
   let count = 0;
-  const restored = translated.replace(PLACEHOLDER_PATTERN, (_match, raw: string) => {
+  // Normalize only the placeholder spelling. NFKC on the whole translation would silently
+  // rewrite the reader's typography: （注意） becomes (注意), ① becomes 1 and ㍻ becomes 平成.
+  const canonical = translated.replace(/[＜<]\s*[iＩｉ]\s*([\p{Nd}]+)\s*[＞>]/gu, (tag) =>
+    tag.normalize('NFKC').replace(/\s+/gu, ''),
+  );
+  const restored = canonical.replace(PLACEHOLDER_PATTERN, (_match, raw: string) => {
     const index = Number(raw);
     if (!Number.isInteger(index) || index < 0 || index >= normalized.length) return '\u0000';
     count += 1;
@@ -574,7 +786,7 @@ export function shouldSkipInlineMath(protectedText: ProtectedText, source: strin
     .replace(/\s+/gu, '').length;
   const sourceChars = source.replace(/\s+/gu, '').length;
   const remaining = protectedText.text.replace(/<i\d+>/gu, '').replace(/\s+/gu, '');
-  if (sourceChars > 0 && slotChars >= sourceChars * 0.25 && protectedText.slots.length >= 2) {
+  if (sourceChars > 0 && slotChars >= sourceChars * 0.6 && protectedText.slots.length >= 3) {
     return true;
   }
   if (remaining.length < 24 && protectedText.slots.length >= 3) return true;

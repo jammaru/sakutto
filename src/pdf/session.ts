@@ -12,10 +12,13 @@ import { translationConcurrencyFor } from '@/dom/priority';
 import { fitText, type FitResult } from './fit';
 import { verticalWriting, type AnyBlockRole, type LayoutBlock, type PageLayout } from './layout';
 import {
+  columnRefitEligible,
   drawnBox,
   exceedsPage,
   fitBox,
+  inlineProseFragment,
   lineOverflows,
+  paintLineLimit,
   pageGrowBudget,
   resolveOverlaps,
   wrapWidth,
@@ -28,6 +31,7 @@ import {
   translationRepeatsSource,
 } from './language';
 import { protectInlineMath, restoreInlineMath, shouldSkipInlineMath } from './protect';
+import { isNoiseBlockText } from './prose-detect';
 
 /** What the reader shows about how fast the document is being translated. */
 export interface PdfRates {
@@ -55,6 +59,11 @@ export interface BlockState {
   overflow: boolean;
   /** Same-language or mostly-formula blocks the reader deliberately left as the page drew them. */
   intentionallyKept?: boolean;
+  /**
+   * Automatic retries already spent by this block. Kept on the state (not only on the queued
+   * job) so a focus change or a coverage sweep cannot reset the MAX_PDF_ATTEMPTS budget.
+   */
+  attempts?: number;
 }
 
 export function isTranslated(state: BlockState): boolean {
@@ -219,6 +228,9 @@ const PDF_PIECE_CHARS = 1200;
  */
 export const DEFAULT_PDF_CONCURRENCY = 8;
 
+/** How many times a prose block is retried before the page gives up on it. */
+const MAX_PDF_ATTEMPTS = 2;
+
 /**
  * Blocks in flight for the engine this reader is talking to.
  *
@@ -326,6 +338,21 @@ export class PdfSession {
     this.pump();
   }
 
+  /** Replaces a provisional native/empty page when a delayed OCR retry succeeds. */
+  replacePage(index: number, layout: PageLayout, pageHeight = 0): void {
+    if (!this.pages.has(index)) {
+      this.addPage(index, layout, pageHeight);
+      return;
+    }
+    this.queue.remove((job) => {
+      if (job.page !== index) return false;
+      if (job.state.state === 'queued') job.state.state = 'idle';
+      return true;
+    });
+    this.pages.delete(index);
+    this.addPage(index, layout, pageHeight);
+  }
+
   /**
    * Raises the priority of the page the reader can see.
    *
@@ -339,7 +366,13 @@ export class PdfSession {
     // Re-queue everything still waiting so the new distance is applied. The queue is a heap
     // with no decrease-key, and the number of waiting blocks is small enough that rebuilding
     // it is cheaper than reasoning about which entries to move.
-    const waiting: { state: BlockState; page: number; id: number; bypassCache: boolean }[] = [];
+    const waiting: {
+      state: BlockState;
+      page: number;
+      id: number;
+      bypassCache: boolean;
+      attempts: number;
+    }[] = [];
     this.queue.remove((job) => {
       if (job.state.state !== 'queued') return false;
       job.state.state = 'idle';
@@ -348,6 +381,7 @@ export class PdfSession {
         page: job.page,
         id: job.id,
         bypassCache: job.bypassCache === true,
+        attempts: job.attempts,
       });
       return true;
     });
@@ -356,7 +390,7 @@ export class PdfSession {
     // of reshuffling equal-priority blocks every time the reader scrolls.
     waiting.sort((left, right) => left.id - right.id);
     for (const entry of waiting) {
-      this.enqueue(entry.state, entry.page, entry.bypassCache);
+      this.enqueue(entry.state, entry.page, entry.bypassCache, entry.attempts);
     }
     this.pump();
   }
@@ -364,6 +398,11 @@ export class PdfSession {
   /** Blocks belonging to one page, in reading order. */
   pageBlocks(index: number): readonly BlockState[] {
     return this.pages.get(index) ?? [];
+  }
+
+  /** Source blocks the layout deliberately left in place, for the bilingual reading flow. */
+  skippedBlocks(index: number): readonly LayoutBlock[] {
+    return this.skipped.get(index) ?? [];
   }
 
   progress(): {
@@ -496,11 +535,20 @@ export class PdfSession {
           (text.length > 0 && translationEchoesSource(state.block.text, text, this.target)) ||
           (state.state === 'done' && !hasDeliverableTranslation(state));
         if (!needs) continue;
+        // A sweep is not a fresh translation run: it must not hand a permanently failing block
+        // a new retry budget. Without this, the reader's three automatic sweeps multiply one
+        // failed block's engine calls from three to nine.
+        const spent = state.attempts ?? 0;
+        if (spent >= MAX_PDF_ATTEMPTS) continue;
+        // A failed block has already used the attempt recorded on its state. Spend it here so a
+        // failure path that called failBlock without retry() (for example an empty final chunk)
+        // cannot be requeued with the same untouched counter on every sweep.
+        const attempts = state.state === 'failed' ? spent + 1 : spent;
         // Keep the previous cover until the replacement arrives. Blanking it on every sweep
         // flashed the source through a box the reader was already reading.
         state.state = 'idle';
         state.intentionallyKept = false;
-        this.enqueue(state, page, true);
+        this.enqueue(state, page, true, attempts);
         requeued += 1;
       }
     }
@@ -543,12 +591,13 @@ export class PdfSession {
     this.pump();
   }
 
-  private enqueue(state: BlockState, page: number, bypassCache = false): void {
+  private enqueue(state: BlockState, page: number, bypassCache = false, attempts = 0): void {
     if (state.state === 'running' || state.state === 'queued') return;
     this.nextJob += 1;
     state.state = 'queued';
+    state.attempts = attempts;
     this.queue.enqueue(
-      { state, id: this.nextJob, page, bypassCache },
+      { state, id: this.nextJob, page, bypassCache, attempts },
       this.priorityOf(state.block, page),
     );
   }
@@ -612,6 +661,14 @@ export class PdfSession {
     return this.generation !== generation || signal.aborted;
   }
 
+  /** Re-queues an errored block instead of leaving prose in the source language. */
+  private retry(job: Job): boolean {
+    if (job.attempts >= MAX_PDF_ATTEMPTS) return false;
+    job.state.state = 'idle';
+    this.enqueue(job.state, job.page, true, job.attempts + 1);
+    return true;
+  }
+
   private failBlock(state: BlockState): void {
     state.translation = '';
     state.fit = null;
@@ -633,6 +690,16 @@ export class PdfSession {
 
   private async run(job: Job, signal: AbortSignal, generation: number): Promise<void> {
     const { state } = job;
+    // OCR debris and wrapped one-glyph tails must not consume a translation request or paint a
+    // hallucinated cover. The source glyphs stay visible, as with other kept-as-is blocks.
+    // Whitespace-only blocks keep the existing failure path (they are not OCR debris).
+    if (
+      state.block.text.trim().length > 0 &&
+      isNoiseBlockText(state.block.text, state.block.role)
+    ) {
+      this.keepOriginal(state);
+      return;
+    }
     const pageLanguage = this.pageLanguages.get(job.page) ?? null;
     if (isSameLanguage(state.block.text, this.target, pageLanguage)) {
       this.keepOriginal(state);
@@ -661,6 +728,10 @@ export class PdfSession {
     const parts: string[] = Array.from({ length: pieces.length }, () => '');
     const finals = Array.from({ length: pieces.length }, () => false);
     const errors = Array.from({ length: pieces.length }, () => false);
+    // Only a completed final chunk can prove that the model dropped a placeholder. A delta
+    // that arrives before all placeholders have streamed in cannot restore yet; treating that
+    // as a failure would re-ask every notation block and could discard a good final.
+    let restoreFailed = false;
 
     try {
       for await (const chunk of this.engine.translate(segments, {
@@ -677,6 +748,7 @@ export class PdfSession {
         if (chunk.engine) state.engine = chunk.engine;
         const index = pieceIndex(chunk.id);
         if (index < 0 || index >= pieces.length) continue;
+        const isFinal = chunk.final !== undefined;
         if (chunk.textDelta !== undefined) {
           const before = chunk.restart === true ? '' : (parts[index] ?? '');
           parts[index] = before + chunk.textDelta;
@@ -696,13 +768,18 @@ export class PdfSession {
         const joined = joinParts(parts, this.target);
         const restored = restoreInlineMath(joined, protectedText.slots);
         if (restored === null) {
-          // The model dropped a formula. Showing the hole would be a wrong translation.
+          // A partial delta may simply be missing the tag that arrives in a later chunk. Never
+          // paint a translation with a hole in it, but only a failed final is a real failure.
+          if (isFinal) restoreFailed = true;
           state.translation = '';
           state.fit = null;
           state.paint = false;
           state.overflow = false;
           continue;
         }
+        // The model kept every placeholder in the finished text: any earlier partial miss
+        // was a streaming artefact, not a reason to retranslate this block.
+        if (isFinal) restoreFailed = false;
         state.translation = restored;
         this.layout(state, job.page);
         this.noteOutput(chunk.final ?? chunk.textDelta ?? '', 1);
@@ -718,14 +795,19 @@ export class PdfSession {
         this.enqueue(state, job.page);
         return;
       }
+      if (this.retry(job)) return;
       this.failBlock(state);
       return;
     }
 
     if (this.stale(generation, signal)) return;
     const allFinal = pieces.length === 0 || finals.every(Boolean);
+    // Re-ask only for a placeholder missing from the finished text, and only after every piece
+    // has finalised. A single spurious retry that errors would otherwise clear a good cover.
+    if (allFinal && restoreFailed && this.retry(job)) return;
     const anyError = errors.some(Boolean);
     if (!allFinal || anyError) {
+      if (this.retry(job)) return;
       this.failBlock(state);
       return;
     }
@@ -735,6 +817,7 @@ export class PdfSession {
       // keep. Short prose was slipping through the word-count gate above and was counted as
       // finished with no cover on the page.
       if (mayKeepOriginal(state.block, sourceText)) this.keepOriginal(state);
+      else if (this.retry(job)) return;
       else this.failBlock(state);
       return;
     }
@@ -746,6 +829,9 @@ export class PdfSession {
       return;
     }
     if (state.translation.trim().length === 0) {
+      // A normal final chunk with no text is still a failure. Count it against the same retry
+      // budget as an error chunk so repeated coverage sweeps cannot buy unlimited engine calls.
+      if (this.retry(job)) return;
       this.failBlock(state);
       return;
     }
@@ -765,22 +851,36 @@ export class PdfSession {
     const block = state.block;
     const obstacles = this.neighbourBoxes(state, page);
     const pageWidth = this.pageWidths.get(page) ?? 0;
-    const width = wrapWidth(block, obstacles, pageWidth);
     const measureAt = (text: string, size: number) => this.measure(text, size, traitsOf(block));
-    state.fit = fitText(
-      {
-        box: fitBox(block, width),
-        growBudget:
-          verticalWriting(block) || block.role === 'label' ? 0 : this.growBudget(state, page),
-        fontSize: block.fontSize,
-        lineHeight: block.lineHeight,
-        width,
-        measure: measureAt,
-        role: block.role,
-      },
-      state.translation,
-      targetScript(this.target),
-    );
+    const fitAt = (wrap: number): FitResult =>
+      fitText(
+        {
+          box: fitBox(block, wrap),
+          growBudget:
+            verticalWriting(block) || block.role === 'label' ? 0 : this.growBudget(state, page),
+          fontSize: block.fontSize,
+          lineHeight: block.lineHeight,
+          width: wrap,
+          measure: measureAt,
+          role: block.role,
+          singleLine: block.singleLine,
+        },
+        state.translation,
+        targetScript(this.target),
+      );
+    let width = wrapWidth(block, obstacles, pageWidth);
+    let fit = fitAt(width);
+    // A wrap wider than the painted cover's column wall cannot be drawn honestly. Refit to
+    // the wall first; only a text that still cannot fit there becomes an overflow marker.
+    const drawnX = inlineProseFragment(block) ? block.box.x : Math.min(block.box.x, block.room.x);
+    const limit = columnRefitEligible(block, pageWidth)
+      ? paintLineLimit(block, width, drawnX, pageWidth)
+      : width;
+    if (limit + 1 < width && lineOverflows(fit, limit, (text) => measureAt(text, fit.fontSize))) {
+      width = Math.max(1, limit);
+      fit = fitAt(width);
+    }
+    state.fit = fit;
     const pageHeight = this.pageHeights.get(page) ?? 0;
     const tooWide = lineOverflows(state.fit, width, (text) =>
       measureAt(text, state.fit?.fontSize ?? block.fontSize),
@@ -897,6 +997,8 @@ interface Job {
   page: number;
   /** A retry of a failed block must not be answered by the translation it already failed on. */
   bypassCache: boolean;
+  /** Number of automatic retries after an engine error or a lost placeholder. */
+  attempts: number;
 }
 
 function pieceIndex(id: string): number {

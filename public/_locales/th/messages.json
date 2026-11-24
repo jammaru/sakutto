@@ -719,6 +719,10 @@
   "modelStorageIntro": {
     "message": "เลือกตำแหน่งจัดเก็บโมเดล โมเดลที่มีอยู่จะถูกย้ายตามที่เลือก"
   },
+  "modelStorageFilesNote": {
+    "message": "โมเดลแปลภาษา PLaMo (GGUF) และโมเดล OCR (ONNX) จะถูกเก็บไว้ที่นี่ทั้งคู่ ไฟล์ OCR อยู่ในโฟลเดอร์ย่อย ocr-* หากไม่เลือกโฟลเดอร์ร่วม ทั้งสองจะอยู่ในเบราว์เซอร์นี้",
+    "description": "Where the PLaMo and OCR files are stored, for both folder and browser choices."
+  },
   "modelStorageBrowserOnlyHint": {
     "message": "เบราว์เซอร์นี้ไม่สามารถใช้โฟลเดอร์ที่ใช้ร่วมกันได้ โมเดลจึงถูกจัดเก็บไว้ในเบราว์เซอร์นี้"
   },
@@ -1137,11 +1141,35 @@
   "pdfCompare": {
     "message": "เปรียบเทียบ"
   },
+  "pdfBilingual": {
+    "message": "สองภาษา"
+  },
   "pdfOriginalPane": {
     "message": "ต้นฉบับ"
   },
   "pdfTranslatedPane": {
     "message": "คำแปล"
+  },
+  "pdfDownloadTranslated": {
+    "message": "ดาวน์โหลด PDF ที่แปลแล้ว",
+    "description": "Toolbar button that saves the translated document as a PDF."
+  },
+  "pdfExporting": {
+    "message": "กำลังเตรียม PDF…"
+  },
+  "pdfExportFailed": {
+    "message": "สร้าง PDF ไม่ได้ กรุณาลองอีกครั้ง"
+  },
+  "pdfExportWaiting": {
+    "message": "กำลังทำให้การแปลเสร็จสำหรับ PDF: $DONE$ / $TOTAL$ หน้า",
+    "placeholders": {
+      "done": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
   },
   "pdfChooseFile": {
     "message": "เลือกไฟล์ PDF"
@@ -1725,5 +1753,144 @@
   },
   "allSitesPopupEnable": {
     "message": "เปิดใช้งาน"
+  },
+  "ocrTierStandard": {
+    "message": "OCR มาตรฐาน",
+    "description": "Label for the standard PP-OCR tier."
+  },
+  "ocrTierHigh": {
+    "message": "OCR ความแม่นยำสูง",
+    "description": "Label for the high-accuracy PP-OCR tier."
+  },
+  "ocrModelsHeading": {
+    "message": "OCR บนอุปกรณ์",
+    "description": "Heading for PP-OCR model management."
+  },
+  "ocrModelsDescription": {
+    "message": "PP-OCRv6 จดจำข้อความใน PDFs ที่สแกนและรูปภาพบนอุปกรณ์เครื่องนี้ เมื่อเลือกระดับ ระบบจะดาวน์โหลดตัวตรวจจับและตัวจดจำของระดับนั้น",
+    "description": "Explanation of OCR tiers and downloads."
+  },
+  "ocrTierSwitchHint": {
+    "message": "การสลับระดับจะดาวน์โหลดโมเดลที่เลือก ระดับอื่นจะยังคงอยู่บนอุปกรณ์เครื่องนี้จนกว่าคุณจะลบ",
+    "description": "Explains tier switching and old model cleanup."
+  },
+  "onboardingOcrNote": {
+    "message": "ยังดาวน์โหลดโมเดล OCR มาตรฐานบนอุปกรณ์ ($SIZE$) สำหรับ PDFs ที่สแกนและรูปภาพด้วย",
+    "description": "Combined onboarding download note with OCR bundle size.",
+    "placeholders": {
+      "size": {
+        "content": "$1"
+      }
+    }
+  },
+  "pdfOcrReading": {
+    "message": "กำลังจดจำหน้าที่สแกน $PAGE$ จาก $TOTAL$…",
+    "description": "Shown while OCR runs on a scanned PDF page.",
+    "placeholders": {
+      "page": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "pdfOcrFailed": {
+    "message": "การจดจำข้อความในหน้าที่สแกนนี้ล้มเหลว",
+    "description": "Shown when a scanned PDF page cannot be recognized."
+  },
+  "ocrDownloadRequired": {
+    "message": "ต้องใช้โมเดล OCR เพื่อจดจำข้อความใน PDF ที่สแกนและรูปภาพ",
+    "description": "Shown when OCR is unavailable or its model download fails."
+  },
+  "ocrDownloadInline": {
+    "message": "ดาวน์โหลดโมเดล OCR (ประมาณ $SIZE$)",
+    "description": "Inline button that downloads the selected OCR tier.",
+    "placeholders": {
+      "size": {
+        "content": "$1"
+      }
+    }
+  },
+  "ocrDownloadProgress": {
+    "message": "กำลังดาวน์โหลดโมเดล OCR: $PERCENT$%",
+    "description": "Inline progress shown while the OCR model downloads.",
+    "placeholders": {
+      "percent": {
+        "content": "$1"
+      }
+    }
+  },
+  "ocrDownloadFailed": {
+    "message": "ดาวน์โหลดโมเดล OCR ไม่สำเร็จ กรุณาลองอีกครั้ง",
+    "description": "Shown when an inline OCR model download fails."
+  },
+  "imageFileAccessHeading": {
+    "message": "แปลรูปภาพในเครื่อง",
+    "description": "Title of the page opened when the image context menu cannot reach a file URL."
+  },
+  "imageFileAccessBody": {
+    "message": "Sakutto อ่านรูปภาพนี้จากหน้าเว็บไม่ได้ เปิด chrome://extensions เลือก Sakutto แล้วเปิด “Allow access to file URLs” หรือเลือกไฟล์รูปด้านล่างเพื่อแปลบนอุปกรณ์นี้",
+    "description": "Guidance when a local image action cannot inject into the tab."
+  },
+  "imageFileAccessChoose": {
+    "message": "เลือกไฟล์รูปภาพ",
+    "description": "Label for the local image picker."
+  },
+  "contextTranslateImage": {
+    "message": "แปลรูปภาพด้วย Sakutto",
+    "description": "Image context-menu action."
+  },
+  "imageTranslationHeading": {
+    "message": "การแปลรูปภาพ",
+    "description": "Title of the image translation panel."
+  },
+  "imageTranslating": {
+    "message": "กำลังจดจำและแปลรูปภาพ…",
+    "description": "Shown while image OCR and translation run."
+  },
+  "imageTranslationFailed": {
+    "message": "ไม่สามารถแปลรูปภาพนี้ได้",
+    "description": "Shown when image OCR or translation fails."
+  },
+  "imageTranslationEmpty": {
+    "message": "ไม่มีข้อความที่จดจำได้ในรูปภาพนี้",
+    "description": "Shown when OCR returns no text."
+  },
+  "imageTranslationClose": {
+    "message": "ปิดการแปลรูปภาพ",
+    "description": "Accessible close-button label for the image panel."
+  },
+  "imageOriginalText": {
+    "message": "ข้อความที่จดจำได้",
+    "description": "Label for OCR source text in the image panel."
+  },
+  "imageTranslationPermission": {
+    "message": "เบราว์เซอร์ไม่สามารถเข้าถึงรูปภาพนี้ได้ ลองจับภาพหน้าเว็บที่มองเห็นแทน",
+    "description": "Shown when image pixels cannot be read without extra permissions."
+  },
+  "pdfFileAccessBody": {
+    "message": "Sakutto อ่าน PDF นี้จากหน้าเว็บไม่ได้ เปิด chrome://extensions เลือก Sakutto แล้วเปิด “Allow access to file URLs” หรือเลือก PDF ด้านล่างเพื่อเปิดในโปรแกรมอ่านนี้",
+    "description": "Guidance when a local PDF cannot be read from a file:// tab."
+  },
+  "onboardingPlamoReady": {
+    "message": "โมเดลแปลภาษา (PLaMo): ดาวน์โหลดลงบนอุปกรณ์นี้แล้ว",
+    "description": "PLaMo line of the onboarding download status, shown when the translation model is already stored."
+  },
+  "onboardingOcrDownloading": {
+    "message": "กำลังดาวน์โหลดโมเดล OCR (สำหรับ PDF และภาพที่สแกน ประมาณ $SIZE$): $PERCENT$%",
+    "description": "OCR line of the onboarding download status, with the selected tier's size and its own percent progress.",
+    "placeholders": {
+      "size": {
+        "content": "$1"
+      },
+      "percent": {
+        "content": "$2"
+      }
+    }
+  },
+  "onboardingOcrReady": {
+    "message": "โมเดล OCR: ดาวน์โหลดลงบนอุปกรณ์นี้แล้ว",
+    "description": "OCR line of the onboarding download status, shown when the OCR model is already stored."
   }
 }

@@ -1,0 +1,55 @@
+{
+  "fixture": "bench/pdf/image-only-paper.pdf (2 pages, image-only Japanese paper)",
+  "machine": "Linux x86_64, Node 24, headless Chromium, ORT 1.31.1 WASM CPU (no WebGPU adapter in this environment)",
+  "before": {
+    "commit": "1a1d564",
+    "pages": [
+      {
+        "page": 1,
+        "ocrMs": 8892,
+        "layoutMs": 24,
+        "firstVisibleMs": null,
+        "translateMs": 6,
+        "ocrPlusTranslateMs": 8899,
+        "crossColumnCovers": 0
+      },
+      {
+        "page": 2,
+        "ocrMs": 7777,
+        "layoutMs": 7,
+        "firstVisibleMs": 10,
+        "translateMs": 13,
+        "ocrPlusTranslateMs": 7790,
+        "crossColumnCovers": 2
+      }
+    ]
+  },
+  "after": {
+    "pages": [
+      {
+        "page": 1,
+        "ocrMs": 8659,
+        "layoutMs": 22,
+        "firstVisibleMs": 12,
+        "translateMs": 16,
+        "ocrPlusTranslateMs": 8674,
+        "crossColumnCovers": 0
+      },
+      {
+        "page": 2,
+        "ocrMs": 7905,
+        "layoutMs": 7,
+        "firstVisibleMs": 3,
+        "translateMs": 6,
+        "ocrPlusTranslateMs": 7912,
+        "crossColumnCovers": 0
+      }
+    ]
+  },
+  "notes": [
+    "OCR numbers are one warmed run of the shipped tiny_det+small_rec pipeline on CPU WASM; no WebGPU adapter was available, so WebGPU numbers are not claimed.",
+    "Translation numbers use a deterministic fake engine with one macrotask per delta; they measure reader plumbing and first painted cover, not real model decoding.",
+    "Raw CPU inference is unchanged; speed work is page OCR caching, one idle-time prefetch, progressive per-block painting and a WebGPU EP path with WASM fallback.",
+    "Screenshots live in bench/results/image-paper/after-p1.png and after-p2.png; /opt/cursor/artifacts is read-only in this sandbox."
+  ]
+}

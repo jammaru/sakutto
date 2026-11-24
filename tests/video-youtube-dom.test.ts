@@ -54,6 +54,37 @@ describe('YouTube caption DOM source', () => {
     );
   });
 
+  it('keeps both pop-on lines when YouTube replaces the segment nodes', () => {
+    document.body.innerHTML =
+      '<div class="ytp-caption-window-container caption-window" lang="en"><span class="ytp-caption-segment">The station opens</span><span class="ytp-caption-segment">at dawn</span></div>';
+    expect(readYoutubeCaptionDom(document, { targetLanguage: 'ja', spokenLanguage: 'en' })).toBe(
+      'The station opens at dawn',
+    );
+
+    const window = document.querySelector('.caption-window') as HTMLElement;
+    const replaceSegments = (lines: readonly string[]): void => {
+      const segments = lines.map((line) => {
+        const segment = document.createElement('span');
+        segment.className = 'ytp-caption-segment';
+        segment.textContent = line;
+        return segment;
+      });
+      window.replaceChildren(...segments);
+    };
+
+    // A re-rendered cue with the same text must not silently drop its first line.
+    replaceSegments(['The station opens', 'at dawn']);
+    expect(readYoutubeCaptionDom(document, { targetLanguage: 'ja', spokenLanguage: 'en' })).toBe(
+      'The station opens at dawn',
+    );
+
+    // Nor may the next pop-on cue, whose every segment node is replaced.
+    replaceSegments(['A red train waits', 'on platform two']);
+    expect(readYoutubeCaptionDom(document, { targetLanguage: 'ja', spokenLanguage: 'en' })).toBe(
+      'A red train waits on platform two',
+    );
+  });
+
   it('selects only the appended current fragment for punctuated roll-up', () => {
     document.body.innerHTML =
       '<div class="ytp-caption-window-container caption-window" lang="en"><span class="ytp-caption-segment"></span></div>';
@@ -69,6 +100,23 @@ describe('YouTube caption DOM source', () => {
 
     expect(readYoutubeCaptionDom(document, { targetLanguage: 'ja', spokenLanguage: 'en' })).toBe(
       'A red train waits.',
+    );
+  });
+
+  it('keeps only the current fragment when roll-up scrolls its completed line off', () => {
+    document.body.innerHTML =
+      '<div class="ytp-caption-window-container caption-window" lang="en"><span class="ytp-caption-segment">The station opens</span><span class="ytp-caption-segment">A red train waits.</span></div>';
+    expect(readYoutubeCaptionDom(document, { targetLanguage: 'ja', spokenLanguage: 'en' })).toBe(
+      'The station opens A red train waits.',
+    );
+    const window = document.querySelector('.caption-window') as HTMLElement;
+    const kept = window.querySelectorAll('.ytp-caption-segment')[1] as HTMLElement;
+    const next = document.createElement('span');
+    next.className = 'ytp-caption-segment';
+    next.textContent = 'and departs.';
+    window.replaceChildren(kept, next);
+    expect(readYoutubeCaptionDom(document, { targetLanguage: 'ja', spokenLanguage: 'en' })).toBe(
+      'and departs.',
     );
   });
 

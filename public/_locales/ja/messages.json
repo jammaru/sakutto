@@ -223,13 +223,13 @@
     "message": "はじめに"
   },
   "onboardingLead": {
-    "message": "ページ翻訳の既定は端末内です。PLaMo 3 のモデルは、この端末に保存されていないときだけダウンロードします。"
+    "message": "ページ翻訳とスキャン文書の文字認識の既定は端末内です。PLaMo 3 の翻訳モデルと標準のOCRモデルは、この端末に保存されていないときだけダウンロードします。"
   },
   "onboardingSetupHeading": {
     "message": "この拡張機能について"
   },
   "onboardingModelNote": {
-    "message": "標準モデル（573 MB）をこの端末へダウンロードします。100 Mbps を最後まで使えた場合の計算は約 46 秒で、実際の時間は回線により前後します。中断しても続きから再開できます。"
+    "message": "標準の翻訳モデル（573 MB）をこの端末へダウンロードします。100 Mbps を最後まで使えた場合の計算は約 46 秒で、実際の時間は回線により前後します。中断しても続きから再開できます。"
   },
   "onboardingBridgeNote": {
     "message": "モデルの準備ができるまで、ページは原文のまま表示します。準備ができると PLaMo が訳します。Google の説明では、Chrome の翻訳は端末内で動きます。"
@@ -629,7 +629,7 @@
     "message": "サンプルページで試す"
   },
   "onboardingWhileDownloading": {
-    "message": "モデルのダウンロード中、ページは原文のまま表示します。PLaMo の準備ができるまで訳文は出ません。"
+    "message": "翻訳モデルとOCRモデルのダウンロード中、ページは原文のまま表示します。PLaMo の準備ができるまで訳文は出ません。"
   },
   "downloadEtaSeconds": {
     "message": "あと約 $COUNT$ 秒です。",
@@ -718,6 +718,10 @@
   },
   "modelStorageIntro": {
     "message": "モデルの保存先を選びます。既存のモデルは選択に合わせて移動します。"
+  },
+  "modelStorageFilesNote": {
+    "message": "翻訳用PLaMoモデル（GGUF）と端末内OCRモデル（ONNX）はどちらもここに保存されます。OCRファイルはocr-*のサブフォルダーに入ります。フォルダーを選ばない場合は両方ともこのブラウザー内に保存されます。",
+    "description": "Where the PLaMo and OCR files are stored, for both folder and browser choices."
   },
   "modelStorageBrowserOnlyHint": {
     "message": "このブラウザでは共有フォルダを使えないため、モデルはこのブラウザ内に保存されます。"
@@ -1135,17 +1139,45 @@
   "pdfOpenFailed": {
     "message": "この PDF を開けませんでした。ページを再読み込みしてから試してください。"
   },
+  "pdfFileAccessBody": {
+    "message": "この PDF はページから読み取れませんでした。chrome://extensions の Sakutto の詳細で「ファイルの URL へのアクセスを許可する」（Allow access to file URLs）をオンにしてください。下の「PDF ファイルを選択」でファイルを開けば、このリーダーで翻訳できます。",
+    "description": "file:// の PDF にアクセスできないときの案内。"
+  },
   "pdfFileAccessDenied": {
     "message": "この PDF はディスク上のファイルです。ブラウザの拡張機能の設定で「ファイルの URL へのアクセスを許可する」をオンにするか、リーダーでファイルを選んでください。"
   },
   "pdfCompare": {
     "message": "並べて比較"
   },
+  "pdfBilingual": {
+    "message": "二言語表示"
+  },
   "pdfOriginalPane": {
     "message": "原本"
   },
   "pdfTranslatedPane": {
     "message": "翻訳"
+  },
+  "pdfDownloadTranslated": {
+    "message": "翻訳後のPDFをダウンロード",
+    "description": "Toolbar button that saves the translated document as a PDF."
+  },
+  "pdfExporting": {
+    "message": "PDF を作成中…"
+  },
+  "pdfExportFailed": {
+    "message": "PDF を作成できませんでした。もう一度お試しください。"
+  },
+  "pdfExportWaiting": {
+    "message": "PDF 用に翻訳を完了中: $DONE$ / $TOTAL$ ページ",
+    "placeholders": {
+      "done": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
   },
   "pdfChooseFile": {
     "message": "PDF ファイルを選ぶ"
@@ -1734,5 +1766,140 @@
   "allSitesPopupEnable": {
     "message": "オンにする",
     "description": "Button in the toolbar popup that turns on all-sites access."
+  },
+  "ocrTierStandard": {
+    "message": "標準OCR",
+    "description": "Label for the standard PP-OCR tier."
+  },
+  "ocrTierHigh": {
+    "message": "高精度OCR",
+    "description": "Label for the high-accuracy PP-OCR tier."
+  },
+  "ocrModelsHeading": {
+    "message": "端末内OCR",
+    "description": "Heading for PP-OCR model management."
+  },
+  "ocrModelsDescription": {
+    "message": "PP-OCRv6がスキャンしたPDFや画像の文字を端末内で認識します。画質を選ぶと、検出モデルと認識モデルをダウンロードします。",
+    "description": "Explanation of OCR tiers and downloads."
+  },
+  "ocrTierSwitchHint": {
+    "message": "画質を切り替えると、選択したモデルをダウンロードします。以前のモデルは削除するまで端末に残ります。",
+    "description": "Explains tier switching and old model cleanup."
+  },
+  "onboardingOcrNote": {
+    "message": "スキャンしたPDFと画像のための標準OCRモデル（$SIZE$）も一緒にダウンロードします。",
+    "description": "Combined onboarding download note with OCR bundle size.",
+    "placeholders": {
+      "size": {
+        "content": "$1"
+      }
+    }
+  },
+  "pdfOcrReading": {
+    "message": "スキャンした $PAGE$ / $TOTAL$ ページを文字認識しています…",
+    "description": "Shown while OCR runs on a scanned PDF page.",
+    "placeholders": {
+      "page": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "pdfOcrFailed": {
+    "message": "このスキャンページの文字を認識できませんでした。",
+    "description": "Shown when a scanned PDF page cannot be recognized."
+  },
+  "ocrDownloadRequired": {
+    "message": "スキャンしたPDFや画像の文字を認識するには、OCRモデルが必要です。",
+    "description": "Shown when OCR is unavailable or its model download fails."
+  },
+  "ocrDownloadInline": {
+    "message": "OCRモデルをダウンロード（約$SIZE$）",
+    "description": "Inline button that downloads the selected OCR tier.",
+    "placeholders": {
+      "size": {
+        "content": "$1"
+      }
+    }
+  },
+  "ocrDownloadProgress": {
+    "message": "OCRモデルをダウンロード中：$PERCENT$%",
+    "description": "Inline progress shown while the OCR model downloads.",
+    "placeholders": {
+      "percent": {
+        "content": "$1"
+      }
+    }
+  },
+  "ocrDownloadFailed": {
+    "message": "OCRモデルのダウンロードに失敗しました。もう一度お試しください。",
+    "description": "Shown when an inline OCR model download fails."
+  },
+  "imageFileAccessHeading": {
+    "message": "ローカル画像を翻訳",
+    "description": "画像メニューが file URL に届かないときに開くページの見出し。"
+  },
+  "imageFileAccessBody": {
+    "message": "この画像はページから読み取れませんでした。chrome://extensions の Sakutto の詳細で「ファイルの URL へのアクセスを許可する」（Allow access to file URLs）をオンにしてください。下の「画像ファイルを選択」で画像を選べば、この端末で翻訳できます。",
+    "description": "ローカル画像のメニューがページに届かないときの案内。"
+  },
+  "imageFileAccessChoose": {
+    "message": "画像ファイルを選択",
+    "description": "ローカル画像のファイル選択のラベル。"
+  },
+  "contextTranslateImage": {
+    "message": "Sakuttoで画像を翻訳",
+    "description": "Image context-menu action."
+  },
+  "imageTranslationHeading": {
+    "message": "画像の翻訳",
+    "description": "Title of the image translation panel."
+  },
+  "imageTranslating": {
+    "message": "画像の文字を認識して翻訳しています…",
+    "description": "Shown while image OCR and translation run."
+  },
+  "imageTranslationFailed": {
+    "message": "画像を翻訳できませんでした。",
+    "description": "Shown when image OCR or translation fails."
+  },
+  "imageTranslationEmpty": {
+    "message": "画像から文字を認識できませんでした。",
+    "description": "Shown when OCR returns no text."
+  },
+  "imageTranslationClose": {
+    "message": "画像の翻訳を閉じる",
+    "description": "Accessible close-button label for the image panel."
+  },
+  "imageOriginalText": {
+    "message": "認識した原文",
+    "description": "Label for OCR source text in the image panel."
+  },
+  "imageTranslationPermission": {
+    "message": "ブラウザがこの画像にアクセスできませんでした。表示中のページをキャプチャしてみてください。",
+    "description": "Shown when image pixels cannot be read without extra permissions."
+  },
+  "onboardingPlamoReady": {
+    "message": "翻訳モデル（PLaMo）：取得済み",
+    "description": "PLaMo line of the onboarding download status, shown when the translation model is already stored."
+  },
+  "onboardingOcrDownloading": {
+    "message": "OCRモデル（スキャンPDF・画像用、約$SIZE$）をダウンロードしています（$PERCENT$%）",
+    "description": "OCR line of the onboarding download status, with the selected tier's size and its own percent progress.",
+    "placeholders": {
+      "size": {
+        "content": "$1"
+      },
+      "percent": {
+        "content": "$2"
+      }
+    }
+  },
+  "onboardingOcrReady": {
+    "message": "OCRモデル：取得済み",
+    "description": "OCR line of the onboarding download status, shown when the OCR model is already stored."
   }
 }

@@ -1,3 +1,4 @@
+import type { OcrResult } from '@/engine/ocr/types';
 import type { TranslateOptions, TranslateSegment, TranslationChunk } from '@/engine/types';
 
 const PLACEHOLDER = /(<\/?i\d+>)/;
@@ -248,5 +249,32 @@ async function claim(limit: number, signal: AbortSignal): Promise<() => void> {
   return () => {
     signal.removeEventListener('abort', releaseOnce);
     releaseOnce();
+  };
+}
+
+/**
+ * Deterministic OCR for fake-engine UI tests: the image popup placement, copy and resize
+ * paths do not need a 23 MB model download or a real recognition pass.
+ */
+export async function fakeOcrRecognize(): Promise<OcrResult> {
+  const text = 'LOCAL TRANSLATION NOTES';
+  const quad = [
+    { x: 0, y: 0 },
+    { x: 40, y: 0 },
+    { x: 40, y: 12 },
+    { x: 0, y: 12 },
+  ] as const;
+  const region = {
+    text,
+    quad,
+    confidence: 1,
+    recognitionConfidence: 1,
+    vertical: false,
+    symbolScores: [],
+  };
+  return {
+    text,
+    regions: [region],
+    lines: [{ orientation: 'horizontal', items: [region], indices: [0] }],
   };
 }

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="720" viewBox="0 0 1000 720">
+<rect width="100%" height="100%" fill="#ffffff"/>
+<g font-family="Inter, Arial, Droid Sans Fallback, WenQuanYi Micro Hei, sans-serif"
+>
+<line x1="500" y1="55" x2="500" y2="350" stroke="#999" stroke-width="2"/>
+<text x="65" y="90" font-size="25" font-weight="700" fill="#17202a" textLength="340" lengthAdjust="spacingAndGlyphs">COMMUNITY GARDEN</text>
+<text x="65" y="160" font-size="23" font-weight="400" fill="#17202a" textLength="320" lengthAdjust="spacingAndGlyphs">Spring planting begins.</text>
+<text x="65" y="220" font-size="23" font-weight="400" fill="#17202a" textLength="340" lengthAdjust="spacingAndGlyphs">Volunteers meet at nine.</text>
+<text x="65" y="280" font-size="23" font-weight="400" fill="#17202a" textLength="320" lengthAdjust="spacingAndGlyphs">Bring gloves and water.</text>
+<text x="545" y="90" font-size="25" font-weight="700" fill="#17202a" textLength="340" lengthAdjust="spacingAndGlyphs">CITY LIBRARY NEWS</text>
+<text x="545" y="160" font-size="23" font-weight="400" fill="#17202a" textLength="340" lengthAdjust="spacingAndGlyphs">New books arrive Monday.</text>
+<text x="545" y="220" font-size="23" font-weight="400" fill="#17202a" textLength="350" lengthAdjust="spacingAndGlyphs">Reading club welcomes all.</text>
+<text x="545" y="280" font-size="23" font-weight="400" fill="#17202a" textLength="330" lengthAdjust="spacingAndGlyphs">Return books by Friday.</text>
+</g>
+</svg>

@@ -16,6 +16,7 @@ vendor/*/build/
 vendor/wllama/
 public/vendor/wllama/
 public/vendor/pdfjs/
+public/vendor/fonts/
 .orchestrator/
 .tools/
 *.log
@@ -27,6 +28,7 @@ bench/.chrome-profile/
 bench/.engine-profile/
 bench/.quant-profile/
 bench/results/pdf/
+bench/results/scan-ocr/*.png
 coverage/
 .env*
 *.tsbuildinfo
@@ -40,5 +42,13 @@ public/licenses/wllama-LICENSE.txt
 public/licenses/emscripten-LICENSE.txt
 public/licenses/dawn-LICENSE.txt
 public/licenses/svelte-LICENSE.txt
+public/licenses/onnxruntime-LICENSE.txt
+public/licenses/PaddleOCR-Apache-2.0.txt
+public/licenses/pdf-lib-ThirdPartyNotices.txt
+public/licenses/MPLUS1p-OFL.txt
+public/licenses/onnxruntime-ThirdPartyNotices.txt
+public/ocr/ort/ort-wasm-simd-threaded.wasm
+public/ocr/ort/ort-wasm-simd-threaded.jsep.wasm
+bench/ocr/fixtures/*.rgba
 en.pdf
 traces/

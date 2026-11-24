@@ -3,7 +3,9 @@ import { armFolderCommand } from '@/content/folder-arm-gate';
 import { ComposeController, type ComposeLabels, type ComposePreferences } from '@/dom/compose';
 import { shouldHandleComposeCommand } from '@/dom/compose-field';
 import { detectDocumentLanguage } from '@/dom/detect';
-import { fakeTranslate } from '@/dom/fake-engine';
+import { fakeOcrRecognize, fakeTranslate } from '@/dom/fake-engine';
+import { ImageTranslationController } from '@/dom/image-translation';
+import { isImageTranslateRequest } from '@/shared/image';
 import { GmailBannerController, isGmailHost, type GmailBannerLabels } from '@/dom/gmail-banner';
 import {
   OutlookBannerController,
@@ -59,6 +61,7 @@ import {
 } from '@/shared/shortcuts';
 import {
   isModelProgressMessage,
+  isOcrProgressMessage,
   isPageCommandRequest,
   isPageInfoRequest,
   isPageStateRequest,
@@ -93,6 +96,7 @@ interface ContentBridgeGlobal {
 }
 
 const bridge = globalThis as typeof globalThis & ContentBridgeGlobal;
+let imageTranslation: ImageTranslationController | null = null;
 
 /**
  * Browser bindings plus the broad-grant state. A page may listen only for an empty binding
@@ -832,6 +836,32 @@ export function contentMain(): void {
 
   browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (sender.id !== browser.runtime.id) return;
+    if (isImageTranslateRequest(message)) {
+      imageTranslation ??= new ImageTranslationController({
+        ...(__SAKUTTO_FAKE_ENGINE__
+          ? { translate: fakeTranslate, recognize: fakeOcrRecognize }
+          : {}),
+        labels: {
+          heading: t('imageTranslationHeading'),
+          pending: t('imageTranslating'),
+          failed: t('imageTranslationFailed'),
+          empty: t('imageTranslationEmpty'),
+          close: t('imageTranslationClose'),
+          original: t('imageOriginalText'),
+          permission: t('imageTranslationPermission'),
+          copy: t('selectionCopy'),
+          copied: t('selectionCopied'),
+          copyFailed: t('selectionCopyFailed'),
+          resize: t('selectionResizeHandle'),
+          ocrMissing: t('ocrDownloadRequired'),
+          ocrDownloadFailed: t('ocrDownloadFailed'),
+        },
+        onWidthChange: (width) => void saveSettings({ imagePopupWidth: width }),
+      });
+      void imageTranslation.start(message.srcUrl);
+      sendResponse(true);
+      return;
+    }
     if (isFolderGrantCompleteMessage(message)) {
       void sessionPromise.then(async (session) => {
         session.endFolderGrantWait();
@@ -849,6 +879,10 @@ export function contentMain(): void {
     }
     if (isPageInfoRequest(message)) {
       sendResponse({ lang: document.documentElement.lang } satisfies PageInfo);
+      return;
+    }
+    if (isOcrProgressMessage(message)) {
+      imageTranslation?.updateOcrDownload(message.status);
       return;
     }
     if (isModelProgressMessage(message)) {

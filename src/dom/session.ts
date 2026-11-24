@@ -3733,24 +3733,21 @@ function expandSource(item: Live): { id: string; text: string }[] {
   const source = item.flatten ? stripPlaceholderTokens(item.source) : item.source;
   if (item.model && shouldPreserveNewlines(item.model.block) && source.includes('\n')) {
     // X paints paragraph breaks as raw newlines under pre-wrap. Ask for one answer per
-    // line so the model cannot glue the lines into a single paragraph. A blank line is
-    // not a request: its bytes stay with the break of the line before it.
+    // line so the model cannot glue the lines into a single paragraph.
     const lines = segmentSourceText(source);
     const pieces: { id: string; text: string }[] = [];
     const breaks: { lineBreak: string }[] = [];
-    let blank = '';
     for (const line of lines) {
       if (line.text.trim().length === 0) {
-        blank += line.lineBreak;
+        // A blank line is not a request: its bytes stay with the break of the line before
+        // it. Attaching them to the next line's break instead moves the empty row and,
+        // in replace mode, glues the first two translated lines together.
+        const previous = breaks.at(-1);
+        if (previous) previous.lineBreak += line.lineBreak;
         continue;
       }
-      breaks.push({ lineBreak: line.lineBreak + blank });
-      blank = '';
+      breaks.push({ lineBreak: line.lineBreak });
       pieces.push({ id: `${item.id}#${String(pieces.length)}`, text: line.text });
-    }
-    if (breaks.length > 0 && blank.length > 0) {
-      const last = breaks.at(-1);
-      if (last) last.lineBreak += blank;
     }
     item.linePieces = breaks;
     return pieces;

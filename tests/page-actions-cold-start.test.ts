@@ -5,7 +5,10 @@ import { FOLDER_GRANT_PENDING_KEY } from '@/shared/folder-grant-pending';
 import { defaultShortcutEnabled } from '@/shared/shortcuts';
 
 type CommandListener = (command: string, tab?: { id?: number; url?: string }) => void;
-type MenuListener = (info: { menuItemId: string }, tab?: { id?: number; url?: string }) => void;
+type MenuListener = (
+  info: { menuItemId: string; srcUrl?: string; frameId?: number },
+  tab?: { id?: number; url?: string },
+) => void;
 
 const mocks = vi.hoisted(() => {
   const session = new Map<string, unknown>();
@@ -22,7 +25,7 @@ const mocks = vi.hoisted(() => {
       (tabId: number, command: string, frameId?: number) => Promise<{ active: boolean }>
     >(async () => ({ active: true })),
     ensureContentScript: vi.fn<
-      (tabId: number, options?: { allFrames?: boolean }) => Promise<boolean>
+      (tabId: number, options?: { allFrames?: boolean; frameId?: number }) => Promise<boolean>
     >(async () => true),
     loadSettings: vi.fn(async () => ({ shortcutsEnabled: defaultShortcutEnabled() })),
     noteShortcutCommandAssigned: vi.fn<(command: string) => Promise<void>>(async () => undefined),
@@ -86,7 +89,7 @@ vi.mock('wxt/browser', () => ({
 }));
 
 vi.mock('@/shared/page-bridge', () => ({
-  ensureContentScript: (tabId: number, options?: { allFrames?: boolean }) =>
+  ensureContentScript: (tabId: number, options?: { allFrames?: boolean; frameId?: number }) =>
     mocks.ensureContentScript(tabId, options),
 }));
 
@@ -456,5 +459,29 @@ describe('page command listener at service-worker startup', () => {
     });
     expect(mocks.tabsCreate).not.toHaveBeenCalled();
     expect(mocks.session.get(FOLDER_GRANT_PENDING_KEY)).toBeUndefined();
+  });
+
+  it('injects and delivers image translation to the context-menu subframe', async () => {
+    installPageActionListeners();
+    const listener = mocks.menuListeners[0];
+    if (!listener) throw new Error('context menu listener was not installed');
+
+    listener(
+      {
+        menuItemId: 'translate-image',
+        srcUrl: 'https://example.test/frame-image.png',
+        frameId: 4,
+      },
+      { id: 21 },
+    );
+
+    await vi.waitFor(() => {
+      expect(mocks.ensureContentScript).toHaveBeenCalledWith(21, { frameId: 4 });
+      expect(mocks.tabsSendMessage).toHaveBeenCalledWith(
+        21,
+        { type: 'image:translate', srcUrl: 'https://example.test/frame-image.png' },
+        { frameId: 4 },
+      );
+    });
   });
 });

@@ -5,6 +5,7 @@ import { shouldAutoInjectOutlookBanner } from '@/dom/outlook-banner';
 import { originPattern, pageHost, loadSiteRule } from '@/dom/sites';
 import { ensureContentScript } from '@/shared/page-bridge';
 import { requestPageCommand, type PageCommandName } from '@/shared/messages';
+import type { ImageTranslateRequest } from '@/shared/image';
 import { noteShortcutCommandAssigned } from '@/shared/shortcut-assignment';
 import { isShortcutCommand, PDF_COMMAND, SHORTCUT_PAGE_COMMANDS } from '@/shared/shortcuts';
 import type { ShortcutCommand, ShortcutEnabled } from '@/shared/shortcuts';
@@ -19,6 +20,8 @@ export { openActivePdf, openPdfForTab, openPdfForTabReason } from './pdf-actions
 interface PageTranslationCanceller {
   cancelTab(tabId: number): void;
 }
+
+const IMAGE_TRANSLATE_PAGE = '/image-translate.html';
 
 let gatedEngine: EngineClient | undefined;
 let translationCanceller: PageTranslationCanceller | undefined;
@@ -51,6 +54,28 @@ export function installPageActionListeners(engine?: EngineClient): void {
     }
     const tabId = tab?.id;
     if (tabId === undefined) return;
+    if (info.menuItemId === 'translate-image') {
+      const srcUrl = info.srcUrl;
+      if (typeof srcUrl !== 'string') return;
+      void (async () => {
+        const ready = await ensureContentScript(
+          tabId,
+          info.frameId === undefined ? {} : { frameId: info.frameId },
+        ).catch(() => false);
+        if (!ready) {
+          await openImageTranslateFallback();
+          return;
+        }
+        await browser.tabs
+          .sendMessage(
+            tabId,
+            { type: 'image:translate', srcUrl } satisfies ImageTranslateRequest,
+            info.frameId === undefined ? {} : { frameId: info.frameId },
+          )
+          .catch(() => undefined);
+      })();
+      return;
+    }
     const pageCommand =
       info.menuItemId === 'translate-selection'
         ? 'selection'
@@ -89,6 +114,20 @@ export function installPageActions(
 
 function installMenus(): void {
   scheduleContextMenusInstall();
+}
+
+/**
+ * Chrome can refuse to script a file:// tab even when "Allow access to file URLs" is on,
+ * so a failed injection has to be visible. The fallback is a normal extension tab: it can
+ * explain the setting and read a file the user picks, without any install-time host access.
+ */
+export async function openImageTranslateFallback(): Promise<boolean> {
+  try {
+    await browser.tabs.create({ url: browser.runtime.getURL(IMAGE_TRANSLATE_PAGE) });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="650" viewBox="0 0 900 650">
+<rect width="100%" height="100%" fill="#ffffff"/>
+<g font-family="Inter, Arial, Droid Sans Fallback, WenQuanYi Micro Hei, sans-serif"
+>
+
+<text x="75" y="100" font-size="34" font-weight="400" fill="#17202a">Sakutto 翻訳ガイド</text>
+<text x="75" y="180" font-size="30" font-weight="400" fill="#17202a">START を押して開始します。</text>
+<text x="75" y="255" font-size="29" font-weight="400" fill="#17202a">English と日本語を読み取ります。</text>
+<text x="75" y="330" font-size="29" font-weight="400" fill="#17202a">Privacy first: 外部送信なし。</text>
+<text x="75" y="405" font-size="29" font-weight="400" fill="#17202a">OCR version 6 を使用します。</text>
+<text x="75" y="480" font-size="29" font-weight="400" fill="#17202a">詳細は README をご覧ください。</text>
+</g>
+</svg>

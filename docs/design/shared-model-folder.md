@@ -56,8 +56,22 @@ Layout after a successful pick:
 
 The usual chosen folder is `Documents/Sakutto`. The Settings copy names this
 path as an example rather than a Windows-only requirement. Integrity sidecars
-are `<official name>.verified.json`. In-flight copies and downloads use
-`.part`.
+for PLaMo GGUF files are `<official name>.verified.json`. In-flight copies and
+downloads use `.part`.
+
+On-device OCR bundles use the same root in their own tier subfolders:
+
+`<chosen>/sakutto-models/ocr-<tier>/<pinned ONNX file>`
+`<chosen>/sakutto-models/ocr-<tier>/asset.json`
+
+`ocr-standard/` and `ocr-high/` hold the detector and recognizer files plus
+one `asset.json` sidecar that records each file's size, SHA-256, commit and
+`lastModified`. A profile that finds a verified sidecar reuses the files without
+a download. Deleting a tier removes only that `ocr-<tier>/` subfolder, never the
+GGUF at the root. Because the storage choice is the user's, a linked folder
+without a current grant blocks OCR downloads, deletes and recognition: the
+Settings action asks for the grant again, and browser storage (OPFS) is never
+silently substituted. The same permission notice covers PLaMo and OCR.
 
 ## Copy from a shared folder (Firefox)
 

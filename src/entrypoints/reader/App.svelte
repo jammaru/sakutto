@@ -1,25 +1,39 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
   import { browser } from 'wxt/browser';
+  import { ocrReadyToRetry } from '@/background/ocr-readiness';
   import { DEFAULT_MODEL_ID } from '@/engine/model/catalog';
+  import { encodeOcrImage } from '@/engine/ocr/codec';
+  import { abortError } from '@/engine/errors';
   import { readerEngine } from './engine';
-  import { loadPdfjs, resolvePdfjsAssetUrls } from '@/pdf/assets';
+  import { loadPdfjs, resolveExportFontUrl, resolvePdfjsAssetUrls } from '@/pdf/assets';
   import type { PdfDocument } from '@/pdf/extract';
-  import { PdfReader, type PageGeometry, type ReaderProgress } from '@/pdf/reader';
+  import { buildTranslatedPdf, translatedPdfName } from '@/pdf/export';
+  import { OcrUserMessageError } from '@/pdf/ocr';
+  import {
+    PdfOcrModelMissingError,
+    PdfReader,
+    type PageGeometry,
+    type ReaderProgress,
+  } from '@/pdf/reader';
   import { pdfConcurrencyFor } from '@/pdf/session';
   import { hasLicenseConsent } from '@/shared/agreement';
   import { currentUiLanguage, t } from '@/shared/i18n';
   import { displayLanguage, type TargetLanguage } from '@/shared/languages';
   import {
     isModelProgressMessage,
+    isOcrProgressMessage,
     requestEngineStatus,
     requestEngineWarm,
     requestModelDownload,
+    requestOcrDownload,
+    requestOcrRecognizeDetailed,
   } from '@/shared/messages';
   import { MAX_PDF_BYTES, PDF_ID_PARAM } from '@/shared/pdf';
   import type { Settings } from '@/shared/settings';
   import { loadSettings, saveSettings, subscribeSettings } from '@/shared/storage';
   import { readStoredPdf, storedPdfName } from '@/background/pdf-store';
+  import { ocrDownloadLabel, ocrDownloadProgressLabel, ocrTierOf } from '@/ui/ocr-download';
   import LanguageField from '@/ui/LanguageField.svelte';
 
   type Phase =
@@ -40,10 +54,17 @@
   let reader: PdfReader | null = null;
   let downloadBusy = $state(false);
   let downloadFailed = $state(false);
+  /** State for the translated-PDF export, kept apart from the model download above. */
+  let exportBusy = $state(false);
+  let exportFailed = $state(false);
+  let exportController: AbortController | null = null;
   let compare = $state(false);
+  let bilingual = $state(false);
   let retryTimer: ReturnType<typeof setTimeout> | null = null;
   /** The toolbar's own height, so the progress hairline sits directly under it. */
   let toolbarHeight = $state(41);
+  /** Set when the background could not read a file:// PDF and offered the picker instead. */
+  let fileAccessDenied = $state(false);
 
   const id = new URL(location.href).searchParams.get(PDF_ID_PARAM) ?? '';
   /**
@@ -57,6 +78,10 @@
     progress && progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0,
   );
   let statusText = $derived.by(() => {
+    // While exporting, the toolbar's own progress line explains why the reader is still working.
+    if (exportBusy) {
+      return t('pdfExportWaiting', [String(progress?.done ?? 0), String(progress?.total ?? 0)]);
+    }
     if (!progress) return t('pdfPreparing');
     // Pages still being read are work in progress even though no block is queued for them
     // yet. Without this the toolbar said "Translated" as soon as the first page's blocks were
@@ -136,7 +161,7 @@
     }
   }
 
-  async function startDownload() {
+  async function startModelDownload() {
     if (downloadBusy) return;
     downloadBusy = true;
     downloadFailed = false;
@@ -151,6 +176,56 @@
     }
   }
 
+  /**
+   * Writes the translated document to a real PDF, entirely inside the extension page.
+   *
+   * The reader first finishes the pages it would otherwise translate only when scrolled to,
+   * so the file does not silently ship English pages. Progress stays in the toolbar while the
+   * model works, and any failure is shown there instead of leaving a half-made download.
+   */
+  async function downloadTranslatedPdf() {
+    if (!reader || exportBusy) return;
+    exportBusy = true;
+    exportFailed = false;
+    const controller = new AbortController();
+    exportController = controller;
+    try {
+      await reader.prepareExport({ signal: controller.signal });
+      // The visible page is the viewer's own raster. The font below is only for the
+      // invisible search layer written into the PDF.
+      const pages = await reader.exportRasterPages();
+      const response = await fetch(
+        resolveExportFontUrl((path) => browser.runtime.getURL(path as never)),
+      );
+      if (!response.ok) throw new Error(`font fetch failed: ${String(response.status)}`);
+      const font = new Uint8Array(await response.arrayBuffer());
+      const bytes = await buildTranslatedPdf({
+        pages,
+        font,
+        targetLanguage,
+        title: fileName,
+      });
+      const blob = new Blob([new Uint8Array(bytes)], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = translatedPdfName(fileName, targetLanguage);
+      document.body.append(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 10_000);
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return;
+      (globalThis as { console: { error(...args: unknown[]): void } }).console.error(
+        'Translated PDF export failed:',
+        error,
+      );
+      exportFailed = true;
+    } finally {
+      exportController = null;
+      exportBusy = false;
+    }
+  }
   function openOnboarding() {
     void browser.tabs
       .create({ url: browser.runtime.getURL('/onboarding.html') })
@@ -191,7 +266,11 @@
         useSystemFonts: false,
       }).promise;
       document_ = opened as unknown as PdfDocument;
-    } catch {
+    } catch (error) {
+      (globalThis as { console: { error(...args: unknown[]): void } }).console.error(
+        'PDF document open failed:',
+        error,
+      );
       phase = 'broken';
       return;
     }
@@ -213,6 +292,7 @@
     const root = document.getElementById('pages');
     if (!root) return;
     root.replaceChildren();
+    const ocrTier = ocrTierOf(settings?.selectedOcrTier);
 
     reader = new PdfReader(root, geometries, {
       document: document_,
@@ -238,13 +318,36 @@
         overflowOpen: t('pdfOverflowOpen'),
         compareOriginal: t('pdfOriginalPane'),
         compareTranslated: t('pdfTranslatedPane'),
+        pdfBilingual: t('pdfBilingual'),
+        ocrReading: (page, of) => t('pdfOcrReading', [String(page), String(of)]),
+        ocrFailed: t('pdfOcrFailed'),
+        ocrDownload: ocrDownloadLabel(ocrTier),
+        ocrDownloadFailed: t('ocrDownloadFailed'),
+        ocrDownloadProgress: (status) => ocrDownloadProgressLabel(status),
       },
       onProgress: (state) => {
         progress = state;
       },
+      ocr: {
+        tier: ocrTier,
+        recognize: async (image, signal) => {
+          const tier = ocrTierOf(settings?.selectedOcrTier);
+          const outcome = await requestOcrRecognizeDetailed(tier, encodeOcrImage(image), signal);
+          if (signal.aborted) throw abortError();
+          if (outcome.error === 'model-missing') {
+            // A distinct class lets the reader keep these pages for the download-ready retry;
+            // ordinary OCR failures still go through the short backoff budget.
+            throw new PdfOcrModelMissingError(t('ocrDownloadRequired'));
+          }
+          if (!outcome.result) throw new OcrUserMessageError(t('pdfOcrFailed'));
+          return outcome.result;
+        },
+      },
+      onOcrDownload: (tier) => requestOcrDownload(tier),
       pageLimit,
     });
     if (compare) reader.setCompare(true);
+    if (bilingual) reader.setBilingual(true);
     reader.start();
     // The bench and the end-to-end tests read the reader through this hook, the way the page
     // session exposes `sakutto-perf`: it is the only way to see fitted sizes and source boxes
@@ -280,7 +383,14 @@
 
   function toggleCompare() {
     compare = !compare;
+    if (compare) bilingual = false;
     reader?.setCompare(compare);
+  }
+
+  function toggleBilingual() {
+    bilingual = !bilingual;
+    if (bilingual) compare = false;
+    reader?.setBilingual(bilingual);
   }
 
   /**
@@ -311,6 +421,7 @@
   }
 
   onMount(() => {
+    fileAccessDenied = new URL(location.href).searchParams.get('reason') === 'file-access';
     // The toolbar wraps on a narrow window, so its height is measured rather than assumed.
     const header = document.querySelector('.toolbar');
     if (header) {
@@ -326,9 +437,20 @@
       settings = next;
       reader?.setGlossary(next.glossary);
       reader?.setTargetLanguage(next.targetLanguage, next.form);
+      reader?.setOcrTier(next.selectedOcrTier);
+      reader?.setOcrDownloadLabel(ocrDownloadLabel(ocrTierOf(next.selectedOcrTier)));
     });
 
     const onMessage = (message: unknown) => {
+      if (isOcrProgressMessage(message)) {
+        // Pages waiting on a bundle show the same progress the settings page does. `ready` is
+        // when a finished download first makes recognition possible; waiting only for `loaded`
+        // left pages that failed while the bundle was missing stuck untranslated whenever no
+        // recognition ran to warm the runtime afterwards.
+        reader?.updateOcrDownload(message.status);
+        if (ocrReadyToRetry(message.status)) reader?.retryOcr();
+        return;
+      }
       if (!isModelProgressMessage(message)) return;
       if (message.status.state !== 'loaded') return;
       reader?.retryFailed();
@@ -366,6 +488,7 @@
     // reader page, so the original PDF tab (or a file pick) is needed again; leftovers that
     // never get this event are swept after a day.
     const onUnload = () => {
+      exportController?.abort();
       if (retryTimer !== null) clearTimeout(retryTimer);
       if (id) void browser.runtime.sendMessage({ type: 'pdf:forget', id });
       reader?.destroy();
@@ -379,6 +502,7 @@
       document.removeEventListener('visibilitychange', onVisibility);
       document.removeEventListener('selectionchange', onSelectionChange);
       window.removeEventListener('pagehide', onUnload);
+      exportController?.abort();
       if (retryTimer !== null) clearTimeout(retryTimer);
       reader?.destroy();
       reader = null;
@@ -403,12 +527,30 @@
     <div class="actions">
       {#if phase === 'ready'}
         <button
+          class="button download"
+          type="button"
+          data-sakutto="download-translated-pdf"
+          aria-busy={exportBusy ? 'true' : 'false'}
+          disabled={exportBusy}
+          onclick={downloadTranslatedPdf}
+        >
+          {exportBusy ? t('pdfExporting') : t('pdfDownloadTranslated')}
+        </button>
+        <button
           class="button secondary"
           type="button"
           aria-pressed={compare ? 'true' : 'false'}
           onclick={toggleCompare}
         >
           {t('pdfCompare')}
+        </button>
+        <button
+          class="button secondary"
+          type="button"
+          aria-pressed={bilingual ? 'true' : 'false'}
+          onclick={toggleBilingual}
+        >
+          {t('pdfBilingual')}
         </button>
       {/if}
       {#if selectionReady}
@@ -439,7 +581,7 @@
   {:else if phase === 'model-missing'}
     <div class="notice-panel">
       <p>{t('pdfModelMissing')}</p>
-      <button class="button" type="button" onclick={startDownload} disabled={downloadBusy}>
+      <button class="button" type="button" onclick={startModelDownload} disabled={downloadBusy}>
         {t('typedDownloadModel')}
       </button>
       {#if downloadFailed}
@@ -449,6 +591,9 @@
   {:else if phase === 'missing'}
     <div class="notice-panel">
       <p>{t('pdfMissing')}</p>
+      {#if fileAccessDenied}
+        <p data-sakutto="file-access-message">{t('pdfFileAccessBody')}</p>
+      {/if}
       <input
         id="pdf-file"
         class="visually-hidden"
@@ -491,6 +636,10 @@
   {/if}
   {#if failedText.length > 0}
     <p class="kept">{failedText}</p>
+  {/if}
+
+  {#if exportFailed}
+    <p class="export-error" role="alert" data-sakutto="export-error">{t('pdfExportFailed')}</p>
   {/if}
 
   {#if progress && progress.total > 0}
@@ -566,6 +715,20 @@
     align-items: center;
     gap: var(--space-2);
     margin-left: auto;
+  }
+
+  /* The primary action stays on one line even when the toolbar wraps on a narrow window. */
+  .actions .download {
+    white-space: nowrap;
+  }
+
+  .export-error {
+    max-width: 760px;
+    margin: var(--space-2) auto 0;
+    padding: 0 var(--space-4);
+    color: #b42318;
+    font-size: 12px;
+    text-align: center;
   }
 
   .actions .button[aria-pressed='true'] {

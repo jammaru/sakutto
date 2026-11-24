@@ -147,7 +147,8 @@ export const READER_STYLE = `
   height: 100%;
 }
 
-[data-compare="true"] .sakutto-page {
+[data-compare="true"] .sakutto-page,
+[data-bilingual="true"] .sakutto-page {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 12px;
@@ -156,7 +157,9 @@ export const READER_STYLE = `
 }
 
 [data-compare="true"] .sakutto-page__pane--original,
-[data-compare="true"] .sakutto-page__pane--translated {
+[data-compare="true"] .sakutto-page__pane--translated,
+[data-bilingual="true"] .sakutto-page__pane--original,
+[data-bilingual="true"] .sakutto-page__pane--translated {
   position: relative;
   inset: auto;
   display: flex;
@@ -165,11 +168,13 @@ export const READER_STYLE = `
   box-shadow: 0 1px 2px rgb(15 23 32 / 12%), 0 8px 24px rgb(15 23 32 / 10%);
 }
 
-[data-compare="true"] .sakutto-page__caption {
+[data-compare="true"] .sakutto-page__caption,
+[data-bilingual="true"] .sakutto-page__caption {
   display: block;
 }
 
-[data-compare="true"] .sakutto-page__stage {
+[data-compare="true"] .sakutto-page__stage,
+[data-bilingual="true"] .sakutto-page__stage {
   height: auto;
   flex: none;
 }
@@ -260,6 +265,14 @@ export const READER_STYLE = `
   text-align: start;
 }
 
+/* A figure box label is a single fitted line over the drawing's own box. Its cover must stay
+   inside that rectangle: a wrapped or blurred line would sit on the arrows and box rules. */
+.sakutto-cover[data-figure-label="true"] {
+  white-space: pre;
+  overflow: hidden;
+  word-break: keep-all;
+}
+
 .sakutto-cover sup,
 .sakutto-cover sub {
   font-size: 0.75em;
@@ -300,11 +313,47 @@ export const READER_STYLE = `
   text-align: center;
 }
 
-/* Only a page with no text layer shows the notice; every other page keeps it out of the way
-   without having to remove the node. The default is none so a page that never sets the flag
-   cannot leave the notice on screen. */
-.sakutto-page[data-page-empty="true"] .sakutto-page__missing {
+/* A page with no text layer shows the notice, and so does a page whose OCR pass failed: even
+   with native fallback blocks the reader needs to know the scan was never transcribed. Every
+   other page keeps the node out of the way, and a page that sets neither flag cannot leave a
+   stale notice on screen. */
+.sakutto-page[data-page-empty="true"] .sakutto-page__missing,
+.sakutto-page[data-ocr-failed="true"] .sakutto-page__missing {
   display: grid;
+}
+
+/* Only a page whose OCR pass found no bundle gets an action: the reader never offers to
+   download a model for a page that already has readable text. */
+.sakutto-ocr-prompt {
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+  max-width: 320px;
+}
+
+.sakutto-ocr-download {
+  padding: 7px 12px;
+  border: 1px solid #3157c8;
+  border-radius: 6px;
+  background: #3157c8;
+  color: #ffffff;
+  font: inherit;
+  cursor: pointer;
+}
+
+.sakutto-ocr-download:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.sakutto-ocr-progress {
+  color: #536173;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.sakutto-ocr-progress[hidden] {
+  display: none;
 }
 
 .sakutto-page__render-failed {
@@ -325,25 +374,99 @@ export const READER_STYLE = `
 }
 
 /*
+ * Reflowed bilingual reading: the left pane keeps the page as drawn, the right pane reads as
+ * ordinary text with the source shown above each translated block. The two panes share the
+ * page row and therefore the same scroll, so no scroll synchronisation is needed.
+ */
+.sakutto-bilingual {
+  display: none;
+}
+
+[data-bilingual="true"] .sakutto-page {
+  aspect-ratio: auto !important;
+}
+
+[data-bilingual="true"] .sakutto-page__pane--original .sakutto-page__canvas {
+  height: auto;
+}
+
+[data-bilingual="true"] .sakutto-page__pane--translated .sakutto-page__canvas,
+[data-bilingual="true"] .sakutto-page__pane--translated .sakutto-page__layer,
+[data-bilingual="true"] .sakutto-page__pane--translated .sakutto-page__text {
+  display: none;
+}
+
+/* A page with no text, a failed OCR pass or a failed render still needs a visible message in
+   the reading pane; hiding it left a blank column with no explanation. */
+[data-bilingual="true"] .sakutto-page__pane--translated .sakutto-page__missing,
+[data-bilingual="true"] .sakutto-page__pane--translated .sakutto-page__render-failed {
+  position: static;
+  inset: auto;
+  grid-auto-flow: row;
+  background: none;
+  padding: 16px 18px;
+}
+
+[data-bilingual="true"] .sakutto-bilingual {
+  display: block;
+  padding: 16px 18px;
+  font: 15px/1.7 "Hiragino Sans", "Noto Sans JP", "Segoe UI", system-ui, sans-serif;
+}
+
+.sakutto-bilingual__row {
+  margin: 0 0 18px;
+  padding: 0 0 14px;
+  border-bottom: 1px solid rgb(148 163 184 / 30%);
+}
+
+.sakutto-bilingual__row:last-child {
+  border-bottom: 0;
+}
+
+.sakutto-bilingual__source {
+  margin: 0 0 6px;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.sakutto-bilingual__translation {
+  margin: 0;
+  color: #1f2937;
+  overflow-wrap: anywhere;
+}
+
+.sakutto-bilingual__row[data-state="kept"] .sakutto-bilingual__translation {
+  color: #94a3b8;
+  font-style: italic;
+}
+
+.sakutto-bilingual__row[data-role="heading"] .sakutto-bilingual__translation {
+  font-weight: 700;
+}
+
+/*
  * Marker for a translation that did not fit in place. It sits on the source box so a reader
  * can open the full text without the page painting a cut sentence over the original.
  */
 .sakutto-overflow {
   position: absolute;
   z-index: 5;
-  padding: 0;
-  border: 2px solid #ffffff;
-  border-radius: 999px;
-  background: #1d4ed8;
-  box-shadow: 0 1px 2px rgb(15 23 32 / 35%);
+  padding: 0 3px;
+  border: 1px solid rgb(100 116 139 / 55%);
+  border-radius: 6px;
+  background: rgb(255 255 255 / 88%);
+  color: #64748b;
+  font: 600 10px/1 system-ui, sans-serif;
   cursor: pointer;
 }
 .sakutto-overflow:hover,
 .sakutto-overflow[aria-expanded="true"] {
-  background: #1e40af;
+  border-color: #475569;
+  color: #334155;
 }
 .sakutto-overflow:focus-visible {
-  outline: 2px solid #1d4ed8;
+  outline: 2px solid #64748b;
   outline-offset: 2px;
 }
 `;

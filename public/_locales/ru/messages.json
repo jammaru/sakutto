@@ -719,6 +719,10 @@
   "modelStorageIntro": {
     "message": "Выберите, где хранить модель. Существующие модели будут перемещены в соответствии с выбором."
   },
+  "modelStorageFilesNote": {
+    "message": "Модель перевода PLaMo (GGUF) и модели OCR (ONNX) хранятся здесь. Файлы OCR находятся в подпапках ocr-*; без общей папки оба хранятся в этом браузере.",
+    "description": "Where the PLaMo and OCR files are stored, for both folder and browser choices."
+  },
   "modelStorageBrowserOnlyHint": {
     "message": "В этом браузере нельзя использовать общую папку, поэтому модели сохраняются в браузере."
   },
@@ -1137,11 +1141,35 @@
   "pdfCompare": {
     "message": "Сравнить"
   },
+  "pdfBilingual": {
+    "message": "Двуязычный"
+  },
   "pdfOriginalPane": {
     "message": "Оригинал"
   },
   "pdfTranslatedPane": {
     "message": "Перевод"
+  },
+  "pdfDownloadTranslated": {
+    "message": "Скачать переведённый PDF",
+    "description": "Toolbar button that saves the translated document as a PDF."
+  },
+  "pdfExporting": {
+    "message": "Подготовка PDF…"
+  },
+  "pdfExportFailed": {
+    "message": "Не удалось создать PDF. Попробуйте ещё раз."
+  },
+  "pdfExportWaiting": {
+    "message": "Завершение перевода для PDF: $DONE$ / $TOTAL$ стр.",
+    "placeholders": {
+      "done": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
   },
   "pdfChooseFile": {
     "message": "Выбрать файл PDF"
@@ -1725,5 +1753,144 @@
   },
   "allSitesPopupEnable": {
     "message": "Включить"
+  },
+  "ocrTierStandard": {
+    "message": "Стандартный OCR",
+    "description": "Label for the standard PP-OCR tier."
+  },
+  "ocrTierHigh": {
+    "message": "OCR с высокой точностью",
+    "description": "Label for the high-accuracy PP-OCR tier."
+  },
+  "ocrModelsHeading": {
+    "message": "OCR на устройстве",
+    "description": "Heading for PP-OCR model management."
+  },
+  "ocrModelsDescription": {
+    "message": "PP-OCRv6 распознаёт текст в отсканированных PDFs и изображениях на этом устройстве. При выборе уровня загружаются соответствующие модели обнаружения и распознавания.",
+    "description": "Explanation of OCR tiers and downloads."
+  },
+  "ocrTierSwitchHint": {
+    "message": "При смене уровня загружаются выбранные модели. Другие уровни остаются на этом устройстве, пока вы их не удалите.",
+    "description": "Explains tier switching and old model cleanup."
+  },
+  "onboardingOcrNote": {
+    "message": "Также загружаются стандартные модели OCR ($SIZE$) для отсканированных PDFs и изображений на этом устройстве.",
+    "description": "Combined onboarding download note with OCR bundle size.",
+    "placeholders": {
+      "size": {
+        "content": "$1"
+      }
+    }
+  },
+  "pdfOcrReading": {
+    "message": "Распознаётся отсканированная страница $PAGE$ из $TOTAL$…",
+    "description": "Shown while OCR runs on a scanned PDF page.",
+    "placeholders": {
+      "page": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "pdfOcrFailed": {
+    "message": "Не удалось распознать текст на этой отсканированной странице.",
+    "description": "Shown when a scanned PDF page cannot be recognized."
+  },
+  "ocrDownloadRequired": {
+    "message": "Для распознавания текста в отсканированных PDF и изображениях необходимы модели OCR.",
+    "description": "Shown when OCR is unavailable or its model download fails."
+  },
+  "ocrDownloadInline": {
+    "message": "Скачать модель OCR (около $SIZE$)",
+    "description": "Inline button that downloads the selected OCR tier.",
+    "placeholders": {
+      "size": {
+        "content": "$1"
+      }
+    }
+  },
+  "ocrDownloadProgress": {
+    "message": "Загрузка модели OCR: $PERCENT$%",
+    "description": "Inline progress shown while the OCR model downloads.",
+    "placeholders": {
+      "percent": {
+        "content": "$1"
+      }
+    }
+  },
+  "ocrDownloadFailed": {
+    "message": "Не удалось загрузить модель OCR. Попробуйте еще раз.",
+    "description": "Shown when an inline OCR model download fails."
+  },
+  "imageFileAccessHeading": {
+    "message": "Перевести локальное изображение",
+    "description": "Title of the page opened when the image context menu cannot reach a file URL."
+  },
+  "imageFileAccessBody": {
+    "message": "Sakutto не может прочитать это изображение со страницы. Откройте chrome://extensions, выберите Sakutto и включите «Разрешить доступ к URL файлов». Вы также можете выбрать файл изображения ниже и перевести его на этом устройстве.",
+    "description": "Guidance when a local image action cannot inject into the tab."
+  },
+  "imageFileAccessChoose": {
+    "message": "Выбрать файл изображения",
+    "description": "Label for the local image picker."
+  },
+  "contextTranslateImage": {
+    "message": "Перевести изображение с помощью Sakutto",
+    "description": "Image context-menu action."
+  },
+  "imageTranslationHeading": {
+    "message": "Перевод изображения",
+    "description": "Title of the image translation panel."
+  },
+  "imageTranslating": {
+    "message": "Распознавание и перевод изображения…",
+    "description": "Shown while image OCR and translation run."
+  },
+  "imageTranslationFailed": {
+    "message": "Не удалось перевести изображение.",
+    "description": "Shown when image OCR or translation fails."
+  },
+  "imageTranslationEmpty": {
+    "message": "В этом изображении текст не распознан.",
+    "description": "Shown when OCR returns no text."
+  },
+  "imageTranslationClose": {
+    "message": "Закрыть перевод изображения",
+    "description": "Accessible close-button label for the image panel."
+  },
+  "imageOriginalText": {
+    "message": "Распознанный текст",
+    "description": "Label for OCR source text in the image panel."
+  },
+  "imageTranslationPermission": {
+    "message": "Браузер не смог получить доступ к этому изображению. Попробуйте вместо этого сделать снимок видимой страницы.",
+    "description": "Shown when image pixels cannot be read without extra permissions."
+  },
+  "pdfFileAccessBody": {
+    "message": "Sakutto не может прочитать этот PDF со страницы. Откройте chrome://extensions, выберите Sakutto и включите «Разрешить доступ к URL файлов». Вы также можете выбрать PDF ниже и открыть его в этом ридере.",
+    "description": "Guidance when a local PDF cannot be read from a file:// tab."
+  },
+  "onboardingPlamoReady": {
+    "message": "Модель перевода (PLaMo): уже загружена на это устройство",
+    "description": "PLaMo line of the onboarding download status, shown when the translation model is already stored."
+  },
+  "onboardingOcrDownloading": {
+    "message": "Загрузка модели OCR (для отсканированных PDF и изображений, около $SIZE$): $PERCENT$%",
+    "description": "OCR line of the onboarding download status, with the selected tier's size and its own percent progress.",
+    "placeholders": {
+      "size": {
+        "content": "$1"
+      },
+      "percent": {
+        "content": "$2"
+      }
+    }
+  },
+  "onboardingOcrReady": {
+    "message": "Модель OCR: уже загружена на это устройство",
+    "description": "OCR line of the onboarding download status, shown when the OCR model is already stored."
   }
 }

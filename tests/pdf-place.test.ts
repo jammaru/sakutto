@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { groupLines } from '@/pdf/lines';
+import { groupLines, lineFrom } from '@/pdf/lines';
 import { layoutPage, type LayoutBlock, type PageLayout } from '@/pdf/layout';
 import { BODY_MIN_FONT_SIZE, BODY_MIN_SCALE, MIN_FONT_SIZE, MIN_SCALE } from '@/pdf/fit';
 import { pageMetrics, metricsPass } from '@/pdf/metrics';
@@ -16,6 +16,7 @@ import {
   drawnBox,
   hintingPadPt,
   overlapRegion,
+  paintIntegrityMetrics,
   paintedCoverOverlaps,
   gutterSliverOverlap,
   placePage,
@@ -552,6 +553,378 @@ describe('placePage', () => {
     expect(drawn.width).toBeGreaterThan(gutter - authorBlock.box.x);
     const paint = coverPaintLayout(authorBlock, fit.width, drawn, DEFAULT_PAINT_SCALE, pageWidth);
     expect(paint.width).toBeGreaterThan(gutter - paint.x + 20);
+  });
+
+  it('counts a cover across the gutter even for a block whose source lines span it', () => {
+    const pageWidth = 595;
+    const block: LayoutBlock = {
+      box: { x: 45, y: 100, width: 515, height: 24 },
+      room: { x: 45, y: 100, width: 515, height: 24 },
+      lines: [
+        lineFrom([
+          piece('left half of the merged line', 45, 112, 240),
+          piece('right half of the merged line', 320, 112, 240),
+        ]),
+      ],
+      text: 'merged two column line',
+      role: 'prose',
+      fontSize: 9,
+      lineHeight: 1.2,
+      align: 'left',
+      bold: false,
+      italic: false,
+      column: 0,
+      advance: 515,
+      writing: 0,
+    };
+    expect(blockSpansGutter(block, pageWidth)).toBe(true);
+    const fit = {
+      fits: true as const,
+      fontSize: 9,
+      lineHeight: 11,
+      lines: ['二つの列をまたぐ訳文'],
+      height: 22,
+      grown: false,
+      width: 500,
+    };
+    const drawn = drawnBox(block, fit, fit.width, pageWidth);
+    const metrics = paintIntegrityMetrics(
+      [{ block, translation: '二つの列をまたぐ訳文', fit, paint: true, drawn, overflow: false }],
+      pageWidth,
+    );
+    expect(metrics.crossColumnCovers).toBe(1);
+  });
+
+  it('counts a same-baseline merge across a 15pt gutter as a cross-column cover', () => {
+    const pageWidth = 595;
+    const block: LayoutBlock = {
+      box: { x: 45, y: 100, width: 515, height: 24 },
+      room: { x: 45, y: 100, width: 515, height: 24 },
+      lines: [
+        lineFrom([
+          piece('left column words here', 45, 112, 250),
+          piece('right column words here', 310, 112, 250),
+        ]),
+      ],
+      text: 'left column words here right column words here',
+      role: 'prose',
+      fontSize: 9,
+      lineHeight: 1.2,
+      align: 'left',
+      bold: false,
+      italic: false,
+      column: 0,
+      advance: 515,
+      writing: 0,
+    };
+    const fit = {
+      fits: true as const,
+      fontSize: 9,
+      lineHeight: 11,
+      lines: ['二つの列をまたぐ訳文'],
+      height: 22,
+      grown: false,
+      width: 500,
+    };
+    const drawn = drawnBox(block, fit, fit.width, pageWidth);
+    const metrics = paintIntegrityMetrics(
+      [{ block, translation: '二つの列をまたぐ訳文', fit, paint: true, drawn, overflow: false }],
+      pageWidth,
+    );
+    expect(metrics.crossColumnCovers).toBe(1);
+  });
+
+  it('counts a same-baseline merge across a 10pt gutter as a cross-column cover', () => {
+    const pageWidth = 595;
+    const block: LayoutBlock = {
+      box: { x: 45, y: 100, width: 490, height: 24 },
+      room: { x: 45, y: 100, width: 490, height: 24 },
+      lines: [
+        lineFrom([
+          piece('left column words here', 45, 112, 240),
+          piece('right column words here', 295, 112, 240),
+        ]),
+      ],
+      text: 'left column words here right column words here',
+      role: 'prose',
+      fontSize: 9,
+      lineHeight: 1.2,
+      align: 'left',
+      bold: false,
+      italic: false,
+      column: 0,
+      advance: 490,
+      writing: 0,
+    };
+    const fit = {
+      fits: true as const,
+      fontSize: 9,
+      lineHeight: 11,
+      lines: ['二つの列をまたぐ訳文'],
+      height: 22,
+      grown: false,
+      width: 480,
+    };
+    const drawn = drawnBox(block, fit, fit.width, pageWidth);
+    const metrics = paintIntegrityMetrics(
+      [{ block, translation: '二つの列をまたぐ訳文', fit, paint: true, drawn, overflow: false }],
+      pageWidth,
+    );
+    expect(metrics.crossColumnCovers).toBe(1);
+  });
+
+  it('counts a merged row with offset baselines as a cross-column cover', () => {
+    const pageWidth = 595;
+    const block: LayoutBlock = {
+      box: { x: 45, y: 330, width: 542, height: 24 },
+      room: { x: 45, y: 330, width: 542, height: 24 },
+      lines: [
+        lineFrom([
+          piece('left row first', 45, 350.85, 120),
+          piece('left row second', 170, 350.85, 168),
+          piece('right row first', 318.6, 352.35, 130),
+          piece('right row second', 453, 352.35, 134),
+        ]),
+      ],
+      text: 'two rows merged into one reading line',
+      role: 'prose',
+      fontSize: 10,
+      lineHeight: 1.2,
+      align: 'left',
+      bold: false,
+      italic: false,
+      column: 0,
+      advance: 542,
+      writing: 0,
+    };
+    expect(blockSpansGutter(block, pageWidth)).toBe(true);
+    const fit = {
+      fits: true as const,
+      fontSize: 10,
+      lineHeight: 12,
+      lines: ['二つの行をまたぐ訳文'],
+      height: 24,
+      grown: false,
+      width: 500,
+    };
+    const drawn = drawnBox(block, fit, fit.width, pageWidth);
+    const metrics = paintIntegrityMetrics(
+      [{ block, translation: '二つの行をまたぐ訳文', fit, paint: true, drawn, overflow: false }],
+      pageWidth,
+    );
+    expect(metrics.crossColumnCovers).toBe(1);
+  });
+
+  it('does not flag a genuine full-width byline as a cross-column cover', () => {
+    const pageWidth = 595;
+    const line = (x: number, width: number): TextLine =>
+      groupLines([piece('author line', x, 112, width)])[0]!;
+    const block: LayoutBlock = {
+      box: { x: 126, y: 100, width: 420, height: 24 },
+      room: { x: 126, y: 100, width: 170, height: 24 },
+      lines: [line(126, 420), line(134, 412)],
+      text: 'A. Example and others',
+      role: 'prose',
+      fontSize: 9,
+      lineHeight: 1.2,
+      align: 'left',
+      bold: false,
+      italic: false,
+      column: -1,
+      advance: 420,
+      writing: 0,
+    };
+    const fit = {
+      fits: true as const,
+      fontSize: 9,
+      lineHeight: 11,
+      lines: ['著者名の並び'],
+      height: 22,
+      grown: false,
+      width: 462,
+    };
+    const drawn = drawnBox(block, fit, fit.width, pageWidth);
+    const metrics = paintIntegrityMetrics(
+      [{ block, translation: '著者名の並び', fit, paint: true, drawn, overflow: false }],
+      pageWidth,
+    );
+    expect(metrics.crossColumnCovers).toBe(0);
+  });
+
+  it('does not flag native full-width headers assigned to the parent column', () => {
+    // Native XY-cut gives a crossing region its parent column (0 at the page root), not -1.
+    const pageWidth = 595;
+    const spanning = (
+      text: string,
+      y: number,
+      x: number,
+      width: number,
+      role: 'heading' | 'prose',
+    ): LayoutBlock => ({
+      box: { x, y, width, height: 22 },
+      room: { x, y, width, height: 22 },
+      lines: groupLines([piece(text, x, y + 12, width)]) as LayoutBlock['lines'],
+      text,
+      role,
+      fontSize: 9,
+      lineHeight: 1.2,
+      align: 'left',
+      bold: false,
+      italic: false,
+      column: 0,
+      advance: width,
+      writing: 0,
+    });
+    const blocks = [
+      spanning('Sakutto: On-Device Page Translation', 50, 46, 500, 'heading'),
+      spanning('ABSTRACT', 160, 268, 58, 'heading'),
+      spanning('Machine translation of web pages is usually a client', 176, 79, 437, 'prose'),
+    ];
+    for (const block of blocks) {
+      expect(blockSpansGutter(block, pageWidth)).toBe(true);
+      const fit = {
+        fits: true as const,
+        fontSize: 9,
+        lineHeight: 11,
+        lines: ['横断する訳文'],
+        height: 22,
+        grown: false,
+        width: block.box.width,
+      };
+      const drawn = drawnBox(block, fit, fit.width, pageWidth);
+      const metrics = paintIntegrityMetrics(
+        [{ block, translation: '横断する訳文', fit, paint: true, drawn, overflow: false }],
+        pageWidth,
+      );
+      expect(metrics.crossColumnCovers).toBe(0);
+    }
+  });
+
+  it('does not flag a multi-piece full-width title whose 6pt word gap sits at the gutter', () => {
+    const pageWidth = 595;
+    const line = lineFrom([
+      piece('A full', 45, 112, 155),
+      piece('width title', 206, 112, 79),
+      piece('and', 291, 112, 29),
+      piece('subtitle', 326, 112, 215),
+    ]);
+    const block: LayoutBlock = {
+      box: { x: 45, y: 100, width: 496, height: 24 },
+      room: { x: 45, y: 100, width: 496, height: 24 },
+      lines: [line],
+      text: 'A full width title and subtitle',
+      role: 'heading',
+      fontSize: 9,
+      lineHeight: 1.2,
+      align: 'left',
+      bold: false,
+      italic: false,
+      column: -1,
+      advance: 496,
+      writing: 0,
+    };
+    const fit = {
+      fits: true as const,
+      fontSize: 9,
+      lineHeight: 11,
+      lines: ['横断するタイトル'],
+      height: 22,
+      grown: false,
+      width: 480,
+    };
+    const drawn = drawnBox(block, fit, fit.width, pageWidth);
+    const metrics = paintIntegrityMetrics(
+      [{ block, translation: '横断するタイトル', fit, paint: true, drawn, overflow: false }],
+      pageWidth,
+    );
+    expect(metrics.crossColumnCovers).toBe(0);
+  });
+
+  it('counts a cover starting in the left column for a mis-grouped right block', () => {
+    // The block's source lines sit on both sides of the gutter, but no single line crosses it.
+    // The spanning-source exemption must therefore not hide a cover painted over the left column.
+    const pageWidth = 595;
+    const gutter = pageWidth * 0.49;
+    const block: LayoutBlock = {
+      box: { x: 260, y: 100, width: 310, height: 62 },
+      room: { x: 260, y: 100, width: 310, height: 62 },
+      lines: [
+        groupLines([piece('short left tail', 260, 150, 80)])[0]!,
+        groupLines([piece('right body line', 355, 100, 215)])[0]!,
+      ],
+      text: 'short left tail right body line',
+      role: 'prose',
+      fontSize: 9,
+      lineHeight: 11,
+      align: 'left',
+      bold: false,
+      italic: false,
+      column: 1,
+      advance: 310,
+      writing: 0,
+    };
+    expect(blockSpansGutter(block, pageWidth)).toBe(true);
+    const fit = {
+      fits: true as const,
+      fontSize: 9,
+      lineHeight: 11,
+      lines: ['短い左脚と右本文'],
+      height: 22,
+      grown: false,
+      width: 300,
+    };
+    const drawn = drawnBox(block, fit, fit.width, pageWidth);
+    expect(drawn.x).toBeLessThan(gutter - 2);
+    const metrics = paintIntegrityMetrics(
+      [{ block, translation: '短い左脚と右本文', fit, paint: true, drawn, overflow: false }],
+      pageWidth,
+    );
+    expect(metrics.crossColumnCovers).toBe(1);
+  });
+
+  it('does not flag a centred two-piece title whose word gap is left of the gutter', () => {
+    // B5: a 10pt word gap at x=280..290 is not a merged two-column row on a 595pt page;
+    // the page gutter is at 291.55 and falls inside the second title piece.
+    const pageWidth = 595;
+    const block: LayoutBlock = {
+      box: { x: 100, y: 100, width: 370, height: 24 },
+      room: { x: 100, y: 100, width: 370, height: 24 },
+      lines: [lineFrom([piece('Short Paper', 100, 112, 180), piece('Title Here', 290, 112, 180)])],
+      text: 'Short Paper Title Here',
+      role: 'heading',
+      fontSize: 12,
+      lineHeight: 1.2,
+      align: 'center',
+      bold: false,
+      italic: false,
+      column: -1,
+      advance: 370,
+      writing: 0,
+    };
+    expect(blockSpansGutter(block, pageWidth)).toBe(true);
+    const fit = {
+      fits: true as const,
+      fontSize: 12,
+      lineHeight: 14,
+      lines: ['短い論文タイトル'],
+      height: 14,
+      grown: false,
+      width: 370,
+    };
+    const metrics = paintIntegrityMetrics(
+      [
+        {
+          block,
+          translation: '短い論文タイトル',
+          fit,
+          paint: true,
+          drawn: { x: 100, y: 100, width: 370, height: 24 },
+          overflow: false,
+        },
+      ],
+      pageWidth,
+    );
+    expect(metrics.crossColumnCovers).toBe(0);
   });
 
   it('ignores gutter slivers when two columns barely touch', () => {

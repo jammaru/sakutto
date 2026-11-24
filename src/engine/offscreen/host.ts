@@ -83,6 +83,7 @@ import { isBrokenTranslation } from '../text/degenerate';
 import { CpuRetryRuntimeSlot } from './retry-runtime';
 import { translationStaysInSourceLanguage } from '@/pdf/language';
 import { RoutingEngine, type PairSupport } from '../router';
+import type { OcrHost } from '../ocr/host';
 import type { GlossaryEntry } from '../types';
 import {
   ENGINE_HOST_PORT,
@@ -101,6 +102,10 @@ import {
   type ModelDownloadRequest,
   type ModelSetRequest,
   type ModelStatusRequest,
+  type OcrDeleteRequest,
+  type OcrDownloadRequest,
+  type OcrRecognizeRequest,
+  type OcrStatusRequest,
   type RuntimeSetRequest,
   type SourceSetRequest,
   type TierSetRequest,
@@ -402,6 +407,17 @@ export class EngineHost {
   private localConfig: LocalServerConfig = localServerConfigFromSettings(null);
   private localScheduler: JobScheduler | null = null;
   private folderSession: SharedFolderSession | null = null;
+  /** Created only by an OCR message; translation startup never imports the OCR runtime. */
+  private ocrHostTask: Promise<OcrHost> | null = null;
+  /** Registered before lazy host/codec awaits so ocr-cancel cannot miss recognition. */
+  private readonly ocrRequests = new Map<
+    string,
+    {
+      tier: OcrRecognizeRequest['tier'];
+      controller: AbortController;
+      port: Browser.runtime.Port;
+    }
+  >();
 
   constructor(options: EngineHostOptions = {}) {
     this.idleReleaseMs = options.idleReleaseMs ?? IDLE_RELEASE_MS;
@@ -723,7 +739,17 @@ export class EngineHost {
   }
 
   private async handleMessage(port: Browser.runtime.Port, message: unknown): Promise<void> {
-    if (!isEngineHostRequest(message)) return;
+    if (!isEngineHostRequest(message)) {
+      // A request with an id has a caller waiting on a response. Validation failures must be
+      // explicit: silently dropping a malformed raster would leave that caller pending forever.
+      if (typeof message === 'object' && message !== null && 'requestId' in message) {
+        const requestId = message.requestId;
+        if (typeof requestId === 'string' && requestId.length > 0) {
+          this.respondError(port, requestId, new Error('Invalid engine host request.'));
+        }
+      }
+      return;
+    }
 
     switch (message.type) {
       case 'ping':
@@ -769,6 +795,19 @@ export class EngineHost {
       case 'model-status':
         void this.handleModelStatus(port, message);
         return;
+      case 'ocr-recognize':
+      case 'ocr-download':
+      case 'ocr-delete':
+      case 'ocr-status':
+        void this.handleOcr(port, message);
+        return;
+      case 'ocr-cancel': {
+        const pending = this.ocrRequests.get(message.requestId);
+        pending?.controller.abort();
+        this.ocrRequests.delete(message.requestId);
+        void this.ocrHostTask?.then((host) => host.cancel(message.requestId));
+        return;
+      }
       case 'cache-clear':
         void this.handleCacheClear(port, message);
         return;
@@ -799,6 +838,90 @@ export class EngineHost {
       case 'benchmark':
         void this.handleBenchmark(port, message);
         return;
+    }
+  }
+
+  private ocrHost(): Promise<OcrHost> {
+    if (!this.ocrHostTask) {
+      this.ocrHostTask = import('../ocr/host').then(
+        ({ OcrHost: LazyOcrHost }) =>
+          new LazyOcrHost({
+            hasConsent: () => this.runtimePrefs?.consented ?? false,
+            createAssetStore: async () => {
+              // Resolve the folder directly: OCR can be the first engine used on this
+              // profile, and the translation manager may not exist yet. A granted shared
+              // folder keeps OCR ONNX + its asset.json sidecar in ocr-<tier>/ subfolders of
+              // the same sakutto-models directory that holds the PLaMo GGUF. Otherwise
+              // both engines use browser (OPFS) storage.
+              const { openOcrAssetStore } = await import('../model/shared-asset-store');
+              // A linked folder without a grant raises a folder-permission error instead of
+              // silently writing OCR files into OPFS.
+              return openOcrAssetStore();
+            },
+            onStatus: (status) => {
+              for (const port of this.ports) {
+                this.post(port, {
+                  type: 'ocr-progress',
+                  requestId: `ocr:${status.id}`,
+                  status,
+                });
+              }
+            },
+          }),
+      );
+    }
+    return this.ocrHostTask;
+  }
+
+  private async handleOcr(
+    port: Browser.runtime.Port,
+    request: OcrRecognizeRequest | OcrDownloadRequest | OcrDeleteRequest | OcrStatusRequest,
+  ): Promise<void> {
+    const controller = request.type === 'ocr-recognize' ? new AbortController() : null;
+    if (controller && request.type === 'ocr-recognize') {
+      this.ocrRequests.get(request.requestId)?.controller.abort();
+      this.ocrRequests.set(request.requestId, { tier: request.tier, controller, port });
+    }
+    try {
+      const host = await this.ocrHost();
+      if (controller?.signal.aborted) throw abortError();
+      switch (request.type) {
+        case 'ocr-recognize': {
+          const { decodeOcrImage } = await import('../ocr/codec');
+          if (controller?.signal.aborted) throw abortError();
+          const result = await host.recognize(
+            request.requestId,
+            request.tier,
+            decodeOcrImage(request.image),
+            controller?.signal,
+          );
+          this.respond(port, request.requestId, result);
+          return;
+        }
+        case 'ocr-download':
+          this.respond(
+            port,
+            request.requestId,
+            await host.download(request.requestId, request.tier),
+          );
+          return;
+        case 'ocr-delete':
+          this.respond(port, request.requestId, await host.delete(request.tier));
+          return;
+        case 'ocr-status':
+          this.respond(port, request.requestId, await host.status(request.tier));
+          return;
+      }
+    } catch (error) {
+      this.respondError(port, request.requestId, error);
+    } finally {
+      if (
+        controller &&
+        request.type === 'ocr-recognize' &&
+        this.ocrRequests.get(request.requestId)?.controller === controller
+      ) {
+        this.ocrRequests.delete(request.requestId);
+      }
     }
   }
 
@@ -1121,6 +1244,17 @@ export class EngineHost {
       this.requests.delete(requestId);
     }
 
+    // OCR has its own queue, so aborting this.requests is not enough: a recognition
+    // started by the closing port would otherwise keep the shared runtime busy until its
+    // timeout and block the next caller. Cancel the lazy host too, since its runtime may
+    // still be loading and never saw the caller's signal.
+    for (const [requestId, request] of this.ocrRequests) {
+      if (request.port !== port) continue;
+      request.controller.abort();
+      this.ocrRequests.delete(requestId);
+      void this.ocrHostTask?.then((host) => host.cancel(requestId)).catch(() => undefined);
+    }
+
     for (const download of this.downloads.values()) {
       for (const [requestId, attached] of download.attachments) {
         if (attached === port) download.attachments.delete(requestId);
@@ -1170,6 +1304,9 @@ export class EngineHost {
 
   private async reloadFolder(moveOpfs: boolean): Promise<SharedFolderStatus> {
     const services = await this.services();
+    // Capture the old storage choice before apply() replaces the snapshot. A move deletes
+    // the browser OCR copy only; files in a previously linked folder belong to its profiles.
+    const leavingBrowser = !(this.folderSession?.status().configured ?? false);
     for (const [id, live] of this.requests) {
       if (live.kind === 'download') continue;
       this.abortLiveRequest(id, live);
@@ -1180,6 +1317,9 @@ export class EngineHost {
     const status = this.folderSession
       ? await this.folderSession.apply({ moveOpfs })
       : emptySharedFolderStatus(false);
+    // A folder adoption moves the verified OCR bundles too; a plain reload only copies
+    // browser files into the folder, exactly as the translation manager does.
+    await this.refreshOcrStore({ removeSource: moveOpfs && leavingBrowser });
     const model = modelStatusForSharedFolder(
       await services.manager.status(this.activeModelId),
       status,
@@ -1189,6 +1329,13 @@ export class EngineHost {
     // content targets and leave an unchecked lastError in the offscreen document.
     this.publishModelStatus(model);
     return status;
+  }
+
+  /** OCR keeps its own lazy store; re-resolve it after a folder choice changes. */
+  private async refreshOcrStore(options: { removeSource?: boolean } = {}): Promise<void> {
+    if (!this.ocrHostTask) return;
+    const host = await this.ocrHostTask.catch(() => null);
+    await host?.refreshStore(options);
   }
 
   private async handleFolderReload(
@@ -1243,6 +1390,7 @@ export class EngineHost {
       const status = this.folderSession
         ? await this.folderSession.apply()
         : emptySharedFolderStatus(false);
+      await this.refreshOcrStore();
       const model = modelStatusForSharedFolder(
         await services.manager.status(this.activeModelId),
         status,

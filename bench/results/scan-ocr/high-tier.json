@@ -1,0 +1,36 @@
+[
+  {
+    "variant": "default-1600",
+    "pairing": "medium_det+medium_rec",
+    "ms": 213734.506764,
+    "modelBytes": 138587816,
+    "cer": 0.03579011222323324,
+    "wer": 0.0636042402826855,
+    "order": 0.5922258892555922,
+    "covered": 0.9564193168433451,
+    "lines": 117,
+    "blocks": 57,
+    "skipped": 2,
+    "crossColumnCovers": 0,
+    "overlapPairs": 0,
+    "overflow": 5,
+    "text": "Sakutto: On-Device Page Translation with a Small Instruction-Tuned Model\nJ. Ammaru\nIndependent researcher\nsakutto@example.org\nMachine translation of web pages is usually a client of a remote service. "
+  },
+  {
+    "variant": "gray+contrast-1600",
+    "pairing": "medium_det+medium_rec",
+    "ms": 181029.882264,
+    "modelBytes": 138587816,
+    "cer": 0.0337680719846325,
+    "wer": 0.05594817432273263,
+    "order": 0.6045786887210836,
+    "covered": 0.9646643109540636,
+    "lines": 118,
+    "blocks": 57,
+    "skipped": 3,
+    "crossColumnCovers": 0,
+    "overlapPairs": 0,
+    "overflow": 3,
+    "text": "Sakutto: On-Device Page Translation with a Small Instruction-Tuned Model\nJ. Ammaru\nIndependent researcher\nsakutto@example.org\nMachine translation of web pages is usually a client of a remote service. "
+  }
+]

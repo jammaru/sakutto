@@ -2,6 +2,10 @@ import { describe, expect, it, vi } from 'vitest';
 import { browser } from 'wxt/browser';
 import { EngineClient } from '@/background/engine-client';
 import type { OffscreenController } from '@/background/offscreen-lifecycle';
+import {
+  OCR_DELETE_TIMEOUT_MS,
+  OCR_HIGH_RECOGNITION_TIMEOUT_MS,
+} from '@/engine/offscreen/protocol';
 import { DEFAULT_LOCAL_SERVER_PARALLEL } from '@/engine/local-server/url';
 import { DEFAULT_MODEL_ID, HIGH_QUALITY_MODEL_ID } from '@/engine/model/catalog';
 import type { TranslateOptions, TranslationChunk } from '@/engine/types';
@@ -414,6 +418,191 @@ describe('EngineClient', () => {
     await expect(pending).resolves.toMatchObject({
       model: { id: HIGH_QUALITY_MODEL_ID },
     });
+  });
+
+  it('bounds OCR deletion above high-tier recognition and keeps its port when slow', async () => {
+    expect(OCR_DELETE_TIMEOUT_MS).toBeGreaterThan(OCR_HIGH_RECOGNITION_TIMEOUT_MS);
+    vi.useFakeTimers();
+    try {
+      connect.mockClear();
+      const port = new FakePort();
+      connect.mockReturnValue(port.port);
+      const offscreen = controller();
+      const client = new EngineClient(offscreen);
+
+      const pending = client.deleteOcr('high');
+      await vi.advanceTimersByTimeAsync(0);
+      const deletion = port.messagesOfType('ocr-delete')[0] as { requestId: string } | undefined;
+      expect(deletion).toBeDefined();
+      if (!deletion) return;
+
+      let settled = false;
+      void pending.then(
+        () => {
+          settled = true;
+        },
+        () => {
+          settled = true;
+        },
+      );
+      await vi.advanceTimersByTimeAsync(OCR_HIGH_RECOGNITION_TIMEOUT_MS);
+      expect(settled).toBe(false);
+      expect(port.messagesOfType('ocr-delete')).toHaveLength(1);
+      expect(offscreen.recreate).not.toHaveBeenCalled();
+
+      const status = { id: 'high', state: 'absent', received: 0, total: 1, progress: 0 };
+      port.emit({ type: 'response', requestId: deletion.requestId, ok: true, value: status });
+      await expect(pending).resolves.toEqual(status);
+
+      // The slow delete did not disconnect the port: the next caller reuses it.
+      const next = client.ocrStatus('high');
+      await vi.advanceTimersByTimeAsync(0);
+      expect(connect).toHaveBeenCalledTimes(1);
+      const statusRequest = port.messagesOfType('ocr-status')[0] as { requestId: string };
+      port.emit({ type: 'response', requestId: statusRequest.requestId, ok: true, value: status });
+      await expect(next).resolves.toEqual(status);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('settles an aborted OCR download with an unresponsive host so its task entry clears', async () => {
+    const port = new FakePort();
+    connect.mockReturnValue(port.port);
+    const client = new EngineClient(controller());
+    const abort = new AbortController();
+    // Mirrors the service worker's ocrDownloadTasks ownership: the promise is removed from
+    // the map only when EngineClient's request settles.
+    const tasks = new Map<string, Promise<unknown>>();
+    const task = client
+      .downloadOcr('standard', { signal: abort.signal })
+      .finally(() => tasks.delete('standard'));
+    tasks.set('standard', task);
+
+    const download = await waitForMessage<{ requestId: string }>(port, 'ocr-download');
+    expect(tasks.size).toBe(1);
+    abort.abort();
+    await expect(task).rejects.toMatchObject({ code: 'aborted' });
+    expect(tasks.size).toBe(0);
+    expect(port.messagesOfType('ocr-cancel')).toContainEqual({
+      type: 'ocr-cancel',
+      requestId: download.requestId,
+    });
+
+    // A later request is no longer treated as an existing in-flight task.
+    const retryAbort = new AbortController();
+    const retry = client.downloadOcr('standard', { signal: retryAbort.signal });
+    await vi.waitFor(() => expect(port.messagesOfType('ocr-download')).toHaveLength(2));
+    retryAbort.abort();
+    await expect(retry).rejects.toMatchObject({ code: 'aborted' });
+  });
+
+  it('rejects a pending OCR download when the engine port is dropped', async () => {
+    const port = new FakePort();
+    connect.mockReturnValue(port.port);
+    const client = new EngineClient(controller());
+    const pending = client.downloadOcr('standard', { signal: new AbortController().signal });
+    await waitForMessage(port, 'ocr-download');
+
+    // bootSource() drops the port before disconnecting it, so the disconnect handler's
+    // "current port" guard cannot settle the pending round-trip on its own.
+    await client.bootSource();
+    await expect(pending).rejects.toMatchObject({ code: 'offscreen-unavailable' });
+  });
+
+  it('keeps the port when status and ping polls time out during OCR recognition', async () => {
+    vi.useFakeTimers();
+    try {
+      connect.mockClear();
+      const port = new FakePort();
+      connect.mockReturnValue(port.port);
+      const disconnect = vi.spyOn(port.port, 'disconnect');
+      const offscreen = controller();
+      const client = new EngineClient(offscreen);
+
+      const recognition = client.recognizeOcr(
+        'standard',
+        { width: 1, height: 1, data: 'AAAA' },
+        new AbortController().signal,
+      );
+      await vi.advanceTimersByTimeAsync(0);
+      const ocr = port.messagesOfType('ocr-recognize')[0] as { requestId: string } | undefined;
+      expect(ocr).toBeDefined();
+      if (!ocr) return;
+
+      const status = client.status();
+      const ping = client.ping();
+      const statusRejection = expect(status).rejects.toMatchObject({
+        code: 'offscreen-unavailable',
+      });
+      const pingRejection = expect(ping).rejects.toMatchObject({
+        code: 'offscreen-unavailable',
+      });
+      await vi.advanceTimersByTimeAsync(15_000);
+      await statusRejection;
+      await pingRejection;
+      expect(offscreen.recreate).not.toHaveBeenCalled();
+      expect(disconnect).not.toHaveBeenCalled();
+      expect(connect).toHaveBeenCalledTimes(1);
+
+      port.emit({
+        type: 'response',
+        requestId: ocr.requestId,
+        ok: true,
+        value: { text: 'ok', regions: [], lines: [] },
+      });
+      await expect(recognition).resolves.toMatchObject({ text: 'ok' });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('extends ocr-status past the 15s bound while a recognition is active', async () => {
+    vi.useFakeTimers();
+    try {
+      const port = new FakePort();
+      connect.mockReturnValue(port.port);
+      const offscreen = controller();
+      const client = new EngineClient(offscreen);
+
+      const recognition = client.recognizeOcr(
+        'standard',
+        { width: 1, height: 1, data: 'AAAA' },
+        new AbortController().signal,
+      );
+      await vi.advanceTimersByTimeAsync(0);
+      const ocr = port.messagesOfType('ocr-recognize')[0] as { requestId: string } | undefined;
+      expect(ocr).toBeDefined();
+      if (!ocr) return;
+
+      const status = { id: 'standard', state: 'loaded', received: 1, total: 1, progress: 1 };
+      const pending = client.ocrStatus('standard');
+      let settled = false;
+      void pending.then(
+        () => {
+          settled = true;
+        },
+        () => {
+          settled = true;
+        },
+      );
+      await vi.advanceTimersByTimeAsync(15_000);
+      expect(settled).toBe(false);
+      const request = port.messagesOfType('ocr-status')[0] as { requestId: string };
+      port.emit({ type: 'response', requestId: request.requestId, ok: true, value: status });
+      await expect(pending).resolves.toEqual(status);
+      expect(offscreen.recreate).not.toHaveBeenCalled();
+
+      port.emit({
+        type: 'response',
+        requestId: ocr.requestId,
+        ok: true,
+        value: { text: 'ok', regions: [], lines: [] },
+      });
+      await expect(recognition).resolves.toMatchObject({ text: 'ok' });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

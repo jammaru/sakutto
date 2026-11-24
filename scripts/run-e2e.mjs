@@ -28,6 +28,11 @@ if (real) {
   await run(pnpm, ['build']);
 } else {
   await run('node', ['scripts/sync-licenses.mjs']);
+  // The fake-engine build still renders PDFs with pdf.js and loads the ORT WASM assets, so
+  // those generated public assets must be present in a clean CI checkout too.
+  await run('node', ['scripts/sync-pdfjs.mjs']);
+  await run('node', ['scripts/sync-export-font.mjs']);
+  await run('node', ['scripts/sync-ocr-runtime.mjs']);
   await run(pnpm, ['exec', 'wxt', 'build']);
 }
 

@@ -13,6 +13,8 @@
     browserKey: MessageKey;
     recommended?: ModelStorageChoiceValue | null;
     introKey?: MessageKey | null;
+    /** Explains which files are stored here, for both translation and OCR. */
+    fileNoteKey?: MessageKey | null;
     notes?: readonly MessageKey[];
     benefits?: { leadKey: MessageKey; sizeLabel: string } | null;
     disabled?: boolean;
@@ -27,6 +29,7 @@
     browserKey,
     recommended = null,
     introKey = null,
+    fileNoteKey = null,
     notes = [],
     benefits = null,
     disabled = false,
@@ -36,6 +39,9 @@
 
 {#if introKey}
   <p class="muted storage-intro">{t(introKey)}</p>
+{/if}
+{#if fileNoteKey}
+  <p class="muted storage-intro" data-sakutto="model-storage-files-note">{t(fileNoteKey)}</p>
 {/if}
 
 <fieldset class="store">

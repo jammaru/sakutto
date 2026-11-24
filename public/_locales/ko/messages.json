@@ -719,6 +719,10 @@
   "modelStorageIntro": {
     "message": "모델을 저장할 위치를 선택하세요. 기존 모델은 선택에 따라 이동합니다."
   },
+  "modelStorageFilesNote": {
+    "message": "PLaMo 번역 모델(GGUF)과 온디바이스 OCR 모델(ONNX)이 모두 여기에 저장됩니다. OCR 파일은 ocr-* 하위 폴더에 들어가며, 공유 폴더를 선택하지 않으면 둘 다 이 브라우저에 저장됩니다.",
+    "description": "Where the PLaMo and OCR files are stored, for both folder and browser choices."
+  },
   "modelStorageBrowserOnlyHint": {
     "message": "이 브라우저에서는 공유 폴더를 사용할 수 없으므로 모델이 브라우저 안에 저장됩니다."
   },
@@ -1137,11 +1141,35 @@
   "pdfCompare": {
     "message": "나란히 비교"
   },
+  "pdfBilingual": {
+    "message": "이중 언어 표시"
+  },
   "pdfOriginalPane": {
     "message": "원문"
   },
   "pdfTranslatedPane": {
     "message": "번역"
+  },
+  "pdfDownloadTranslated": {
+    "message": "번역된 PDF 다운로드",
+    "description": "Toolbar button that saves the translated document as a PDF."
+  },
+  "pdfExporting": {
+    "message": "PDF 준비 중…"
+  },
+  "pdfExportFailed": {
+    "message": "PDF를 만들지 못했습니다. 다시 시도해 주세요."
+  },
+  "pdfExportWaiting": {
+    "message": "PDF 내보내기를 위해 번역 완료 중: $DONE$ / $TOTAL$ 페이지",
+    "placeholders": {
+      "done": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
   },
   "pdfChooseFile": {
     "message": "PDF 파일 선택"
@@ -1725,5 +1753,144 @@
   },
   "allSitesPopupEnable": {
     "message": "켜기"
+  },
+  "ocrTierStandard": {
+    "message": "표준 OCR",
+    "description": "Label for the standard PP-OCR tier."
+  },
+  "ocrTierHigh": {
+    "message": "고정밀 OCR",
+    "description": "Label for the high-accuracy PP-OCR tier."
+  },
+  "ocrModelsHeading": {
+    "message": "기기 내 OCR",
+    "description": "Heading for PP-OCR model management."
+  },
+  "ocrModelsDescription": {
+    "message": "PP-OCRv6가 스캔한 PDFs와 이미지의 텍스트를 이 기기에서 인식합니다. 단계를 선택하면 해당 감지 모델과 인식 모델을 다운로드합니다.",
+    "description": "Explanation of OCR tiers and downloads."
+  },
+  "ocrTierSwitchHint": {
+    "message": "단계를 전환하면 선택한 모델을 다운로드합니다. 다른 단계의 모델은 삭제할 때까지 이 기기에 남아 있습니다.",
+    "description": "Explains tier switching and old model cleanup."
+  },
+  "onboardingOcrNote": {
+    "message": "스캔한 PDFs와 이미지를 위한 표준 기기 내 OCR 모델($SIZE$)도 함께 다운로드합니다.",
+    "description": "Combined onboarding download note with OCR bundle size.",
+    "placeholders": {
+      "size": {
+        "content": "$1"
+      }
+    }
+  },
+  "pdfOcrReading": {
+    "message": "스캔한 페이지 $PAGE$/$TOTAL$의 텍스트를 인식하는 중…",
+    "description": "Shown while OCR runs on a scanned PDF page.",
+    "placeholders": {
+      "page": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "pdfOcrFailed": {
+    "message": "이 스캔 페이지에서 텍스트를 인식하지 못했습니다.",
+    "description": "Shown when a scanned PDF page cannot be recognized."
+  },
+  "ocrDownloadRequired": {
+    "message": "스캔한 PDF와 이미지의 텍스트를 인식하려면 OCR 모델이 필요합니다.",
+    "description": "Shown when OCR is unavailable or its model download fails."
+  },
+  "ocrDownloadInline": {
+    "message": "OCR 모델 다운로드 (약 $SIZE$)",
+    "description": "Inline button that downloads the selected OCR tier.",
+    "placeholders": {
+      "size": {
+        "content": "$1"
+      }
+    }
+  },
+  "ocrDownloadProgress": {
+    "message": "OCR 모델 다운로드 중: $PERCENT$%",
+    "description": "Inline progress shown while the OCR model downloads.",
+    "placeholders": {
+      "percent": {
+        "content": "$1"
+      }
+    }
+  },
+  "ocrDownloadFailed": {
+    "message": "OCR 모델을 다운로드하지 못했습니다. 다시 시도해 주세요.",
+    "description": "Shown when an inline OCR model download fails."
+  },
+  "imageFileAccessHeading": {
+    "message": "로컬 이미지 번역",
+    "description": "Title of the page opened when the image context menu cannot reach a file URL."
+  },
+  "imageFileAccessBody": {
+    "message": "Sakutto가 페이지에서 이 이미지를 읽을 수 없습니다. chrome://extensions에서 Sakutto를 선택하고 “파일 URL에 대한 액세스 허용”(Allow access to file URLs)을 켜세요. 아래에서 이미지 파일을 선택해 이 기기에서 번역할 수도 있습니다.",
+    "description": "Guidance when a local image action cannot inject into the tab."
+  },
+  "imageFileAccessChoose": {
+    "message": "이미지 파일 선택",
+    "description": "Label for the local image picker."
+  },
+  "contextTranslateImage": {
+    "message": "Sakutto로 이미지 번역",
+    "description": "Image context-menu action."
+  },
+  "imageTranslationHeading": {
+    "message": "이미지 번역",
+    "description": "Title of the image translation panel."
+  },
+  "imageTranslating": {
+    "message": "이미지의 텍스트를 인식하고 번역하는 중…",
+    "description": "Shown while image OCR and translation run."
+  },
+  "imageTranslationFailed": {
+    "message": "이미지를 번역하지 못했습니다.",
+    "description": "Shown when image OCR or translation fails."
+  },
+  "imageTranslationEmpty": {
+    "message": "이 이미지에서 인식된 텍스트가 없습니다.",
+    "description": "Shown when OCR returns no text."
+  },
+  "imageTranslationClose": {
+    "message": "이미지 번역 닫기",
+    "description": "Accessible close-button label for the image panel."
+  },
+  "imageOriginalText": {
+    "message": "인식된 텍스트",
+    "description": "Label for OCR source text in the image panel."
+  },
+  "imageTranslationPermission": {
+    "message": "브라우저가 이 이미지에 접근하지 못했습니다. 대신 화면에 보이는 페이지를 캡처해 보세요.",
+    "description": "Shown when image pixels cannot be read without extra permissions."
+  },
+  "pdfFileAccessBody": {
+    "message": "Sakutto가 페이지에서 이 PDF를 읽을 수 없습니다. chrome://extensions에서 Sakutto를 선택하고 “파일 URL에 대한 액세스 허용”(Allow access to file URLs)을 켜세요. 아래에서 PDF를 선택해 이 리더에서 열 수도 있습니다.",
+    "description": "Guidance when a local PDF cannot be read from a file:// tab."
+  },
+  "onboardingPlamoReady": {
+    "message": "번역 모델(PLaMo): 이미 이 기기에 저장됨",
+    "description": "PLaMo line of the onboarding download status, shown when the translation model is already stored."
+  },
+  "onboardingOcrDownloading": {
+    "message": "OCR 모델(스캔한 PDF 및 이미지용, 약 $SIZE$)을 다운로드하는 중: $PERCENT$%",
+    "description": "OCR line of the onboarding download status, with the selected tier's size and its own percent progress.",
+    "placeholders": {
+      "size": {
+        "content": "$1"
+      },
+      "percent": {
+        "content": "$2"
+      }
+    }
+  },
+  "onboardingOcrReady": {
+    "message": "OCR 모델: 이미 이 기기에 저장됨",
+    "description": "OCR line of the onboarding download status, shown when the OCR model is already stored."
   }
 }

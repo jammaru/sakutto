@@ -1,11 +1,41 @@
+import type { AssetStatus } from '@/engine/model/asset';
+import { DEFAULT_OCR_TIER, type OcrTier } from '@/engine/ocr/catalog';
 import type { Formality } from '@/shared/settings';
-import { verticalWriting, type LayoutBlock } from './layout';
+import { isAbortError } from '@/engine/errors';
+import { MAX_OCR_DIMENSION, MAX_OCR_PIXELS } from '@/engine/offscreen/protocol';
+import {
+  createPdfPageOcr,
+  OcrUserMessageError,
+  ocrResultToHybridPage,
+  shouldRunPdfOcr,
+  type PdfPageOcr,
+  type PdfOcrRecognize,
+} from './ocr';
+import {
+  bilingualReadingRanks,
+  compareReadingOrder,
+  verticalWriting,
+  type LayoutBlock,
+  type PageLayout,
+} from './layout';
 import { layoutPage } from './layout';
+import { withoutPageBackground } from './figures';
 import { COVER_PAD_TOP_EM, HINTING_PAD_PX, coverPaintLayout, drawnBox } from './place';
 import { coverStyle, READER_STYLE, TextMeasurer } from './render';
-import { extractPage, renderPage, type PdfDocument } from './extract';
+import { extractPage, renderPage, type ExtractedPage, type PdfDocument } from './extract';
+import { pngBytesFromDataUrl, type ExportPage } from './export';
+import { rasterizeStage } from './raster-export';
 import type { TextLine } from './lines';
 import { PdfSession, traitsOf, type BlockState, type PdfEngine } from './session';
+
+/**
+ * OCR failed only because the models are not installed yet.
+ *
+ * The reader keeps these pages apart from ordinary transient failures: a fresh download must
+ * re-queue them even after their backoff budget is spent, while a timeout still uses that budget.
+ */
+export class PdfOcrModelMissingError extends OcrUserMessageError {}
+
 /**
  * Page geometry, known before a page's text is parsed: a page's size comes from the document's
  * own page tree, and the reader needs it to reserve space and to place the placeholder before
@@ -39,6 +69,15 @@ export interface ReaderLabels {
   compareOriginal: string;
   /** Caption on the translated pane in side-by-side compare. */
   compareTranslated: string;
+  /** Toolbar label for the reflowed two-language reading mode. */
+  pdfBilingual: string;
+  /** OCR status on a page whose text layer is absent or negligible. */
+  ocrReading: (page: number, of: number) => string;
+  ocrFailed: string;
+  /** Optional inline prompt on a scanned page whose OCR bundle is missing. */
+  ocrDownload?: string | undefined;
+  ocrDownloadFailed?: string | undefined;
+  ocrDownloadProgress?: ((status: AssetStatus<OcrTier>) => string) | undefined;
 }
 
 export interface ReaderOptions {
@@ -70,6 +109,10 @@ export interface ReaderOptions {
   pageLimit?: number | undefined;
   /** Reports progress to the page's toolbar. */
   onProgress: (state: ReaderProgress) => void;
+  /** Optional scanned-page fallback. Construction does not load or download OCR models. */
+  ocr?: { recognize: PdfOcrRecognize; tier?: OcrTier } | undefined;
+  /** Starts the inline download on click. The reader never downloads on its own. */
+  onOcrDownload?: ((tier: OcrTier) => Promise<boolean> | boolean) | undefined;
 }
 
 export interface ReaderProgress {
@@ -92,6 +135,10 @@ export interface ReaderProgress {
   overflowed: number;
   /** Blocks whose translation stream failed, counted apart from ones that did not fit. */
   failed: number;
+  /** Last completed page OCR+layout time in milliseconds, when OCR ran. */
+  ocrMs?: number | null;
+  /** Time from starting a page to its first painted translation, in milliseconds. */
+  firstVisibleMs?: number | null;
 }
 
 /**
@@ -151,17 +198,42 @@ export class PdfReader {
   private readonly resizeObserver: ResizeObserver | null;
   private readonly geometries: PageGeometry[];
   private readonly geometryByIndex: ReadonlyMap<number, PageGeometry>;
-  private readonly pageLimit: number | null;
+  private pageLimit: number | null;
   private readonly ops: Record<string, number> | null;
+  private readonly ocr: { recognize: PdfOcrRecognize; tier?: OcrTier } | null;
+  private pageOcr: PdfPageOcr | null = null;
+  /** OCR recognition is language-independent: keep one instance per page across scroll-back. */
+  private readonly pageOcrCache = new Map<number, PdfPageOcr>();
+  /** Page parse start, used for time-to-first-visible-translation telemetry. */
+  private readonly pageStartTimes = new Map<number, number>();
+  private readonly firstVisibleTimes = new Map<number, number>();
+  private readonly ocrDurations = new Map<number, number>();
   private readonly parsed = new Set<number>();
+  private readonly retryableOcr = new Set<number>();
+  /** Pages whose OCR pass failed because the bundle was missing, not because of a transient error. */
+  private readonly modelMissingOcr = new Set<number>();
+  private ocrDownloadBusy = false;
+  private readonly onOcrDownload: ReaderOptions['onOcrDownload'];
+  private readonly ocrRetryNotBefore = new Map<number, number>();
+  private readonly ocrRetryAttempts = new Map<number, number>();
+  private static readonly MAX_OCR_PAGE_ATTEMPTS = 6;
+  private ocrRetryTimer: ReturnType<typeof setTimeout> | null = null;
   private parsing: Promise<void> | null = null;
+  /** The page the single-flight parse owns, so idle prefetch never duplicates its get/extract. */
+  private parsingIndex: number | null = null;
+  /** One idle-time page/extract prefetch, consumed by the next parse; never runs OCR early. */
+  private prefetch: {
+    index: number;
+    task: Promise<{ page: Awaited<ReturnType<PdfDocument['getPage']>>; extracted: ExtractedPage }>;
+  } | null = null;
   private visible = true;
   private scale = 1;
   private focus = 0;
   private compare = false;
-  private emptyPages = 0;
+  private bilingual = false;
+  private readonly emptyPages = new Set<number>();
   /** Blocks left in the page's own typesetting: equations and the text inside figures. */
-  private skippedBlocks = 0;
+  private readonly skippedBlocks = new Map<number, number>();
   private coverageSweepPass = 0;
   private target: string;
   private form: Formality;
@@ -171,6 +243,7 @@ export class PdfReader {
   constructor(root: HTMLElement, geometries: readonly PageGeometry[], options: ReaderOptions) {
     this.root = root;
     this.root.dataset.compare = 'false';
+    this.root.dataset.bilingual = 'false';
     this.document = options.document;
     this.labels = options.labels;
     this.onProgress = options.onProgress;
@@ -179,6 +252,8 @@ export class PdfReader {
     this.pageLimit =
       options.pageLimit !== undefined && options.pageLimit > 0 ? options.pageLimit : null;
     this.ops = options.ops ?? null;
+    this.ocr = options.ocr ?? null;
+    this.onOcrDownload = options.onOcrDownload;
     this.target = options.targetLanguage;
     this.form = options.form;
     this.engine = options.engine;
@@ -222,6 +297,7 @@ export class PdfReader {
   /** Re-queues blocks that never got a translation, once the model is ready. */
   retryUntranslated(): void {
     this.coverageSweepPass = 0;
+    this.retryOcr();
     this.session.retryUntranslated();
   }
 
@@ -242,6 +318,14 @@ export class PdfReader {
    */
   setCompare(on: boolean): void {
     if (this.compare === on) return;
+    if (on && this.bilingual) {
+      this.bilingual = false;
+      this.root.dataset.bilingual = 'false';
+      for (const element of this.pageElements.values()) {
+        element.bilingual.replaceChildren();
+        element.bilingualRows.clear();
+      }
+    }
     this.compare = on;
     this.root.dataset.compare = on ? 'true' : 'false';
     if (on) {
@@ -251,9 +335,129 @@ export class PdfReader {
     } else {
       for (const element of this.pageElements.values()) copyOriginalCanvas(element, false);
     }
+    // fitScale already reserves a second column for compare/bilingual; use it when the mode
+    // changes so the two panes still fit the reader instead of overflowing its width.
+    this.scale = this.fitScale();
     this.applyScale();
   }
 
+  /** True when the reader shows a reflowed translation beside the original page. */
+  isBilingual(): boolean {
+    return this.bilingual;
+  }
+
+  /**
+   * Shows the original on the left and the translation reflowed on the right.
+   *
+   * Unlike overlay mode, the translation is not fitted into the source boxes: it flows as
+   * paragraphs with the original above each one. Both panes belong to the same page row, so
+   * the window scrolls them together and the two languages stay aligned without a second
+   * scroll container to synchronise.
+   */
+  setBilingual(on: boolean): void {
+    if (this.bilingual === on) return;
+    if (on && this.compare) this.setCompare(false);
+    this.bilingual = on;
+    this.root.dataset.bilingual = on ? 'true' : 'false';
+    for (const element of this.pageElements.values()) {
+      copyOriginalCanvas(element, on);
+      if (!on) {
+        element.bilingual.replaceChildren();
+        element.bilingualRows.clear();
+      }
+    }
+    this.scale = this.fitScale();
+    this.applyScale();
+  }
+
+  private paintBilingual(
+    element: PageElement,
+    states: readonly BlockState[],
+    skipped: readonly LayoutBlock[] = [],
+  ): void {
+    const live = new Set<object>();
+    const rows: Array<{
+      key: object;
+      source: string;
+      translation: string;
+      role: string;
+      failed: boolean;
+      block: LayoutBlock;
+    }> = [
+      ...states.map((state) => ({
+        key: state,
+        source: state.block.text.trim(),
+        translation: state.translation.trim(),
+        role: state.block.role,
+        failed: state.state === 'failed',
+        block: state.block,
+      })),
+      ...skipped.map((block) => ({
+        key: block,
+        source: block.text.trim(),
+        translation: '',
+        role: block.role,
+        failed: false,
+        block,
+      })),
+    ];
+    // Skipped equations, listings and labels belong at their place in the page's reading
+    // order, not after every translated block. The layout's `column` and `writing` metadata
+    // decide that order: down the left column then the right for horizontal text, and right
+    // to left for vertical Japanese. Sorting by y/x alone alternated the two columns and
+    // reversed vertical pages.
+    const hasSpanning = rows.some((row) => row.block.column < 0);
+    if (hasSpanning) {
+      const ranks = bilingualReadingRanks(rows.map((row) => row.block));
+      rows.sort((a, b) => (ranks.get(a.block) ?? 0) - (ranks.get(b.block) ?? 0));
+    } else {
+      rows.sort((a, b) => compareReadingOrder(a.block, b.block));
+    }
+
+    for (const item of rows) {
+      const translation = item.translation;
+      const source = item.source;
+      if (translation.length === 0 && source.length === 0) continue;
+      live.add(item.key);
+      let row = element.bilingualRows.get(item.key);
+      if (!row) {
+        row = document.createElement('section');
+        row.className = 'sakutto-bilingual__row';
+        row.setAttribute('translate', 'no');
+        const original = document.createElement('p');
+        original.className = 'sakutto-bilingual__source';
+        const translated = document.createElement('p');
+        translated.className = 'sakutto-bilingual__translation';
+        translated.setAttribute('lang', this.target);
+        translated.dir = 'auto';
+        row.append(original, translated);
+        element.bilingual.append(row);
+        element.bilingualRows.set(item.key, row);
+      }
+      const sourceNode = row.firstElementChild;
+      const translatedNode = row.lastElementChild;
+      if (sourceNode) sourceNode.textContent = source;
+      if (translatedNode) translatedNode.textContent = translation;
+      row.dataset.state = item.failed ? 'failed' : translation.length > 0 ? 'translated' : 'kept';
+      row.dataset.role = item.role;
+    }
+    for (const [key, row] of element.bilingualRows) {
+      if (live.has(key)) continue;
+      row.remove();
+      element.bilingualRows.delete(key);
+    }
+    // Existing rows keep their element across paints, so a late-arriving translation must not
+    // leave the row where it was first created. Move each live row into its sorted position.
+    let position = 0;
+    for (const item of rows) {
+      const row = element.bilingualRows.get(item.key);
+      if (!row) continue;
+      if (element.bilingual.children[position] !== row) {
+        element.bilingual.insertBefore(row, element.bilingual.children[position] ?? null);
+      }
+      position += 1;
+    }
+  }
   /**
    * Translates whatever the reader has selected, and shows the result beside it.
    *
@@ -386,14 +590,157 @@ export class PdfReader {
     this.session.setGlossary(glossary);
   }
 
+  /**
+   * Keeps the tier used for the local page timeout in step with the tier the recognize callback
+   * will ask the host to run. Called from the settings subscription while the reader is open.
+   */
+  setOcrTier(tier: OcrTier | undefined): void {
+    if (!this.ocr) return;
+    if (tier === undefined) delete this.ocr.tier;
+    else this.ocr.tier = tier;
+  }
+
   /** Pauses translating while the tab is hidden, and resumes when it is shown again. */
   setVisible(visible: boolean): void {
     this.visible = visible;
-    if (visible) void this.parseNext();
+    if (!visible) {
+      this.pageOcr?.cancel();
+      for (const instance of this.pageOcrCache.values()) instance.cancel();
+    }
+    if (visible) this.retryOcr();
+  }
+
+  /** Retries pages whose OCR model download or runtime initialization failed. */
+  retryOcr(): void {
+    if (this.ocrRetryTimer !== null) clearTimeout(this.ocrRetryTimer);
+    this.ocrRetryTimer = null;
+    // Models that were missing when the page was parsed change everything about that failure:
+    // re-queue those pages even if their transient-retry budget ran out while the download
+    // was still in flight, and give them a fresh budget for the newly installed runtime.
+    for (const page of this.modelMissingOcr) {
+      this.retryableOcr.add(page);
+      this.ocrRetryAttempts.delete(page);
+      this.pageOcrCache.delete(page);
+      delete this.pageElements.get(page)?.host.dataset.ocrModelMissing;
+    }
+    for (const page of this.retryableOcr) this.ocrRetryNotBefore.set(page, 0);
+    if (this.visible) void this.parseNext();
+    else this.scheduleOcrRetry();
+  }
+
+  /**
+   * Mirrors an `ocr:progress` message on the pages waiting for the bundle. The reader only
+   * renders the state; the caller owns the decision to start the download.
+   */
+  updateOcrDownload(status: AssetStatus<OcrTier> | null): void {
+    if (!status || this.modelMissingOcr.size === 0) return;
+    if (status.id !== (this.ocr?.tier ?? DEFAULT_OCR_TIER)) return;
+    const busy = status.state === 'downloading' || status.state === 'verifying';
+    const finished = status.state === 'ready' || status.state === 'loaded';
+    this.ocrDownloadBusy = busy;
+    for (const page of this.modelMissingOcr) {
+      const element = this.pageElements.get(page);
+      if (element?.host.dataset.ocrModelMissing !== 'true') continue;
+      const button = element.missing.querySelector<HTMLButtonElement>('.sakutto-ocr-download');
+      if (button) button.disabled = busy || finished;
+      if (status.state === 'error' && this.labels.ocrDownloadFailed) {
+        const text = element.missing.querySelector<HTMLElement>('.sakutto-ocr-message');
+        if (text) text.textContent = this.labels.ocrDownloadFailed;
+      }
+      const progress = element.missing.querySelector<HTMLElement>('.sakutto-ocr-progress');
+      if (!progress) continue;
+      progress.hidden = !busy || this.labels.ocrDownloadProgress === undefined;
+      if (!progress.hidden && this.labels.ocrDownloadProgress) {
+        progress.textContent = this.labels.ocrDownloadProgress(status);
+      }
+    }
+  }
+
+  /** Keeps the prompt's size in step with a tier changed in Settings while the reader is open. */
+  setOcrDownloadLabel(label: string): void {
+    for (const page of this.modelMissingOcr) {
+      const button = this.pageElements
+        .get(page)
+        ?.missing.querySelector<HTMLButtonElement>('.sakutto-ocr-download');
+      if (button) button.textContent = label;
+    }
+  }
+
+  private async startOcrDownload(): Promise<void> {
+    if (!this.onOcrDownload || this.ocrDownloadBusy) return;
+    this.ocrDownloadBusy = true;
+    this.setOcrDownloadBusy(true);
+    let started: boolean;
+    try {
+      started = (await this.onOcrDownload(this.ocr?.tier ?? DEFAULT_OCR_TIER)) !== false;
+    } catch {
+      started = false;
+    }
+    if (started) return;
+    this.ocrDownloadBusy = false;
+    this.setOcrDownloadBusy(false);
+    const message = this.labels.ocrDownloadFailed;
+    if (!message) return;
+    for (const page of this.modelMissingOcr) {
+      const text = this.pageElements
+        .get(page)
+        ?.missing.querySelector<HTMLElement>('.sakutto-ocr-message');
+      if (text) text.textContent = message;
+    }
+  }
+
+  private setOcrDownloadBusy(busy: boolean): void {
+    for (const page of this.modelMissingOcr) {
+      const button = this.pageElements
+        .get(page)
+        ?.missing.querySelector<HTMLButtonElement>('.sakutto-ocr-download');
+      if (button) button.disabled = busy;
+    }
+  }
+
+  private paintOcrDownloadPrompt(element: PageElement, message: string): void {
+    element.host.dataset.ocrModelMissing = 'true';
+    const prompt = document.createElement('div');
+    prompt.className = 'sakutto-ocr-prompt';
+    const text = document.createElement('span');
+    text.className = 'sakutto-ocr-message';
+    text.textContent = message;
+    prompt.append(text);
+    if (this.labels.ocrDownload) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'sakutto-ocr-download';
+      button.dataset.sakutto = 'ocr-download';
+      button.textContent = this.labels.ocrDownload;
+      button.disabled = this.ocrDownloadBusy || this.onOcrDownload === undefined;
+      button.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        void this.startOcrDownload();
+      });
+      prompt.append(button);
+    }
+    const progress = document.createElement('span');
+    progress.className = 'sakutto-ocr-progress';
+    progress.hidden = true;
+    progress.setAttribute('role', 'status');
+    prompt.append(progress);
+    element.missing.replaceChildren(prompt);
+  }
+
+  private clearOcrModelMissing(index: number, element?: PageElement | null): void {
+    this.modelMissingOcr.delete(index);
+    const host = element?.host ?? this.pageElements.get(index)?.host;
+    if (host) delete host.dataset.ocrModelMissing;
   }
 
   destroy(): void {
     this.destroyed = true;
+    if (this.ocrRetryTimer !== null) clearTimeout(this.ocrRetryTimer);
+    this.ocrRetryTimer = null;
+    this.pageOcr?.cancel();
+    for (const instance of this.pageOcrCache.values()) instance.cancel();
+    this.pageOcrCache.clear();
     this.observer.disconnect();
     this.resizeObserver?.disconnect();
     document.removeEventListener('click', this.onDocumentClick);
@@ -478,7 +825,10 @@ export class PdfReader {
       note.className = 'sakutto-select sakutto-note';
       note.hidden = true;
 
-      translatedStage.append(canvas, layer, text, missing, broken, popover, note);
+      const bilingual = document.createElement('div');
+      bilingual.className = 'sakutto-bilingual';
+
+      translatedStage.append(canvas, layer, text, bilingual, missing, broken, popover, note);
       translatedPane.append(translatedCaption, translatedStage);
       host.append(originalPane, translatedPane);
       this.root.append(host);
@@ -492,6 +842,8 @@ export class PdfReader {
         canvas,
         text,
         layer,
+        bilingual,
+        bilingualRows: new Map<object, HTMLElement>(),
         missing,
         popover,
         note,
@@ -505,8 +857,9 @@ export class PdfReader {
 
   /** Scale that makes the widest page fill the reader, capped so a wide window does not blur. */
   private fitScale(): number {
-    const gap = this.compare ? 12 : 0;
-    const columns = this.compare ? 2 : 1;
+    const twoColumns = this.compare || this.bilingual;
+    const gap = twoColumns ? 12 : 0;
+    const columns = twoColumns ? 2 : 1;
     const width = (this.root.clientWidth - 36 - gap) / columns;
     const widest = Math.max(...this.geometries.map((geometry) => geometry.width), 1);
     // 1.6× is about 115 dpi on an A4 page: legible at a normal reading distance without
@@ -528,13 +881,17 @@ export class PdfReader {
       if (!geometry) continue;
       const pageWidth = geometry.width * this.scale;
       const pageHeight = geometry.height * this.scale;
-      element.host.style.width = this.compare
+      // Both two-pane modes use the same two columns + gap as fitScale(). The host must
+      // keep growing with its rows: a bilingual translation can be taller than the source
+      // page, so only the original stage is pinned to the page's own height.
+      const twoColumns = this.compare || this.bilingual;
+      element.host.style.width = twoColumns
         ? `${(pageWidth * 2 + 12).toFixed(2)}px`
         : `${pageWidth.toFixed(2)}px`;
-      element.host.style.height = this.compare ? '' : `${pageHeight.toFixed(2)}px`;
+      element.host.style.height = twoColumns ? '' : `${pageHeight.toFixed(2)}px`;
       element.translatedPane.style.width = `${pageWidth.toFixed(2)}px`;
       element.originalPane.style.width = `${pageWidth.toFixed(2)}px`;
-      element.translatedStage.style.height = `${pageHeight.toFixed(2)}px`;
+      element.translatedStage.style.height = this.bilingual ? '' : `${pageHeight.toFixed(2)}px`;
       element.originalStage.style.height = `${pageHeight.toFixed(2)}px`;
       // A canvas drawn at the old scale has the wrong size for the new one. Cancelling
       // bumps the draw generation so the abandoned render cannot mark this as a failure.
@@ -638,7 +995,9 @@ export class PdfReader {
       element.drawn = true;
       delete element.renderTask;
       element.host.removeAttribute('data-render-failed');
-      copyOriginalCanvas(element, this.compare);
+      // The original is visible in both two-pane modes, and every redraw (refit, scroll
+      // back after release, retry) renders into a fresh canvas. Copy it whenever it shows.
+      copyOriginalCanvas(element, this.compare || this.bilingual);
     } catch (error) {
       if (this.destroyed || element.drawGeneration !== generation) return;
       delete element.renderTask;
@@ -663,52 +1022,299 @@ export class PdfReader {
     const next = this.nextPageToParse();
     if (next === null) return;
 
+    const pageStartedAt = performance.now();
+    this.pageStartTimes.set(next, pageStartedAt);
+    this.parsingIndex = next;
     this.parsing = (async () => {
+      let ocrAttempted = false;
+      let nativePublished = false;
+      let fallback: {
+        layout: PageLayout;
+        lines: TextLine[];
+        height: number;
+        empty: boolean;
+      } | null = null;
       try {
-        const page = await this.document.getPage(next + 1);
-        const extracted = await extractPage(page, next, this.ops);
+        const prefetched = this.prefetch?.index === next ? this.prefetch : null;
+        if (prefetched) this.prefetch = null;
+        const prepared = prefetched
+          ? await prefetched.task.catch(() => null)
+          : await (async () => {
+              const preparedPage = await this.document.getPage(next + 1);
+              return {
+                page: preparedPage,
+                extracted: await extractPage(preparedPage, next, this.ops),
+              };
+            })();
         if (this.destroyed) return;
-        this.parsed.add(next);
+        const page = prepared?.page ?? (await this.document.getPage(next + 1));
+        const extracted = prepared?.extracted ?? (await extractPage(page, next, this.ops));
+        if (this.destroyed) return;
         // A new page brings new unpainted prose, so the coverage sweep starts over for it.
         this.coverageSweepPass = 0;
         const element = this.pageElements.get(next);
+        const runOcr =
+          this.ocr !== null &&
+          shouldRunPdfOcr(extracted.lines, extracted.figures, extracted.width, extracted.height);
+        // The same filter the hybrid layout uses: a scan covering the page is background, not
+        // a figure whose native header should be skipped when OCR fails.
+        const nativeFigures = withoutPageBackground(
+          extracted.figures,
+          extracted.width,
+          extracted.height,
+        );
+        const nativeLayout = layoutPage(extracted.lines, nativeFigures, {
+          width: extracted.width,
+          height: extracted.height,
+          index: next,
+        });
+        fallback = {
+          layout: nativeLayout,
+          lines: extracted.lines,
+          height: extracted.height,
+          empty: extracted.empty,
+        };
+        let pageLayout = nativeLayout;
+        let textLines = extracted.lines;
 
-        if (extracted.empty) {
-          this.emptyPages += 1;
-          if (element) element.host.dataset.pageEmpty = 'true';
-          this.session.addPage(
-            next,
-            {
-              blocks: [],
-              bodySize: 0,
-              lineHeight: 0,
-              skipped: [],
-              pageHeight: extracted.height,
-              pageWidth: extracted.width,
-              pageIndex: next,
-              obstacles: extracted.figures.images ?? [],
-            },
-            extracted.height,
-          );
-        } else {
-          const layout = layoutPage(extracted.lines, extracted.figures, {
-            width: extracted.width,
-            height: extracted.height,
-            index: next,
-          });
-          this.skippedBlocks += layout.skipped.length;
-          this.session.addPage(next, layout, extracted.height);
+        // Publish the readable native layer before any OCR render or inference. A journal-style
+        // cover carries decorated rasters but its own prose: the reader must be translating that
+        // text now, not sitting behind an OCR model download with an "OCR reading" notice.
+        // A mixed scan benefits too: its native blocks stay visible while recognition runs, and
+        // ocrResultToHybridPage deduplicates what OCR later finds in the same places.
+        nativePublished = nativeLayout.blocks.length > 0;
+        if (nativePublished) {
+          this.session.replacePage(next, nativeLayout, extracted.height);
+          this.skippedBlocks.set(next, nativeLayout.skipped.length);
+          if (element) this.paintTextLayer(element, textLines);
+          this.session.focusPage(this.focus);
         }
-        if (element) this.paintTextLayer(element, extracted.lines);
+
+        if (this.ocr && runOcr) {
+          ocrAttempted = true;
+          // Only an OCR-only page has nothing to show while recognition runs. A mixed page with
+          // native prose keeps its text layer; an empty-page notice there would hide it.
+          if (element && !nativePublished) {
+            element.host.dataset.pageEmpty = 'true';
+            element.missing.textContent = this.labels.ocrReading(next + 1, this.geometries.length);
+          }
+          const canvas = document.createElement('canvas');
+          await renderPage(page, 2, canvas, {
+            maxPixels: MAX_OCR_PIXELS,
+            maxDimension: MAX_OCR_DIMENSION,
+          }).promise;
+          if (this.destroyed || !this.visible) return;
+          let pageOcr = this.pageOcrCache.get(next);
+          if (!pageOcr) {
+            pageOcr = createPdfPageOcr({
+              pageIndex: next,
+              pageWidth: extracted.width,
+              pageHeight: extracted.height,
+              recognize: this.ocr.recognize,
+              // The timeout must follow the same live setting the recognize callback reads.
+              tier: () => this.ocr?.tier,
+              timeoutMessage: this.labels.ocrFailed,
+            });
+            this.pageOcrCache.set(next, pageOcr);
+          }
+          this.pageOcr = pageOcr;
+          const ocrStartedAt = performance.now();
+          const recognized = await pageOcr.run(canvas);
+          this.ocrDurations.set(next, performance.now() - ocrStartedAt);
+          const hybrid = ocrResultToHybridPage(
+            recognized.ocr,
+            { ...extracted, figures: nativeFigures },
+            {
+              pageIndex: next,
+              pageWidth: extracted.width,
+              pageHeight: extracted.height,
+              imageWidth: canvas.width,
+              imageHeight: canvas.height,
+            },
+          );
+          pageLayout = hybrid.layout;
+          if (hybrid.lines.length > 0) textLines = [...extracted.lines, ...hybrid.lines];
+        }
+
+        this.markParsed(next);
+        this.retryableOcr.delete(next);
+        this.clearOcrModelMissing(next, element);
+        this.ocrRetryNotBefore.delete(next);
+        this.ocrRetryAttempts.delete(next);
+        // No OCR, or an OCR pass that added nothing, leaves the layout already handed to the
+        // session above. Replacing it with the same blocks would requeue work in flight.
+        if (!nativePublished || pageLayout !== nativeLayout) {
+          this.session.replacePage(next, pageLayout, extracted.height);
+        }
+        this.skippedBlocks.set(next, pageLayout.skipped.length);
+        if ((extracted.empty || ocrAttempted) && pageLayout.blocks.length === 0) {
+          this.emptyPages.add(next);
+        } else {
+          this.emptyPages.delete(next);
+        }
+        if (element) {
+          if (extracted.empty || ocrAttempted) {
+            element.host.dataset.pageEmpty = pageLayout.blocks.length === 0 ? 'true' : 'false';
+            if (ocrAttempted) {
+              element.missing.textContent = this.labels.emptyPage;
+            }
+          } else {
+            delete element.host.dataset.pageEmpty;
+          }
+          // A successful pass retires the error from an earlier one, including a mixed page
+          // whose native fallback had blocks and therefore never looked empty.
+          delete element.host.dataset.ocrFailed;
+          this.paintTextLayer(element, textLines);
+        }
         this.session.focusPage(this.focus);
         this.report();
-      } catch {
-        this.parsed.add(next);
+      } catch (error) {
+        // Cancellation is control flow, including when a quick re-show happened before the
+        // rejection arrived. The page remains unparsed so the re-show can start a clean run.
+        if (isAbortError(error)) return;
+        this.markParsed(next);
+        if (ocrAttempted && fallback) {
+          // Only a missing bundle is worth waiting for: a later readiness message re-queues
+          // these pages even after the ordinary backoff budget is exhausted.
+          if (error instanceof PdfOcrModelMissingError) this.modelMissingOcr.add(next);
+          else this.clearOcrModelMissing(next);
+          const attempt = (this.ocrRetryAttempts.get(next) ?? 0) + 1;
+          this.ocrRetryAttempts.set(next, attempt);
+          if (attempt >= PdfReader.MAX_OCR_PAGE_ATTEMPTS) {
+            this.retryableOcr.delete(next);
+          } else {
+            this.retryableOcr.add(next);
+            this.ocrRetryNotBefore.set(
+              next,
+              Date.now() + Math.min(30_000, 1000 * 2 ** Math.min(attempt - 1, 5)),
+            );
+          }
+          // The native fallback was already handed to the session before OCR started. Replacing
+          // it with the identical layout would only requeue work that may already be translating.
+          if (attempt === 1 && !nativePublished) {
+            this.session.replacePage(next, fallback.layout, fallback.height);
+          }
+          this.skippedBlocks.set(next, fallback.layout.skipped.length);
+          if (fallback.empty) this.emptyPages.add(next);
+          const element = this.pageElements.get(next);
+          if (element) {
+            element.host.dataset.pageEmpty = fallback.layout.blocks.length === 0 ? 'true' : 'false';
+            // A mixed page still has native blocks, so pageEmpty alone would hide the notice
+            // and the reader would never learn that its OCR pass failed. The CSS shows the
+            // overlay for either state; pages that never ran OCR keep the old behaviour.
+            element.host.dataset.ocrFailed = 'true';
+            if (error instanceof PdfOcrModelMissingError) {
+              this.paintOcrDownloadPrompt(
+                element,
+                error.message.length > 0 ? error.message : this.labels.ocrFailed,
+              );
+            } else {
+              element.missing.textContent =
+                error instanceof OcrUserMessageError ? error.message : this.labels.ocrFailed;
+            }
+            this.paintTextLayer(element, fallback.lines);
+          }
+          // Even a failed OCR attempt is a reported page with a usable native/empty fallback.
+          // It stays retryable instead of leaving the final page stuck at N-1/N forever.
+          this.report();
+          this.scheduleOcrRetry();
+        } else {
+          // A getPage/extract/layout failure before recognition leaves the page with
+          // no fallback. If it was already retryable, its deadline may still be in
+          // the past (a ready message zeroes it), so parseNext in the finally block
+          // would immediately re-enter this same page in a tight loop. Consume a
+          // retry attempt and put real time between tries, or retire the page once
+          // the budget is spent.
+          if (this.retryableOcr.has(next)) {
+            const attempt = (this.ocrRetryAttempts.get(next) ?? 0) + 1;
+            this.ocrRetryAttempts.set(next, attempt);
+            if (attempt >= PdfReader.MAX_OCR_PAGE_ATTEMPTS) {
+              this.retryableOcr.delete(next);
+              this.ocrRetryNotBefore.delete(next);
+            } else {
+              this.ocrRetryNotBefore.set(
+                next,
+                Date.now() + Math.min(30_000, 1000 * 2 ** Math.min(attempt - 1, 5)),
+              );
+              this.scheduleOcrRetry();
+            }
+          }
+        }
       } finally {
+        this.pageOcr = null;
         this.parsing = null;
+        this.parsingIndex = null;
+        this.prefetchNext(next);
         void this.parseNext();
       }
     })();
+  }
+
+  /** A page is done only once its prefetch can no longer be mistaken for pending work. */
+  private markParsed(index: number): void {
+    this.parsed.add(index);
+    if (this.prefetch?.index === index) this.prefetch = null;
+  }
+
+  /**
+   * Warms only the next page object and its text extraction, never its canvas or OCR. One
+   * prefetch at a time keeps the main thread free for the translation stream; the single-flight
+   * parse guard still owns all page state changes.
+   */
+  private prefetchNext(current: number): void {
+    const next = current + 1;
+    const idle = (
+      globalThis as unknown as {
+        requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => void;
+      }
+    ).requestIdleCallback;
+    if (
+      this.destroyed ||
+      !this.visible ||
+      typeof idle !== 'function' ||
+      this.parsed.has(next) ||
+      this.parsingIndex === next ||
+      this.retryableOcr.has(next) ||
+      (this.pageLimit !== null && next >= this.pageLimit)
+    ) {
+      return;
+    }
+    idle(
+      () => {
+        if (
+          this.destroyed ||
+          !this.visible ||
+          this.prefetch !== null ||
+          this.parsed.has(next) ||
+          this.parsingIndex === next
+        )
+          return;
+        const task = this.document
+          .getPage(next + 1)
+          .then((page) =>
+            extractPage(page, next, this.ops).then((extracted) => ({ page, extracted })),
+          );
+        this.prefetch = { index: next, task };
+        void task.catch(() => {
+          if (this.prefetch?.index === next) this.prefetch = null;
+        });
+      },
+      { timeout: 1500 },
+    );
+  }
+
+  private scheduleOcrRetry(): void {
+    if (this.ocrRetryTimer !== null) clearTimeout(this.ocrRetryTimer);
+    this.ocrRetryTimer = null;
+    if (this.destroyed || this.retryableOcr.size === 0) return;
+    const times = [...this.retryableOcr].map(
+      (page) => this.ocrRetryNotBefore.get(page) ?? Date.now(),
+    );
+    const delay = Math.max(0, Math.min(...times) - Date.now());
+    this.ocrRetryTimer = setTimeout(() => {
+      this.ocrRetryTimer = null;
+      if (this.visible) void this.parseNext();
+    }, delay);
   }
 
   /** The page nearest the reader that has not been parsed. */
@@ -716,7 +1322,9 @@ export class PdfReader {
     let best: number | null = null;
     let bestDistance = Infinity;
     for (const geometry of this.geometries) {
-      if (this.parsed.has(geometry.index)) continue;
+      const retryable = this.retryableOcr.has(geometry.index);
+      if (this.parsed.has(geometry.index) && !retryable) continue;
+      if (retryable && (this.ocrRetryNotBefore.get(geometry.index) ?? 0) > Date.now()) continue;
       if (this.pageLimit !== null && this.parsed.size >= this.pageLimit) {
         if (!this.parsed.has(this.focus)) continue;
         // Only pages near the reader may exceed the limit, so a reader who scrolls far past it
@@ -753,7 +1361,9 @@ export class PdfReader {
           this.paintBlock(element, state, index);
           continue;
         }
-        if (state.overflow) {
+        // An engine failure also leaves English on the page. It needs the same per-block
+        // marker as an overflow so the reader can open the note and read what was intended.
+        if (state.overflow || state.state === 'failed') {
           marked.add(state);
           this.paintMarker(element, state);
         }
@@ -769,6 +1379,7 @@ export class PdfReader {
         node.remove();
         element.markers.delete(key);
       }
+      if (this.bilingual) this.paintBilingual(element, states, this.session.skippedBlocks(index));
     }
     this.runCoverageSweep();
     this.report();
@@ -793,6 +1404,11 @@ export class PdfReader {
       node.setAttribute('translate', 'no');
       element.layer.append(node);
       element.covers.set(state, node);
+      if (!this.firstVisibleTimes.has(pageIndex)) {
+        const started = this.pageStartTimes.get(pageIndex);
+        if (started !== undefined)
+          this.firstVisibleTimes.set(pageIndex, performance.now() - started);
+      }
     }
 
     const block = state.block;
@@ -834,6 +1450,7 @@ export class PdfReader {
         };
 
     node.dataset.fitWidth = fit.width.toFixed(2);
+    node.dataset.figureLabel = block.singleLine === true ? 'true' : 'false';
     node.textContent = visible.join('\n');
     node.style.cssText = coverStyle(
       box,
@@ -871,7 +1488,12 @@ export class PdfReader {
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'sakutto-overflow';
-      button.setAttribute('aria-label', this.labels.overflowOpen);
+      button.dataset.state = state.state === 'failed' ? 'failed' : 'overflow';
+      button.setAttribute(
+        'aria-label',
+        state.state === 'failed' ? this.labels.failed : this.labels.overflowOpen,
+      );
+      button.textContent = state.state === 'failed' ? '!' : '↗';
       button.addEventListener('click', (event) => {
         event.preventDefault();
         event.stopPropagation();
@@ -882,9 +1504,21 @@ export class PdfReader {
       node = button;
     }
 
+    // A block can change from overflow to failed (or back) on a later translation pass.
+    // Keep the existing marker's glyph, state and accessible label in sync with that state.
+    const failed = state.state === 'failed';
+    const dataState = failed ? 'failed' : 'overflow';
+    if (node.dataset.state !== dataState) {
+      node.dataset.state = dataState;
+      node.textContent = failed ? '!' : '↗';
+      node.setAttribute('aria-label', failed ? this.labels.failed : this.labels.overflowOpen);
+    }
+
     const scale = this.scale;
     const box = state.block.box;
-    const size = Math.max(12, Math.min(16, Math.max(box.height * scale * 0.4, 12)));
+    // A small neutral chip, not a bright dot: overflow is common on a dense scan and a row of
+    // blue circles used to read as annotations the extension had added to the paper.
+    const size = 14;
     node.style.left = `${((box.x + box.width) * scale - size / 2).toFixed(2)}px`;
     node.style.top = `${(box.y * scale - size / 2).toFixed(2)}px`;
     node.style.width = `${size.toFixed(2)}px`;
@@ -973,12 +1607,14 @@ export class PdfReader {
       ...progress,
       parsed: this.parsed.size,
       pages: this.geometries.length,
-      emptyPages: this.emptyPages,
+      emptyPages: this.emptyPages.size,
       tokensPerSecond: rates.tokensPerSecond,
       segmentsPerSecond: rates.segmentsPerSecond,
-      keptAsIs: this.skippedBlocks,
+      keptAsIs: [...this.skippedBlocks.values()].reduce((sum, count) => sum + count, 0),
       overflowed: progress.overflowed,
       failed: progress.failed,
+      ocrMs: this.ocrDurations.get(this.focus) ?? null,
+      firstVisibleMs: this.firstVisibleTimes.get(this.focus) ?? null,
     });
   }
 
@@ -1032,6 +1668,106 @@ export class PdfReader {
   parsedPages(): number[] {
     return [...this.parsed].sort((left, right) => left - right);
   }
+
+  /**
+   * Brings the whole document up to date before an export.
+   *
+   * The reader normally parses and translates only what a reader scrolls to. A saved PDF has to
+   * contain every page, so the page limit is lifted for the duration of the export and the
+   * toolbar keeps receiving the same progress it showed during normal reading. A cancelled or
+   * timed-out wait restores the previous limit and leaves the reader usable.
+   */
+  async prepareExport(options: { signal?: AbortSignal; timeoutMs?: number } = {}): Promise<void> {
+    if (this.destroyed) throw new Error('the reader is closed');
+    const previousLimit = this.pageLimit;
+    const wasVisible = this.visible;
+    const deadline = Date.now() + (options.timeoutMs ?? 15 * 60_000);
+    this.pageLimit = null;
+    this.visible = true;
+    try {
+      while (!this.destroyed) {
+        if (options.signal?.aborted) throw new DOMException('Export cancelled', 'AbortError');
+        const unfinished = this.parsed.size < this.geometries.length;
+        if (!unfinished && this.session.progress().pending === 0) return;
+        if (Date.now() > deadline) throw new Error('translation did not finish in time');
+        if (this.parsing === null) void this.parseNext();
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+      throw new Error('the reader was closed while exporting');
+    } finally {
+      this.pageLimit = previousLimit;
+      this.visible = wasVisible;
+    }
+  }
+
+  /**
+   * Snapshots what the translated pane paints, for every page, as full-page PNGs.
+   *
+   * This is the only source of visible text in the exported file: the page bitmap comes from
+   * pdf.js, the translated covers come from the reader's own DOM, and both are composited at
+   * the same resolution. No second font or second line breaker is involved, so a heading that
+   * the viewer shows is in the file and the type keeps the size the reader fitted.
+   *
+   * The page limit is not consulted here; `prepareExport` must have completed first so every
+   * session block has a translation. OCR pages need no special case: their covers came from
+   * the same OCR layout the viewer used.
+   */
+  async exportRasterPages(
+    options: { scale?: number | undefined; signal?: AbortSignal | undefined } = {},
+  ): Promise<ExportPage[]> {
+    if (this.destroyed) throw new Error('the reader is closed');
+    const exportScale = Math.max(2, options.scale ?? this.scale);
+    // A cover's computed font must be settled before canvas paints its lines.
+    if (globalThis.document?.fonts?.ready) await globalThis.document.fonts.ready;
+    // Pages parsed while off-screen still paint their covers; refresh once so the snapshot
+    // sees the same boxes the reader shows, including late-arriving streaming text.
+    this.paint();
+
+    const pages: ExportPage[] = [];
+    for (const geometry of this.geometries) {
+      if (options.signal?.aborted) throw new DOMException('Export cancelled', 'AbortError');
+      // Bring the viewer's own canvas up to date as well as the high-resolution copy below.
+      await this.drawPage(geometry.index);
+      const element = this.pageElements.get(geometry.index);
+      if (!element) continue;
+
+      // Re-render the original at export resolution rather than stretching the on-screen
+      // bitmap. Cover geometry is in viewer CSS pixels, so it is scaled by the same factor.
+      const page = await this.document.getPage(geometry.index + 1);
+      const base = document.createElement('canvas');
+      await renderPage(page, exportScale, base, { maxDimension: 4096 }).promise;
+      const pixelRatio =
+        geometry.width > 0 && base.width > 0 ? base.width / geometry.width : exportScale;
+      const stage = rasterizeStage({
+        stage: element.translatedStage,
+        base,
+        pageWidth: geometry.width,
+        pageHeight: geometry.height,
+        pixelRatio,
+        viewerScale: this.scale,
+      });
+      const image = pngBytesFromDataUrl(stage.toDataURL('image/png'));
+      // Every translation belongs in the search layer and in the snapshot, including ones
+      // that did not fit and are shown through a marker rather than a painted cover.
+      const texts = this.session
+        .pageBlocks(geometry.index)
+        .map((state) => state.translation.trim())
+        .filter((text) => text.length > 0);
+      pages.push({
+        index: geometry.index,
+        width: geometry.width,
+        height: geometry.height,
+        image,
+        texts,
+      });
+    }
+    return pages;
+  }
+
+  /** @deprecated Kept for callers of the old snapshot API; use exportRasterPages. */
+  async exportPages(scale = 2): Promise<ExportPage[]> {
+    return this.exportRasterPages({ scale });
+  }
 }
 
 export interface CoverageEntry {
@@ -1061,6 +1797,9 @@ interface PageElement {
   /** Transparent glyphs a reader can select; the visible text is a canvas or a cover. */
   text: HTMLElement;
   layer: HTMLElement;
+  /** Reflowed source/translation pairs, used only in bilingual mode. */
+  bilingual: HTMLElement;
+  bilingualRows: Map<object, HTMLElement>;
   missing: HTMLElement;
   /** The box a selection's translation is shown in. */
   popover: HTMLElement;

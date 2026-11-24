@@ -4,8 +4,12 @@ import {
   figureAreas,
   isPlausibleFigure,
   MAX_FIGURE_PAGE_SHARE,
+  PAGE_BACKGROUND_COVERAGE,
+  rasterCoverage,
+  withoutPageBackground,
+  type FigureAreas,
 } from '@/pdf/figures';
-import { groupLines } from '@/pdf/lines';
+import { groupLines, type TextLine } from '@/pdf/lines';
 import { layoutPage } from '@/pdf/layout';
 import { piece } from './support/pdf-pieces';
 
@@ -229,5 +233,223 @@ describe('figure cluster caps', () => {
     const layout = layoutPage(lines, { images: [] }, { width: 600, height: 800 });
     expect(layout.blocks.some((block) => block.role === 'heading')).toBe(true);
     expect(layout.blocks.some((block) => block.role === 'prose')).toBe(true);
+  });
+});
+
+describe('page-background raster filtering', () => {
+  const width = 600;
+  const height = 800;
+  interface Rect {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  }
+
+  /** Raster tiles, expressed as pdf.js unit-square paints in top-left page coordinates. */
+  const rasterAreas = (boxes: readonly Rect[]): FigureAreas => {
+    const fnArray: number[] = [];
+    const argsArray: unknown[][] = [];
+    for (const box of boxes) {
+      fnArray.push(OPS.save, OPS.transform, OPS.paintImageXObject, OPS.restore);
+      argsArray.push([], [box.width, 0, 0, box.height, box.x, height - box.y - box.height], [], []);
+    }
+    return figureAreas({ fnArray, argsArray }, OPS, height, width);
+  };
+
+  /** Six painted paths per box, so each box is recognised as a vector figure. */
+  const vectorAreas = (boxes: readonly Rect[], lines: readonly TextLine[] = []): FigureAreas => {
+    const fnArray: number[] = [];
+    const argsArray: unknown[][] = [];
+    for (const box of boxes) {
+      for (let index = 0; index < 6; index += 1) {
+        fnArray.push(OPS.constructPath, OPS.fill);
+        argsArray.push(
+          path(box.x + index * 2, height - box.y - box.height + index * 2, box.width, box.height),
+          [],
+        );
+      }
+    }
+    return figureAreas({ fnArray, argsArray }, OPS, height, width, lines);
+  };
+
+  const strips = (count: number): Rect[] =>
+    Array.from({ length: count }, (_, index) => ({
+      x: 0,
+      y: (index * height) / count,
+      width,
+      height: height / count,
+    }));
+
+  it('sums tiled raster coverage instead of looking at one image', () => {
+    const tiles = {
+      images: [
+        { x: 0, y: 0, width: 300, height: 800 },
+        { x: 300, y: 0, width: 300, height: 800 },
+      ],
+    };
+    expect(rasterCoverage(tiles, width, height)).toBe(1);
+    expect(rasterCoverage({ images: [] }, width, height)).toBe(0);
+    expect(rasterCoverage(tiles, 0, 0)).toBe(0);
+  });
+
+  it('drops a tiled or inset scan but keeps a partial figure', () => {
+    const tiles = {
+      images: [
+        { x: 0, y: 0, width: 300, height: 800 },
+        { x: 300, y: 0, width: 300, height: 800 },
+      ],
+    };
+    const inset = { images: [{ x: 20, y: 40, width: 550, height: 720 }] };
+    const partial = { images: [{ x: 40, y: 60, width: 300, height: 400 }] };
+    expect(rasterCoverage(inset, width, height)).toBeGreaterThanOrEqual(PAGE_BACKGROUND_COVERAGE);
+    expect(withoutPageBackground(tiles, width, height).images).toHaveLength(0);
+    expect(withoutPageBackground(inset, width, height).images).toHaveLength(0);
+    expect(withoutPageBackground(partial, width, height)).toEqual(partial);
+    // A drawing drawn on top of the scan must still protect its own labels.
+    const withFigure = { images: [...tiles.images, ...partial.images] };
+    expect(withoutPageBackground(withFigure, width, height).images).toEqual(partial.images);
+  });
+
+  it('removes every tile of a three- or five-strip scan, with no leftover strip', () => {
+    for (const count of [3, 5]) {
+      const tiles = rasterAreas(strips(count));
+      expect(rasterCoverage(tiles, width, height)).toBeCloseTo(1);
+      const cleaned = withoutPageBackground(tiles, width, height);
+      expect(cleaned.images).toEqual([]);
+      expect(cleaned.rasters).toEqual([]);
+    }
+
+    // Native text inside the last strip of a five-tile scan must stay translatable.
+    const footer = piece('Footer stamp inside the last scan tile', 40, 730, 300);
+    const lines = groupLines([footer]);
+    const layout = layoutPage(lines, withoutPageBackground(rasterAreas(strips(5)), width, height), {
+      width,
+      height,
+      index: 0,
+    });
+    expect(layout.blocks.map((block) => block.text)).toContain(footer.text);
+    expect(layout.skipped.filter((block) => block.role === 'figure-label')).toHaveLength(0);
+  });
+
+  it('sums disjoint vertical spans when raster tiles have hairline gaps', () => {
+    const gapped = {
+      images: [0, 200, 400, 600].map((y) => ({ x: 0, y, width, height: 199 })),
+    };
+    expect(rasterCoverage(gapped, width, height)).toBeCloseTo(0.995);
+
+    const bands = {
+      images: [
+        { x: 0, y: 0, width, height: 200 },
+        { x: 0, y: 400, width, height: 200 },
+      ],
+    };
+    expect(rasterCoverage(bands, width, height)).toBeCloseTo(0.5);
+  });
+
+  it('removes a gapped tiled scan so its native header stays translatable', () => {
+    const tiles = rasterAreas([0, 200, 400, 600].map((y) => ({ x: 0, y, width, height: 199 })));
+    expect(rasterCoverage(tiles, width, height)).toBeCloseTo(0.995);
+
+    const header = piece('Quarterly results and outlook for readers', 40, 40, 400);
+    const lines = groupLines([header]);
+    const cleaned = withoutPageBackground(tiles, width, height);
+    expect(cleaned.images).toEqual([]);
+    expect(cleaned.rasters).toEqual([]);
+
+    const layout = layoutPage(lines, cleaned, { width, height, index: 0 });
+    expect(layout.blocks.map((block) => block.text)).toContain(header.text);
+    expect(layout.skipped.filter((block) => block.role === 'figure-label')).toHaveLength(0);
+  });
+
+  it('removes all overlapping scan tiles as one coherent cluster', () => {
+    const tiles = rasterAreas([
+      { x: 0, y: 0, width, height: 400 },
+      { x: 0, y: 200, width, height: 400 },
+      { x: 0, y: 400, width, height: 400 },
+    ]);
+    expect(rasterCoverage(tiles, width, height)).toBeGreaterThanOrEqual(PAGE_BACKGROUND_COVERAGE);
+    expect(withoutPageBackground(tiles, width, height).images).toEqual([]);
+  });
+
+  it('keeps a lone full-bleed figure instead of reading it as a scan background', () => {
+    const fullBleed = { images: [{ x: 0, y: 0, width, height: 650 }] };
+    expect(rasterCoverage(fullBleed, width, height)).toBeGreaterThanOrEqual(
+      PAGE_BACKGROUND_COVERAGE,
+    );
+    // One raster touching the page edges is a drawing, not a scan: edge contact needs a
+    // second tile (or a near-page-size box) before it removes the image and its labels.
+    expect(withoutPageBackground(fullBleed, width, height)).toEqual(fullBleed);
+
+    const label = piece('Axis label drawn inside the full-bleed figure', 40, 300, 300);
+    const layout = layoutPage(
+      groupLines([label]),
+      withoutPageBackground(fullBleed, width, height),
+      { width, height, index: 0 },
+    );
+    expect(
+      layout.skipped.some((block) => block.role === 'figure-label' && block.text === label.text),
+    ).toBe(true);
+
+    // A raster wholly inside the figure is a drawing on it, not a neighbouring scan tile: it
+    // must not turn the lone full-bleed figure into a two-tile scan background.
+    const withOverlay = rasterAreas([
+      { x: 0, y: 0, width, height: 650 },
+      { x: 100, y: 200, width: 50, height: 50 },
+    ]);
+    expect(withoutPageBackground(withOverlay, width, height)).toEqual(withOverlay);
+    const overlayLabel = piece('Caption inside the full-bleed figure', 120, 260, 200);
+    const overlayLayout = layoutPage(
+      groupLines([overlayLabel]),
+      withoutPageBackground(withOverlay, width, height),
+      { width, height, index: 0 },
+    );
+    expect(
+      overlayLayout.skipped.some(
+        (block) => block.role === 'figure-label' && block.text === overlayLabel.text,
+      ),
+    ).toBe(true);
+
+    // The same full-width raster is background once another tile joins it at the page edge.
+    const tiled = rasterAreas([
+      { x: 0, y: 0, width, height: 650 },
+      { x: 0, y: 650, width, height: 150 },
+    ]);
+    expect(withoutPageBackground(tiled, width, height).images).toEqual([]);
+  });
+
+  it('keeps a partial figure when the inset scan alone misses the threshold', () => {
+    const scan = rasterAreas([{ x: 0, y: 0, width: 420, height }]);
+    const lines = groupLines([piece('Router', 300, 300, 60)]);
+    const drawing = vectorAreas([{ x: 240, y: 120, width: 300, height: 300 }], lines);
+    const figures: FigureAreas = {
+      images: [...scan.images, ...drawing.images],
+      rasters: scan.rasters ?? [],
+    };
+    expect(drawing.images).toHaveLength(1);
+    expect(rasterCoverage(figures, width, height)).toBeCloseTo(0.7);
+    expect(withoutPageBackground(figures, width, height).images).toEqual(figures.images);
+    const layout = layoutPage(lines, withoutPageBackground(figures, width, height), {
+      width,
+      height,
+      index: 0,
+    });
+    expect(layout.skipped.some((block) => block.role === 'figure-label')).toBe(true);
+  });
+
+  it('keeps vector figures even when together they cover 80% of the page', () => {
+    const figures: FigureAreas = {
+      images: [
+        { x: 0, y: 0, width, height: 320 },
+        { x: 0, y: 480, width, height: 320 },
+      ],
+      rasters: [],
+    };
+    expect(rasterCoverage(figures, width, height)).toBe(0);
+    expect(withoutPageBackground(figures, width, height)).toEqual(figures);
+    const label = piece('Axis label inside the drawing', 40, 200, 200);
+    const lines = groupLines([label]);
+    const layout = layoutPage(lines, figures, { width, height, index: 0 });
+    expect(layout.skipped.some((block) => block.role === 'figure-label')).toBe(true);
   });
 });

@@ -1,5 +1,5 @@
 import type { Box } from './geometry';
-import { figureAreas, type FigureAreas } from './figures';
+import { figureAreas, rasterCoverage, type FigureAreas } from './figures';
 import { traitsOfStyle, type FontTraits } from './fonts';
 import { groupLines, isRotated, type TextLine, type TextPiece } from './lines';
 
@@ -137,7 +137,7 @@ export async function extractPage(
     };
 
     pieces.push({
-      text: item.str,
+      text: normalizeGlyphRun(item.str),
       box: placed.box,
       baseline: placed.baseline,
       fontName: item.fontName,
@@ -194,10 +194,27 @@ export function isImageOnlyPage(
   for (const line of upright) chars += line.text.replace(/\s+/gu, '').length;
   if (chars < 12) return true;
 
-  const pageArea = Math.max(1, width * height);
-  let figureArea = 0;
-  for (const image of figures.images) figureArea += image.width * image.height;
-  return figureArea > pageArea * 0.8 && chars < 80;
+  // Raster-only union coverage: large vector figures are drawings with native labels, not a
+  // scan, and overlapping tiles must not be counted twice. Matches the OCR gate.
+  return rasterCoverage(figures, width, height) > 0.8 && chars < 80;
+}
+
+/** Expands the ligatures and invisible spacing PDF fonts put in glyph runs. */
+export function normalizeGlyphRun(text: string): string {
+  const LIGATURES: Readonly<Record<string, string>> = {
+    '\ufb00': 'ff',
+    '\ufb01': 'fi',
+    '\ufb02': 'fl',
+    '\ufb03': 'ffi',
+    '\ufb04': 'ffl',
+    '\ufb05': 'st',
+    '\ufb06': 'st',
+  };
+  return text
+    .normalize('NFC')
+    .replace(/[\ufb00-\ufb06]/gu, (character) => LIGATURES[character] ?? character)
+    .replace(/[\u00ad\u200b\u2060]/gu, '')
+    .replace(/[\u00a0\u202f]/gu, ' ');
 }
 
 /**
@@ -319,17 +336,40 @@ async function readFontTraits(
   return traits;
 }
 
+interface PdfRenderOptions {
+  /** Maximum encoded raster area, used for OCR rather than the interactive page display. */
+  maxPixels?: number;
+  /** Maximum width or height accepted by the consumer. */
+  maxDimension?: number;
+}
+
 /** Renders one page into a canvas at the given scale. */
-export function renderPage(page: PdfPage, scale: number, canvas: HTMLCanvasElement): PdfRenderTask {
+export function renderPage(
+  page: PdfPage,
+  scale: number,
+  canvas: HTMLCanvasElement,
+  options: PdfRenderOptions = {},
+): PdfRenderTask {
   const viewport = page.getViewport({ scale });
   const context = canvas.getContext('2d', { alpha: false });
   if (!context) return { promise: Promise.resolve() };
 
   // The page is drawn at the device's own resolution so a zoomed page stays sharp, and the
-  // CSS size keeps it at the scale the reader asked for.
-  const ratio = Math.min(3, Math.max(1, globalThis.devicePixelRatio || 1));
-  canvas.width = Math.floor(viewport.width * ratio);
-  canvas.height = Math.floor(viewport.height * ratio);
+  // CSS size keeps it at the scale the reader asked for. OCR has a fixed wire-format budget,
+  // so DPR cannot multiply its actual raster beyond what the offscreen validator accepts.
+  let ratio = Math.min(3, Math.max(1, globalThis.devicePixelRatio || 1));
+  if (options.maxPixels !== undefined) {
+    ratio = Math.min(ratio, Math.sqrt(options.maxPixels / (viewport.width * viewport.height)));
+  }
+  if (options.maxDimension !== undefined) {
+    ratio = Math.min(
+      ratio,
+      options.maxDimension / viewport.width,
+      options.maxDimension / viewport.height,
+    );
+  }
+  canvas.width = Math.max(1, Math.floor(viewport.width * ratio));
+  canvas.height = Math.max(1, Math.floor(viewport.height * ratio));
   canvas.style.width = `${String(viewport.width)}px`;
   canvas.style.height = `${String(viewport.height)}px`;
 

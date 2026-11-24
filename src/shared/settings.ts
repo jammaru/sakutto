@@ -1,5 +1,6 @@
 import { DEFAULT_MODEL_ID, type ModelId } from '@/engine/model/catalog';
 import { normalizeSelectedModelId } from '@/engine/model/selection';
+import { DEFAULT_OCR_TIER, isOcrTier, type OcrTier } from '@/engine/ocr/catalog';
 import type { GlossaryEntry } from '@/engine/types';
 import {
   DEFAULT_LOCAL_SERVER_PARALLEL,
@@ -284,6 +285,8 @@ export interface Settings {
   translationPopupSize: number;
   /** Chosen selection-popup width in em at 100% scale; `0` means automatic width. */
   translationPopupWidth: number;
+  /** Width of the anchored image-translation popup, in em at 100% scale. */
+  imagePopupWidth: number;
   /**
    * How line breaks in typed, selected, or pasted plain text appear in the translation.
    * `none` keeps the historical joined-paragraph output; `wider` formats the translation
@@ -320,6 +323,8 @@ export interface Settings {
   composePlacement: ComposePlacement;
   /** Which PLaMo GGUF the engine should load. Survives service-worker and offscreen restarts. */
   selectedModelId: ModelId;
+  /** PP-OCRv6 detector/recognizer pair used by scanned PDF and image translation. */
+  selectedOcrTier: OcrTier;
   /**
    * Where PLaMo requests run. `in-browser` is the packaged wllama engine. `local-server` is
    * an OpenAI-compatible process the user started (mlx_lm.server, LM Studio, …).
@@ -380,6 +385,7 @@ export type SettingsPatch = Partial<
     | 'display'
     | 'translationPopupSize'
     | 'translationPopupWidth'
+    | 'imagePopupWidth'
     | 'plainTextLineBreaks'
     | 'translationReveal'
     | 'consent'
@@ -394,6 +400,7 @@ export type SettingsPatch = Partial<
     | 'composeInstantReplace'
     | 'composePlacement'
     | 'selectedModelId'
+    | 'selectedOcrTier'
     | 'engineSource'
     | 'localServerUrl'
     | 'localServerModel'
@@ -423,6 +430,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
   display: 'replace',
   translationPopupSize: TRANSLATION_POPUP_SIZE_DEFAULT,
   translationPopupWidth: TRANSLATION_POPUP_WIDTH_AUTO,
+  imagePopupWidth: TRANSLATION_POPUP_WIDTH_AUTO,
   plainTextLineBreaks: 'none',
   translationReveal: 'sentence',
   consent: null,
@@ -438,6 +446,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
   composeInstantReplace: false,
   composePlacement: 'above',
   selectedModelId: DEFAULT_MODEL_ID,
+  selectedOcrTier: DEFAULT_OCR_TIER,
   engineSource: 'in-browser',
   localServerUrl: DEFAULT_LOCAL_SERVER_URL,
   localServerModel: '',
@@ -492,6 +501,7 @@ export function normalizeSettings(value: unknown, uiLanguage: string): Settings 
     display: value.display === 'bilingual' ? 'bilingual' : 'replace',
     translationPopupSize: normalizeTranslationPopupSize(value.translationPopupSize),
     translationPopupWidth: normalizeTranslationPopupWidth(value.translationPopupWidth),
+    imagePopupWidth: normalizeTranslationPopupWidth(value.imagePopupWidth),
     plainTextLineBreaks: normalizePlainTextLineBreaks(value.plainTextLineBreaks),
     translationReveal: normalizeTranslationReveal(value.translationReveal),
     consent: normalizeConsent(value.consent),
@@ -507,6 +517,7 @@ export function normalizeSettings(value: unknown, uiLanguage: string): Settings 
     composeInstantReplace: value.composeInstantReplace === true,
     composePlacement: isComposePlacement(value.composePlacement) ? value.composePlacement : 'above',
     selectedModelId: normalizeSelectedModelId(value.selectedModelId),
+    selectedOcrTier: isOcrTier(value.selectedOcrTier) ? value.selectedOcrTier : DEFAULT_OCR_TIER,
     engineSource: isEngineSource(value.engineSource) ? value.engineSource : 'in-browser',
     localServerUrl: normalizeServerUrl(
       typeof value.localServerUrl === 'string' ? value.localServerUrl : DEFAULT_LOCAL_SERVER_URL,

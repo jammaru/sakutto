@@ -719,6 +719,10 @@
   "modelStorageIntro": {
     "message": "Chọn nơi lưu mô hình. Các mô hình hiện có sẽ được di chuyển theo lựa chọn."
   },
+  "modelStorageFilesNote": {
+    "message": "Mô hình dịch PLaMo (GGUF) và các mô hình OCR (ONNX) đều được lưu tại đây. Tệp OCR nằm trong thư mục con ocr-*; nếu không chọn thư mục dùng chung, cả hai vẫn nằm trong trình duyệt này.",
+    "description": "Where the PLaMo and OCR files are stored, for both folder and browser choices."
+  },
   "modelStorageBrowserOnlyHint": {
     "message": "Trình duyệt này không thể sử dụng thư mục dùng chung, vì vậy mô hình sẽ được lưu trong trình duyệt này."
   },
@@ -1137,11 +1141,35 @@
   "pdfCompare": {
     "message": "So sánh"
   },
+  "pdfBilingual": {
+    "message": "Song ngữ"
+  },
   "pdfOriginalPane": {
     "message": "Bản gốc"
   },
   "pdfTranslatedPane": {
     "message": "Bản dịch"
+  },
+  "pdfDownloadTranslated": {
+    "message": "Tải xuống PDF đã dịch",
+    "description": "Toolbar button that saves the translated document as a PDF."
+  },
+  "pdfExporting": {
+    "message": "Đang chuẩn bị PDF…"
+  },
+  "pdfExportFailed": {
+    "message": "Không thể tạo PDF. Vui lòng thử lại."
+  },
+  "pdfExportWaiting": {
+    "message": "Đang hoàn tất bản dịch cho PDF: $DONE$ / $TOTAL$ trang",
+    "placeholders": {
+      "done": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
   },
   "pdfChooseFile": {
     "message": "Chọn tệp PDF"
@@ -1725,5 +1753,144 @@
   },
   "allSitesPopupEnable": {
     "message": "Bật"
+  },
+  "ocrTierStandard": {
+    "message": "OCR tiêu chuẩn",
+    "description": "Label for the standard PP-OCR tier."
+  },
+  "ocrTierHigh": {
+    "message": "OCR độ chính xác cao",
+    "description": "Label for the high-accuracy PP-OCR tier."
+  },
+  "ocrModelsHeading": {
+    "message": "OCR trên thiết bị",
+    "description": "Heading for PP-OCR model management."
+  },
+  "ocrModelsDescription": {
+    "message": "PP-OCRv6 nhận dạng văn bản trong PDFs được quét và hình ảnh trên thiết bị này. Khi chọn một cấp, các mô hình phát hiện và nhận dạng của cấp đó sẽ được tải xuống.",
+    "description": "Explanation of OCR tiers and downloads."
+  },
+  "ocrTierSwitchHint": {
+    "message": "Chuyển cấp sẽ tải xuống các mô hình đã chọn. Các cấp khác vẫn ở trên thiết bị này cho đến khi bạn xóa chúng.",
+    "description": "Explains tier switching and old model cleanup."
+  },
+  "onboardingOcrNote": {
+    "message": "Cũng tải xuống các mô hình OCR tiêu chuẩn trên thiết bị ($SIZE$) cho PDFs được quét và hình ảnh.",
+    "description": "Combined onboarding download note with OCR bundle size.",
+    "placeholders": {
+      "size": {
+        "content": "$1"
+      }
+    }
+  },
+  "pdfOcrReading": {
+    "message": "Đang nhận dạng trang được quét $PAGE$/$TOTAL$…",
+    "description": "Shown while OCR runs on a scanned PDF page.",
+    "placeholders": {
+      "page": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "pdfOcrFailed": {
+    "message": "Không nhận dạng được văn bản trên trang được quét này.",
+    "description": "Shown when a scanned PDF page cannot be recognized."
+  },
+  "ocrDownloadRequired": {
+    "message": "Cần có mô hình OCR để nhận dạng văn bản trong PDF được quét và hình ảnh.",
+    "description": "Shown when OCR is unavailable or its model download fails."
+  },
+  "ocrDownloadInline": {
+    "message": "Tải xuống mô hình OCR (khoảng $SIZE$)",
+    "description": "Inline button that downloads the selected OCR tier.",
+    "placeholders": {
+      "size": {
+        "content": "$1"
+      }
+    }
+  },
+  "ocrDownloadProgress": {
+    "message": "Đang tải xuống mô hình OCR: $PERCENT$%",
+    "description": "Inline progress shown while the OCR model downloads.",
+    "placeholders": {
+      "percent": {
+        "content": "$1"
+      }
+    }
+  },
+  "ocrDownloadFailed": {
+    "message": "Không thể tải xuống mô hình OCR. Vui lòng thử lại.",
+    "description": "Shown when an inline OCR model download fails."
+  },
+  "imageFileAccessHeading": {
+    "message": "Dịch ảnh cục bộ",
+    "description": "Title of the page opened when the image context menu cannot reach a file URL."
+  },
+  "imageFileAccessBody": {
+    "message": "Sakutto không đọc được ảnh này từ trang. Mở chrome://extensions, chọn Sakutto và bật “Allow access to file URLs”. Bạn cũng có thể chọn tệp ảnh bên dưới và dịch trên thiết bị này.",
+    "description": "Guidance when a local image action cannot inject into the tab."
+  },
+  "imageFileAccessChoose": {
+    "message": "Chọn tệp ảnh",
+    "description": "Label for the local image picker."
+  },
+  "contextTranslateImage": {
+    "message": "Dịch hình ảnh bằng Sakutto",
+    "description": "Image context-menu action."
+  },
+  "imageTranslationHeading": {
+    "message": "Dịch hình ảnh",
+    "description": "Title of the image translation panel."
+  },
+  "imageTranslating": {
+    "message": "Đang nhận dạng và dịch hình ảnh…",
+    "description": "Shown while image OCR and translation run."
+  },
+  "imageTranslationFailed": {
+    "message": "Không thể dịch hình ảnh.",
+    "description": "Shown when image OCR or translation fails."
+  },
+  "imageTranslationEmpty": {
+    "message": "Không nhận dạng được văn bản nào trong hình ảnh này.",
+    "description": "Shown when OCR returns no text."
+  },
+  "imageTranslationClose": {
+    "message": "Đóng phần dịch hình ảnh",
+    "description": "Accessible close-button label for the image panel."
+  },
+  "imageOriginalText": {
+    "message": "Văn bản đã nhận dạng",
+    "description": "Label for OCR source text in the image panel."
+  },
+  "imageTranslationPermission": {
+    "message": "Trình duyệt không thể truy cập hình ảnh này. Hãy thử chụp trang đang hiển thị.",
+    "description": "Shown when image pixels cannot be read without extra permissions."
+  },
+  "pdfFileAccessBody": {
+    "message": "Sakutto không đọc được PDF này từ trang. Mở chrome://extensions, chọn Sakutto và bật “Allow access to file URLs”. Bạn cũng có thể chọn PDF bên dưới và mở trong trình đọc này.",
+    "description": "Guidance when a local PDF cannot be read from a file:// tab."
+  },
+  "onboardingPlamoReady": {
+    "message": "Mô hình dịch (PLaMo): đã được tải xuống trên thiết bị này",
+    "description": "PLaMo line of the onboarding download status, shown when the translation model is already stored."
+  },
+  "onboardingOcrDownloading": {
+    "message": "Đang tải mô hình OCR (cho PDF và hình ảnh được quét, khoảng $SIZE$): $PERCENT$%",
+    "description": "OCR line of the onboarding download status, with the selected tier's size and its own percent progress.",
+    "placeholders": {
+      "size": {
+        "content": "$1"
+      },
+      "percent": {
+        "content": "$2"
+      }
+    }
+  },
+  "onboardingOcrReady": {
+    "message": "Mô hình OCR: đã được tải xuống trên thiết bị này",
+    "description": "OCR line of the onboarding download status, shown when the OCR model is already stored."
   }
 }

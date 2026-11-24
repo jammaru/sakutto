@@ -17,6 +17,8 @@ import {
   serializeTranslateOptions,
 } from '@/engine/offscreen/protocol';
 import type { TranslateOptions, TranslationChunk } from '@/engine/types';
+import { lineFrom } from '@/pdf/lines';
+import { piece } from './support/pdf-pieces';
 
 function block(text: string, overrides: Partial<LayoutBlock> = {}): LayoutBlock {
   return {
@@ -48,6 +50,13 @@ function layoutOf(text: string): PageLayout {
     pageIndex: 0,
     obstacles: [],
   };
+}
+
+function notationLayoutOf(text: string): PageLayout {
+  const layout = layoutOf(text);
+  const first = layout.blocks[0];
+  if (first) first.lines = [lineFrom([piece(text, 40, 100, 300)])];
+  return layout;
 }
 
 function sessionOf(
@@ -126,6 +135,64 @@ describe('PdfSession stream handling', () => {
     expect(session.progress().failed).toBe(1);
   });
 
+  it('does not retranslate a notation block whose placeholder arrived in the final chunk', async () => {
+    let calls = 0;
+    const engine = engineOf(async function* (segments) {
+      calls += 1;
+      const id = segments[0]?.id ?? 'b1';
+      // A normal stream has no tag yet in its first delta.
+      yield { id, textDelta: '訳文' };
+      yield { id, final: '訳文です。<i0>' };
+    });
+    const session = sessionOf(engine);
+    session.addPage(0, notationLayoutOf('The projection uses Q ∈ R d model and is reused.'));
+    await waitFor(() => session.pageBlocks(0)[0]?.state === 'done');
+    const state = session.pageBlocks(0)[0];
+    expect(calls).toBe(1);
+    expect(state?.translation).toContain('Q ∈ R');
+    expect(state?.translation).not.toContain('<i0>');
+    expect(state?.paint).toBe(true);
+  });
+
+  it('keeps a good notation translation when later retries would fail', async () => {
+    let calls = 0;
+    const engine = engineOf(async function* (segments) {
+      calls += 1;
+      const id = segments[0]?.id ?? 'b1';
+      if (calls > 1) {
+        // A preempted retry would have cleared the already-good translation.
+        yield { id, final: segments[0]?.text ?? 'source', error: true };
+        return;
+      }
+      yield { id, textDelta: '訳文' };
+      yield { id, final: '訳文です。<i0>' };
+    });
+    const session = sessionOf(engine);
+    session.addPage(0, notationLayoutOf('The projection uses Q ∈ R d model and is reused.'));
+    await waitFor(() => session.pageBlocks(0)[0]?.state === 'done');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(calls).toBe(1);
+    const state = session.pageBlocks(0)[0];
+    expect(state?.state).toBe('done');
+    expect(state?.translation).toContain('Q ∈ R');
+    expect(state?.paint).toBe(true);
+  });
+
+  it('still retries when the final text drops a placeholder', async () => {
+    let calls = 0;
+    const engine = engineOf(async function* (segments) {
+      calls += 1;
+      const id = segments[0]?.id ?? 'b1';
+      yield { id, textDelta: '訳文' };
+      yield { id, final: calls === 1 ? '訳文です。' : '訳文です。<i0>' };
+    });
+    const session = sessionOf(engine);
+    session.addPage(0, notationLayoutOf('The projection uses Q ∈ R d model and is reused.'));
+    await waitFor(() => session.pageBlocks(0)[0]?.state === 'done');
+    expect(calls).toBe(2);
+    expect(session.pageBlocks(0)[0]?.translation).toContain('Q ∈ R');
+  });
+
   it('sends a long PDF paragraph as one prompt instead of splitting it again', async () => {
     const seen: number[] = [];
     const engine = engineOf(async function* (segments) {
@@ -184,7 +251,7 @@ describe('PdfSession stream handling', () => {
     expect(session.pageBlocks(0)[0]?.translation).toBe('NEW');
   });
 
-  it('re-queues a failed block from retryFailed and bypasses its cached answer', async () => {
+  it('retries a failed block automatically and bypasses its cached answer', async () => {
     let calls = 0;
     const bypass: boolean[] = [];
     const engine = engineOf(async function* (segments, options) {
@@ -199,14 +266,12 @@ describe('PdfSession stream handling', () => {
     });
     const session = sessionOf(engine);
     session.addPage(0, layoutOf('A short paragraph of source text.'));
-    await waitFor(() => session.pageBlocks(0)[0]?.state === 'failed');
-    session.retryFailed();
     await waitFor(() => session.pageBlocks(0)[0]?.state === 'done');
     expect(session.pageBlocks(0)[0]?.translation).toBe('訳');
     expect(bypass).toEqual([false, true]);
   });
 
-  it('finishes every other page when one block keeps failing, and still sweeps', async () => {
+  it('finishes every other page when one block keeps failing and never exceeds the retry cap', async () => {
     let failures = 0;
     const engine = engineOf(async function* (segments) {
       const id = segments[0]?.id ?? 'b1';
@@ -231,12 +296,94 @@ describe('PdfSession stream handling', () => {
     expect(session.pageBlocks(1)[0]?.state).toBe('failed');
     expect(session.pageBlocks(2)[0]?.state).toBe('done');
 
-    const requeued = session.sweepIncompleteBlocks();
-    expect(requeued).toBe(1);
-    await waitFor(() => session.progress().pending === 0);
-    expect(failures).toBeGreaterThanOrEqual(2);
+    // Initial call + two retries is the whole budget. The coverage sweeps must not hand the
+    // permanently failing block three more (or nine more) engine calls.
+    expect(failures).toBe(3);
+    expect(session.sweepIncompleteBlocks()).toBe(0);
+    expect(session.sweepIncompleteBlocks()).toBe(0);
+    expect(session.sweepIncompleteBlocks()).toBe(0);
+    expect(failures).toBe(3);
     expect(session.pageBlocks(0)[0]?.state).toBe('done');
     expect(session.pageBlocks(2)[0]?.state).toBe('done');
+  });
+
+  it('carries a partially spent retry budget into a coverage sweep', async () => {
+    let calls = 0;
+    const engine = engineOf(async function* (segments) {
+      calls += 1;
+      const id = segments[0]?.id ?? 'b1';
+      if (calls === 1 || calls === 3) {
+        yield { id, final: segments[0]?.text ?? '', error: true };
+        return;
+      }
+      yield { id, final: '訳' };
+    });
+    const session = sessionOf(engine);
+    session.addPage(0, layoutOf('A short paragraph of source text.'));
+    await waitFor(() => session.pageBlocks(0)[0]?.state === 'done');
+    expect(calls).toBe(2);
+    const state = session.pageBlocks(0)[0];
+    if (!state) throw new Error('expected a block');
+
+    // Pretend the delivered translation was not painted; the sweep re-queues it with its one
+    // already-spent retry. The next failure spends the last one, and no further retry happens.
+    state.paint = false;
+    expect(session.sweepIncompleteBlocks()).toBe(1);
+    await waitFor(() => state.state === 'done' && state.paint);
+    expect(calls).toBe(4);
+    state.paint = false;
+    expect(session.sweepIncompleteBlocks()).toBe(0);
+    expect(calls).toBe(4);
+  });
+
+  it('counts an empty final chunk against the retry cap across repeated sweeps', async () => {
+    let calls = 0;
+    const engine = engineOf(async function* (segments) {
+      calls += 1;
+      const id = segments[0]?.id ?? 'b1';
+      // A normal, non-error chunk whose final text is empty: the engine answered but gave
+      // nothing back. It must cost the same attempt as an explicit error chunk.
+      yield { id, final: '' };
+    });
+    const session = sessionOf(engine, { target: 'en' });
+    session.addPage(0, layoutOf('日本語の文章を訳してください'));
+    await waitFor(() => session.pageBlocks(0)[0]?.state === 'failed');
+
+    const state = session.pageBlocks(0)[0];
+    if (!state) throw new Error('expected a block');
+    // One initial call plus two retries is the whole budget, and the counter must be spent.
+    expect(calls).toBe(3);
+    expect(state.attempts).toBe(2);
+
+    // Four more coverage sweeps must not buy another call the way they did before the fix.
+    for (let pass = 0; pass < 4; pass += 1) {
+      expect(session.sweepIncompleteBlocks()).toBe(0);
+      expect(calls).toBe(3);
+    }
+    expect(state.state).toBe('failed');
+  });
+
+  it('spends the attempt of a failed block that a coverage sweep requeues', async () => {
+    const engine = engineOf(async function* (segments) {
+      const id = segments[0]?.id ?? 'b1';
+      yield { id, final: '訳' };
+    });
+    const session = sessionOf(engine);
+    // Whitespace produces no translation pieces, so failBlock runs without spending an attempt
+    // through retry(). The sweep still has to count that failure.
+    session.addPage(0, layoutOf('   '));
+    await waitFor(() => session.pageBlocks(0)[0]?.state === 'failed');
+    const state = session.pageBlocks(0)[0];
+    if (!state) throw new Error('expected a block');
+    expect(state.attempts).toBe(0);
+
+    expect(session.sweepIncompleteBlocks()).toBe(1);
+    await waitFor(() => state.state === 'failed');
+    expect(state.attempts).toBe(1);
+    expect(session.sweepIncompleteBlocks()).toBe(1);
+    await waitFor(() => state.state === 'failed');
+    expect(state.attempts).toBe(2);
+    expect(session.sweepIncompleteBlocks()).toBe(0);
   });
 
   it('finishes a 24-page document when the focus moves to the last page', async () => {

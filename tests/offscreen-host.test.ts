@@ -27,6 +27,7 @@ import { normalizeSettings } from '@/shared/settings';
 import * as storage from '@/shared/storage';
 import type { IdentifiedEngine, TranslateOptions, TranslateSegment } from '@/engine/types';
 import { serializeTranslateOptions } from '@/engine/offscreen/protocol';
+import { encodeOcrImage } from '@/engine/ocr/codec';
 import { FakeRuntime } from './support/fakes';
 import { FakePort, deferred, flushTasks } from './support/ports';
 
@@ -110,6 +111,10 @@ function runtimeSet(overrides: Record<string, unknown> = {}): Record<string, unk
     consented: false,
     ...overrides,
   };
+}
+
+function ocrImage() {
+  return encodeOcrImage({ width: 1, height: 1, data: new Uint8ClampedArray(4) });
 }
 
 function createHost(services: EngineServices, idleReleaseMs = 60_000): EngineHost {
@@ -215,6 +220,162 @@ describe('shared folder load fallback', () => {
 });
 
 describe('EngineHost', () => {
+  it('rejects malformed requests with an id instead of leaving the caller pending', async () => {
+    const { services } = createServices();
+    const host = createHost(services);
+    const port = new FakePort();
+    host.handlePort(port.port);
+
+    port.emit({
+      type: 'ocr-recognize',
+      requestId: 'too-large',
+      tier: 'standard',
+      image: { width: 5000, height: 5000, data: '' },
+    });
+    await flushTasks();
+
+    expect(port.messagesOfType('response')).toEqual([
+      expect.objectContaining({ requestId: 'too-large', ok: false }),
+    ]);
+  });
+
+  it('cancels OCR while its lazy host is still initializing', async () => {
+    const { services } = createServices();
+    const host = createHost(services);
+    const port = new FakePort();
+    host.handlePort(port.port);
+    const ocrHost = { recognize: vi.fn(), cancel: vi.fn() };
+    const lazy = deferred<typeof ocrHost>();
+    (host as unknown as { ocrHostTask: Promise<typeof ocrHost> }).ocrHostTask = lazy.promise;
+
+    port.emit({
+      type: 'ocr-recognize',
+      requestId: 'early-cancel',
+      tier: 'standard',
+      image: { width: 1, height: 1, data: 'AAAA' },
+    });
+    port.emit({ type: 'ocr-cancel', requestId: 'early-cancel' });
+    lazy.resolve(ocrHost);
+    await flushTasks();
+
+    expect(ocrHost.recognize).not.toHaveBeenCalled();
+    expect(ocrHost.cancel).toHaveBeenCalledWith('early-cancel');
+    expect(port.messagesOfType('response')).toEqual([
+      expect.objectContaining({ requestId: 'early-cancel', ok: false }),
+    ]);
+  });
+
+  it('aborts OCR on port disconnect and drops the late reply to the dead port', async () => {
+    const { services } = createServices();
+    const host = createHost(services);
+    const port = new FakePort();
+    host.handlePort(port.port);
+
+    const seen: { signal: AbortSignal | null } = { signal: null };
+    let settle!: (value: unknown) => void;
+    const lateResult = new Promise<unknown>((resolve) => {
+      settle = resolve;
+    });
+    const ocrHost = {
+      recognize: vi.fn(async (_id: string, _tier: string, _image: unknown, signal: AbortSignal) => {
+        seen.signal = signal;
+        // A native run can ignore abort and settle after its caller disappeared.
+        return lateResult;
+      }),
+      cancel: vi.fn(),
+    };
+    (host as unknown as { ocrHostTask: Promise<typeof ocrHost> }).ocrHostTask =
+      Promise.resolve(ocrHost);
+
+    port.emit({
+      type: 'ocr-recognize',
+      requestId: 'ocr-detached',
+      tier: 'standard',
+      image: ocrImage(),
+    });
+    await flushTasks();
+    expect(seen.signal?.aborted).toBe(false);
+    expect((host as unknown as { ocrRequests: Map<string, unknown> }).ocrRequests.size).toBe(1);
+
+    port.disconnect();
+    // Keep recording posts after disconnect: FakePort normally throws, which would hide a
+    // response that the host mistakenly tried to deliver to a dead port.
+    const post = vi.spyOn(port, 'postMessage').mockImplementation(() => undefined);
+    await flushTasks();
+    expect(seen.signal?.aborted).toBe(true);
+    expect((host as unknown as { ocrRequests: Map<string, unknown> }).ocrRequests.size).toBe(0);
+    expect(ocrHost.cancel).toHaveBeenCalledWith('ocr-detached');
+
+    settle({ text: 'late' });
+    await flushTasks();
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('drops a queued OCR request whose port disconnects before the lazy host loads', async () => {
+    const { services } = createServices();
+    const host = createHost(services);
+    const port = new FakePort();
+    host.handlePort(port.port);
+    const ocrHost = { recognize: vi.fn(), cancel: vi.fn() };
+    const lazy = deferred<typeof ocrHost>();
+    (host as unknown as { ocrHostTask: Promise<typeof ocrHost> }).ocrHostTask = lazy.promise;
+
+    port.emit({
+      type: 'ocr-recognize',
+      requestId: 'ocr-lazy-detach',
+      tier: 'standard',
+      image: ocrImage(),
+    });
+    port.disconnect();
+    lazy.resolve(ocrHost);
+    await flushTasks();
+
+    expect(ocrHost.recognize).not.toHaveBeenCalled();
+    expect(ocrHost.cancel).toHaveBeenCalledWith('ocr-lazy-detach');
+    expect((host as unknown as { ocrRequests: Map<string, unknown> }).ocrRequests.size).toBe(0);
+  });
+
+  it("leaves another port's OCR recognition running when one port disconnects", async () => {
+    const { services } = createServices();
+    const host = createHost(services);
+    const first = new FakePort();
+    const second = new FakePort();
+    host.handlePort(first.port);
+    host.handlePort(second.port);
+
+    const signals: AbortSignal[] = [];
+    const gate = deferred<unknown>();
+    const ocrHost = {
+      recognize: vi.fn(async (_id: string, _tier: string, _image: unknown, signal: AbortSignal) => {
+        signals.push(signal);
+        return gate.promise;
+      }),
+      cancel: vi.fn(),
+    };
+    (host as unknown as { ocrHostTask: Promise<typeof ocrHost> }).ocrHostTask =
+      Promise.resolve(ocrHost);
+
+    const request = { tier: 'standard' as const, image: ocrImage() };
+    first.emit({ type: 'ocr-recognize', requestId: 'ocr-first', ...request });
+    second.emit({ type: 'ocr-recognize', requestId: 'ocr-second', ...request });
+    await flushTasks();
+    expect(signals).toHaveLength(2);
+
+    first.disconnect();
+    await flushTasks();
+    expect(signals[0]?.aborted).toBe(true);
+    expect(signals[1]?.aborted).toBe(false);
+    expect(ocrHost.cancel).toHaveBeenCalledOnce();
+    expect(ocrHost.cancel).toHaveBeenCalledWith('ocr-first');
+    expect((host as unknown as { ocrRequests: Map<string, unknown> }).ocrRequests.size).toBe(1);
+
+    gate.resolve({ text: 'ok' });
+    await flushTasks();
+    expect(second.messagesOfType('response')).toEqual([
+      expect.objectContaining({ requestId: 'ocr-second', ok: true }),
+    ]);
+  });
+
   it('detects a revoked folder grant during status polling before replying', async () => {
     const { services } = createServices();
     services.manager.status = vi.fn(async () => modelStatus({ state: 'absent' }));
@@ -697,6 +858,35 @@ describe('EngineHost', () => {
       ok?: boolean;
     };
     expect(response).toMatchObject({ requestId: 'f1', ok: true });
+  });
+
+  it('only removes the browser OCR copy on folder adoption, not files in an old folder', async () => {
+    for (const configured of [false, true]) {
+      const { services } = createServices();
+      const { host, port } = await openRunningHost(services);
+      const refreshStore = vi.fn(async () => undefined);
+      (host as unknown as { ocrHostTask: Promise<unknown> }).ocrHostTask = Promise.resolve({
+        refreshStore,
+      });
+      const adopted = {
+        supported: true,
+        configured: true,
+        permission: 'granted' as const,
+        name: 'Sakutto',
+        opfsCopies: [],
+        integrityIssues: [],
+        recordedModels: [],
+      } satisfies SharedFolderStatus;
+      (host as unknown as { folderSession: unknown }).folderSession = {
+        status: () => ({ ...adopted, configured }),
+        apply: vi.fn(async () => adopted),
+      };
+
+      port.emit({ type: 'folder-adopt', requestId: 'adopt' });
+      await flushTasks();
+
+      expect(refreshStore).toHaveBeenCalledWith({ removeSource: !configured });
+    }
   });
 
   it('resets a loaded runtime when model-set changes the id, and caches the next translation under the new model', async () => {

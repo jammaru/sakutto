@@ -230,7 +230,8 @@ sakutto-status {
 }
 `;
 
-const BUBBLE_STYLE = `
+/** Shared translation-bubble style, also used by the image translation popup. */
+export const BUBBLE_STYLE = `
 :host {
   display: block;
   font: initial;
@@ -483,7 +484,8 @@ export function uiShadow(host: Element | null | undefined): ShadowRoot | null {
   return uiShadows.get(host) ?? null;
 }
 
-function attachUiShadow(host: HTMLElement): ShadowRoot {
+/** Attaches a closed UI shadow and records it for `uiShadow()` (and other content-script UIs). */
+export function attachUiShadow(host: HTMLElement): ShadowRoot {
   const shadow = host.attachShadow({ mode: 'closed' });
   uiShadows.set(host, shadow);
   return shadow;
@@ -494,7 +496,7 @@ function attachUiShadow(host: HTMLElement): ShadowRoot {
  * confirmation. Built with DOM constructors like the selection icon, so a page that
  * requires Trusted Types still gets the whole control.
  */
-function appendCopyIcons(doc: Document, button: HTMLButtonElement): void {
+export function appendCopyIcons(doc: Document, button: HTMLButtonElement): void {
   const sheets = doc.createElementNS(SVG_NS, 'svg');
   sheets.classList.add('icon-copy');
   sheets.setAttribute('viewBox', '0 0 16 16');

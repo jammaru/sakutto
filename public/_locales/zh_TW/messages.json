@@ -719,6 +719,10 @@
   "modelStorageIntro": {
     "message": "選擇模型的儲存位置。現有模型會隨選擇移動。"
   },
+  "modelStorageFilesNote": {
+    "message": "PLaMo 翻譯模型（GGUF）與端點 OCR 模型（ONNX）都會儲存在這裡。OCR 檔案放在 ocr-* 子資料夾中；若未選擇共用資料夾，兩者都會留在這個瀏覽器內。",
+    "description": "Where the PLaMo and OCR files are stored, for both folder and browser choices."
+  },
   "modelStorageBrowserOnlyHint": {
     "message": "此瀏覽器無法使用共用資料夾，因此模型會儲存在此瀏覽器中。"
   },
@@ -1137,11 +1141,35 @@
   "pdfCompare": {
     "message": "並排比較"
   },
+  "pdfBilingual": {
+    "message": "雙語顯示"
+  },
   "pdfOriginalPane": {
     "message": "原文"
   },
   "pdfTranslatedPane": {
     "message": "譯文"
+  },
+  "pdfDownloadTranslated": {
+    "message": "下載翻譯後的 PDF",
+    "description": "Toolbar button that saves the translated document as a PDF."
+  },
+  "pdfExporting": {
+    "message": "正在產生 PDF…"
+  },
+  "pdfExportFailed": {
+    "message": "無法產生 PDF，請再試一次。"
+  },
+  "pdfExportWaiting": {
+    "message": "正在完成 PDF 翻譯：$DONE$ / $TOTAL$ 頁",
+    "placeholders": {
+      "done": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
   },
   "pdfChooseFile": {
     "message": "選擇 PDF 檔案"
@@ -1725,5 +1753,144 @@
   },
   "allSitesPopupEnable": {
     "message": "開啟"
+  },
+  "ocrTierStandard": {
+    "message": "標準 OCR",
+    "description": "Label for the standard PP-OCR tier."
+  },
+  "ocrTierHigh": {
+    "message": "高精度 OCR",
+    "description": "Label for the high-accuracy PP-OCR tier."
+  },
+  "ocrModelsHeading": {
+    "message": "裝置端 OCR",
+    "description": "Heading for PP-OCR model management."
+  },
+  "ocrModelsDescription": {
+    "message": "PP-OCRv6 會在此裝置上辨識掃描版 PDFs 和圖片中的文字。選擇級別會下載相應的偵測模型和辨識模型。",
+    "description": "Explanation of OCR tiers and downloads."
+  },
+  "ocrTierSwitchHint": {
+    "message": "切換級別會下載所選模型。其他級別的模型會保留在此裝置上，直到你將其刪除。",
+    "description": "Explains tier switching and old model cleanup."
+  },
+  "onboardingOcrNote": {
+    "message": "還會下載用於掃描版 PDFs 和圖片的標準裝置端 OCR 模型（$SIZE$）。",
+    "description": "Combined onboarding download note with OCR bundle size.",
+    "placeholders": {
+      "size": {
+        "content": "$1"
+      }
+    }
+  },
+  "pdfOcrReading": {
+    "message": "正在辨識掃描版第 $PAGE$ 頁，共 $TOTAL$ 頁…",
+    "description": "Shown while OCR runs on a scanned PDF page.",
+    "placeholders": {
+      "page": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "pdfOcrFailed": {
+    "message": "無法辨識此掃描頁面中的文字。",
+    "description": "Shown when a scanned PDF page cannot be recognized."
+  },
+  "ocrDownloadRequired": {
+    "message": "辨識掃描版 PDF 和圖片中的文字需要 OCR 模型。",
+    "description": "Shown when OCR is unavailable or its model download fails."
+  },
+  "ocrDownloadInline": {
+    "message": "下載 OCR 模型（約 $SIZE$）",
+    "description": "Inline button that downloads the selected OCR tier.",
+    "placeholders": {
+      "size": {
+        "content": "$1"
+      }
+    }
+  },
+  "ocrDownloadProgress": {
+    "message": "正在下載 OCR 模型：$PERCENT$%",
+    "description": "Inline progress shown while the OCR model downloads.",
+    "placeholders": {
+      "percent": {
+        "content": "$1"
+      }
+    }
+  },
+  "ocrDownloadFailed": {
+    "message": "OCR 模型下載失敗，請重試。",
+    "description": "Shown when an inline OCR model download fails."
+  },
+  "imageFileAccessHeading": {
+    "message": "翻譯本機圖片",
+    "description": "Title of the page opened when the image context menu cannot reach a file URL."
+  },
+  "imageFileAccessBody": {
+    "message": "Sakutto 無法從頁面讀取此圖片。請開啟 chrome://extensions，選擇 Sakutto 並開啟「允許存取檔案網址」（Allow access to file URLs）。也可以在下方選擇圖片檔並在此裝置上翻譯。",
+    "description": "Guidance when a local image action cannot inject into the tab."
+  },
+  "imageFileAccessChoose": {
+    "message": "選擇圖片檔",
+    "description": "Label for the local image picker."
+  },
+  "contextTranslateImage": {
+    "message": "使用 Sakutto 翻譯圖片",
+    "description": "Image context-menu action."
+  },
+  "imageTranslationHeading": {
+    "message": "圖片翻譯",
+    "description": "Title of the image translation panel."
+  },
+  "imageTranslating": {
+    "message": "正在辨識並翻譯圖片中的文字…",
+    "description": "Shown while image OCR and translation run."
+  },
+  "imageTranslationFailed": {
+    "message": "無法翻譯此圖片。",
+    "description": "Shown when image OCR or translation fails."
+  },
+  "imageTranslationEmpty": {
+    "message": "未在此圖片中辨識到文字。",
+    "description": "Shown when OCR returns no text."
+  },
+  "imageTranslationClose": {
+    "message": "關閉圖片翻譯",
+    "description": "Accessible close-button label for the image panel."
+  },
+  "imageOriginalText": {
+    "message": "辨識到的文字",
+    "description": "Label for OCR source text in the image panel."
+  },
+  "imageTranslationPermission": {
+    "message": "瀏覽器無法存取此圖片。請嘗試改為擷取目前可見頁面。",
+    "description": "Shown when image pixels cannot be read without extra permissions."
+  },
+  "pdfFileAccessBody": {
+    "message": "Sakutto 無法從頁面讀取此 PDF。請開啟 chrome://extensions，選擇 Sakutto 並開啟「允許存取檔案網址」（Allow access to file URLs）。也可以在下方選擇 PDF 並在此閱讀器中開啟。",
+    "description": "Guidance when a local PDF cannot be read from a file:// tab."
+  },
+  "onboardingPlamoReady": {
+    "message": "翻譯模型（PLaMo）：已在此裝置上下載",
+    "description": "PLaMo line of the onboarding download status, shown when the translation model is already stored."
+  },
+  "onboardingOcrDownloading": {
+    "message": "正在下載 OCR 模型（用於掃描 PDF 和圖片，約 $SIZE$）：$PERCENT$%",
+    "description": "OCR line of the onboarding download status, with the selected tier's size and its own percent progress.",
+    "placeholders": {
+      "size": {
+        "content": "$1"
+      },
+      "percent": {
+        "content": "$2"
+      }
+    }
+  },
+  "onboardingOcrReady": {
+    "message": "OCR 模型：已在此裝置上下載",
+    "description": "OCR line of the onboarding download status, shown when the OCR model is already stored."
   }
 }

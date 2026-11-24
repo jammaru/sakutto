@@ -9,7 +9,7 @@ let menusReady = false;
 type ContextMenuCreate = {
   id: string;
   title: string;
-  contexts: Array<'page' | 'selection' | 'editable' | 'link'>;
+  contexts: Array<'page' | 'selection' | 'editable' | 'link' | 'image'>;
   documentUrlPatterns?: string[];
 };
 
@@ -50,6 +50,11 @@ async function installContextMenusOnce(): Promise<void> {
     id: 'translate-compose',
     title: browser.i18n.getMessage('contextTranslateCompose'),
     contexts: ['editable'],
+  });
+  await createMenu({
+    id: 'translate-image',
+    title: browser.i18n.getMessage('contextTranslateImage'),
+    contexts: ['image'],
   });
   await createMenu({
     id: PDF_COMMAND,

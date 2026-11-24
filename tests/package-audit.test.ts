@@ -37,6 +37,16 @@ describe('auditPackage', () => {
     expect(auditPackage(COMPLETE, manifest())).toEqual([]);
   });
 
+  it('requires ONNX Runtime third-party notices in both packaged locations', () => {
+    for (const entry of [
+      'licenses/onnxruntime-ThirdPartyNotices.txt',
+      'ocr/ort/ThirdPartyNotices.txt',
+    ]) {
+      const entries = COMPLETE.filter((candidate) => candidate !== entry);
+      expect(auditPackage(entries, manifest())).toContain(`missing ${entry}`);
+    }
+  });
+
   it('accepts a Firefox package without offscreen and with a pinned gecko id', () => {
     expect(
       auditPackage(

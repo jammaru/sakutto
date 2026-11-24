@@ -360,6 +360,7 @@
   <div class="folder" id="model-folder">
     <h3 class="storage-heading">{t('modelStorageLegend')}</h3>
     <p class="muted">{t('modelStorageBrowserOnlyHint')}</p>
+    <p class="muted" data-sakutto="model-storage-files-note">{t('modelStorageFilesNote')}</p>
     {#if braveBrowser}
       <p class="muted">{t('modelStorageBraveEnableFsaHint')}</p>
     {/if}
@@ -375,6 +376,7 @@
         browserKey="modelStorageBrowser"
         recommended="folder"
         introKey="modelStorageIntro"
+        fileNoteKey="modelStorageFilesNote"
         notes={chromiumNotes}
         {benefits}
         disabled={busy || readingFolder}

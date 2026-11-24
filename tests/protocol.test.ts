@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { EngineError } from '@/engine/errors';
 import {
@@ -8,6 +10,11 @@ import {
   errorPayload,
   isEngineHostMessage,
   isEngineHostRequest,
+  isOcrFailureResponse,
+  ocrPageTimeoutMs,
+  ocrRecognitionTimeoutMs,
+  OCR_PAGE_TIMEOUT_MS,
+  OCR_RECOGNITION_TIMEOUT_MS,
   isTranslationCancelRequest,
   isTranslationServerMessage,
   isTranslationStartRequest,
@@ -427,5 +434,36 @@ describe('engine host protocol', () => {
       code: 'model-folder-permission',
       message: 'needs permission',
     });
+  });
+  it('bounds OCR by the tier actually requested, above its measured page time', () => {
+    const root = resolve(import.meta.dirname, '..');
+    const runs = (name: string): { variant: string; ms: number }[] =>
+      JSON.parse(readFileSync(resolve(root, 'bench/results/scan-ocr', name), 'utf8')) as {
+        variant: string;
+        ms: number;
+      }[];
+    const standard = runs('report.json').find((run) => run.variant === 'default-1600');
+    const high = runs('high-tier.json').find((run) => run.variant === 'default-1600');
+    expect(standard, 'committed standard-tier scan run').toBeDefined();
+    expect(high, 'committed high-tier scan run').toBeDefined();
+    if (!standard || !high) return;
+    // The shipped configuration must finish before its own hard bound, with headroom.
+    expect(OCR_RECOGNITION_TIMEOUT_MS).toBeGreaterThan(standard.ms * 1.1);
+    expect(ocrRecognitionTimeoutMs('standard')).toBe(OCR_RECOGNITION_TIMEOUT_MS);
+    expect(ocrRecognitionTimeoutMs('high')).toBeGreaterThan(high.ms * 1.1);
+    expect(OCR_PAGE_TIMEOUT_MS).toBeGreaterThan(ocrRecognitionTimeoutMs('high'));
+    // The local fallback follows the requested tier, so a standard page never waits for the
+    // high-tier bound when the host timer is unavailable.
+    expect(ocrPageTimeoutMs('standard')).toBe(OCR_RECOGNITION_TIMEOUT_MS + 2_000);
+    expect(ocrPageTimeoutMs('high')).toBe(OCR_PAGE_TIMEOUT_MS);
+    expect(ocrPageTimeoutMs('standard')).toBeLessThan(ocrPageTimeoutMs('high'));
+  });
+
+  it('accepts only explicit OCR failure codes', () => {
+    expect(isOcrFailureResponse({ __ocrError: 'model-missing' })).toBe(true);
+    expect(isOcrFailureResponse({ __ocrError: 'timeout' })).toBe(true);
+    expect(isOcrFailureResponse({ __ocrError: 'failed' })).toBe(true);
+    expect(isOcrFailureResponse({ __ocrError: 'unknown' })).toBe(false);
+    expect(isOcrFailureResponse({ text: 'hello' })).toBe(false);
   });
 });

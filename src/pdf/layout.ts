@@ -61,6 +61,16 @@ export interface LayoutBlock {
   /** Reading column this block belongs to, counted from the left of its region. */
   column: number;
   /**
+   * True when an OCR source row was kept whole as one spanning title line. Its central word gap
+   * is title spacing, not a fused two-column gutter, so paint integrity keeps the span exemption.
+   */
+  titleRow?: boolean | undefined;
+  /**
+   * A label drawn inside a figure box: its translation is one shrunk line fitted to `box`,
+   * never a wrapped paragraph painted over the artwork around it.
+   */
+  singleLine?: boolean | undefined;
+  /**
    * Length of the source along its writing direction, in points.
    *
    * After `/Rotate 90` or `/Rotate 270` the axis-aligned box has `width` equal to the em and
@@ -73,6 +83,108 @@ export interface LayoutBlock {
 
 export function verticalWriting(block: Pick<LayoutBlock, 'writing'>): boolean {
   return block.writing === 90 || block.writing === 270;
+}
+
+/**
+ * Right-to-left order for two blocks on a vertical page, or null when their x positions are too
+ * close to call separate columns. Adjacent Japanese columns sit at normal pitch, not a page
+ * gutter apart, so half a column is enough separation; smaller differences are jitter inside one
+ * column, which still reads top to bottom.
+ */
+function verticalColumnXOrder(
+  left: Pick<LayoutBlock, 'box'>,
+  right: Pick<LayoutBlock, 'box'>,
+): number | null {
+  const distance = Math.abs(right.box.x - left.box.x);
+  return distance > Math.max(left.box.width, right.box.width, 1) / 2
+    ? right.box.x - left.box.x
+    : null;
+}
+
+/**
+ * Reading order for two layout blocks.
+ *
+ * Layout emits blocks in reading order already, so this is only used where translated and
+ * deliberately skipped blocks have to be merged back into one stream (the bilingual pane),
+ * and where existing rows have to be put back into that order. A horizontal page runs down
+ * the left column and then down the right; a vertical page runs right to left. Full-width
+ * blocks (`column < 0`) fall back to their own top edge.
+ */
+export function compareReadingOrder(
+  left: Pick<LayoutBlock, 'box' | 'column' | 'writing'>,
+  right: Pick<LayoutBlock, 'box' | 'column' | 'writing'>,
+): number {
+  const vertical = verticalWriting(left) && verticalWriting(right);
+  if (vertical) {
+    if (left.column >= 0 && right.column >= 0 && left.column !== right.column) {
+      return right.column - left.column;
+    }
+    // Same reported column (or a spanning block): adjacent vertical columns still read right to
+    // left. Only OCR jitter inside one column falls through to the top-to-bottom order.
+    const xOrder = verticalColumnXOrder(left, right);
+    if (xOrder !== null) return xOrder;
+    return left.box.y - right.box.y || left.box.x - right.box.x;
+  }
+  // Full-width blocks (column < 0) interrupt the left column at their own top edge. Sorting
+  // them after every numbered column is not a total order once a lower left line exists:
+  // left column < right column, right column < spanning block (by y), spanning block < lower
+  // left line (by y). Give a spanning block the left column's rank so it keeps its printed
+  // position between the left-column rows and the comparator stays transitive.
+  const leftColumn = left.column < 0 ? 0 : left.column;
+  const rightColumn = right.column < 0 ? 0 : right.column;
+  // Do not special-case footers by width here: a wide mid-page span plus a lower left line
+  // reintroduces comparator cycles (span after right-top, left-bottom before right-top).
+  if (leftColumn !== rightColumn) return leftColumn - rightColumn;
+  return left.box.y - right.box.y || left.box.x - right.box.x;
+}
+
+/**
+ * Reading order for the bilingual pane when full-width blocks delimit bands between columns.
+ * `compareReadingOrder()` stays transitive for layout; this matches the quality bench's
+ * expected sequence on two-column pages with spanning blocks.
+ */
+export function bilingualReadingRanks(
+  blocks: readonly Pick<LayoutBlock, 'box' | 'column' | 'writing' | 'text'>[],
+): Map<Pick<LayoutBlock, 'box' | 'column' | 'writing' | 'text'>, number> {
+  const ranks = new Map<Pick<LayoutBlock, 'box' | 'column' | 'writing' | 'text'>, number>();
+  if (blocks.length === 0) return ranks;
+  const spanning = blocks
+    .filter((block) => block.column < 0)
+    .sort((left, right) => left.box.y - right.box.y);
+  const emitted = new Set<Pick<LayoutBlock, 'box' | 'column' | 'writing' | 'text'>>();
+  let seq = 0;
+  const emit = (block: Pick<LayoutBlock, 'box' | 'column' | 'writing' | 'text'>) => {
+    ranks.set(block, seq++);
+    emitted.add(block);
+  };
+  const pending = () => blocks.filter((block) => !emitted.has(block));
+  const columnRank = (block: Pick<LayoutBlock, 'column'>) =>
+    block.column < 0 ? 0.5 : block.column;
+  const sortBand = (
+    left: Pick<LayoutBlock, 'box' | 'column' | 'writing' | 'text'>,
+    right: Pick<LayoutBlock, 'box' | 'column' | 'writing' | 'text'>,
+  ) => {
+    if (verticalWriting(left) && verticalWriting(right)) {
+      const xOrder = verticalColumnXOrder(left, right);
+      if (xOrder !== null) return xOrder;
+      if (left.column >= 0 && right.column >= 0 && left.column !== right.column) {
+        return right.column - left.column;
+      }
+    }
+    return (
+      columnRank(left) - columnRank(right) || left.box.y - right.box.y || left.box.x - right.box.x
+    );
+  };
+  for (const span of spanning) {
+    for (const block of pending()
+      .filter((entry) => entry.box.y < span.box.y - 0.5)
+      .sort(sortBand)) {
+      emit(block);
+    }
+    emit(span);
+  }
+  for (const block of pending().sort(sortBand)) emit(block);
+  return ranks;
 }
 
 export interface PageLayout {
@@ -403,8 +515,8 @@ const SKIP_ROLES: ReadonlySet<AnyBlockRole> = new Set<AnyBlockRole>([
   'identity',
 ]);
 
-/** A caption opens with a figure, table, or algorithm number. */
-const CAPTION_START = /^(?:Fig(?:ure)?|Tab(?:le)?|Alg(?:orithm)?)\.?\s*\d/iu;
+/** A caption opens with a figure, table, or algorithm number, in either script. */
+const CAPTION_START = /^(?:(?:Fig(?:ure)?|Tab(?:le)?|Alg(?:orithm)?)\.?\s*\d|[図表]\s*\d)/iu;
 
 /** True when a line is a numbered caption rather than a table header or a paragraph. */
 export function isCaptionLine(text: string): boolean {
@@ -491,6 +603,12 @@ export interface Region {
   column: number;
   /** The gutter this region was cut at, when it came from a column split. */
   gutter?: number | undefined;
+  /**
+   * True for the band of lines that crossed a column gutter. It keeps its parent column so the
+   * cut reads it at its printed height, but its blocks report the spanning column (-1), as OCR
+   * does, so the bilingual pane reads the columns around it in bands.
+   */
+  spanning?: boolean | undefined;
 }
 
 /** Recursive XY-cut, emitting regions in reading order. */
@@ -515,12 +633,16 @@ function cut(lines: readonly TextLine[], unit: number, room: Box, column: number
       const leftRoom = boxTo(room, gutter.at, lines);
       const rightRoom = boxFrom(room, gutter.at, lines);
       // A line that crosses the gutter is a full-width title, caption or formula. It is cut
-      // as its own region and read between the two columns at the height it occupies.
+      // as its own region and read between the two columns at the height it occupies. Its
+      // blocks report the spanning column, as OCR full-width lines do, so the bilingual pane
+      // reads the columns around it as bands.
       return orderRegions(
         [
           ...cut(left, unit, leftRoom, column),
           ...cut(right, unit, rightRoom, column + 1),
-          ...(crossing.length > 0 ? cut(crossing, unit, room, column) : []),
+          ...(crossing.length > 0
+            ? cut(crossing, unit, room, column).map((region) => ({ ...region, spanning: true }))
+            : []),
         ],
         gutter.at,
       );
@@ -939,6 +1061,10 @@ function appendRegionBlocks(
 ): void {
   const rows = groupBaselineRows(region.lines);
   if (rows.length === 0) return;
+  // A gutter-crossing band keeps its parent column for the XY-cut's reading order, but its
+  // blocks are full-width: report the spanning column, like OCR, so the bilingual pane reads
+  // the columns around them in bands.
+  const blockColumn = region.spanning === true ? -1 : region.column;
 
   const emit = (
     lines: readonly TextLine[],
@@ -967,7 +1093,7 @@ function appendRegionBlocks(
   // the region is read as rows of values, otherwise `Figure 1: …` joins the first header.
   const { captions, rest } = peelLeadingCaptions(rows);
   for (const caption of captions) {
-    emit(caption, region.room, region.column, minLeft(caption));
+    emit(caption, region.room, blockColumn, minLeft(caption));
   }
 
   // A region the cut recognised as a table keeps every cell apart; a region of prose only
@@ -1020,7 +1146,7 @@ function appendRegionBlocks(
       for (;;) {
         const split = overlongProseSplit(current);
         if (!split) return;
-        emit(split.head, room, region.column, columnLeft, currentFragments);
+        emit(split.head, room, blockColumn, columnLeft, currentFragments);
         current = split.tail;
       }
     };
@@ -1054,7 +1180,7 @@ function appendRegionBlocks(
           );
       if (previous && next && starts) {
         splitLongProse();
-        emit(current, room, region.column, columnLeft, currentFragments);
+        emit(current, room, blockColumn, columnLeft, currentFragments);
         current = [];
         currentFragments = false;
       }
@@ -1063,7 +1189,7 @@ function appendRegionBlocks(
     }
 
     splitLongProse();
-    emit(current, room, region.column, columnLeft, currentFragments);
+    emit(current, room, blockColumn, columnLeft, currentFragments);
   }
 }
 
@@ -1758,6 +1884,14 @@ function shouldMergeAdjacentProse(
     xGap < columnSpan * 0.45 &&
     (continuesProseText(tail, head) || /Related\s+[Ww]ork\s*:/i.test(left.text));
   if (xGap > 12 && !hangingContinuation) return false;
+  // Two blocks in different columns can share a y band and a column id on a page whose
+  // gutter was not recognised. Requiring an actual horizontal overlap keeps their sentences
+  // apart, which is what prevents one column's text from being translated into the other's box.
+  const overlap =
+    Math.min(boxRight(left.box), boxRight(right.box)) - Math.max(left.box.x, right.box.x);
+  if (overlap < Math.min(left.box.width, right.box.width) * 0.6 && !hangingContinuation) {
+    return false;
+  }
   if (continuesProseText(tail, head)) return true;
   if (/[,;]\s*$/.test(tail) || /\band\s*$/i.test(tail)) return true;
   if (runInSectionHeadingPrefix(left.text) && !endsSentence(left.text)) return true;
@@ -1808,7 +1942,16 @@ function splitProseAroundInteriorBlocks(
     const firstBase = first.baseline;
     const lastBase = last.baseline;
     const interiors = prose.filter((other) => {
-      if (other === block || other.column !== block.column) return false;
+      if (other === block) return false;
+      if (other.column !== block.column && block.box.width <= 300) return false;
+      // A full-width abstract and a body column carry different column ids, but their lines
+      // still interleave in y. Split on geometry rather than on the column label so the
+      // abstract cannot absorb the first paragraph of the right-hand column.
+      if (other.column !== block.column) {
+        const overlap =
+          Math.min(boxRight(block.box), boxRight(other.box)) - Math.max(block.box.x, other.box.x);
+        if (overlap < Math.min(block.box.width, other.box.width) * 0.6) return false;
+      }
       const otherBase = other.lines[0]?.baseline ?? other.box.y;
       return otherBase > firstBase + 0.5 && otherBase < lastBase - 0.5;
     });

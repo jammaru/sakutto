@@ -147,6 +147,69 @@ describe('timedtext sentence units', () => {
     expect(units[0]).toMatchObject({ startMs: 0, endMs: 2800, language: 'en' });
   });
 
+  it('dedupes a rolling window that slides and then regrows from the previous raw window', () => {
+    // After "A B C" -> "B C D" the last fragment is only "D". Regrowing to "B C D E" must
+    // append just "E", not replace the fragment with the whole window and duplicate "B C".
+    const json3 = {
+      events: [
+        { tStartMs: 0, dDurationMs: 1200, segs: [{ utf8: 'A B C' }] },
+        { tStartMs: 400, dDurationMs: 1200, segs: [{ utf8: 'B C D' }] },
+        { tStartMs: 800, dDurationMs: 1200, segs: [{ utf8: 'B C D E' }] },
+      ],
+    };
+    const units = buildSentenceUnitsFromTrack([], json3);
+    expect(units.map((cue) => cue.text)).toEqual(['A B C D E']);
+    expect(units[0]).toMatchObject({ startMs: 0, endMs: 2000 });
+  });
+
+  it('grows a partial word without inserting a separator', () => {
+    const json3 = {
+      events: [
+        { tStartMs: 0, dDurationMs: 1200, segs: [{ utf8: 'I am walk' }] },
+        { tStartMs: 400, dDurationMs: 1200, segs: [{ utf8: 'I am walking' }] },
+        { tStartMs: 800, dDurationMs: 1200, segs: [{ utf8: 'I am walking home' }] },
+      ],
+    };
+    const units = buildSentenceUnitsFromTrack([], json3);
+    expect(units.map((cue) => cue.text)).toEqual(['I am walking home']);
+  });
+
+  it('grows a short partial word without inserting a separator', () => {
+    const json3 = {
+      events: [
+        { tStartMs: 0, dDurationMs: 1200, segs: [{ utf8: 'hel' }] },
+        { tStartMs: 400, dDurationMs: 1200, segs: [{ utf8: 'hello' }] },
+        { tStartMs: 800, dDurationMs: 1200, segs: [{ utf8: 'hello there' }] },
+      ],
+    };
+    const units = buildSentenceUnitsFromTrack([], json3);
+    expect(units.map((cue) => cue.text)).toEqual(['hello there']);
+  });
+
+  it('grows an apostrophe suffix without inserting a separator', () => {
+    const json3 = {
+      events: [
+        { tStartMs: 0, dDurationMs: 1200, segs: [{ utf8: 'B C D E' }] },
+        { tStartMs: 400, dDurationMs: 1200, segs: [{ utf8: "B C D E's" }] },
+        { tStartMs: 800, dDurationMs: 1200, segs: [{ utf8: "B C D E's answer" }] },
+      ],
+    };
+    const units = buildSentenceUnitsFromTrack([], json3);
+    expect(units.map((cue) => cue.text)).toEqual(["B C D E's answer"]);
+  });
+
+  it('grows a hyphenated suffix without inserting a separator', () => {
+    const json3 = {
+      events: [
+        { tStartMs: 0, dDurationMs: 1200, segs: [{ utf8: 'B C D E' }] },
+        { tStartMs: 400, dDurationMs: 1200, segs: [{ utf8: 'B C D E-mail' }] },
+        { tStartMs: 800, dDurationMs: 1200, segs: [{ utf8: 'B C D E-mail answer' }] },
+      ],
+    };
+    const units = buildSentenceUnitsFromTrack([], json3);
+    expect(units.map((cue) => cue.text)).toEqual(['B C D E-mail answer']);
+  });
+
   it('handles fragmented slop/gold rolling windows and a pause', () => {
     const json3 = {
       events: [

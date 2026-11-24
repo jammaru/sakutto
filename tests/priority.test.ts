@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   bandForRect,
   contentKind,
+  isBodyProse,
   lookaheadScreens,
   translationConcurrencyFor,
   translationPriority,
@@ -119,6 +120,25 @@ describe('translation priority', () => {
     expect(bandForRect({ top: 900, bottom: 940, width: 100, height: 40 }, 800)).toBe('near');
     expect(bandForRect({ top: 4000, bottom: 4040, width: 100, height: 40 }, 800)).toBe('far');
     expect(bandForRect({ top: 0, bottom: 0, width: 0, height: 0 }, 800)).toBe('far');
+  });
+
+  it('treats X post bodies as body prose for sentence-mode prioritization', () => {
+    document.body.innerHTML = `
+      <article>
+        <div id="guest" lang="ja" dir="auto" class="r-whitespace-pre-wrap">最初の行には十分な長さの日本語の本文が書かれています。二行目も続いています。</div>
+        <div id="logged" data-testid="tweetText" lang="ja" class="r-whitespace-pre-wrap">ログイン済みの投稿本文です。こちらも十分な長さの文章を用意しています。</div>
+        <div id="stray" lang="ja" dir="auto" class="text-lead">ただの見出しのような短い文字列</div>
+      </article>
+    `;
+
+    const guest = document.querySelector('#guest');
+    const logged = document.querySelector('#logged');
+    const stray = document.querySelector('#stray');
+    if (!guest || !logged || !stray) throw new Error('missing X bodies');
+
+    expect(isBodyProse(guest)).toBe(true);
+    expect(isBodyProse(logged)).toBe(true);
+    expect(isBodyProse(stray)).toBe(false);
   });
 
   it('prefetches more of the page for PLaMo when the look-ahead is widened', () => {

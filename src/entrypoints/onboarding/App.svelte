@@ -2,6 +2,9 @@
   import { onMount } from 'svelte';
   import { browser } from 'wxt/browser';
   import { DEFAULT_MODEL_ID, HIGH_QUALITY_MODEL_ID, getModel } from '@/engine/model/catalog';
+  import { DEFAULT_OCR_TIER, OCR_TIER_CATALOG, type OcrTier } from '@/engine/ocr/catalog';
+  import type { AssetStatus } from '@/engine/model/asset';
+  import { combinedSetupProgress } from '@/shared/ocr';
   import { FOLDER_PERMISSION_ERROR } from '@/engine/model/folder-permission';
   import {
     emptySharedFolderStatus,
@@ -42,6 +45,10 @@
   import { resolveTargetLanguage, type TargetLanguage } from '@/shared/languages';
   import {
     isModelProgressMessage,
+    isOcrProgressMessage,
+    requestOcrCancel,
+    requestOcrDownload,
+    requestOcrInspect,
     requestModelAttach,
     requestModelCancel,
     requestModelDownload,
@@ -74,6 +81,7 @@
   import { pickDirectoryFiles } from '@/ui/folder-input';
   import { estimateRemainingMs, type ByteMark } from '@/ui/download-eta';
   import { formatByteSize, formatByteSizeList } from '@/ui/format';
+  import { onboardingSetupLines } from '@/ui/onboarding-ocr-label';
   import {
     onboardingCanTry,
     onboardingErrorMessage,
@@ -142,6 +150,8 @@
   let progress = $state(0);
   let modelState = $state<ModelStatus['state']>('absent');
   let lastStatus = $state<ModelStatus | null>(null);
+  let ocrTier = $state<OcrTier>(DEFAULT_OCR_TIER);
+  let lastOcrStatus = $state<AssetStatus<OcrTier> | null>(null);
   let engineFolder = $state<SharedFolderStatus>(
     emptySharedFolderStatus(sharedFolderPickerAvailable()),
   );
@@ -178,6 +188,8 @@
     if (seconds < 90) return t('downloadEtaSeconds', [String(seconds)]);
     return t('downloadEtaMinutes', [String(Math.max(1, Math.round(seconds / 60)))]);
   });
+  let setupLines = $derived(onboardingSetupLines(lastStatus, lastOcrStatus, ocrTier));
+  /** received/total come from combinedSetupProgress: PLaMo bytes plus the OCR bundle. */
   let statusText = $derived.by(() => {
     if (modelState === 'verifying') {
       return `${t('runtimeVerifying')} ${formatByteSize(received)} / ${formatByteSize(total)}`;
@@ -217,14 +229,38 @@
     sharedFolderNeedsPermission(engineFolder) || lastStatus?.error === FOLDER_PERMISSION_ERROR,
   );
 
+  function updateCombinedProgress(notifyBytes = false) {
+    const combined = combinedSetupProgress(
+      lastStatus ?? {
+        received: 0,
+        total: model.size,
+        state: modelState,
+      },
+      lastOcrStatus ?? {
+        received: 0,
+        total: OCR_TIER_CATALOG[ocrTier].size,
+        state: 'absent',
+      },
+    );
+    received = combined.received;
+    total = combined.total;
+    progress = combined.progress;
+    modelState = combined.state;
+    if (notifyBytes) noteBytes(received);
+    phase = onboardingPhaseAfterStatus(phase, combined.state, consentSaved || startRequested);
+  }
+
+  function applyOcrStatus(status: AssetStatus<OcrTier>) {
+    if (status.id !== ocrTier) return;
+    lastOcrStatus = status;
+    if (status.state === 'error') failureDetail = status.error ?? null;
+    updateCombinedProgress(status.state === 'downloading');
+  }
+
   function applyStatus(status: ModelStatus) {
     if (status.id !== DEFAULT_MODEL_ID) return;
     const next = advanceModelStatus(lastStatus, status);
     lastStatus = next;
-    received = next.received;
-    total = next.total || model.size;
-    progress = next.progress;
-    modelState = next.state;
     if (next.error === FOLDER_PERMISSION_ERROR) {
       failureDetail = null;
       phase = 'consent';
@@ -243,8 +279,7 @@
     } else if (next.state === 'downloading' || next.state === 'ready' || next.state === 'loaded') {
       failureDetail = null;
     }
-    if (status.state === 'downloading') noteBytes(next.received);
-    phase = onboardingPhaseAfterStatus(phase, next.state, consentSaved || startRequested);
+    updateCombinedProgress(status.state === 'downloading');
   }
 
   function noteBytes(receivedBytes: number): void {
@@ -460,7 +495,9 @@
       skipDownload = Boolean(
         inspected && (inspected.state === 'ready' || inspected.state === 'loaded'),
       );
-      if (inspected) modelState = inspected.state;
+      // Keep the combined status in step with the inspected file; otherwise a PLaMo
+      // model already on disk looks absent once OCR bytes drive the progress line.
+      if (inspected) applyStatus(inspected);
     }
 
     if (pendingFolder) {
@@ -479,13 +516,13 @@
       const inspected = await requestModelInspect(DEFAULT_MODEL_ID);
       if (inspected && (inspected.state === 'ready' || inspected.state === 'loaded')) {
         skipDownload = true;
-        modelState = inspected.state;
+        applyStatus(inspected);
       }
     } else if (keepExistingFolder) {
       const inspected = await requestModelInspect(DEFAULT_MODEL_ID);
       if (inspected && (inspected.state === 'ready' || inspected.state === 'loaded')) {
         skipDownload = true;
-        modelState = inspected.state;
+        applyStatus(inspected);
       }
     }
 
@@ -499,7 +536,8 @@
 
     if (received > 0) continued = true;
 
-    if (alreadyReady) {
+    const ocrReady = lastOcrStatus?.state === 'ready' || lastOcrStatus?.state === 'loaded';
+    if (alreadyReady && ocrReady) {
       phase = 'ready';
       return;
     }
@@ -508,8 +546,11 @@
     pollGeneration += 1;
     pollFailures = 0;
     lastProgressAt = Date.now();
-    const started = await requestModelDownload(DEFAULT_MODEL_ID);
-    if (!started) phase = 'error';
+    const [plamoStarted, ocrStarted] = await Promise.all([
+      alreadyReady ? Promise.resolve(true) : requestModelDownload(DEFAULT_MODEL_ID),
+      ocrReady ? Promise.resolve(true) : requestOcrDownload(ocrTier),
+    ]);
+    if (!plamoStarted || !ocrStarted) phase = 'error';
   }
 
   let lastProgressAt = 0;
@@ -568,7 +609,7 @@
     pollGeneration += 1;
     pollFailures = 0;
     phase = 'paused';
-    await requestModelCancel(DEFAULT_MODEL_ID);
+    await Promise.all([requestModelCancel(DEFAULT_MODEL_ID), requestOcrCancel(ocrTier)]);
   }
 
   async function trySample() {
@@ -599,6 +640,10 @@
   onMount(() => {
     disposed = false;
     const onMessage = (message: unknown) => {
+      if (isOcrProgressMessage(message)) {
+        applyOcrStatus(message.status);
+        return;
+      }
       if (!isModelProgressMessage(message)) return;
       if (
         !shouldApplyOnboardingPollResult({
@@ -629,6 +674,7 @@
     void loadSettings()
       .then((settings) => {
         targetLanguage = settings.targetLanguage;
+        ocrTier = settings.selectedOcrTier;
         // A consent written under an earlier notice stays valid, but this user has not seen
         // the clearer commercial summary. Showing it again does not invalidate the license,
         // does not touch the stored model, and only asks for one more click.
@@ -652,9 +698,11 @@
         }
       })
       .catch(() => undefined)
-      .then(() => requestModelInspect(DEFAULT_MODEL_ID))
-      .then((status) => {
+      .then(() => Promise.all([requestModelInspect(DEFAULT_MODEL_ID), requestOcrInspect(ocrTier)]))
+      .then(([status, ocrStatus]) => {
         if (status) applyStatus(status);
+        if (ocrStatus) applyOcrStatus(ocrStatus);
+        updateCombinedProgress();
       })
       .catch(() => undefined);
 
@@ -689,6 +737,7 @@
       <h2>{t('onboardingSetupHeading')}</h2>
       <ul>
         <li>{t('onboardingModelNote')}</li>
+        <li>{t('onboardingOcrNote', [formatByteSize(OCR_TIER_CATALOG[ocrTier].size)])}</li>
         <li>{tForBrowser('onboardingBridgeNote', 'onboardingBridgeNoteFirefox')}</li>
         {#if hasBuiltInTranslatorUi()}
           <li>{t('onboardingUseNow')}</li>
@@ -723,7 +772,12 @@
       >
         <span style="width: {percent}%"></span>
       </div>
-      <p>{statusText}</p>
+      {#if phase === 'downloading' || phase === 'paused'}
+        <p class="setup-line">{setupLines.plamo}</p>
+        <p class="setup-line">{setupLines.ocr}</p>
+      {:else}
+        <p>{statusText}</p>
+      {/if}
       {#if etaLabel}
         <p>{etaLabel}</p>
       {/if}
@@ -827,6 +881,7 @@
         <div class="storage-browser-only">
           <h3 class="storage-heading">{t('modelStorageLegend')}</h3>
           <p class="muted">{t('modelStorageBrowserOnlyHint')}</p>
+          <p class="muted" data-sakutto="model-storage-files-note">{t('modelStorageFilesNote')}</p>
           {#if braveBrowser}
             <p class="muted">{t('modelStorageBraveEnableFsaHint')}</p>
           {/if}
@@ -838,6 +893,7 @@
           legendKey="onboardingStoreLegend"
           folderKey={pickerAvailable ? 'onboardingStoreFolder' : 'modelStorageCopyFolder'}
           browserKey="onboardingStoreBrowser"
+          fileNoteKey="modelStorageFilesNote"
           recommended={pickerAvailable ? 'folder' : 'copy'}
           notes={storeChoice === (pickerAvailable ? 'folder' : 'copy')
             ? pickerAvailable
@@ -1083,6 +1139,10 @@
   .progress {
     display: grid;
     gap: var(--space-2);
+  }
+
+  .progress p {
+    margin: 0;
   }
 
   .actions {

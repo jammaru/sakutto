@@ -65,13 +65,14 @@ export class VodDisplayScheduler {
     read: (cue: CaptionCue) => VodDisplayValue | null,
     paused = false,
   ): VodDisplayCommand | null {
-    if (!paused) {
-      while (this.nextIndex < this.cues.length) {
-        const cue = this.cues[this.nextIndex];
-        if (!cue || cue.startMs > timeMs) break;
-        this.queue.push(cue);
-        this.nextIndex += 1;
-      }
+    // Selection follows the playhead even while paused: an explicit seek must be
+    // able to select its destination cue. Only wall-clock dwell advancement below
+    // is frozen while paused.
+    while (this.nextIndex < this.cues.length) {
+      const cue = this.cues[this.nextIndex];
+      if (!cue || cue.startMs > timeMs) break;
+      this.queue.push(cue);
+      this.nextIndex += 1;
     }
 
     let clearedActiveId: string | null = null;
@@ -93,6 +94,7 @@ export class VodDisplayScheduler {
     }
 
     if (this.active && !this.active.pending) {
+      if (paused) return null;
       const elapsed = Math.max(0, nowMs - this.active.shownAt);
       // Date.now() and mutation observers can use clocks with sub-millisecond
       // rounding differences. One guard millisecond prevents a measured 1199.9ms flash.

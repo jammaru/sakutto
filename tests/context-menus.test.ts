@@ -40,15 +40,16 @@ beforeEach(() => {
 });
 
 describe('context menu install', () => {
-  it('serializes concurrent installs into one removeAll and four creates', async () => {
+  it('serializes concurrent installs into one removeAll and five creates', async () => {
     await Promise.all([flushContextMenuInstall(), flushContextMenuInstall()]);
 
     expect(state.removeAll).toHaveBeenCalledTimes(1);
-    expect(state.create).toHaveBeenCalledTimes(4);
+    expect(state.create).toHaveBeenCalledTimes(5);
     expect(state.create.mock.calls.map((call) => (call[0] as { id: string }).id)).toEqual([
       'translate-page',
       'translate-selection',
       'translate-compose',
+      'translate-image',
       'translate-pdf',
     ]);
   });

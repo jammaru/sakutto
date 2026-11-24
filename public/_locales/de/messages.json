@@ -719,6 +719,10 @@
   "modelStorageIntro": {
     "message": "Wählen Sie, wo das Modell gespeichert wird. Vorhandene Modelle werden entsprechend verschoben."
   },
+  "modelStorageFilesNote": {
+    "message": "Das PLaMo-Übersetzungsmodell (GGUF) und die OCR-Modelle (ONNX) werden beide hier gespeichert. OCR-Dateien liegen in Unterordnern mit ocr-*; ohne freigegebenen Ordner bleiben beide in diesem Browser.",
+    "description": "Where the PLaMo and OCR files are stored, for both folder and browser choices."
+  },
   "modelStorageBrowserOnlyHint": {
     "message": "In diesem Browser können keine freigegebenen Ordner verwendet werden. Modelle werden daher im Browser gespeichert."
   },
@@ -1134,14 +1138,42 @@
   "pdfFileAccessDenied": {
     "message": "Diese PDF-Datei liegt auf diesem Rechner. Erlauben Sie der Erweiterung den Zugriff auf Datei-URLs in den Erweiterungseinstellungen, oder wählen Sie die Datei im Reader."
   },
+  "pdfFileAccessBody": {
+    "message": "Sakutto kann diese PDF nicht von der Seite lesen. Öffnen Sie chrome://extensions, wählen Sie Sakutto und aktivieren Sie „Zugriff auf Datei-URLs zulassen“. Sie können auch unten eine PDF auswählen und sie in diesem Reader öffnen.",
+    "description": "Guidance when a local PDF cannot be read from a file:// tab."
+  },
   "pdfCompare": {
     "message": "Vergleichen"
+  },
+  "pdfBilingual": {
+    "message": "Zweisprachig"
   },
   "pdfOriginalPane": {
     "message": "Original"
   },
   "pdfTranslatedPane": {
     "message": "Übersetzung"
+  },
+  "pdfDownloadTranslated": {
+    "message": "Übersetztes PDF herunterladen",
+    "description": "Toolbar button that saves the translated document as a PDF."
+  },
+  "pdfExporting": {
+    "message": "PDF wird vorbereitet…"
+  },
+  "pdfExportFailed": {
+    "message": "Das PDF konnte nicht erstellt werden. Bitte versuche es erneut."
+  },
+  "pdfExportWaiting": {
+    "message": "Übersetzung für das PDF wird abgeschlossen: $DONE$ / $TOTAL$ Seiten",
+    "placeholders": {
+      "done": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
   },
   "pdfChooseFile": {
     "message": "PDF-Datei auswählen"
@@ -1725,5 +1757,140 @@
   },
   "allSitesPopupEnable": {
     "message": "Aktivieren"
+  },
+  "ocrTierStandard": {
+    "message": "Standard-OCR",
+    "description": "Label for the standard PP-OCR tier."
+  },
+  "ocrTierHigh": {
+    "message": "OCR mit hoher Genauigkeit",
+    "description": "Label for the high-accuracy PP-OCR tier."
+  },
+  "ocrModelsHeading": {
+    "message": "OCR auf dem Gerät",
+    "description": "Heading for PP-OCR model management."
+  },
+  "ocrModelsDescription": {
+    "message": "PP-OCRv6 erkennt Text in gescannten PDFs und Bildern auf diesem Gerät. Bei Auswahl einer Stufe werden der Detektor und das Erkennungsmodell dieser Stufe heruntergeladen.",
+    "description": "Explanation of OCR tiers and downloads."
+  },
+  "ocrTierSwitchHint": {
+    "message": "Beim Wechseln der Stufe werden die ausgewählten Modelle heruntergeladen. Andere Stufen bleiben auf diesem Gerät, bis Sie sie löschen.",
+    "description": "Explains tier switching and old model cleanup."
+  },
+  "onboardingOcrNote": {
+    "message": "Außerdem werden die Standard-OCR-Modelle ($SIZE$) für gescannte PDFs und Bilder auf dieses Gerät heruntergeladen.",
+    "description": "Combined onboarding download note with OCR bundle size.",
+    "placeholders": {
+      "size": {
+        "content": "$1"
+      }
+    }
+  },
+  "pdfOcrReading": {
+    "message": "Gescannte Seite $PAGE$ von $TOTAL$ wird erkannt…",
+    "description": "Shown while OCR runs on a scanned PDF page.",
+    "placeholders": {
+      "page": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "pdfOcrFailed": {
+    "message": "Die Texterkennung auf dieser gescannten Seite ist fehlgeschlagen.",
+    "description": "Shown when a scanned PDF page cannot be recognized."
+  },
+  "ocrDownloadRequired": {
+    "message": "Zum Erkennen von Text in gescannten PDFs und Bildern sind OCR-Modelle erforderlich.",
+    "description": "Shown when OCR is unavailable or its model download fails."
+  },
+  "ocrDownloadInline": {
+    "message": "OCR-Modell herunterladen (ca. $SIZE$)",
+    "description": "Inline button that downloads the selected OCR tier.",
+    "placeholders": {
+      "size": {
+        "content": "$1"
+      }
+    }
+  },
+  "ocrDownloadProgress": {
+    "message": "OCR-Modell wird heruntergeladen: $PERCENT$ %",
+    "description": "Inline progress shown while the OCR model downloads.",
+    "placeholders": {
+      "percent": {
+        "content": "$1"
+      }
+    }
+  },
+  "ocrDownloadFailed": {
+    "message": "Das OCR-Modell konnte nicht heruntergeladen werden. Bitte versuchen Sie es erneut.",
+    "description": "Shown when an inline OCR model download fails."
+  },
+  "imageFileAccessHeading": {
+    "message": "Lokales Bild übersetzen",
+    "description": "Title of the page opened when the image context menu cannot reach a file URL."
+  },
+  "imageFileAccessBody": {
+    "message": "Sakutto kann dieses Bild nicht von der Seite lesen. Öffnen Sie chrome://extensions, wählen Sie Sakutto und aktivieren Sie „Zugriff auf Datei-URLs zulassen“. Sie können auch unten eine Bilddatei wählen und sie auf diesem Gerät übersetzen.",
+    "description": "Guidance when a local image action cannot inject into the tab."
+  },
+  "imageFileAccessChoose": {
+    "message": "Bilddatei auswählen",
+    "description": "Label for the local image picker."
+  },
+  "contextTranslateImage": {
+    "message": "Bild mit Sakutto übersetzen",
+    "description": "Image context-menu action."
+  },
+  "imageTranslationHeading": {
+    "message": "Bildübersetzung",
+    "description": "Title of the image translation panel."
+  },
+  "imageTranslating": {
+    "message": "Bildtext wird erkannt und übersetzt…",
+    "description": "Shown while image OCR and translation run."
+  },
+  "imageTranslationFailed": {
+    "message": "Das Bild konnte nicht übersetzt werden.",
+    "description": "Shown when image OCR or translation fails."
+  },
+  "imageTranslationEmpty": {
+    "message": "In diesem Bild wurde kein Text erkannt.",
+    "description": "Shown when OCR returns no text."
+  },
+  "imageTranslationClose": {
+    "message": "Bildübersetzung schließen",
+    "description": "Accessible close-button label for the image panel."
+  },
+  "imageOriginalText": {
+    "message": "Erkannter Text",
+    "description": "Label for OCR source text in the image panel."
+  },
+  "imageTranslationPermission": {
+    "message": "Der Browser konnte nicht auf dieses Bild zugreifen. Versuchen Sie stattdessen, die sichtbare Seite aufzunehmen.",
+    "description": "Shown when image pixels cannot be read without extra permissions."
+  },
+  "onboardingPlamoReady": {
+    "message": "Übersetzungsmodell (PLaMo): bereits auf diesem Gerät",
+    "description": "PLaMo line of the onboarding download status, shown when the translation model is already stored."
+  },
+  "onboardingOcrDownloading": {
+    "message": "OCR-Modell wird heruntergeladen (für gescannte PDFs und Bilder, ca. $SIZE$): $PERCENT$%",
+    "description": "OCR line of the onboarding download status, with the selected tier's size and its own percent progress.",
+    "placeholders": {
+      "size": {
+        "content": "$1"
+      },
+      "percent": {
+        "content": "$2"
+      }
+    }
+  },
+  "onboardingOcrReady": {
+    "message": "OCR-Modell: bereits auf diesem Gerät",
+    "description": "OCR line of the onboarding download status, shown when the OCR model is already stored."
   }
 }

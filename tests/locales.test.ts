@@ -136,6 +136,27 @@ describe('locale catalogs', () => {
 describe('locale messages', () => {
   const ja = readMessages('ja');
 
+  it('uses OCR-specific tier labels without translation-model parameter counts', () => {
+    for (const locale of catalogs) {
+      const messages = readMessages(locale);
+      for (const [ocrKey, modelKey] of [
+        ['ocrTierStandard', 'modelStandard'],
+        ['ocrTierHigh', 'modelHigh'],
+      ] as const) {
+        const label = messages[ocrKey]?.message ?? '';
+        expect(label, `${locale} ${ocrKey}`).not.toBe('');
+        expect(label, `${locale} ${ocrKey}`).not.toBe(messages[modelKey]?.message);
+        expect(label, `${locale} ${ocrKey}`).not.toMatch(/PLaMo|0[.,]8\s*B|\b2\s*B\b/iu);
+      }
+    }
+
+    const manager = readFileSync(new URL('../src/ui/ModelManager.svelte', import.meta.url), 'utf8');
+    expect(manager).toContain("tier === 'high' ? t('ocrTierHigh') : t('ocrTierStandard')");
+    // One label in the tier summary, one in the download control, one in the delete control,
+    // and one in each control's accessible name.
+    expect(manager.match(/\{ocrLabel\(tier\)\}/gu)).toHaveLength(4);
+  });
+
   it('uses the product names from the specification', () => {
     expect(en.extensionName?.message).toBe('Sakutto - Local AI translation');
     expect(ja.extensionName?.message).toBe('Sakutto - ローカルAI翻訳');
@@ -583,17 +604,106 @@ describe('locale messages', () => {
       expect(messages.typedDetectSource?.message).toBeTruthy();
       expect(messages.typedResultEmpty?.message).not.toMatch(/^The translation appears here\.$/);
     }
-    // Nothing promises a document importer or a dictionary. The PDF reader is a real feature,
-    // so its own labels are excluded from the check: what must not appear is copy for a
-    // document converter this build does not have (Word, PowerPoint, a dictionary).
+    // Nothing promises a document importer or a dictionary. The PDF reader and its OCR
+    // flow are real features, so their labels are excluded from the check: what must not
+    // appear is copy for a document converter this build does not have (Word, PowerPoint,
+    // a dictionary).
+    const scannedPdfKeys = new Set([
+      'ocrModelsDescription',
+      'onboardingOcrNote',
+      'ocrDownloadRequired',
+      'ocrDownloadInline',
+      'ocrDownloadProgress',
+      'ocrDownloadFailed',
+      'onboardingOcrDownloading',
+    ]);
     for (const locale of catalogs) {
       for (const [key, entry] of Object.entries(readMessages(locale))) {
-        if (key.toLowerCase().includes('pdf')) continue;
+        if (key.toLowerCase().includes('pdf') || scannedPdfKeys.has(key)) continue;
         expect(entry.message, `${locale} ${key}`).not.toMatch(
           /\bPDF\b|Word file|PowerPoint|辞書/iu,
         );
       }
     }
+  });
+
+  it('writes Latin letters and digits in UI messages at half width', () => {
+    for (const locale of catalogs) {
+      for (const [key, entry] of Object.entries(readMessages(locale))) {
+        expect(entry.message, `${locale} ${key}`).not.toMatch(/[Ａ-Ｚａ-ｚ０-９]/u);
+      }
+    }
+  });
+
+  /**
+   * A missing OCR bundle is actionable in the page and the popup, not only in Settings. The
+   * prompt therefore states the need without telling the reader where to go, and carries a
+   * button with the selected tier's size plus a percent-only progress line.
+   */
+  it('shows an inline OCR download prompt with half-width placeholders', () => {
+    expect(ja.ocrDownloadRequired?.message).toBe(
+      'スキャンしたPDFや画像の文字を認識するには、OCRモデルが必要です。',
+    );
+    expect(ja.ocrDownloadInline?.message).toBe('OCRモデルをダウンロード（約$SIZE$）');
+    expect(ja.ocrDownloadProgress?.message).toBe('OCRモデルをダウンロード中：$PERCENT$%');
+    for (const locale of catalogs) {
+      const messages = readMessages(locale);
+      for (const key of ['ocrDownloadRequired', 'ocrDownloadInline', 'ocrDownloadProgress']) {
+        expect(messages[key]?.message, `${locale} ${key}`).not.toMatch(
+          /設定で|設定内|in Settings/i,
+        );
+      }
+      expect(messages.ocrDownloadInline?.message, locale).toContain('$SIZE$');
+      expect(messages.ocrDownloadProgress?.message, locale).toContain('$PERCENT$');
+      expect(messages.ocrDownloadFailed?.message, locale).toBeTruthy();
+    }
+    for (const locale of ['ja', 'zh_CN', 'zh_TW']) {
+      expect(readMessages(locale).ocrDownloadRequired?.message, locale).toContain('PDF');
+      expect(readMessages(locale).ocrDownloadRequired?.message, locale).not.toContain('PDFs');
+    }
+  });
+
+  /**
+   * Reinstalling with PLaMo already on disk leaves only the OCR bundle to fetch. Its line must
+   * name the purpose and size of that extra download and carry its own percent progress, while
+   * the PLaMo line says the translation model is already there.
+   */
+  it('labels the two onboarding downloads separately', () => {
+    expect(ja.onboardingPlamoReady?.message).toBe('翻訳モデル（PLaMo）：取得済み');
+    expect(ja.onboardingOcrDownloading?.message).toBe(
+      'OCRモデル（スキャンPDF・画像用、約$SIZE$）をダウンロードしています（$PERCENT$%）',
+    );
+    expect(ja.onboardingOcrReady?.message).toBe('OCRモデル：取得済み');
+
+    for (const locale of catalogs) {
+      const messages = readMessages(locale);
+      for (const key of [
+        'onboardingPlamoReady',
+        'onboardingOcrDownloading',
+        'onboardingOcrReady',
+      ]) {
+        expect(messages[key]?.message, `${locale} ${key}`).toBeTruthy();
+      }
+      expect(messages.onboardingOcrDownloading?.message, locale).toContain('$SIZE$');
+      expect(messages.onboardingOcrDownloading?.message, locale).toContain('$PERCENT$');
+      expect(messages.onboardingPlamoReady?.message, locale).not.toBe(
+        messages.onboardingOcrReady?.message,
+      );
+    }
+
+    for (const locale of ['ja', 'zh_CN', 'zh_TW']) {
+      expect(readMessages(locale).onboardingOcrDownloading?.message, locale).toContain('PDF');
+      expect(readMessages(locale).onboardingOcrDownloading?.message, locale).not.toContain('PDFs');
+    }
+
+    // Both lines are rendered in the download panel, so an already-stored PLaMo cannot hide
+    // the OCR transfer behind a single combined progress sentence.
+    const onboarding = readFileSync(
+      new URL('../src/entrypoints/onboarding/App.svelte', import.meta.url),
+      'utf8',
+    );
+    expect(onboarding).toContain('{setupLines.plamo}');
+    expect(onboarding).toContain('{setupLines.ocr}');
   });
 
   it('has no copy left for a try control during the download', () => {

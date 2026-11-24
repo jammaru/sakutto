@@ -254,6 +254,9 @@ export class VideoCaptionSession {
   private youtubeEmptyTrackAttempts = 0;
   private placeSettleTimer: number | null = null;
   private seekPaintTimer: number | null = null;
+  /** A seek's translation generation stays open from `seeking` until `seeked`. */
+  private seekGenerationOpen = false;
+  private lastSeekTimeMs = Number.NaN;
 
   constructor(doc: Document, options: CaptionSessionOptions) {
     this.doc = doc;
@@ -422,6 +425,8 @@ export class VideoCaptionSession {
       this.playheadTimer = null;
     }
     this.lastPaintPlayheadMs = -1;
+    this.seekGenerationOpen = false;
+    this.lastSeekTimeMs = Number.NaN;
     this.liveMode = false;
     this.useDomCaptions = false;
     this.loadInFlight = false;
@@ -469,11 +474,38 @@ export class VideoCaptionSession {
     void this.sync(true);
   };
 
-  private readonly onSeek = (): void => {
+  /** Restart the short paint so the settled playhead selects its destination too. */
+  private scheduleSeekPaint(): void {
+    const view = this.doc.defaultView;
+    if (this.seekPaintTimer !== null) view?.clearTimeout(this.seekPaintTimer);
+    this.seekPaintTimer =
+      view?.setTimeout(() => {
+        this.seekPaintTimer = null;
+        void this.paint(true);
+      }, 64) ?? null;
+  }
+
+  private readonly onSeek = (event: Event): void => {
+    const timeMs = this.playheadMs();
+    const settled = event.type === 'seeked';
+    // Browsers fire `seeking` and `seeked` for one user seek, often more than the
+    // 64 ms paint apart. Keep a single translator generation open for both: calling
+    // translator.seek() again on `seeked` would abort the destination cue that the
+    // paint already submitted and leave it terminally failed. Bare `seeked` events
+    // (and an unchanged duplicate) still start or settle exactly one generation.
+    if (settled && (this.seekGenerationOpen || timeMs === this.lastSeekTimeMs)) {
+      this.seekGenerationOpen = false;
+      this.lastSeekTimeMs = timeMs;
+      this.scheduleSeekPaint();
+      return;
+    }
+    this.seekGenerationOpen = !settled;
+    this.lastSeekTimeMs = timeMs;
     this.resetLiveCaptions();
     this.clearHold();
     this.activeCueId = '';
-    const timeMs = this.playheadMs();
+    // Abort stale work before the VOD scheduler starts warming the new playhead.
+    this.translator.seek();
     if (this.loaded?.source === 'vod-json3') {
       this.vodDisplay.seek(timeMs);
       this.vodPrefetch?.seek(timeMs, this.video?.playbackRate ?? 1);
@@ -486,17 +518,7 @@ export class VideoCaptionSession {
       timeMs,
       hold: this.hold?.cueId ?? '',
     });
-    const view = this.doc.defaultView;
-    if (this.seekPaintTimer !== null) {
-      view?.clearTimeout(this.seekPaintTimer);
-    } else {
-      this.translator.seek();
-    }
-    this.seekPaintTimer =
-      view?.setTimeout(() => {
-        this.seekPaintTimer = null;
-        void this.paint(true);
-      }, 64) ?? null;
+    this.scheduleSeekPaint();
   };
 
   private readonly onRate = (): void => {
@@ -595,6 +617,8 @@ export class VideoCaptionSession {
     this.lastLayout = null;
     this.emptyTrackAttempts = 0;
     this.youtubeEmptyTrackAttempts = 0;
+    this.seekGenerationOpen = false;
+    this.lastSeekTimeMs = Number.NaN;
     this.overlay.hide();
   }
 
@@ -878,16 +902,18 @@ export class VideoCaptionSession {
             return cached;
           },
           translateCue: (cue, options, priority) => {
+            const generation = this.translator.translateGeneration();
             this.emitVodRequest('start', cue.id, cue.text, 'translate', priority);
             return this.translator.translateCue(cue, options, priority).then((translated) => {
+              const aborted = translated === null && this.translator.abortedSince(generation);
               this.emitVodRequest(
                 'finish',
                 cue.id,
                 cue.text,
-                translated === null ? 'error' : 'complete',
+                aborted ? 'abort' : translated === null ? 'error' : 'complete',
                 priority,
               );
-              return translated;
+              return aborted ? { aborted: true } : translated;
             });
           },
           cancelText: (text, options) => {
