@@ -1077,7 +1077,7 @@ export class PdfReader {
         let pageLayout = nativeLayout;
         let textLines = extracted.lines;
 
-        // Publish the readable native layer before any OCR render or inference. A J-STAGE style
+        // Publish the readable native layer before any OCR render or inference. A journal-style
         // cover carries decorated rasters but its own prose: the reader must be translating that
         // text now, not sitting behind an OCR model download with an "OCR reading" notice.
         // A mixed scan benefits too: its native blocks stay visible while recognition runs, and

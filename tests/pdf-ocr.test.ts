@@ -231,13 +231,13 @@ describe('shouldRunPdfOcr', () => {
   });
 
   it('does not OCR a cover whose native prose sits beside large decorative rasters', () => {
-    // J-STAGE cover: a 150-character text layer with two big grayscale logos. The rasters must
-    // not turn an ordinary text page into a synchronous OCR wait.
+    // Journal-style cover: a ~150-character text layer with two big grayscale logos. The
+    // rasters must not turn an ordinary text page into a synchronous OCR wait.
     const lines = [
-      nativeLine('DOI:10.1587/transinf.2025KBL0002'),
-      nativeLine('Publicized:2026/02/26'),
-      nativeLine('This article has been accepted and published on J-STAGE in advance of'),
-      nativeLine('copyediting. Content is final as presented.'),
+      nativeLine('DOI:10.0000/example.2026SAMPLE01'),
+      nativeLine('Published online:2026/01/01'),
+      nativeLine('This sample article was published online in advance of final editing for'),
+      nativeLine('testing purposes. Content is synthetic and fictional.'),
     ];
     const logos: FigureAreas = {
       images: [
