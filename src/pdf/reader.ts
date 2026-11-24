@@ -1712,6 +1712,8 @@ export class PdfReader {
           align: state.block.align,
           traits: traitsOf(state.block),
           writing: state.block.writing,
+          role: state.block.role,
+          singleLine: state.block.singleLine,
         });
       }
       pages.push({

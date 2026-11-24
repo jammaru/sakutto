@@ -70,6 +70,54 @@ describe('translated PDF export', () => {
     }
   });
 
+  it('keeps translated glyphs inside narrow two-column boxes', async () => {
+    const translation =
+      'By using WebAssembly within the browser, models can be executed on the local device. GPU acceleration varies with the endpoint and the amount of memory available, so the same paper reads differently on two machines. The translation must stay inside its own column.';
+    const columns = [
+      { x: 60, width: 220 },
+      { x: 320, width: 210 },
+    ] as const;
+    const blocks = columns.map((column) => ({
+      source: { x: column.x, y: 100, width: column.width, height: 72 },
+      drawn: { x: column.x, y: 100, width: column.width, height: 72 },
+      // Viewer lines were wrapped with a narrower browser font; the embedded face is wider.
+      lines: [translation],
+      translation,
+      fontSize: 10,
+      lineHeight: 13,
+      align: 'left' as const,
+      traits: { family: 'sans-serif' as const, bold: false, italic: false },
+      writing: 0,
+      role: 'prose' as const,
+    }));
+    const bytes = await buildTranslatedPdf({
+      pages: [{ index: 0, width: 595, height: 842, image: png, blocks }],
+      font,
+      targetLanguage: 'en',
+    });
+    const document = await openPdfBytes(bytes);
+    try {
+      const first = (await document.getPage(1)) as {
+        getTextContent(): Promise<{
+          items: Array<{ str?: string; transform: number[]; width: number }>;
+        }>;
+      };
+      const items = (await first.getTextContent()).items.filter(
+        (item) => (item.str ?? '').trim().length > 0,
+      );
+      expect(items.length).toBeGreaterThan(2);
+      for (const item of items) {
+        const left = item.transform[4] ?? 0;
+        const right = left + (item.width ?? 0);
+        const column = left < 300 ? columns[0] : columns[1];
+        expect(left).toBeGreaterThanOrEqual(column.x - 1);
+        expect(right).toBeLessThanOrEqual(column.x + column.width + 1);
+      }
+    } finally {
+      await document.destroy();
+    }
+  });
+
   it('refuses an empty snapshot rather than producing an empty file', async () => {
     await expect(buildTranslatedPdf({ pages: [], font, targetLanguage: 'ja' })).rejects.toThrow(
       /no pages/u,
