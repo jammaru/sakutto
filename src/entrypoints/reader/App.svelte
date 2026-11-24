@@ -7,8 +7,9 @@
   import { encodeOcrImage } from '@/engine/ocr/codec';
   import { abortError } from '@/engine/errors';
   import { readerEngine } from './engine';
-  import { loadPdfjs, resolvePdfjsAssetUrls } from '@/pdf/assets';
+  import { loadPdfjs, resolveExportFontUrl, resolvePdfjsAssetUrls } from '@/pdf/assets';
   import type { PdfDocument } from '@/pdf/extract';
+  import { buildTranslatedPdf, translatedPdfName } from '@/pdf/export';
   import { OcrUserMessageError } from '@/pdf/ocr';
   import {
     PdfOcrModelMissingError,
@@ -52,6 +53,10 @@
   let reader: PdfReader | null = null;
   let downloadBusy = $state(false);
   let downloadFailed = $state(false);
+  /** State for the translated-PDF export, kept apart from the model download above. */
+  let exportBusy = $state(false);
+  let exportFailed = $state(false);
+  let exportController: AbortController | null = null;
   let compare = $state(false);
   let bilingual = $state(false);
   let retryTimer: ReturnType<typeof setTimeout> | null = null;
@@ -72,6 +77,10 @@
     progress && progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0,
   );
   let statusText = $derived.by(() => {
+    // While exporting, the toolbar's own progress line explains why the reader is still working.
+    if (exportBusy) {
+      return t('pdfExportWaiting', [String(progress?.done ?? 0), String(progress?.total ?? 0)]);
+    }
     if (!progress) return t('pdfPreparing');
     // Pages still being read are work in progress even though no block is queued for them
     // yet. Without this the toolbar said "Translated" as soon as the first page's blocks were
@@ -151,7 +160,7 @@
     }
   }
 
-  async function startDownload() {
+  async function startModelDownload() {
     if (downloadBusy) return;
     downloadBusy = true;
     downloadFailed = false;
@@ -166,6 +175,54 @@
     }
   }
 
+  /**
+   * Writes the translated document to a real PDF, entirely inside the extension page.
+   *
+   * The reader first finishes the pages it would otherwise translate only when scrolled to,
+   * so the file does not silently ship English pages. Progress stays in the toolbar while the
+   * model works, and any failure is shown there instead of leaving a half-made download.
+   */
+  async function downloadTranslatedPdf() {
+    if (!reader || exportBusy) return;
+    exportBusy = true;
+    exportFailed = false;
+    const controller = new AbortController();
+    exportController = controller;
+    try {
+      await reader.prepareExport({ signal: controller.signal });
+      const pages = await reader.exportPages();
+      const response = await fetch(
+        resolveExportFontUrl((path) => browser.runtime.getURL(path as never)),
+      );
+      if (!response.ok) throw new Error(`font fetch failed: ${String(response.status)}`);
+      const font = new Uint8Array(await response.arrayBuffer());
+      const bytes = await buildTranslatedPdf({
+        pages,
+        font,
+        targetLanguage,
+        title: fileName,
+      });
+      const blob = new Blob([new Uint8Array(bytes)], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = translatedPdfName(fileName, targetLanguage);
+      document.body.append(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 10_000);
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return;
+      (globalThis as { console: { error(...args: unknown[]): void } }).console.error(
+        'Translated PDF export failed:',
+        error,
+      );
+      exportFailed = true;
+    } finally {
+      exportController = null;
+      exportBusy = false;
+    }
+  }
   function openOnboarding() {
     void browser.tabs
       .create({ url: browser.runtime.getURL('/onboarding.html') })
@@ -420,6 +477,7 @@
     // reader page, so the original PDF tab (or a file pick) is needed again; leftovers that
     // never get this event are swept after a day.
     const onUnload = () => {
+      exportController?.abort();
       if (retryTimer !== null) clearTimeout(retryTimer);
       if (id) void browser.runtime.sendMessage({ type: 'pdf:forget', id });
       reader?.destroy();
@@ -433,6 +491,7 @@
       document.removeEventListener('visibilitychange', onVisibility);
       document.removeEventListener('selectionchange', onSelectionChange);
       window.removeEventListener('pagehide', onUnload);
+      exportController?.abort();
       if (retryTimer !== null) clearTimeout(retryTimer);
       reader?.destroy();
       reader = null;
@@ -456,6 +515,16 @@
 
     <div class="actions">
       {#if phase === 'ready'}
+        <button
+          class="button download"
+          type="button"
+          data-sakutto="download-translated-pdf"
+          aria-busy={exportBusy ? 'true' : 'false'}
+          disabled={exportBusy}
+          onclick={downloadTranslatedPdf}
+        >
+          {exportBusy ? t('pdfExporting') : t('pdfDownloadTranslated')}
+        </button>
         <button
           class="button secondary"
           type="button"
@@ -501,7 +570,7 @@
   {:else if phase === 'model-missing'}
     <div class="notice-panel">
       <p>{t('pdfModelMissing')}</p>
-      <button class="button" type="button" onclick={startDownload} disabled={downloadBusy}>
+      <button class="button" type="button" onclick={startModelDownload} disabled={downloadBusy}>
         {t('typedDownloadModel')}
       </button>
       {#if downloadFailed}
@@ -556,6 +625,10 @@
   {/if}
   {#if failedText.length > 0}
     <p class="kept">{failedText}</p>
+  {/if}
+
+  {#if exportFailed}
+    <p class="export-error" role="alert" data-sakutto="export-error">{t('pdfExportFailed')}</p>
   {/if}
 
   {#if progress && progress.total > 0}
@@ -631,6 +704,20 @@
     align-items: center;
     gap: var(--space-2);
     margin-left: auto;
+  }
+
+  /* The primary action stays on one line even when the toolbar wraps on a narrow window. */
+  .actions .download {
+    white-space: nowrap;
+  }
+
+  .export-error {
+    max-width: 760px;
+    margin: var(--space-2) auto 0;
+    padding: 0 var(--space-4);
+    color: #b42318;
+    font-size: 12px;
+    text-align: center;
   }
 
   .actions .button[aria-pressed='true'] {

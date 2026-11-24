@@ -10,6 +10,9 @@
  */
 export const PDFJS_ASSET_DIRECTORY = 'vendor/pdfjs';
 
+/** The packaged Japanese font used when writing translated PDFs. */
+export const EXPORT_FONT_PATH = 'vendor/fonts/MPLUS1p-Regular.ttf';
+
 export interface PdfjsAssetUrls {
   /** The library module, imported dynamically. */
   library: string;
@@ -29,6 +32,11 @@ export function resolvePdfjsAssetUrls(extensionUrl: (path: string) => string): P
     cmaps: `${base}/cmaps/`,
     standardFonts: `${base}/standard_fonts/`,
   };
+}
+
+/** Extension-local URL of the font, fetched (never from the network) at export time. */
+export function resolveExportFontUrl(extensionUrl: (path: string) => string): string {
+  return extensionUrl(EXPORT_FONT_PATH as never);
 }
 
 /** The subset of the pdf.js module this extension uses. */

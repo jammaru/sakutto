@@ -70,6 +70,8 @@ export const REQUIRED_ENTRIES = [
   'licenses/onnxruntime-LICENSE.txt',
   'licenses/onnxruntime-ThirdPartyNotices.txt',
   'licenses/PaddleOCR-Apache-2.0.txt',
+  'licenses/pdf-lib-ThirdPartyNotices.txt',
+  'licenses/MPLUS1p-OFL.txt',
   'ocr/pp-ocrv6-chars.txt',
   'ocr/ort/ThirdPartyNotices.txt',
   'ocr/ort/ort.wasm.min.mjs',
@@ -92,6 +94,9 @@ export const REQUIRED_ENTRIES = [
   'vendor/pdfjs/LICENSE-pdfjs.txt',
   'vendor/pdfjs/cmaps/UniJIS-UCS2-H.bcmap',
   'vendor/pdfjs/standard_fonts/FoxitSerif.pfb',
+  // The Japanese face embedded by the translated-PDF export.
+  'vendor/fonts/MPLUS1p-Regular.ttf',
+  'vendor/fonts/font-build.json',
 ] as const;
 
 /**

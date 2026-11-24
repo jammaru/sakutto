@@ -1150,6 +1150,27 @@
   "pdfTranslatedPane": {
     "message": "Перевод"
   },
+  "pdfDownloadTranslated": {
+    "message": "Скачать переведённый PDF",
+    "description": "Toolbar button that saves the translated document as a PDF."
+  },
+  "pdfExporting": {
+    "message": "Подготовка PDF…"
+  },
+  "pdfExportFailed": {
+    "message": "Не удалось создать PDF. Попробуйте ещё раз."
+  },
+  "pdfExportWaiting": {
+    "message": "Завершение перевода для PDF: $DONE$ / $TOTAL$ стр.",
+    "placeholders": {
+      "done": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
   "pdfChooseFile": {
     "message": "Выбрать файл PDF"
   },

@@ -1150,6 +1150,27 @@
   "pdfTranslatedPane": {
     "message": "คำแปล"
   },
+  "pdfDownloadTranslated": {
+    "message": "ดาวน์โหลด PDF ที่แปลแล้ว",
+    "description": "Toolbar button that saves the translated document as a PDF."
+  },
+  "pdfExporting": {
+    "message": "กำลังเตรียม PDF…"
+  },
+  "pdfExportFailed": {
+    "message": "สร้าง PDF ไม่ได้ กรุณาลองอีกครั้ง"
+  },
+  "pdfExportWaiting": {
+    "message": "กำลังทำให้การแปลเสร็จสำหรับ PDF: $DONE$ / $TOTAL$ หน้า",
+    "placeholders": {
+      "done": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
   "pdfChooseFile": {
     "message": "เลือกไฟล์ PDF"
   },

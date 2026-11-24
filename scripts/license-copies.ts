@@ -19,6 +19,8 @@ export const LICENSE_FILE_COPIES = [
   'onnxruntime-LICENSE.txt',
   'onnxruntime-ThirdPartyNotices.txt',
   'PaddleOCR-Apache-2.0.txt',
+  'pdf-lib-ThirdPartyNotices.txt',
+  'MPLUS1p-OFL.txt',
 ] as const;
 
 const UTF8_BOM = Buffer.from([0xef, 0xbb, 0xbf]);

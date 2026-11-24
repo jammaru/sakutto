@@ -1150,6 +1150,27 @@
   "pdfTranslatedPane": {
     "message": "Traduction"
   },
+  "pdfDownloadTranslated": {
+    "message": "Télécharger le PDF traduit",
+    "description": "Toolbar button that saves the translated document as a PDF."
+  },
+  "pdfExporting": {
+    "message": "Préparation du PDF…"
+  },
+  "pdfExportFailed": {
+    "message": "Impossible de créer le PDF. Veuillez réessayer."
+  },
+  "pdfExportWaiting": {
+    "message": "Finalisation de la traduction pour le PDF : $DONE$ / $TOTAL$ pages",
+    "placeholders": {
+      "done": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
   "pdfChooseFile": {
     "message": "Choisir un fichier PDF"
   },

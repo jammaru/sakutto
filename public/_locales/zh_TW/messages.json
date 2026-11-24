@@ -1150,6 +1150,27 @@
   "pdfTranslatedPane": {
     "message": "譯文"
   },
+  "pdfDownloadTranslated": {
+    "message": "下載翻譯後的 PDF",
+    "description": "Toolbar button that saves the translated document as a PDF."
+  },
+  "pdfExporting": {
+    "message": "正在產生 PDF…"
+  },
+  "pdfExportFailed": {
+    "message": "無法產生 PDF，請再試一次。"
+  },
+  "pdfExportWaiting": {
+    "message": "正在完成 PDF 翻譯：$DONE$ / $TOTAL$ 頁",
+    "placeholders": {
+      "done": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
   "pdfChooseFile": {
     "message": "選擇 PDF 檔案"
   },

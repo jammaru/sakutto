@@ -1150,6 +1150,27 @@
   "pdfTranslatedPane": {
     "message": "번역"
   },
+  "pdfDownloadTranslated": {
+    "message": "번역된 PDF 다운로드",
+    "description": "Toolbar button that saves the translated document as a PDF."
+  },
+  "pdfExporting": {
+    "message": "PDF 준비 중…"
+  },
+  "pdfExportFailed": {
+    "message": "PDF를 만들지 못했습니다. 다시 시도해 주세요."
+  },
+  "pdfExportWaiting": {
+    "message": "PDF 내보내기를 위해 번역 완료 중: $DONE$ / $TOTAL$ 페이지",
+    "placeholders": {
+      "done": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
   "pdfChooseFile": {
     "message": "PDF 파일 선택"
   },

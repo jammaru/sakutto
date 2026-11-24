@@ -19,6 +19,8 @@ Sakutto
 - Dawn emdawnwebgpu JavaScript library — BSD-3-Clause — Copyright 2017-2026 The Dawn & Tint Authors。全文: licenses/dawn-LICENSE.txt
 - pdf.js — Apache License 2.0 — Copyright Mozilla Foundation。全文: vendor/pdfjs/LICENSE-pdfjs.txt。あわせて CMaps（vendor/pdfjs/LICENSE-cmaps.txt）と標準フォントの代替（vendor/pdfjs/LICENSE-foxit.txt、vendor/pdfjs/LICENSE-liberation.txt）を同梱します。
 - ONNX Runtime 1.31.1 — MIT License — Copyright (c) Microsoft Corporation。全文: licenses/onnxruntime-LICENSE.txt。WASM と JavaScript を拡張パッケージに含みます。
+- pdf-lib 1.17.1 と @pdf-lib/fontkit 1.1.1（依存を含む）— MIT / 0BSD — 翻訳後の PDF の書き出しにバンドルします。全文: licenses/pdf-lib-ThirdPartyNotices.txt。
+- M PLUS 1p Regular（google/fonts の ofl/mplus1p）— SIL Open Font License 1.1 — 全文: licenses/MPLUS1p-OFL.txt。書き出す PDF に埋め込む日本語フォントです。
 
 ベンチ用の文章:
 - scripts/bench/fixtures/kyoto.html は、英語版 Wikipedia の記事「Kyoto」を改変したローカル計測用の写しです。拡張パッケージには含めません。`scripts/verify-package.ts` は、zip に `kyoto.html` または `scripts/bench/` が入っていると失敗します。

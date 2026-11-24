@@ -1158,6 +1158,27 @@
   "pdfTranslatedPane": {
     "message": "Translated"
   },
+  "pdfDownloadTranslated": {
+    "message": "Download translated PDF",
+    "description": "Toolbar button that saves the translated document as a PDF."
+  },
+  "pdfExporting": {
+    "message": "Preparing PDF…"
+  },
+  "pdfExportFailed": {
+    "message": "Could not create the PDF. Please try again."
+  },
+  "pdfExportWaiting": {
+    "message": "Finishing translation for the PDF: $DONE$ / $TOTAL$ pages",
+    "placeholders": {
+      "done": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
   "pdfChooseFile": {
     "message": "Choose a PDF file"
   },

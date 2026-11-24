@@ -1150,6 +1150,27 @@
   "pdfTranslatedPane": {
     "message": "译文"
   },
+  "pdfDownloadTranslated": {
+    "message": "下载翻译后的 PDF",
+    "description": "Toolbar button that saves the translated document as a PDF."
+  },
+  "pdfExporting": {
+    "message": "正在生成 PDF…"
+  },
+  "pdfExportFailed": {
+    "message": "无法生成 PDF，请重试。"
+  },
+  "pdfExportWaiting": {
+    "message": "正在完成 PDF 翻译：$DONE$ / $TOTAL$ 页",
+    "placeholders": {
+      "done": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
   "pdfChooseFile": {
     "message": "选择 PDF 文件"
   },

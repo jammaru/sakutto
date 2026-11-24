@@ -1158,6 +1158,27 @@
   "pdfTranslatedPane": {
     "message": "翻訳"
   },
+  "pdfDownloadTranslated": {
+    "message": "翻訳後のPDFをダウンロード",
+    "description": "Toolbar button that saves the translated document as a PDF."
+  },
+  "pdfExporting": {
+    "message": "PDF を作成中…"
+  },
+  "pdfExportFailed": {
+    "message": "PDF を作成できませんでした。もう一度お試しください。"
+  },
+  "pdfExportWaiting": {
+    "message": "PDF 用に翻訳を完了中: $DONE$ / $TOTAL$ ページ",
+    "placeholders": {
+      "done": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
   "pdfChooseFile": {
     "message": "PDF ファイルを選ぶ"
   },

@@ -22,6 +22,7 @@ import { withoutPageBackground } from './figures';
 import { COVER_PAD_TOP_EM, HINTING_PAD_PX, coverPaintLayout, drawnBox } from './place';
 import { coverStyle, READER_STYLE, TextMeasurer } from './render';
 import { extractPage, renderPage, type PdfDocument } from './extract';
+import { pngBytesFromDataUrl, type ExportBlock, type ExportPage } from './export';
 import type { TextLine } from './lines';
 import { PdfSession, traitsOf, type BlockState, type PdfEngine } from './session';
 
@@ -185,7 +186,7 @@ export class PdfReader {
   private readonly resizeObserver: ResizeObserver | null;
   private readonly geometries: PageGeometry[];
   private readonly geometryByIndex: ReadonlyMap<number, PageGeometry>;
-  private readonly pageLimit: number | null;
+  private pageLimit: number | null;
   private readonly ops: Record<string, number> | null;
   private readonly ocr: { recognize: PdfOcrRecognize; tier?: OcrTier } | null;
   private pageOcr: PdfPageOcr | null = null;
@@ -1412,6 +1413,85 @@ export class PdfReader {
   /** Pages whose text has been parsed so far. */
   parsedPages(): number[] {
     return [...this.parsed].sort((left, right) => left - right);
+  }
+
+  /**
+   * Brings the whole document up to date before an export.
+   *
+   * The reader normally parses and translates only what a reader scrolls to. A saved PDF has to
+   * contain every page, so the page limit is lifted for the duration of the export and the
+   * toolbar keeps receiving the same progress it showed during normal reading. A cancelled or
+   * timed-out wait restores the previous limit and leaves the reader usable.
+   */
+  async prepareExport(options: { signal?: AbortSignal; timeoutMs?: number } = {}): Promise<void> {
+    if (this.destroyed) throw new Error('the reader is closed');
+    const previousLimit = this.pageLimit;
+    const wasVisible = this.visible;
+    const deadline = Date.now() + (options.timeoutMs ?? 15 * 60_000);
+    this.pageLimit = null;
+    this.visible = true;
+    try {
+      while (!this.destroyed) {
+        if (options.signal?.aborted) throw new DOMException('Export cancelled', 'AbortError');
+        const unfinished = this.parsed.size < this.geometries.length;
+        if (!unfinished && this.session.progress().pending === 0) return;
+        if (Date.now() > deadline) throw new Error('translation did not finish in time');
+        if (this.parsing === null) void this.parseNext();
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+      throw new Error('the reader was closed while exporting');
+    } finally {
+      this.pageLimit = previousLimit;
+      this.visible = wasVisible;
+    }
+  }
+
+  /**
+   * Snapshots every page: pdf.js's own bitmap plus the translation boxes the reader painted.
+   *
+   * The page limit is not consulted here; if a page was never parsed it is exported as the
+   * original, which is why `prepareExport` must complete first. OCR pages need no special case:
+   * their boxes came from the same OCR layout the viewer used.
+   */
+  async exportPages(scale = 2): Promise<ExportPage[]> {
+    const pages: ExportPage[] = [];
+    for (const geometry of this.geometries) {
+      if (this.destroyed) throw new Error('the reader is closed');
+      const page = await this.document.getPage(geometry.index + 1);
+      const canvas = document.createElement('canvas');
+      await renderPage(page, scale, canvas, { maxDimension: 4096 }).promise;
+      const image = pngBytesFromDataUrl(canvas.toDataURL('image/png'));
+      const blocks: ExportBlock[] = [];
+      for (const state of this.session.pageBlocks(geometry.index)) {
+        const translation = state.translation.trim();
+        const fit = state.fit;
+        if (translation.length === 0 || fit === null || state.intentionallyKept === true) continue;
+        const lines = fit.lines;
+        if (lines.length === 0) continue;
+        // An overflowed block has no painted cover in the reader; its full translation is still
+        // written into the file, with a cover that grows to hold every line.
+        const drawn = state.paint ? drawnBox(state.block, fit, fit.width, geometry.width) : null;
+        blocks.push({
+          source: state.block.box,
+          drawn,
+          translation,
+          lines,
+          fontSize: fit.fontSize,
+          lineHeight: fit.lineHeight,
+          align: state.block.align,
+          traits: traitsOf(state.block),
+          writing: state.block.writing,
+        });
+      }
+      pages.push({
+        index: geometry.index,
+        width: geometry.width,
+        height: geometry.height,
+        image,
+        blocks,
+      });
+    }
+    return pages;
   }
 }
 

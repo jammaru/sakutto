@@ -1150,6 +1150,27 @@
   "pdfTranslatedPane": {
     "message": "Terjemahan"
   },
+  "pdfDownloadTranslated": {
+    "message": "Unduh PDF hasil terjemahan",
+    "description": "Toolbar button that saves the translated document as a PDF."
+  },
+  "pdfExporting": {
+    "message": "Menyiapkan PDF…"
+  },
+  "pdfExportFailed": {
+    "message": "Gagal membuat PDF. Silakan coba lagi."
+  },
+  "pdfExportWaiting": {
+    "message": "Menyelesaikan terjemahan untuk PDF: $DONE$ / $TOTAL$ halaman",
+    "placeholders": {
+      "done": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
   "pdfChooseFile": {
     "message": "Pilih berkas PDF"
   },

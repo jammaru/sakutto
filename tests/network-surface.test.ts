@@ -176,9 +176,27 @@ describe('network surface', () => {
       'src/captions/timedtext.ts',
       'src/engine/local-server/client.ts',
       'src/engine/model/download.ts',
+      // Only to read the packaged export font, through `browser.runtime.getURL`.
+      'src/entrypoints/reader/App.svelte',
     ]);
   });
 
+  /**
+   * The PDF writer's Japanese font is a packaged file. The reader may fetch that one URL,
+   * but the call must stay inside the extension origin and carry no request data.
+   */
+  it('reads the export font only from the extension package', () => {
+    const reader = files.find((file) => file.path === 'src/entrypoints/reader/App.svelte');
+    if (!reader) throw new Error('reader App.svelte was not found');
+    const calls = [...reader.code.matchAll(/\bfetch\(([^;]*?)\);/gu)].map(
+      (match) => match[1] ?? '',
+    );
+    expect(calls.length).toBe(1);
+    expect(calls[0]).toContain('resolveExportFontUrl');
+    expect(calls[0]).not.toMatch(/https?:|credentials:|\bmethod\s*:|\bbody\s*:/u);
+    const assets = files.find((file) => file.path === 'src/pdf/assets.ts');
+    expect(assets?.code).toContain('return extensionUrl(EXPORT_FONT_PATH as never)');
+  });
   it('fetches timedtext without a body and only same-origin credentials', () => {
     const timedtext = files.find((file) => file.path === 'src/captions/timedtext.ts');
     if (!timedtext) throw new Error('timedtext.ts was not found');

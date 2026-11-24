@@ -1150,6 +1150,27 @@
   "pdfTranslatedPane": {
     "message": "Bản dịch"
   },
+  "pdfDownloadTranslated": {
+    "message": "Tải xuống PDF đã dịch",
+    "description": "Toolbar button that saves the translated document as a PDF."
+  },
+  "pdfExporting": {
+    "message": "Đang chuẩn bị PDF…"
+  },
+  "pdfExportFailed": {
+    "message": "Không thể tạo PDF. Vui lòng thử lại."
+  },
+  "pdfExportWaiting": {
+    "message": "Đang hoàn tất bản dịch cho PDF: $DONE$ / $TOTAL$ trang",
+    "placeholders": {
+      "done": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
   "pdfChooseFile": {
     "message": "Chọn tệp PDF"
   },
