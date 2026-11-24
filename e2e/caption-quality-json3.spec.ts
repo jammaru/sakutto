@@ -339,6 +339,45 @@ test('long track stays bounded with no initial whole-track engine burst', async 
   }
 });
 
+test('a seek beyond the prefetch window paints the destination cue', async () => {
+  test.setTimeout(60_000);
+  const { extension, page } = await openJson3Fixture({ longTrack: true });
+  try {
+    await driveJson3Replay(page, [
+      // Warm only the first cue: the destination is never reached by prefetch.
+      { phase: 'warm', seekMs: 0, play: true, dwellMs: 300 },
+      { phase: 'far-seek', seekMs: 20_000, play: true, dwellMs: 4_000 },
+    ]);
+    const recording = await readJson3Recording(page);
+    const destinationPaints = recording.transitions.filter(
+      (transition) =>
+        transition.phase === 'far-seek' &&
+        transition.visible &&
+        !transition.censored &&
+        normalizeJson3Caption(transition.original).includes('Long track cue 4'),
+    );
+    const failures: string[] = [];
+    const destinationErrors = recording.requests.filter(
+      (request) =>
+        request.phase === 'far-seek' &&
+        request.action === 'finish' &&
+        request.reason === 'error' &&
+        normalizeJson3Caption(request.sourceText).includes('Long track cue 4'),
+    );
+    if (destinationErrors.length > 0)
+      failures.push('seek destination translation was aborted by the generation change');
+    if (destinationPaints.length === 0)
+      failures.push('seek destination original was never painted');
+    if (!destinationPaints.some((paint) => paint.caption.trim().length > 0))
+      failures.push('seek destination translation was never painted');
+    await saveReplayArtifacts('far-seek', { failures, destinationPaints }, recording);
+    console.log('json3 far-seek destination paints', destinationPaints.length, failures);
+    expect(failures).toEqual([]);
+  } finally {
+    await extension.close();
+  }
+});
+
 test('live incremental ASR never enters the VOD scheduler', async () => {
   test.setTimeout(35_000);
   const { extension, page, requests } = await openJson3Fixture({ live: true });

@@ -380,6 +380,24 @@ interface CaptionWindowSnapshot {
 
 const captionWindowSnapshots = new WeakMap<Element, CaptionWindowSnapshot>();
 
+function sameCaptionTexts(left: readonly string[], right: readonly string[]): boolean {
+  return left.length === right.length && left.every((text, index) => text === right[index]);
+}
+
+/** Roll-up grows the text already on screen; a pop-on cue replaces every line. */
+function continuesCaptionText(previous: readonly string[], current: readonly string[]): boolean {
+  if (previous.length === 0 || current.length === 0) return false;
+  const before = previous.join(' ');
+  const after = current.join(' ');
+  if (after.startsWith(before) && after.length > before.length) return true;
+  // Roll-up scrolls completed lines off the top: the retained suffix continues.
+  for (let count = Math.min(previous.length, current.length) - 1; count >= 1; count -= 1) {
+    const suffix = previous.slice(-count).join(' ');
+    if (after.startsWith(suffix) && after.length > suffix.length) return true;
+  }
+  return false;
+}
+
 function captionWindowText(window: Element): string {
   const segments = [...window.querySelectorAll(YOUTUBE_CAPTION_SEGMENT_SELECTOR)].filter(
     (segment) => !segment.closest(CAPTION_HOST_TAG),
@@ -397,16 +415,24 @@ function captionWindowText(window: Element): string {
   const appended = segments.some((segment) => !previousNodes.has(segment));
   const removed = (previous?.segments ?? []).some((segment) => !currentNodes.has(segment));
 
-  // A cue appearing from an empty window is simultaneous pop-on. Once roll-up
-  // appends/removes fragment nodes, only the newest active fragment is current.
+  const nodesChanged = appended || removed;
+  const sameText = previous !== undefined && sameCaptionTexts(previous.texts, texts);
+  const rollUp = previous !== undefined && continuesCaptionText(previous.texts, texts);
+
+  // A cue appearing from an empty window is simultaneous pop-on. Roll-up grows
+  // the same text one fragment at a time, while a new pop-on cue replaces every
+  // line. YouTube may recreate the segment nodes for either, so node identity
+  // alone must not drop the first line of a multi-line pop-on cue.
   const join =
     previous === undefined
       ? texts.length > 1
       : previous.texts.length === 0
-        ? !appended && !removed
-        : appended || removed
-          ? false
-          : previous.join;
+        ? !nodesChanged
+        : !nodesChanged || sameText
+          ? previous.join
+          : rollUp
+            ? false
+            : texts.length > 1;
   captionWindowSnapshots.set(window, { segments, texts, join });
   return join ? texts.join(' ') : current;
 }

@@ -2479,6 +2479,121 @@ The station opens at dawn.
     session.stop();
   });
 
+  it('paints the destination cue after seeking beyond the VOD prefetch window', async () => {
+    const firstWords = [
+      'alpha',
+      'bravo',
+      'charlie',
+      'delta',
+      'echo',
+      'foxtrot',
+      'golf',
+      'hotel',
+      'india',
+      'juliet',
+    ];
+    const secondWords = [
+      'station',
+      'platform',
+      'window',
+      'garden',
+      'market',
+      'bridge',
+      'tunnel',
+      'library',
+      'museum',
+      'harbor',
+    ];
+    const lines = Array.from(
+      { length: 40 },
+      (_, index) =>
+        `${firstWords[index % firstWords.length]} ${
+          secondWords[Math.floor(index / firstWords.length) % secondWords.length]
+        } cue speaks here today.`,
+    );
+    const events = lines.map((text, index) => ({
+      tStartMs: index * 4_000,
+      dDurationMs: 2_000,
+      segs: [{ utf8: text, tOffsetMs: 0 }],
+    }));
+    document.body.innerHTML = `
+      <div id="movie_player">
+        <video id="player" class="html5-main-video"></video>
+        <div class="ytp-caption-window-container">
+          <span class="ytp-caption-segment">${lines[0]}</span>
+        </div>
+      </div>
+      <script>
+        var ytInitialPlayerResponse = {
+          "captions": {
+            "playerCaptionsTracklistRenderer": {
+              "captionTracks": [{
+                "baseUrl": "/youtube-timedtext.json",
+                "languageCode": "en",
+                "name": { "simpleText": "English" }
+              }]
+            }
+          }
+        };
+      </script>
+    `;
+    const video = document.querySelector('video');
+    if (video) {
+      Object.defineProperty(video, 'paused', { configurable: true, get: () => false });
+      video.currentTime = 0.4;
+    }
+
+    const started: string[] = [];
+    const delayed: PageEngine = {
+      async *translate(segments, options) {
+        const text = segments[0]?.text ?? '';
+        started.push(text);
+        await new Promise((resolve) => setTimeout(resolve, 40));
+        for (const segment of segments) {
+          yield {
+            id: segment.id,
+            final: fakeTranslateText(segment.text, options.tgt),
+            engine: 'plamo',
+          };
+        }
+      },
+    };
+    const session = new VideoCaptionSession(document, {
+      engine: delayed,
+      labels,
+      preferences: {
+        enabled: true,
+        targetLanguage: 'ja',
+        form: 'polite',
+        display: 'bilingual',
+        tier: 'g',
+      },
+      readTrack: async () => JSON.stringify({ events }),
+    });
+    session.start();
+    const host = () => document.querySelector('sakutto-captions');
+    await vi.waitFor(() => {
+      expect(host()?.getAttribute('data-sakutto-original')).toBe(lines[0]);
+    });
+
+    // This destination is far outside the prefetch window from the initial playhead,
+    // so its translation only starts when the seek reconciles the VOD scheduler.
+    const destinationIndex = 20;
+    const destination = lines[destinationIndex] ?? '';
+    if (video) video.currentTime = destinationIndex * 4 + 0.4;
+    window.dispatchEvent(new Event('seeking', { bubbles: true }));
+    window.dispatchEvent(new Event('seeked', { bubbles: true }));
+
+    await vi.waitFor(() => {
+      expect(host()?.getAttribute('data-sakutto-original')).toBe(destination);
+      expect(host()?.getAttribute('data-sakutto-caption')).toBe(
+        fakeTranslateText(destination, 'ja'),
+      );
+    });
+    expect(started).toContain(destination);
+    session.stop();
+  });
+
   it('keeps overlay type at YouTube size when the video rect collapses', async () => {
     document.body.innerHTML = `
       <div id="movie_player" class="html5-video-player">

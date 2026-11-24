@@ -474,6 +474,15 @@ export class VideoCaptionSession {
     this.clearHold();
     this.activeCueId = '';
     const timeMs = this.playheadMs();
+    const view = this.doc.defaultView;
+    // Abort stale work before the VOD scheduler starts warming the new playhead.
+    // translator.seek() drops in-flight jobs, so a destination cue submitted first
+    // would be cancelled in the new generation and never reach the display cache.
+    if (this.seekPaintTimer !== null) {
+      view?.clearTimeout(this.seekPaintTimer);
+    } else {
+      this.translator.seek();
+    }
     if (this.loaded?.source === 'vod-json3') {
       this.vodDisplay.seek(timeMs);
       this.vodPrefetch?.seek(timeMs, this.video?.playbackRate ?? 1);
@@ -486,12 +495,6 @@ export class VideoCaptionSession {
       timeMs,
       hold: this.hold?.cueId ?? '',
     });
-    const view = this.doc.defaultView;
-    if (this.seekPaintTimer !== null) {
-      view?.clearTimeout(this.seekPaintTimer);
-    } else {
-      this.translator.seek();
-    }
     this.seekPaintTimer =
       view?.setTimeout(() => {
         this.seekPaintTimer = null;
