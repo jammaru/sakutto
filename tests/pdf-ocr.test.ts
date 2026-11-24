@@ -1577,6 +1577,39 @@ describe('latest DSH review blockers', () => {
       expect(layout.blocks.map((block) => block.column)).toEqual([0, 1]);
     });
 
+    it('B1: identical 2+2 geometry with one sentence per row stays in source order', () => {
+      // Exactly the positive case's x positions (45/166/287/408, 6pt gaps, aligned edges), but
+      // each row is one sentence cut into four phrase boxes. The right pair completes the left
+      // pair's clause, so those pairs are not independent column snippets.
+      const options = { pageIndex: 0, pageWidth: 600, pageHeight: 800 };
+      const row = (y: number, phrases: readonly string[]) => [
+        region(phrases[0]!, quad(45, y, 115, 20)),
+        region(phrases[1]!, quad(166, y, 115, 20)),
+        region(phrases[2]!, quad(287, y, 115, 20)),
+        region(phrases[3]!, quad(408, y, 115, 20)),
+      ];
+      const first = row(100, ['The measured', 'density values', 'remain stable', 'across runs.']);
+      const second = row(130, ['Repeated scans', 'of the sample', 'yield similar', 'results.']);
+      const result = ocrResult(
+        [...first, ...second],
+        [readingLine('horizontal', first), readingLine('horizontal', second)],
+      );
+
+      const lines = ocrResultToTextLines(result, options);
+      expect(lines.map((line) => line.text)).toEqual([
+        first.map((item) => item.text).join(' '),
+        second.map((item) => item.text).join(' '),
+      ]);
+      expect(lines).toHaveLength(2);
+      expect(lines.every((line) => line.columnHint === undefined)).toBe(true);
+
+      const layout = ocrResultToPageLayout(result, options);
+      expect(layout.blocks.every((block) => block.column === 0)).toBe(true);
+      expect(layout.blocks.map((block) => block.text).join(' ')).toBe(
+        [...first, ...second].map((item) => item.text).join(' '),
+      );
+    });
+
     it('B1: equal 6pt phrase gaps with unaligned edges stay two single-column rows', () => {
       // Four phrase regions per row can look like two 2-word columns when every gap is 6pt. Without
       // column edges that line up across rows (or a central gap wider than the internal ones), the

@@ -111,6 +111,6 @@ PDF 翻訳を「動く」から「読める」に変えるため、抽出・段�
 
 ## 確認
 
-- `pnpm lint`, `pnpm typecheck` (0 errors / 1 warning), `pnpm test` (215 files, 3,124 passed, 1 skipped), `pnpm format:check`, `pnpm i18n:check` がすべて成功。
+- `pnpm lint`, `pnpm typecheck` (0 errors / 1 warning), `pnpm test` (215 files, 3,125 passed, 1 skipped), `pnpm format:check`, `pnpm i18n:check` がすべて成功。
 - `pnpm bench:pdf:quality --label final --shots --no-download` を再実行し、レポートとスクリーンショットを更新。`baseline.json` は現行指標の参照用で、履歴のlegacy行のみ旧指標のcontext。
 - 権限モデル・シークレット・ Manifest に変更なし。
