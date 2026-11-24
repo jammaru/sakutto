@@ -1,4 +1,4 @@
-import { boxBottom, boxRight, unionBox, type Box } from './geometry';
+import { boxBottom, boxRight, intersectionArea, unionBox, type Box } from './geometry';
 import type { TextLine } from './lines';
 import type { PdfOperatorList } from './extract';
 import { isCaptionLine } from './layout';
@@ -20,6 +20,14 @@ import { isCaptionLine } from './layout';
 export interface FigureAreas {
   /** Rects a raster image was painted into, in page units with the origin top-left. */
   images: Box[];
+  /**
+   * The raster-only part of images, when the caller can tell the two apart.
+   *
+   * figureAreas() fills this because images also holds vector path clusters: a page of
+   * large vector drawings must never look like a scanned background. Hand-built areas may
+   * omit it, in which case every images box is treated as a raster.
+   */
+  rasters?: Box[];
 }
 
 /** A 2D affine transform in pdf.js's `[a, b, c, d, e, f]` order. */
@@ -95,7 +103,7 @@ export function figureAreas(
 ): FigureAreas {
   if (!operators || !ops) return { images: [] };
 
-  const images: Box[] = [];
+  const rasters: Box[] = [];
   const paths: Box[] = [];
   const forms: Box[] = [];
   const stack: Matrix[] = [];
@@ -223,7 +231,7 @@ export function figureAreas(
     // An image is drawn as the unit square under the CTM in force at that point.
     const rect = unitSquare(ctm);
     if (rect.width < 4 || rect.height < 4) continue;
-    images.push(flip(rect, pageHeight));
+    rasters.push(flip(rect, pageHeight));
   }
 
   // Decide whether a cluster is a figure from the drawing it actually paints. Shrinking a
@@ -233,8 +241,10 @@ export function figureAreas(
   const clusters = raw
     .filter((box) => isPlausibleFigure(box, pageWidth, pageHeight) && !coversMostText(box, lines))
     .map((box) => withoutCaptionLines(box, lines));
-  const pictures = [...images.map((box) => withoutCaptionLines(box, lines)), ...clusters];
-  return { images: mergeContained(pictures) };
+  const rasterPictures = rasters.map((box) => withoutCaptionLines(box, lines));
+  // Keep a drawing even when a page-sized raster covers it: when that raster is later
+  // discarded as the scan background, the drawing must still protect its native labels.
+  return { images: [...rasterPictures, ...mergeContained(clusters)], rasters: rasterPictures };
 }
 
 /**
@@ -527,12 +537,66 @@ export function figureBounds(areas: FigureAreas): Box | null {
   return unionBox(areas.images);
 }
 
+/** Rasters only: vector clusters share `images` but are not scanned pixels. */
+function rastersOf(figures: FigureAreas): readonly Box[] {
+  return figures.rasters ?? figures.images;
+}
+
+/** A raster box limited to the page, since a scan can extend past its crop box. */
+function onPage(box: Box, pageWidth: number, pageHeight: number): Box | null {
+  const x = Math.max(0, box.x);
+  const y = Math.max(0, box.y);
+  const width = Math.min(pageWidth, boxRight(box)) - x;
+  const height = Math.min(pageHeight, boxBottom(box)) - y;
+  return width > 0 && height > 0 ? { x, y, width, height } : null;
+}
+
 /**
- * Share of a page covered by its raster boxes.
+ * Area of the union of boxes, counting overlapping pixels only once.
+ *
+ * A vertical sweep keeps the work proportional to the number of edges; summing box areas
+ * instead would report a page tiled with overlapping scans as more than 100% covered and,
+ * worse, would let a few large figures together look like a scan.
+ */
+function coveredArea(boxes: readonly Box[]): number {
+  if (boxes.length === 0) return 0;
+  const edges = [...new Set(boxes.flatMap((box) => [box.x, boxRight(box)]))].sort(
+    (left, right) => left - right,
+  );
+  let area = 0;
+  for (let index = 0; index + 1 < edges.length; index += 1) {
+    const left = edges[index];
+    const right = edges[index + 1];
+    if (left === undefined || right === undefined || right <= left) continue;
+    const spans = boxes
+      .filter((box) => box.x <= left && boxRight(box) >= right)
+      .map((box) => ({ top: box.y, bottom: boxBottom(box) }))
+      .sort((first, second) => first.top - second.top);
+    let covered = 0;
+    let top = 0;
+    let bottom = 0;
+    for (const span of spans) {
+      if (covered > 0 && span.top > bottom) {
+        top = span.top;
+        bottom = span.bottom;
+      } else {
+        if (covered === 0) top = span.top;
+        bottom = Math.max(bottom, span.bottom);
+      }
+      covered = bottom - top;
+    }
+    area += (right - left) * covered;
+  }
+  return area;
+}
+
+/**
+ * Share of a page covered by the union of its raster boxes.
  *
  * Scans are routinely split into tiles whose individual boxes stay below any single-image
- * threshold, so the areas of *all* boxes are added up — the same coverage the OCR gate uses
- * before it decides a page needs a scan pass.
+ * threshold, so the union of *all* rasters is measured — the same coverage the OCR gate uses
+ * before it decides a page needs a scan pass. Vector clusters are not rasters and cannot push
+ * a page of ordinary figures over the gate.
  */
 export function rasterCoverage(
   figures: FigureAreas,
@@ -540,45 +604,135 @@ export function rasterCoverage(
   pageHeight: number,
 ): number {
   if (pageWidth <= 0 || pageHeight <= 0) return 0;
-  const pageArea = Math.max(1, pageWidth * pageHeight);
-  const rasterArea = figures.images.reduce(
-    (sum, image) => sum + Math.max(0, image.width) * Math.max(0, image.height),
-    0,
-  );
-  return rasterArea / pageArea;
+  const rasters = rastersOf(figures)
+    .map((box) => onPage(box, pageWidth, pageHeight))
+    .filter((box): box is Box => box !== null);
+  return coveredArea(rasters) / Math.max(1, pageWidth * pageHeight);
 }
 
 /** Raster coverage at or above which the images are the scan of the page, not drawings on it. */
 export const PAGE_BACKGROUND_COVERAGE = 0.8;
 
+/** Tiles can have a hairline gap where two scan strips meet. */
+const SCAN_TILE_GAP = 2;
+/** A raster reaching this share of both page dimensions is a page-sized scan on its own. */
+const SCAN_PAGE_SHARE = 0.9;
+
+interface PageRaster {
+  /** The box from FigureAreas, returned unchanged when it is background. */
+  original: Box;
+  /** The same box clipped to the page, used for all area measurements. */
+  box: Box;
+  area: number;
+}
+
+function pageRasters(figures: FigureAreas, pageWidth: number, pageHeight: number): PageRaster[] {
+  const tiles: PageRaster[] = [];
+  for (const original of rastersOf(figures)) {
+    const box = onPage(original, pageWidth, pageHeight);
+    if (box) tiles.push({ original, box, area: box.width * box.height });
+  }
+  return tiles;
+}
+
+/**
+ * True when a raster is laid out like part of a scan, rather than a drawing on the page.
+ *
+ * Scans are cut into strips or blocks that reach the page edges, or cover nearly the whole
+ * page when inset. A partial figure sits inside the page with a margin; it protects its own
+ * native labels even when a scan covers the rest of the page.
+ */
+function isScanTile(box: Box, pageWidth: number, pageHeight: number): boolean {
+  if (box.width >= pageWidth * SCAN_PAGE_SHARE && box.height >= pageHeight * SCAN_PAGE_SHARE) {
+    return true;
+  }
+  return (
+    Math.abs(box.x) <= SCAN_TILE_GAP ||
+    Math.abs(box.y) <= SCAN_TILE_GAP ||
+    Math.abs(boxRight(box) - pageWidth) <= SCAN_TILE_GAP ||
+    Math.abs(boxBottom(box) - pageHeight) <= SCAN_TILE_GAP
+  );
+}
+
+/** Groups rasters into connected clusters, so a scan in one corner is judged on its own. */
+function connectedRasters(tiles: readonly PageRaster[]): PageRaster[][] {
+  const remaining = [...tiles];
+  const clusters: PageRaster[][] = [];
+  while (remaining.length > 0) {
+    const cluster = [remaining.shift()!];
+    let grew = true;
+    while (grew) {
+      grew = false;
+      for (let index = remaining.length - 1; index >= 0; index -= 1) {
+        const candidate = remaining[index];
+        if (candidate && cluster.some((tile) => nearby(tile.box, candidate.box, SCAN_TILE_GAP))) {
+          cluster.push(candidate);
+          remaining.splice(index, 1);
+          grew = true;
+        }
+      }
+    }
+    clusters.push(cluster);
+  }
+  return clusters;
+}
+
+/**
+ * The rasters that make up a page-sized scan, never the figures drawn on top of it.
+ *
+ * Only page-edge or near-page-size boxes are scan tiles, and a plausible figure mostly hidden
+ * by another raster is a drawing on the scan rather than another tile. Once the tile union
+ * covers the page, every tile of that coherent cluster is removed — including tiles hidden by
+ * overlap, so no strip is left behind.
+ */
+function pageBackgroundRasters(figures: FigureAreas, pageWidth: number, pageHeight: number): Box[] {
+  if (pageWidth <= 0 || pageHeight <= 0) return [];
+  const pageArea = Math.max(1, pageWidth * pageHeight);
+  const background: Box[] = [];
+  for (const cluster of connectedRasters(pageRasters(figures, pageWidth, pageHeight))) {
+    const tiles = cluster.filter((tile) => {
+      // A drawing painted over the scan can even touch a page edge; it is still a figure, and
+      // its native label must keep being skipped. Scan tiles overlap their neighbours by less.
+      if (
+        tile.area <= pageArea * MAX_FIGURE_PAGE_SHARE &&
+        cluster.some(
+          (other) => other !== tile && intersectionArea(tile.box, other.box) >= tile.area * 0.75,
+        )
+      ) {
+        return false;
+      }
+      return isScanTile(tile.box, pageWidth, pageHeight);
+    });
+    if (tiles.length === 0) continue;
+    const coverage = coveredArea(tiles.map((tile) => tile.box)) / pageArea;
+    if (coverage >= PAGE_BACKGROUND_COVERAGE) {
+      background.push(...tiles.map((tile) => tile.original));
+    }
+  }
+  return background;
+}
+
+function boxKey(box: Box): string {
+  return `${box.x},${box.y},${box.width},${box.height}`;
+}
+
 /**
  * Figures a native layout may use without hiding real text.
  *
  * A page-sized scan (including a tiled or inset one) is the page's background: treating its
- * boxes as figures would mark a native header or caption drawn on the scan as `figure-label`
- * and skip it. Partial figures stay, so their own labels are still left alone.
+ * boxes as figures would mark a native header or caption drawn on the scan as figure-label
+ * and skip it. Normal figures stay, so their own labels are still left alone.
  */
 export function withoutPageBackground(
   figures: FigureAreas,
   pageWidth: number,
   pageHeight: number,
 ): FigureAreas {
-  if (rasterCoverage(figures, pageWidth, pageHeight) < PAGE_BACKGROUND_COVERAGE) return figures;
-  // Largest boxes first: the tiles that actually build the background are the ones needed to
-  // reach page coverage. An unrelated partial figure on the same page is kept as a figure.
-  const target = PAGE_BACKGROUND_COVERAGE * Math.max(1, pageWidth * pageHeight);
-  const bySize = figures.images
-    .map((image, index) => ({
-      index,
-      area: Math.max(0, image.width) * Math.max(0, image.height),
-    }))
-    .sort((left, right) => right.area - left.area);
-  const background = new Set<number>();
-  let covered = 0;
-  for (const entry of bySize) {
-    if (covered >= target) break;
-    background.add(entry.index);
-    covered += entry.area;
-  }
-  return { images: figures.images.filter((_image, index) => !background.has(index)) };
+  const background = new Set(pageBackgroundRasters(figures, pageWidth, pageHeight).map(boxKey));
+  if (background.size === 0) return figures;
+  const keep = (boxes: readonly Box[]): Box[] =>
+    boxes.filter((box) => !background.has(boxKey(box)));
+  const result: FigureAreas = { ...figures, images: keep(figures.images) };
+  if (figures.rasters) result.rasters = keep(figures.rasters);
+  return result;
 }

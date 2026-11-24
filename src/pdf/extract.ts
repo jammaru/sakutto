@@ -1,5 +1,5 @@
 import type { Box } from './geometry';
-import { figureAreas, type FigureAreas } from './figures';
+import { figureAreas, rasterCoverage, type FigureAreas } from './figures';
 import { traitsOfStyle, type FontTraits } from './fonts';
 import { groupLines, isRotated, type TextLine, type TextPiece } from './lines';
 
@@ -194,10 +194,9 @@ export function isImageOnlyPage(
   for (const line of upright) chars += line.text.replace(/\s+/gu, '').length;
   if (chars < 12) return true;
 
-  const pageArea = Math.max(1, width * height);
-  let figureArea = 0;
-  for (const image of figures.images) figureArea += image.width * image.height;
-  return figureArea > pageArea * 0.8 && chars < 80;
+  // Raster-only union coverage: large vector figures are drawings with native labels, not a
+  // scan, and overlapping tiles must not be counted twice. Matches the OCR gate.
+  return rasterCoverage(figures, width, height) > 0.8 && chars < 80;
 }
 
 /** Expands the ligatures and invisible spacing PDF fonts put in glyph runs. */

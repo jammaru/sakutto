@@ -166,6 +166,24 @@ describe('shouldRunPdfOcr', () => {
     );
   });
 
+  it('does not OCR large vector figures as if they were a scan', () => {
+    const figures: FigureAreas = {
+      images: [
+        { x: 0, y: 0, width: PAGE.width, height: 320 },
+        { x: 0, y: 480, width: PAGE.width, height: 320 },
+      ],
+      rasters: [],
+    };
+    expect(
+      shouldRunPdfOcr(
+        [nativeLine('A normal document page has useful prose.')],
+        figures,
+        PAGE.width,
+        PAGE.height,
+      ),
+    ).toBe(false);
+  });
+
   it('keeps OCRing a mixed page whose native text is only a sparse header and footer', () => {
     const nativeAt = (y: number): TextLine =>
       lineFrom([
