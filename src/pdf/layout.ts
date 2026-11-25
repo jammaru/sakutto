@@ -1,6 +1,11 @@
 import { boxBottom, boxRight, median, unionBox, type Box } from './geometry';
 import { insideFigure, type FigureAreas } from './figures';
-import { gutterCandidates, horizontalGaps, groupByBaseline } from './gaps';
+import {
+  gutterCandidates,
+  horizontalGaps,
+  groupByBaseline,
+  staggeredGutterCandidates,
+} from './gaps';
 import {
   isBylineLabel,
   isFirstPageIdentity,
@@ -39,6 +44,13 @@ export type BlockAlign = 'left' | 'center' | 'right';
  * area its source filled, on the same column and under the same heading, instead of being
  * appended to a text flow that has forgotten where anything was.
  */
+export interface FloatInset {
+  /** Horizontal cutout from `box.x` on the top-left of the block, in page points. */
+  width: number;
+  /** Vertical cutout from `box.y` down to the first full-width line, in page points. */
+  height: number;
+}
+
 export interface LayoutBlock {
   box: Box;
   /**
@@ -79,6 +91,8 @@ export interface LayoutBlock {
   advance: number;
   /** Writing direction after the viewport transform: 90 and 270 run down or up the page. */
   writing: 0 | 90 | 180 | 270;
+  /** Top-left cutout when the opening lines wrap beside a floated inline image or icon. */
+  floatInset?: FloatInset | undefined;
 }
 
 export function verticalWriting(block: Pick<LayoutBlock, 'writing'>): boolean {
@@ -332,10 +346,14 @@ export function layoutPage(
   const unit = clean.length > 0 ? Math.max(1, median(clean.map((line) => line.height))) : 10;
   const bodySize = clean.length > 0 ? bodySizeOf(clean) : 0;
   const blocks: LayoutBlock[] = [];
+  const pageGutter =
+    clean.length > 0
+      ? (chooseGutter(clean, unit)?.at ?? chooseStaggeredGutter(clean, unit)?.at)
+      : undefined;
 
   if (clean.length > 0) {
     for (const region of cutRegions(clean, unit)) {
-      appendRegionBlocks(region, bodySize, blocks, figures, pageHeight, pageIndex);
+      appendRegionBlocks(region, bodySize, blocks, figures, pageHeight, pageIndex, pageGutter);
     }
   }
   assignLeftoverLines(
@@ -420,6 +438,7 @@ export function layoutPage(
           pageHeight,
           pageIndex,
           clean,
+          pageGutter,
         ),
         bodySize,
         figures,
@@ -439,7 +458,7 @@ export function layoutPage(
   );
   return {
     blocks: dropShadowProseBlocks(
-      mergeLabelFragments(kept, bodySize, figures, pageHeight, pageIndex),
+      mergeLabelFragments(kept, bodySize, figures, pageHeight, pageIndex, pageGutter),
     ),
     bodySize,
     lineHeight: unit,
@@ -628,10 +647,28 @@ function cut(lines: readonly TextLine[], unit: number, room: Box, column: number
   if (gutter !== null) {
     const left = lines.filter((line) => boxRight(line.box) <= gutter.at + 0.5);
     const right = lines.filter((line) => line.box.x >= gutter.at - 0.5);
-    const crossing = lines.filter((line) => !left.includes(line) && !right.includes(line));
+    let crossing = lines.filter((line) => !left.includes(line) && !right.includes(line));
+    if (left.length > 0 && right.length > 0 && crossing.length > 0) {
+      const leftWall = maxRight(left);
+      const attachedRight = crossing.filter(
+        (line) =>
+          line.box.width <= unit * 2.5 &&
+          line.box.x >= leftWall + unit * 0.55 &&
+          right.some(
+            (peer) =>
+              Math.abs(peer.baseline - line.baseline) <= Math.max(peer.height, line.height) * 0.4 &&
+              peer.box.x >= boxRight(line.box) - 0.5,
+          ),
+      );
+      if (attachedRight.length > 0) {
+        right.push(...attachedRight);
+        crossing = crossing.filter((line) => !attachedRight.includes(line));
+      }
+    }
     if (left.length > 0 && right.length > 0) {
-      const leftRoom = boxTo(room, gutter.at, lines);
-      const rightRoom = boxFrom(room, gutter.at, lines);
+      const cutAt = Math.min(gutter.at, minLeft(right));
+      const leftRoom = boxTo(room, cutAt, lines);
+      const rightRoom = boxFrom(room, cutAt, lines);
       // A line that crosses the gutter is a full-width title, caption or formula. It is cut
       // as its own region and read between the two columns at the height it occupies. Its
       // blocks report the spanning column, as OCR full-width lines do, so the bilingual pane
@@ -644,7 +681,7 @@ function cut(lines: readonly TextLine[], unit: number, room: Box, column: number
             ? cut(crossing, unit, room, column).map((region) => ({ ...region, spanning: true }))
             : []),
         ],
-        gutter.at,
+        cutAt,
       );
     }
   }
@@ -667,6 +704,23 @@ function cut(lines: readonly TextLine[], unit: number, room: Box, column: number
 }
 
 /**
+ * Minimum share of lines sitting cleanly on either side of a staggered-baseline gutter.
+ * Keeps single-column pages with a small side-by-side label grid from splitting.
+ */
+const MIN_STAGGERED_SPLIT_SHARE = 0.65;
+/**
+ * Minimum share of lines in the smaller overlapping column for a staggered-baseline gutter.
+ * Prevents a couple of margin notes beside a full column of prose from triggering a column cut.
+ */
+const MIN_STAGGERED_SIDE_SHARE = 0.15;
+/**
+ * Minimum horizontal span of each column (in font sizes) for a staggered-baseline gutter.
+ * Keeps narrow single-column sub-regions (tables, figure label grids, code blocks) from being
+ * split into tiny sub-columns.
+ */
+const MIN_STAGGERED_COLUMN_WIDTH = 12;
+
+/**
  * Picks the gutter to cut at, or null when the page is not divided into columns.
  *
  * A position supported by most rows wins. The support requirement is what separates a gutter
@@ -683,6 +737,24 @@ function chooseGutter(lines: readonly TextLine[], unit: number): { at: number } 
   const best = candidates[0];
   if (!best) return null;
   return { at: best.at };
+}
+
+function chooseStaggeredGutter(lines: readonly TextLine[], unit: number): { at: number } | null {
+  const staggered = staggeredGutterCandidates(lines, unit).filter(
+    (candidate) =>
+      candidate.width >= unit * MIN_GUTTER_WIDTH &&
+      candidate.leftWidth >= unit * MIN_STAGGERED_COLUMN_WIDTH &&
+      candidate.rightWidth >= unit * MIN_STAGGERED_COLUMN_WIDTH &&
+      candidate.overlapHeight >= unit * 2 &&
+      candidate.overlapLeft >= 2 &&
+      candidate.overlapRight >= 2 &&
+      candidate.leftCount + candidate.rightCount >= lines.length * MIN_STAGGERED_SPLIT_SHARE &&
+      Math.min(candidate.overlapLeft, candidate.overlapRight) >=
+        Math.max(2, lines.length * MIN_STAGGERED_SIDE_SHARE),
+  );
+  const bestStaggered = staggered[0];
+  if (!bestStaggered) return null;
+  return { at: bestStaggered.at };
 }
 
 function boxTo(room: Box, at: number, lines: readonly TextLine[]): Box {
@@ -787,16 +859,31 @@ function mergeRowCells(
   cells: readonly TextLine[][],
   isTable: boolean,
   bodySize: number,
+  gutter?: number,
 ): TextLine[][] {
   if (isTable || cells.length <= 1) return cells.map((cell) => [...cell]);
   // A listing's line number and code run are already handled by the cell splitter; merging
   // them back into a sentence would fuse the listing with prose on the same baseline.
   if (hasListingLine(row)) return cells.map((cell) => [...cell]);
+  const cellBox = (cell: readonly TextLine[]) => unionBox(cell.map((line) => line.box));
+  const bodyRow = isBodyFontRow(row, bodySize);
+  let maxIntraColumnGap = 0;
+  for (let index = 1; index < cells.length; index += 1) {
+    const prevBox = cellBox(cells[index - 1]!);
+    const nextBox = cellBox(cells[index]!);
+    if (!prevBox || !nextBox) continue;
+    const isGutterCrossing =
+      gutter !== undefined && boxRight(prevBox) <= gutter + 0.5 && nextBox.x >= gutter - 0.5;
+    if (!isGutterCrossing) {
+      maxIntraColumnGap = Math.max(maxIntraColumnGap, nextBox.x - boxRight(prevBox));
+    }
+  }
+  const justifiedBodyLine = bodyRow && maxIntraColumnGap <= bodySize * 2.4;
   const diagramRow =
+    !justifiedBodyLine &&
     cells.length >= 4 &&
     cells.filter((cell) => isDiagramLabelCell(cell)).length >= Math.ceil(cells.length * 0.6);
   if (diagramRow) return cells.map((cell) => [...cell]);
-  const bodyRow = isBodyFontRow(row, bodySize);
   const heights = row.map((line) => line.height);
   const uniformRow =
     heights.length > 0 &&
@@ -805,7 +892,6 @@ function mergeRowCells(
   // apart and still be one line of the page, so a wide gap must not leave them as separate
   // blocks that then paint over each other.
   const shortRow = uniformRow && cells.every((cell) => cellText(cell).length <= CELL_MAX_CHARS);
-  const cellBox = (cell: readonly TextLine[]) => unionBox(cell.map((line) => line.box));
   const merged: TextLine[][] = [];
   let reference = false;
   for (const cell of cells) {
@@ -819,6 +905,17 @@ function mergeRowCells(
       const scale = Math.max(before?.height ?? next.height, next.height, 1);
       const previousBox = previous ? cellBox(previous) : null;
       const nextBox = cellBox(cell);
+      // Never glue two cells that sit on opposite sides of a detected column gutter.
+      if (
+        gutter !== undefined &&
+        previousBox &&
+        nextBox &&
+        boxRight(previousBox) <= gutter + 0.5 &&
+        nextBox.x >= gutter - 0.5
+      ) {
+        merged.push([...cell]);
+        continue;
+      }
       const gap =
         previousBox && nextBox ? nextBox.x - boxRight(previousBox) : Number.POSITIVE_INFINITY;
       if (previous && reference === false && gap <= scale * 2.5) {
@@ -843,10 +940,20 @@ function mergeRowCells(
       }
       const previousBox = previous ? cellBox(previous) : null;
       const nextBox = cellBox(cell);
+      // Never glue two cells that sit on opposite sides of a detected column gutter.
+      if (
+        gutter !== undefined &&
+        previousBox &&
+        nextBox &&
+        boxRight(previousBox) <= gutter + 0.5 &&
+        nextBox.x >= gutter - 0.5
+      ) {
+        merged.push([...cell]);
+        continue;
+      }
       const gap =
         previousBox && nextBox ? nextBox.x - boxRight(previousBox) : Number.POSITIVE_INFINITY;
       const scale = Math.max(before.height, next.height, 1);
-      const sentenceContinues = continuesProseText(before.text, next.text) && gap <= scale * 1.5;
       // A justified body line can lose every word boundary to the extractor. At body size
       // the runs are words of one line even when the next word is capitalised (`Example's`).
       // A justified line and a citation title can lose their word gaps. A run on the same
@@ -855,11 +962,14 @@ function mergeRowCells(
       // narrow. A fragment is short; a column line is not.
       const shortSide =
         cellText(previous).length <= CELL_MAX_CHARS || cellText(cell).length <= CELL_MAX_CHARS;
+      const sentenceContinues =
+        shortSide && continuesProseText(before.text, next.text) && gap <= scale * 1.5;
       // A superscript or an inline formula directly abuts the prose around it. Its type is
       // smaller, so the size tests above miss it even though it is the same source line.
       const inline = shortSide && gap <= scale * 0.5;
       const wordFragments =
-        (bodyRow && shortSide && gap <= scale * 1.5) ||
+        (justifiedBodyLine && shortSide && gap <= scale * 2.4) ||
+        (bodyRow && shortSide && gap <= scale * 1.8) ||
         (uniformRow && gap <= scale * 1.15) ||
         (shortRow && gap <= scale * 3);
       if (sentenceContinues || inline || wordFragments) {
@@ -908,7 +1018,12 @@ function cellText(cell: readonly TextLine[]): string {
 }
 
 /** Splits one row where a gap is wider than a word space. */
-function splitRowCells(row: readonly TextLine[], tight = false, probe = false): TextLine[][] {
+function splitRowCells(
+  row: readonly TextLine[],
+  tight = false,
+  probe = false,
+  gutter?: number,
+): TextLine[][] {
   const cells: TextLine[][] = [];
   let current: TextLine[] = [];
 
@@ -933,7 +1048,11 @@ function splitRowCells(row: readonly TextLine[], tight = false, probe = false): 
         previous.text.trim().length <= CELL_MAX_CHARS && line.text.trim().length <= CELL_MAX_CHARS;
       const minGap = cellMinGap(scale, tight, bothShort);
       const glueShort = !probe && previous.text.trim().length <= 3 && gap <= scale * 1.5;
-      const splits = gap > minGap && !startsRunIn(line) && !glueShort;
+      const crossesGutter =
+        gutter !== undefined &&
+        boxRight(previous.box) <= gutter + 0.5 &&
+        line.box.x >= gutter - 0.5;
+      const splits = crossesGutter || (gap > minGap && !startsRunIn(line) && !glueShort);
       if (splits) {
         cells.push(current);
         current = [line];
@@ -1058,6 +1177,7 @@ function appendRegionBlocks(
   figures: FigureAreas,
   pageHeight = 0,
   pageIndex = 0,
+  pageGutter?: number,
 ): void {
   const rows = groupBaselineRows(region.lines);
   if (rows.length === 0) return;
@@ -1098,7 +1218,16 @@ function appendRegionBlocks(
 
   // A region the cut recognised as a table keeps every cell apart; a region of prose only
   // re-splits rows so that two things side by side do not get read as one line.
-  const isTable = looksLikeTable(rest.flat());
+  const restLines = rest.flat();
+  const isTable = looksLikeTable(restLines);
+  const regionGutter =
+    region.gutter ??
+    (!isTable
+      ? (chooseStaggeredGutter(
+          restLines,
+          bodySize > 0 ? bodySize : Math.max(1, median(restLines.map((line) => line.height))),
+        )?.at ?? pageGutter)
+      : undefined);
   const cells: RegionCell[] = [];
   let reference: RegionCell | null = null;
   for (const [index, row] of rest.entries()) {
@@ -1110,8 +1239,8 @@ function appendRegionBlocks(
       reference.lines.push(...row);
       continue;
     }
-    const splitCells = splitRowCells(row, isTable);
-    const rowCells = mergeRowCells(row, splitCells, isTable, bodySize);
+    const splitCells = splitRowCells(row, isTable, false, regionGutter);
+    const rowCells = mergeRowCells(row, splitCells, isTable, bodySize, regionGutter);
     const fragments =
       !isTable && rowCells.length < splitCells.length && isBodyFontRow(row, bodySize);
     for (const cell of rowCells) {
@@ -1401,6 +1530,23 @@ function dominantLastLine(lines: readonly TextLine[]): TextLine | undefined {
       continue;
     }
     if (line.text.trim().length > best.text.trim().length) best = line;
+  }
+  // When a justified row arrived as multiple word-level TextLines on the same baseline, use
+  // the whole row's horizontal extent and text rather than one interior word's x position
+  // (which `gapStartsBlock` would otherwise mistake for a centred display formula).
+  const sameRow = lines.filter(
+    (line) => Math.abs(line.baseline - best.baseline) <= Math.max(line.height, best.height) * 0.35,
+  );
+  if (sameRow.length >= 2) {
+    const ordered = [...sameRow].sort((a, b) => a.box.x - b.box.x);
+    return {
+      ...best,
+      box: unionBox(ordered.map((line) => line.box)) ?? best.box,
+      text: ordered
+        .map((line) => line.text.trim())
+        .filter((value) => value.length > 0)
+        .join(' '),
+    };
   }
   return best;
 }
@@ -1868,14 +2014,25 @@ function shouldMergeAdjacentProse(
   left: LayoutBlock,
   right: LayoutBlock,
   allLines: readonly TextLine[],
+  pageGutter?: number,
 ): boolean {
   if (left.role !== 'prose' || right.role !== 'prose') return false;
   if (left.column !== right.column) return false;
+  if (
+    pageGutter !== undefined &&
+    ((boxRight(left.box) <= pageGutter + 0.5 && right.box.x >= pageGutter - 0.5) ||
+      (boxRight(right.box) <= pageGutter + 0.5 && left.box.x >= pageGutter - 0.5))
+  ) {
+    return false;
+  }
   const gap = right.box.y - (left.box.y + left.box.height);
   if (gap > Math.max(left.fontSize, right.fontSize) * 4) return false;
   if (obstacleBetweenBlocks(left, right, allLines)) return false;
   const tail = left.text.trimEnd();
   const head = right.text.trimStart();
+  const lastLine = left.lines.at(-1);
+  const firstLine = right.lines[0];
+  if (lastLine && firstLine && isListBoundary(lastLine, firstLine)) return false;
   const xGap = Math.abs(left.box.x - right.box.x);
   const columnSpan = Math.max(left.room.width, left.box.width, right.room.width, right.box.width);
   const hangingContinuation =
@@ -1943,14 +2100,18 @@ function splitProseAroundInteriorBlocks(
     const lastBase = last.baseline;
     const interiors = prose.filter((other) => {
       if (other === block) return false;
+      const overlap =
+        Math.min(boxRight(block.box), boxRight(other.box)) - Math.max(block.box.x, other.box.x);
+      if (overlap <= 0) return false;
       if (other.column !== block.column && block.box.width <= 300) return false;
       // A full-width abstract and a body column carry different column ids, but their lines
       // still interleave in y. Split on geometry rather than on the column label so the
       // abstract cannot absorb the first paragraph of the right-hand column.
-      if (other.column !== block.column) {
-        const overlap =
-          Math.min(boxRight(block.box), boxRight(other.box)) - Math.max(block.box.x, other.box.x);
-        if (overlap < Math.min(block.box.width, other.box.width) * 0.6) return false;
+      if (
+        other.column !== block.column &&
+        overlap < Math.min(block.box.width, other.box.width) * 0.6
+      ) {
+        return false;
       }
       const otherBase = other.lines[0]?.baseline ?? other.box.y;
       return otherBase > firstBase + 0.5 && otherBase < lastBase - 0.5;
@@ -1991,11 +2152,12 @@ function mergeAdjacentProseBlocks(
   pageHeight: number,
   pageIndex: number,
   allLines: readonly TextLine[],
+  pageGutter?: number,
 ): LayoutBlock[] {
   const merged: LayoutBlock[] = [];
   for (const block of blocks) {
     const previous = merged[merged.length - 1];
-    if (previous && shouldMergeAdjacentProse(previous, block, allLines)) {
+    if (previous && shouldMergeAdjacentProse(previous, block, allLines, pageGutter)) {
       const lines = [...previous.lines, ...block.lines].sort(
         (a, b) => a.baseline - b.baseline || a.box.x - b.box.x,
       );
@@ -2019,6 +2181,34 @@ function mergeAdjacentProseBlocks(
   return merged;
 }
 
+function coalesceSameBaselineLines(lines: readonly TextLine[]): TextLine[] {
+  const out: TextLine[] = [];
+  for (const line of lines) {
+    const previous = out[out.length - 1];
+    if (
+      previous &&
+      Math.abs(line.baseline - previous.baseline) <=
+        Math.max(previous.height, line.height, 1) * 0.4 &&
+      previous.pieces.length > 0 &&
+      line.pieces.length > 0
+    ) {
+      const pieces = [...previous.pieces, ...line.pieces].sort((a, b) => a.box.x - b.box.x);
+      const merged = lineFrom(pieces);
+      const prevNatural = lineFrom(previous.pieces).text.trim();
+      const prevCurrent = previous.text.trim();
+      const prefix =
+        prevCurrent.length > prevNatural.length && prevCurrent.endsWith(prevNatural)
+          ? prevCurrent.slice(0, prevCurrent.length - prevNatural.length).trimEnd()
+          : '';
+      out[out.length - 1] =
+        prefix.length > 0 ? { ...merged, text: `${prefix} ${merged.text}` } : merged;
+      continue;
+    }
+    out.push(line);
+  }
+  return out;
+}
+
 function splitMergedOverlongProse(
   blocks: readonly LayoutBlock[],
   bodySize: number,
@@ -2032,7 +2222,7 @@ function splitMergedOverlongProse(
       out.push(block);
       continue;
     }
-    let lines = [...block.lines];
+    let lines = coalesceSameBaselineLines(block.lines);
     for (;;) {
       const split = overlongProseSplit(lines);
       if (!split) break;
@@ -2090,6 +2280,7 @@ function mergeLabelFragments(
   figures: FigureAreas,
   pageHeight: number,
   pageIndex: number,
+  gutter?: number,
 ): LayoutBlock[] {
   if (bodySize <= 0 || blocks.length < 2) return [...blocks];
   const baselineOf = (block: LayoutBlock): number =>
@@ -2113,8 +2304,22 @@ function mergeLabelFragments(
       previous !== undefined &&
       Math.abs(baselineOf(previous) - baselineOf(block)) <= Math.max(block.fontSize * 0.4, 0.5);
     const gap = previous === undefined ? Infinity : block.box.x - boxRight(previous.box);
-    if (group && previous && sameBaseline && gap <= block.fontSize * 2) group.push(block);
-    else groups.push([block]);
+    const crossesGutter =
+      gutter !== undefined &&
+      previous !== undefined &&
+      ((boxRight(previous.box) <= gutter + 0.5 && block.box.x >= gutter - 0.5) ||
+        (boxRight(block.box) <= gutter + 0.5 && previous.box.x >= gutter - 0.5));
+    if (
+      group &&
+      previous &&
+      previous.column === block.column &&
+      sameBaseline &&
+      !crossesGutter &&
+      gap >= -block.fontSize * 0.5 &&
+      gap <= block.fontSize * 2
+    ) {
+      group.push(block);
+    } else groups.push([block]);
   }
 
   const replaced = new Map<LayoutBlock, LayoutBlock>();
@@ -2205,21 +2410,83 @@ function buildBlock(
     height: box.height,
   };
 
+  const role = roleOf(
+    text,
+    lines,
+    fontSize,
+    bodySize,
+    bold,
+    figures,
+    columnLeft,
+    pageHeight,
+    pageIndex,
+  );
+  const floatInset = role === 'prose' ? detectFloatInset(lines, box, fontSize, figures) : undefined;
+
   return {
     box,
     room: blockRoom,
     lines: [...lines],
     text,
-    role: roleOf(text, lines, fontSize, bodySize, bold, figures, columnLeft, pageHeight, pageIndex),
+    role,
     fontSize,
     lineHeight: clamp(lineHeight, 1.05, 2.2),
-    align: alignOf(lines),
+    align: floatInset ? 'left' : alignOf(lines),
     bold,
     italic: sharesWeight(lines, 'italic'),
     column,
     writing: writingOf(lines),
     advance: advanceOf(lines),
+    ...(floatInset ? { floatInset } : {}),
   };
+}
+
+/**
+ * Detects a top-left cutout when a paragraph's opening line(s) are indented beside a floated
+ * image/icon and subsequent lines wrap back under the image to the column's left edge.
+ */
+function detectFloatInset(
+  lines: readonly TextLine[],
+  box: Box,
+  fontSize: number,
+  figures: FigureAreas,
+): FloatInset | undefined {
+  const images = figures.images ?? [];
+  if (images.length === 0 || lines.length < 2) return undefined;
+  const rows = groupByBaseline(lines);
+  if (rows.length < 2) return undefined;
+  const rowBounds = rows.map((row) => ({
+    left: Math.min(...row.map((line) => line.box.x)),
+    top: Math.min(...row.map((line) => line.box.y)),
+  }));
+  const scale = Math.max(fontSize, 1);
+  let indentedRows = 0;
+  let indentedLeft = Infinity;
+  for (const row of rowBounds) {
+    if (row.left - box.x >= scale * 1.2) {
+      indentedRows += 1;
+      indentedLeft = Math.min(indentedLeft, row.left);
+    } else {
+      break;
+    }
+  }
+  if (indentedRows === 0 || indentedRows >= rowBounds.length) return undefined;
+  const firstFullRow = rowBounds[indentedRows];
+  if (!firstFullRow || firstFullRow.left - box.x > scale * 0.8) return undefined;
+
+  const width = indentedLeft - box.x - 1;
+  const height = firstFullRow.top - box.y;
+  if (width <= scale || height <= 0 || width >= box.width * 0.75) return undefined;
+
+  const overlapsImage = images.some(
+    (img) =>
+      img.x < box.x + width &&
+      img.x + img.width > box.x + 2 &&
+      img.y < box.y + height &&
+      img.y + img.height > box.y + 1,
+  );
+  if (!overlapsImage) return undefined;
+  return { width, height };
 }
 
 function writingOf(lines: readonly TextLine[]): 0 | 90 | 180 | 270 {
@@ -2287,8 +2554,9 @@ function joinLines(lines: readonly TextLine[]): string {
  * the two painted boxes never share a baseline.
  */
 function overlongProseSplit(
-  lines: readonly TextLine[],
+  rawLines: readonly TextLine[],
 ): { head: TextLine[]; tail: TextLine[] } | null {
+  const lines = coalesceSameBaselineLines(rawLines);
   let length = 0;
   const candidates: { index: number; end: number; at: number }[] = [];
   for (let index = 0; index < lines.length; index += 1) {
@@ -2438,7 +2706,10 @@ function roleOf(
   }
   // A numbered caption is still a caption on a page without figures.
   if (isCaptionLine(text)) return 'caption';
-  if (/^(?:[IVXLC]+\.|[A-Z]\.|\d+(?:\.\d+)*\.?)\s+\p{Lu}/u.test(text) && lines.length <= 2) {
+  if (
+    /^(?:(?:[IVXLC]+\.|[A-Z]\.|\d+(?:\.\d+)*\.?)\s+|#{1,6}\s*)\p{Lu}/u.test(text) &&
+    lines.length <= 2
+  ) {
     return 'heading';
   }
   // A row of axis ticks or legend values is table typesetting, not a sentence.
@@ -2903,13 +3174,30 @@ export function isEquation(lines: readonly TextLine[], columnLeft = -Infinity): 
  * reads as left-aligned, which is also what ragged-right text is.
  */
 function alignOf(lines: readonly TextLine[]): BlockAlign {
-  if (lines.length < 2) return 'left';
-  const centers = lines.map((line) => line.box.x + line.box.width / 2);
-  const lefts = lines.map((line) => line.box.x);
-  const rights = lines.map((line) => boxRight(line.box));
+  const rows = groupByBaseline(lines).map((row) =>
+    [...row].sort((left, right) => left.box.x - right.box.x),
+  );
+  if (rows.length < 2) return 'left';
+  const lefts = rows.map((row) => Math.min(...row.map((line) => line.box.x)));
+  const rights = rows.map((row) => Math.max(...row.map((line) => boxRight(line.box))));
+  const centers = lefts.map((left, index) => (left + (rights[index] ?? left)) / 2);
   const tolerance = Math.max(0.8, median(lines.map((line) => line.height)) * 0.5);
 
   if (spread(lefts) <= tolerance) return 'left';
+  // A first-line-indented or hanging-indented justified paragraph shares its right edge on
+  // every row while rows 1..n share a common left margin; that is left/justified prose, not
+  // right-aligned text. Likewise, bulleted or numbered list items (`a.`, `b.`, `•`) with
+  // hanging continuation lines are left-aligned prose even when only two rows tall.
+  if (
+    lefts.length >= 3 &&
+    Math.abs((lefts[0] ?? 0) - (lefts[1] ?? 0)) > tolerance &&
+    spread(lefts.slice(1)) <= tolerance
+  ) {
+    return 'left';
+  }
+  if (rows.some((row) => isListItemStart(cellText(row)))) {
+    return 'left';
+  }
   if (spread(rights) <= tolerance) return 'right';
   if (spread(centers) <= tolerance) return 'center';
   return 'left';

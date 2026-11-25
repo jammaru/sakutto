@@ -3,9 +3,11 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { extractPage, normalizeGlyphRun, placeTextItem, type PdfPage } from '@/pdf/extract';
+import { groupByBaseline, gutterCandidates, staggeredGutterCandidates } from '@/pdf/gaps';
 import { layoutPage, orphanLineCount } from '@/pdf/layout';
 import {
   clippedPaintWidth,
+  coverPaintLayout,
   coverPaintWidth,
   paintedCoverOverlaps,
   placePage,
@@ -13,7 +15,7 @@ import {
 } from '@/pdf/place';
 import { stubExpand } from '@/pdf/stub';
 import { measure } from './support/pdf-pieces';
-import { openPdfBytes } from './support/open-fixture-pdf';
+import { loadPdfjs, openPdfBytes } from './support/open-fixture-pdf';
 import { rotatedBodyPdf } from '../scripts/bench/rotated-body-pdf';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -262,7 +264,7 @@ describe('committed layout fixtures', () => {
         height: extracted.height,
         index: 0,
       });
-      expect(layout.blocks).toHaveLength(25);
+      expect(layout.blocks).toHaveLength(20);
       expect(
         layout.skipped.some((block) => block.role === 'code' && /\bcontinue\b/u.test(block.text)),
       ).toBe(true);
@@ -296,8 +298,103 @@ describe('committed layout fixtures', () => {
     }
   });
 
+  it('separates staggered-columns.pdf into two clean columns and preserves the floated badge cutout', async () => {
+    const bytes = new Uint8Array(await readFile(resolve(root, 'bench/pdf/staggered-columns.pdf')));
+    const pdfjs = await loadPdfjs();
+    const document = await openPdfBytes(bytes);
+    try {
+      const page = (await document.getPage(1)) as PdfPage;
+      const extracted = await extractPage(page, 0, pdfjs.OPS);
+      expect(extracted.figures.images.length).toBeGreaterThanOrEqual(1);
+      const rows = groupByBaseline(extracted.lines).length;
+      const aligned = gutterCandidates(extracted.lines, 12)[0];
+      expect((aligned?.rows ?? 0) / rows).toBeLessThan(0.34);
+
+      const staggered = staggeredGutterCandidates(extracted.lines, 12)[0];
+      expect(staggered).toBeDefined();
+      expect(staggered!.at).toBeGreaterThan(295);
+      expect(staggered!.at).toBeLessThan(317);
+
+      const layout = layoutPage(extracted.lines, extracted.figures, {
+        width: extracted.width,
+        height: extracted.height,
+        index: 0,
+      });
+      expect(orphanLineCount(extracted.lines, layout)).toBe(0);
+
+      const title = layout.blocks.find((block) =>
+        block.text.includes('Structured Delivery Lifecycle'),
+      );
+      expect(title).toBeDefined();
+      expect(title!.box.width).toBeGreaterThan(350);
+
+      const floatedBlock = layout.blocks.find((block) =>
+        block.text.includes('Rather than preserving legacy sprint ceremonies'),
+      );
+      expect(floatedBlock).toBeDefined();
+      expect(floatedBlock!.align).toBe('left');
+      expect(floatedBlock!.floatInset).toBeDefined();
+      expect(floatedBlock!.floatInset!.width).toBeGreaterThan(40);
+      expect(floatedBlock!.floatInset!.height).toBeGreaterThan(8);
+
+      const crossingProse = layout.blocks.filter(
+        (block) =>
+          block.role === 'prose' && block.box.x < 280 && block.box.x + block.box.width > 330,
+      );
+      expect(crossingProse).toEqual([]);
+
+      const leftText = layout.blocks
+        .filter((block) => block.role === 'prose' && block.box.x + block.box.width < 310)
+        .map((block) => block.text)
+        .join(' ');
+      const rightText = layout.blocks
+        .filter((block) => block.role === 'prose' && block.box.x > 300)
+        .map((block) => block.text)
+        .join(' ');
+      expect(leftText).toContain('architectural problems');
+      expect(leftText).not.toContain('daily standups');
+      expect(rightText).toContain('daily standups');
+      expect(rightText).not.toContain('architectural problems');
+
+      const placed = placePage({
+        layout,
+        translationOf: (block) => stubExpand(block.text),
+        target: 'ja',
+        measure: (_block, text, size) => measure(text, size),
+        pageHeight: extracted.height,
+        pageWidth: extracted.width,
+      });
+      const placedFloated = placed.find((entry) => entry.block === floatedBlock);
+      expect(placedFloated?.paint).toBe(true);
+      expect(placedFloated?.fit?.indentedLines).toBeGreaterThanOrEqual(1);
+      expect(paintedCoverOverlaps(placed, extracted.width)).toBe(0);
+      for (const entry of placed) {
+        expect(verticalCut(entry)).toBeLessThanOrEqual(0.5);
+        if (entry.paint && entry.fit && entry.drawn) {
+          expect(coverPaintWidth(entry.fit.width, entry.drawn.width)).toBeGreaterThanOrEqual(
+            entry.fit.width,
+          );
+          expect(clippedPaintWidth(entry, measure)).toBeLessThanOrEqual(0.01);
+          const paint = coverPaintLayout(
+            entry.block,
+            entry.fit.width,
+            entry.drawn,
+            1.5,
+            extracted.width,
+          );
+          const sourceRight = Math.max(
+            ...entry.block.lines.map((line) => line.box.x + line.box.width),
+          );
+          expect(paint.x + paint.width).toBeGreaterThanOrEqual(sourceRight - 0.5);
+        }
+      }
+    } finally {
+      await document.destroy();
+    }
+  });
+
   it('assigns every extracted line on the committed fixtures', async () => {
-    for (const name of ['paper.pdf', 'scan.pdf'] as const) {
+    for (const name of ['paper.pdf', 'scan.pdf', 'staggered-columns.pdf'] as const) {
       const bytes = new Uint8Array(await readFile(resolve(root, `bench/pdf/${name}`)));
       const document = await openPdfBytes(bytes);
       try {

@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Structured Delivery Lifecycle (SDL) Method Guide</title>
+    <style>
+      /* Print-oriented fixture reproducing a two-column whitepaper whose columns have
+         slightly different line leading (12.8pt left vs 12.2pt right) across a narrow
+         ~1.4em gutter. Because baselines drift out of alignment, row-paired gutter
+         detection sees too few shared baselines even though a clean vertical gutter
+         runs down the entire body. */
+      @page {
+        size: letter;
+        margin: 36pt;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        font-size: 10pt;
+      }
+
+      body {
+        margin: 0;
+        color: #111;
+        font-family: 'Liberation Serif', 'Times New Roman', Georgia, serif;
+        text-align: justify;
+      }
+
+      .running-header {
+        display: flex;
+        justify-content: space-between;
+        font-size: 8.5pt;
+        color: #444;
+        margin-bottom: 14pt;
+      }
+
+      .title-block {
+        text-align: center;
+        margin-bottom: 18pt;
+      }
+
+      h1 {
+        margin: 0 0 6pt;
+        font-size: 18pt;
+        font-weight: 700;
+        line-height: 1.2;
+      }
+
+      .author {
+        margin: 0;
+        font-size: 9.5pt;
+        font-style: italic;
+        color: #333;
+        text-align: center;
+      }
+
+      .columns {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        column-gap: 14pt;
+        align-items: start;
+      }
+
+      .col-left {
+        line-height: 12.8pt;
+      }
+
+      .col-right {
+        line-height: 12.2pt;
+      }
+
+      h2 {
+        margin: 10pt 0 5pt;
+        font-size: 11pt;
+        font-weight: 700;
+        text-align: left;
+      }
+
+      .col-left > h2:first-child,
+      .col-right > h2:first-child {
+        margin-top: 0;
+      }
+
+      h3 {
+        margin: 9pt 0 4pt;
+        font-size: 10pt;
+        font-weight: 700;
+        text-align: left;
+      }
+
+      p {
+        margin: 0 0 8pt;
+      }
+
+      .float-badge {
+        float: left;
+        width: 48pt;
+        height: 11pt;
+        margin: 1pt 8pt 0 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="running-header">
+      <span>Acme Cloud Research</span>
+      <span>1</span>
+    </div>
+
+    <div class="title-block">
+      <h1>Structured Delivery Lifecycle (SDL) Method Guide</h1>
+      <p class="author">Alex Rivera, Acme Cloud Research</p>
+    </div>
+
+    <div class="columns">
+      <div class="col-left">
+        <h2>I. CONTEXT</h2>
+        <p>
+          The evolution of software engineering has been defined by a steady effort to let teams
+          focus on architectural problems rather than repetitive plumbing. From early assembly
+          routines to high-level compilers, and from static libraries to managed platforms, each
+          generation has lifted developer throughput. Modern language models now reshape how teams
+          draft, verify, and ship production code across every layer of a service.
+        </p>
+        <p>
+          Early adoption centered on conversational helpers for code completion, defect triage, and
+          test scaffolding. In that assisted stage, engineers initiate every prompt and remain
+          responsible for stitching small fragments into coherent modules. While helpful for narrow
+          tasks, the surrounding delivery process stays largely unchanged.
+        </p>
+        <p>
+          As automated reasoning matures, its scope expands beyond isolated functions into
+          requirements refinement, interface decomposition, and verification planning. Instead of
+          waiting passively for instructions, the system proposes structured work plans that
+          engineers review, steer, and approve before implementation begins.
+        </p>
+        <p>
+          Conventional delivery frameworks were calibrated for multi-week handoffs and manual
+          ceremonies. Bolting automation onto rigid checklists leaves most of the speed gain unused.
+          Teams need a workflow designed from first principles around rapid synthesis and continuous
+          human oversight.
+        </p>
+        <h2>II. CORE PRINCIPLES</h2>
+        <p>
+          The principles below define the roles, artifacts, and checkpoints of this method. They
+          serve as the foundation for evaluating whether a delivery pipeline genuinely benefits from
+          collaborative automation rather than simply accelerating legacy overhead.
+        </p>
+        <h3>1. Reimagine rather than retrofit</h3>
+        <p>
+          <img
+            class="float-badge"
+            alt=""
+            src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAAAcCAIAAABeRy4FAAAAR0lEQVR4nO3PAQkAIBDF0Ct0jQT7mMtgljgYXwYvwFa9O1rhBTMD5644DtAcoDlAc4DmAM0BmgM0B2gO0BygOUD7ayBX/MADBExbNy1cojYAAAAASUVORK5CYII="
+          />Rather than preserving legacy sprint ceremonies and layering automated tools on top, the
+          lifecycle restructures how intent becomes running software while keeping accountability
+          firmly with engineers across every stage.
+        </p>
+      </div>
+
+      <div class="col-right">
+        <p>
+          Longer iteration windows measured in weeks or months originally justified rituals such as
+          daily standups and formal retrospectives. In contrast, rapid delivery cycles measured in
+          hours require lightweight checkpoints that provide continuous validation without slowing
+          down engineering momentum.
+        </p>
+        <p>
+          Automated tooling increasingly handles routine drafting, task decomposition, dependency
+          mapping, and domain modeling, shrinking the distance from product intent to verified code.
+          These dynamics call for a fresh operating model rather than incremental patches to older
+          playbooks.
+        </p>
+        <p>
+          In this inverted collaboration model, the tooling proposes candidate decompositions,
+          surfaces trade-offs, and prepares verification criteria, while engineers act as
+          architectural reviewers and final decision makers at every critical junction.
+        </p>
+        <p>
+          By aligning roles, artifacts, and feedback loops around shared specifications, teams
+          achieve both higher velocity and stronger reliability. A helpful analogy is turn-by-turn
+          navigation: the driver sets the destination, the system charts detailed routes, and the
+          driver supervises adjustments along the way.
+        </p>
+        <h3>2. Real-time collaboration with engineers</h3>
+        <p>
+          Continuous alignment replaces batched handoffs. Whenever a specification contains
+          ambiguity, the workflow pauses to ask focused questions rather than guessing silently and
+          accumulating rework downstream.
+        </p>
+        <h3>3. Core integration of design methods</h3>
+        <p>
+          Traditional process templates often treat domain modeling and architecture review as
+          optional external practices, creating costly gaps between requirements and code. Embedding
+          domain-driven design and test-first verification directly into the core loop prevents
+          structural drift before implementation scales.
+        </p>
+      </div>
+    </div>
+  </body>
+</html>

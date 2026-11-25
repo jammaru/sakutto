@@ -1578,4 +1578,108 @@ describe('PdfReader viewport observer', () => {
 
     reader.destroy();
   });
+
+  it('paints an L-shaped polygon clip-path and inline spacer around a floated badge image', async () => {
+    vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver);
+    vi.stubGlobal('ResizeObserver', FakeResizeObserver);
+    HTMLCanvasElement.prototype.getContext = (() => ({
+      font: '',
+      setTransform: () => undefined,
+      fillRect: () => undefined,
+      measureText: (text: string) => ({ width: text.length * 6 }),
+    })) as unknown as typeof HTMLCanvasElement.prototype.getContext;
+
+    const ops = { save: 1, restore: 2, transform: 3, paintImageXObject: 4 };
+    const page: PdfPage = {
+      getViewport: ({ scale }) => ({
+        width: 300 * scale,
+        height: 400 * scale,
+        transform: [scale, 0, 0, -scale, 0, 400 * scale],
+      }),
+      getTextContent: async () => ({
+        items: [
+          {
+            str: 'A Unit represents a cohesive self-contained element',
+            transform: [10, 0, 0, 10, 95, 290],
+            width: 185,
+            height: 10,
+            fontName: 'F1',
+          },
+          {
+            str: 'derived from an Intent specifically designed to deliver',
+            transform: [10, 0, 0, 10, 36, 276],
+            width: 244,
+            height: 10,
+            fontName: 'F1',
+          },
+          {
+            str: 'measurable value across independent functional blocks.',
+            transform: [10, 0, 0, 10, 36, 262],
+            width: 244,
+            height: 10,
+            fontName: 'F1',
+          },
+        ],
+        styles: {},
+      }),
+      getOperatorList: async () => ({
+        fnArray: [ops.save, ops.transform, ops.paintImageXObject, ops.restore],
+        argsArray: [[], [55, 0, 0, 28, 36, 288], ['Im0', 55, 28], []],
+      }),
+      commonObjs: { get: () => null },
+      render: () => ({ promise: Promise.resolve() }),
+    };
+    const document_: PdfDocument = {
+      numPages: 1,
+      getPage: async () => page,
+      getMetadata: async () => null,
+      destroy: async () => undefined,
+    };
+    const translatingEngine: PdfEngine = {
+      async *translate(segments) {
+        for (const segment of segments) {
+          yield {
+            id: segment.id,
+            final:
+              'ユニットとは、Intentから派生した測定可能な価値を提供するために設計された自己完結型の作業要素です。',
+          };
+        }
+      },
+    };
+
+    const root = document.createElement('div');
+    Object.defineProperty(root, 'clientWidth', { configurable: true, get: () => 340 });
+    document.body.append(root);
+
+    const reader = new PdfReader(root, [{ index: 0, width: 300, height: 400 }], {
+      document: document_,
+      engine: translatingEngine,
+      labels,
+      targetLanguage: 'ja',
+      form: 'plain',
+      ops,
+      onProgress: () => undefined,
+    });
+    reader.start();
+
+    const host = pageHost(root, 0);
+    intersect(host, 20);
+    const started = Date.now();
+    while (!host.querySelector('.sakutto-cover') && Date.now() - started < 1500) {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+
+    const cover = host.querySelector('.sakutto-cover');
+    expect(cover).toBeInstanceOf(HTMLElement);
+    if (!(cover instanceof HTMLElement)) throw new Error('expected cover');
+    expect(cover.style.clipPath).toMatch(/^polygon\(/u);
+    expect(cover.style.textAlign).toBe('start');
+    const spacers = cover.querySelectorAll('span');
+    expect(spacers.length).toBeGreaterThanOrEqual(1);
+    expect((spacers[0] as HTMLElement).style.display).toBe('inline-block');
+    expect(parseFloat((spacers[0] as HTMLElement).style.width)).toBeGreaterThan(40);
+    expect(cover.textContent).toContain('ユニットとは');
+
+    reader.destroy();
+  });
 });
