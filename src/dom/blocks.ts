@@ -7,8 +7,13 @@ const FIELD_SELECTORS = [
   '[role="textbox"]',
 ];
 
+/**
+ * A bare `<pre>` is not source code: community boards put a comment body straight into one
+ * (`div.text > pre`). Only a code fence — a `<pre>` containing `<code>` — is excluded, so
+ * forum prose is translated while a markdown-style fence keeps its original bytes.
+ */
 const EXCLUDED_SELECTOR = [
-  'pre',
+  'pre:has(code)',
   'code',
   'kbd',
   'samp',

@@ -35,13 +35,30 @@ describe('translatable blocks', () => {
   });
 
   it('ignores blocks whose only text is excluded', () => {
+    // A code fence keeps its `<code>` wrapper; a bare `<pre>` can hold forum prose and is
+    // translatable now, so the code sample is wrapped to stay excluded here.
     document.body.innerHTML = `
-      <div><pre>const answer = 42;</pre></div>
+      <div><pre><code>const answer = 42;</code></pre></div>
       <div><code>npm install</code></div>
       <div>Readable text</div>
     `;
 
     expect(countTranslatableBlocks(document)).toBe(1);
+  });
+
+  it('counts prose in a bare pre but still skips a code fence', () => {
+    document.body.innerHTML = `
+      <div class="text prose"><pre>짧은 연습 문장입니다.</pre></div>
+      <div class="text code"><pre><code>const answer = 42;</code></pre></div>
+    `;
+
+    const prose = document.querySelector('.prose pre')!;
+    const fence = document.querySelector('.code pre')!;
+    expect(isTranslationExcluded(prose)).toBe(false);
+    expect(isTranslationExcluded(fence)).toBe(true);
+    expect(listTranslatableBlocks(document).map((block) => block.textContent?.trim())).toEqual([
+      '짧은 연습 문장입니다.',
+    ]);
   });
 
   it('skips hidden, URL-only and symbol-only blocks', () => {

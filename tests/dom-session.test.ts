@@ -4756,6 +4756,8 @@ describe('page translation corrections', () => {
 
     session.restore();
     expect(document.documentElement.style.paddingTop).toBe('12px');
+    // The style stub would otherwise leak into later tests and change their block layout.
+    vi.mocked(document.defaultView!.getComputedStyle).mockRestore();
   });
 
   it('does not remember the site until access is granted', async () => {
@@ -6309,7 +6311,9 @@ describe('whole-page coverage', () => {
 
   it('finishes a page whose only region has nothing to translate', async () => {
     document.documentElement.lang = 'en';
-    document.body.innerHTML = '<div><pre>const answer = 42;</pre></div>';
+    // A bare `<pre>` can be a forum comment and is translated now; a real code fence keeps
+    // its `<code>` child, which is the case that must still finish with no work to do.
+    document.body.innerHTML = '<div><pre><code>const answer = 42;</code></pre></div>';
     const session = start(
       document,
       immediate((text) => `訳:${text}`),
@@ -7113,5 +7117,71 @@ describe('X logged-in pre-wrap bodies', () => {
     expect(document.querySelector('#logged')?.textContent).toBe(
       'Translated 1.\n\nTranslated 2.\n\nTranslated 3.',
     );
+  });
+});
+
+describe('community board comments', () => {
+  it('translates article prose and comment bodies stored in bare pre elements', async () => {
+    document.documentElement.lang = 'ko';
+    // Synthetic markup for a board page: the comment body sits in div.text > pre, with the
+    // reply nested one wrapper deeper. A bare pre is prose here, not a code fence.
+    const article = '이 글은 연습용 게시물입니다.';
+    const comment = '첫 번째 댓글은 짧은 연습 문장입니다.';
+    const reply = '답글도 같은 방식으로 번역됩니다.';
+    document.body.innerHTML = `
+      <article><p id="article">${article}</p></article>
+      <div id="comment" class="article-comment">
+        <div class="list-area">
+          <div class="comment-wrapper">
+            <div class="comment-item">
+              <div class="content">
+                <div class="message"><div class="text"><pre>${comment}</pre></div></div>
+              </div>
+              <div class="comment-wrapper">
+                <div class="comment-item">
+                  <div class="content">
+                    <div class="message"><div class="text"><pre>${reply}</pre></div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="comment-wrapper" id="coded">
+            <div class="comment-item">
+              <div class="content">
+                <div class="message"><div class="text"><pre><code>const answer = 42;</code></pre></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const seen: string[] = [];
+    const session = start(
+      document,
+      engineOf(async function* (segments) {
+        for (const segment of segments) {
+          seen.push(segment.text);
+          yield { id: segment.id, final: `EN:${segment.text}`, engine: 'plamo' as const };
+        }
+      }),
+      { targetLanguage: 'en', display: 'bilingual', auto: 'always' },
+    );
+
+    await session.translate();
+    await session.whenIdle();
+
+    expect(seen).toContain(comment);
+    expect(seen).toContain(reply);
+    expect(document.querySelector('#article > sakutto-line')?.textContent).toContain(
+      `EN:${article}`,
+    );
+    const bodies = document.querySelectorAll('.comment-item > .content .text > pre');
+    // A bare pre is not a prose tag, so bilingual mode paints its answer in place instead of
+    // inserting a second sakutto-line; either way the comment body reaches the reader.
+    expect(bodies[0]?.textContent).toContain(`EN:${comment}`);
+    expect(bodies[1]?.textContent).toContain(`EN:${reply}`);
+    expect(document.querySelector('#coded pre')?.textContent).toBe('const answer = 42;');
   });
 });
