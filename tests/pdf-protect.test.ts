@@ -958,4 +958,61 @@ describe('ed88d36 review blockers: positional rule for every two-letter token', 
       );
     }
   });
+
+  it('does not treat a tight-leading multi-word prose line as an orphan script fragment', () => {
+    const lines = groupLines([
+      piece('reversing the traditional dynamic, AI-DLC ensures that human', 313, 480.7, 263),
+      piece('involvement', 313, 493.0, 57),
+      piece('is purposeful, concentrating on oversight, risk', 375, 493.0, 201),
+      piece('mitigation, and strategic alignment, thereby enhancing both', 313, 505.0, 263),
+      piece('velocity and quality. An analogy to illustrate this is Google Maps:', 313, 517.2, 263),
+    ]);
+    const layout = layoutPage(lines);
+    const block = layout.blocks[0];
+    if (!block) throw new Error('expected a block');
+    const protectedText = protectInlineMath(block);
+    expect(protectedText.slots).toEqual([]);
+    expect(protectedText.text).toBe(block.text);
+  });
+
+  it('does not pull a short word at the start of the next wrapped prose line as a superscript', () => {
+    const lines = groupLines([
+      piece('into independent, right-sized bounded contexts that can', 40, 100, 250),
+      piece('be', 40, 111.8, 12),
+      piece('rapidly built in parallel during planning and decomposition.', 56, 111.8, 234),
+    ]);
+    const layout = layoutPage(lines);
+    const block = layout.blocks[0];
+    if (!block) throw new Error('expected a block');
+    const protectedText = protectInlineMath(block);
+    expect(protectedText.slots).toEqual([]);
+    expect(protectedText.text).toBe(block.text);
+  });
+
+  it('does not protect standalone parentheses around prose acronyms while keeping (x) protected', () => {
+    const proseLines = groupLines([
+      piece('following Domain Driven Design ', 40, 100, 150),
+      piece('(', 190, 100, 4),
+      piece('DDD', 194, 100, 22),
+      piece('),', 216, 100, 8),
+      piece(' Behavior Driven Development', 224, 100, 140),
+    ]);
+    const proseLayout = layoutPage(proseLines);
+    const proseBlock = proseLayout.blocks[0];
+    if (!proseBlock) throw new Error('expected a prose block');
+    expect(protectInlineMath(proseBlock).slots).toEqual([]);
+
+    const mathLines = groupLines([
+      piece('evaluate function ', 40, 100, 90),
+      piece('(', 130, 100, 4),
+      piece('x', 134, 100, 6, { italic: true }),
+      piece(')', 140, 100, 4),
+      piece(' over every token in the batch.', 144, 100, 150),
+    ]);
+    const mathLayout = layoutPage(mathLines);
+    const mathBlock = mathLayout.blocks[0];
+    if (!mathBlock) throw new Error('expected a math block');
+    const mathProtected = protectInlineMath(mathBlock);
+    expect(mathProtected.slots.map((slot) => slot.text)).toEqual(['(x)']);
+  });
 });

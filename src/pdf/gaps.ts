@@ -91,6 +91,33 @@ export interface GutterCandidate {
 }
 
 /**
+ * A column boundary detected from horizontal line spans rather than baseline-aligned pairs.
+ * Used when two columns have slightly different line leading so their baselines drift apart.
+ */
+export interface StaggeredGutterCandidate {
+  /** Position of the gutter's middle, in page units. */
+  at: number;
+  /** Clear width between the rightmost left-column line and leftmost right-column line. */
+  width: number;
+  /** Horizontal span of the left column, in page units. */
+  leftWidth: number;
+  /** Horizontal span of the right column, in page units. */
+  rightWidth: number;
+  /** Lines strictly to the left of the gutter. */
+  leftCount: number;
+  /** Lines strictly to the right of the gutter. */
+  rightCount: number;
+  /** Left-column lines that sit inside the vertical band shared with the right column. */
+  overlapLeft: number;
+  /** Right-column lines that sit inside the vertical band shared with the left column. */
+  overlapRight: number;
+  /** Vertical overlap between the two columns, in page units. */
+  overlapHeight: number;
+  /** Lines whose horizontal span crosses or falls inside the gutter. */
+  crossings: number;
+}
+
+/**
  * Finds the vertical gutters of a page by counting rows, not by looking for a band no line
  * crosses.
  *
@@ -141,6 +168,126 @@ export function gutterCandidates(lines: readonly TextLine[], unit: number): Gutt
       crossings: rows.length - cluster.rows,
     }))
     .sort((left, right) => right.rows - left.rows || right.width - left.width);
+}
+
+/**
+ * Finds vertical gutters from line horizontal extents without requiring left and right lines
+ * to share a baseline.
+ *
+ * When a two-column page uses slightly different leading in each column (or a heading shifts
+ * one column's vertical rhythm), `groupByBaseline` puts left and right lines into separate
+ * single-line rows so `gutterCandidates` sees too few paired rows. Scanning candidate split
+ * positions directly recovers the column boundary while tracking vertical overlap so disjoint
+ * top/bottom regions are never misread as side-by-side columns.
+ */
+export function staggeredGutterCandidates(
+  lines: readonly TextLine[],
+  unit: number,
+): StaggeredGutterCandidate[] {
+  if (lines.length < 4) return [];
+
+  const minWidth = unit;
+  const isInlinePrefix = (line: TextLine): boolean =>
+    line.text.trim().length <= 3 &&
+    line.box.width <= unit * 2.5 &&
+    lines.some(
+      (peer) =>
+        peer !== line &&
+        Math.abs(peer.baseline - line.baseline) <= Math.max(peer.height, line.height) * 0.4 &&
+        peer.box.x > boxRight(line.box) &&
+        peer.box.x - boxRight(line.box) <= unit * 1.6,
+    );
+  const edges: number[] = [];
+  for (const right of lines
+    .filter((line) => !isInlinePrefix(line))
+    .map((line) => boxRight(line.box))
+    .sort((a, b) => a - b)) {
+    const previous = edges[edges.length - 1];
+    if (previous === undefined || right - previous > 0.5) edges.push(right);
+  }
+
+  const candidates: StaggeredGutterCandidate[] = [];
+  for (const edge of edges) {
+    const left: TextLine[] = [];
+    const right: TextLine[] = [];
+    for (const line of lines) {
+      if (boxRight(line.box) <= edge + 0.5) left.push(line);
+      else if (line.box.x >= edge + minWidth - 0.5) right.push(line);
+    }
+    if (left.length < 2 || right.length < 2) continue;
+
+    let leftMinX = Infinity;
+    let leftWall = -Infinity;
+    let leftTop = Infinity;
+    let leftBottom = -Infinity;
+    for (const line of left) {
+      leftMinX = Math.min(leftMinX, line.box.x);
+      leftWall = Math.max(leftWall, boxRight(line.box));
+      leftTop = Math.min(leftTop, line.box.y);
+      leftBottom = Math.max(leftBottom, boxBottom(line.box));
+    }
+
+    let rightWall = Infinity;
+    let rightMaxX = -Infinity;
+    let rightTop = Infinity;
+    let rightBottom = -Infinity;
+    for (const line of right) {
+      rightWall = Math.min(rightWall, line.box.x);
+      rightMaxX = Math.max(rightMaxX, boxRight(line.box));
+      rightTop = Math.min(rightTop, line.box.y);
+      rightBottom = Math.max(rightBottom, boxBottom(line.box));
+    }
+
+    const width = rightWall - leftWall;
+    if (width < minWidth) continue;
+
+    const at = (leftWall + rightWall) / 2;
+    if (candidates.some((existing) => Math.abs(existing.at - at) <= 1)) continue;
+
+    const overlapTop = Math.max(leftTop, rightTop);
+    const overlapBottom = Math.min(leftBottom, rightBottom);
+    const overlapHeight = Math.max(0, overlapBottom - overlapTop);
+    let overlapLeft = 0;
+    let overlapRight = 0;
+    if (overlapHeight > 0) {
+      // Count only lines that genuinely sit side-by-side with a line in the opposite column.
+      // Alternating single-column lines (such as unindented vs indented code lines) share an
+      // overall y-range but have zero pairwise vertical overlap.
+      for (const l of left) {
+        if (right.some((r) => boxBottom(l.box) > r.box.y && l.box.y < boxBottom(r.box))) {
+          overlapLeft += 1;
+        }
+      }
+      for (const r of right) {
+        if (left.some((l) => boxBottom(r.box) > l.box.y && r.box.y < boxBottom(l.box))) {
+          overlapRight += 1;
+        }
+      }
+    }
+
+    candidates.push({
+      at,
+      width,
+      leftWidth: Math.max(0, leftWall - leftMinX),
+      rightWidth: Math.max(0, rightMaxX - rightWall),
+      leftCount: left.length,
+      rightCount: right.length,
+      overlapLeft,
+      overlapRight,
+      overlapHeight,
+      crossings: lines.length - left.length - right.length,
+    });
+  }
+
+  return candidates.sort((a, b) => {
+    const scoreA = a.leftCount + a.rightCount - a.crossings;
+    const scoreB = b.leftCount + b.rightCount - b.crossings;
+    if (scoreB !== scoreA) return scoreB - scoreA;
+    const minOverlapA = Math.min(a.overlapLeft, a.overlapRight);
+    const minOverlapB = Math.min(b.overlapLeft, b.overlapRight);
+    if (minOverlapB !== minOverlapA) return minOverlapB - minOverlapA;
+    return b.width - a.width;
+  });
 }
 
 /** A one-to-three character run that can be a superscript or subscript marker. */

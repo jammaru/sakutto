@@ -59,11 +59,26 @@ function paintCover(
     background !== 'transparent' &&
     !/^rgba\([^)]*,\s*0\s*\)$/u.test(background);
 
+  const cutX = (px(node.dataset.floatCutX) ?? 0) * factor;
+  const cutY = (px(node.dataset.floatCutY) ?? 0) * factor;
+  const indentedLines = Number.parseInt(node.dataset.indentedLines ?? '0', 10) || 0;
+  const hasCutout = angle === 0 && cutX > 0 && cutY > 0 && indentedLines > 0;
+
   context.save();
   context.translate(x, y);
   if (angle !== 0) context.rotate((angle * Math.PI) / 180);
   context.beginPath();
-  context.rect(0, 0, width, height);
+  if (hasCutout) {
+    context.moveTo(cutX, 0);
+    context.lineTo(width, 0);
+    context.lineTo(width, height);
+    context.lineTo(0, height);
+    context.lineTo(0, cutY);
+    context.lineTo(cutX, cutY);
+    context.closePath();
+  } else {
+    context.rect(0, 0, width, height);
+  }
   context.clip();
 
   if (opaque) {
@@ -110,7 +125,9 @@ function paintCover(
       if (line.length === 0) continue;
       const baseline = firstBaseline + index * lineHeight;
       if (baseline - ascent > height) break;
-      context.fillText(line, textX, baseline);
+      const lineX =
+        hasCutout && index < indentedLines && canvasAlign === 'left' ? textX + cutX : textX;
+      context.fillText(line, lineX, baseline);
     }
   }
 

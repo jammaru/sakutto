@@ -1451,7 +1451,24 @@ export class PdfReader {
 
     node.dataset.fitWidth = fit.width.toFixed(2);
     node.dataset.figureLabel = block.singleLine === true ? 'true' : 'false';
-    node.textContent = visible.join('\n');
+    const indentedLines = !verticalWriting(block) ? (fit.indentedLines ?? 0) : 0;
+    const indentPx = !verticalWriting(block) ? (fit.indentWidth ?? 0) * scale : 0;
+    if (indentedLines > 0 && indentPx > 0 && block.floatInset) {
+      const nodes: Node[] = [];
+      visible.forEach((lineText, index) => {
+        if (index > 0) nodes.push(document.createTextNode('\n'));
+        if (index < indentedLines) {
+          const spacer = document.createElement('span');
+          spacer.style.display = 'inline-block';
+          spacer.style.width = `${indentPx.toFixed(2)}px`;
+          nodes.push(spacer);
+        }
+        nodes.push(document.createTextNode(lineText));
+      });
+      node.replaceChildren(...nodes);
+    } else {
+      node.textContent = visible.join('\n');
+    }
     node.style.cssText = coverStyle(
       box,
       fit.fontSize * scale,
@@ -1460,6 +1477,22 @@ export class PdfReader {
       block.align,
       scriptOf(this.target),
     );
+    if (indentedLines > 0 && indentPx > 0 && block.floatInset) {
+      const cutX = indentPx.toFixed(2);
+      const cutY = Math.max(
+        0,
+        Math.min(block.floatInset.height * scale, indentedLines * fit.lineHeight * scale),
+      ).toFixed(2);
+      node.style.clipPath = `polygon(${cutX}px 0, 100% 0, 100% 100%, 0 100%, 0 ${cutY}px, ${cutX}px ${cutY}px)`;
+      node.dataset.floatCutX = cutX;
+      node.dataset.floatCutY = cutY;
+      node.dataset.indentedLines = String(indentedLines);
+    } else {
+      node.style.clipPath = '';
+      delete node.dataset.floatCutX;
+      delete node.dataset.floatCutY;
+      delete node.dataset.indentedLines;
+    }
     if (verticalWriting(block)) {
       node.style.height = `${(drawn.width * scale).toFixed(2)}px`;
       node.style.transformOrigin = '0 0';

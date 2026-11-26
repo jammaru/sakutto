@@ -247,7 +247,7 @@ export function canUnicodeScript(text: string, script: Exclude<ScriptRole, 'none
 
 /** The raised or lowered characters inside a glyph run, without adjoining punctuation. */
 function scriptCoreText(text: string): string {
-  const match = text.trim().match(/^([\p{L}\p{N}]{1,3})/u);
+  const match = text.trim().match(/^[^\p{L}\p{N}]*([\p{L}\p{N}]{1,3})[^\p{L}\p{N}]*$/u);
   return match?.[1] ?? '';
 }
 
@@ -562,7 +562,7 @@ function shouldMergeScriptFragment(previous: TextLine, fragment: TextLine): bool
   if (fragLeft < previous.box.x - scale) return false;
   if (fragLeft > prevRight + scale * 2) return false;
   const baselineGap = Math.abs(fragment.baseline - previous.baseline);
-  if (baselineGap > scale * 1.2) return false;
+  if (baselineGap > scale * 0.85) return false;
   return true;
 }
 
@@ -712,7 +712,7 @@ function isFormulaRun(pieces: readonly TextPiece[], lineHeight: number, baseline
   // formula. Protecting it made the model treat one word as two fragments and the restored
   // translation overflow its box.
   if (/^[\u002d\u2010\u2011\u2012\u2013\u2014\u2212]+$/u.test(joined.trim())) return false;
-  if (/^[.,;:!?]+$/u.test(joined.trim())) return false;
+  if (/^[.,;:!?()[\]]+$/u.test(joined.trim())) return false;
 
   const kinds = pieces.map((piece) => kindOf(piece, lineHeight, baseline));
   if (kinds.some((kind) => kind === 'math' || kind === 'op' || kind === 'var')) return true;

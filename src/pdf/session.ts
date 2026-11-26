@@ -864,6 +864,7 @@ export class PdfSession {
           measure: measureAt,
           role: block.role,
           singleLine: block.singleLine,
+          ...(block.floatInset ? { floatInset: block.floatInset } : {}),
         },
         state.translation,
         targetScript(this.target),

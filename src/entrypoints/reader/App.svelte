@@ -17,6 +17,7 @@
     type ReaderProgress,
   } from '@/pdf/reader';
   import { pdfConcurrencyFor } from '@/pdf/session';
+  import { pdfStatusKind } from '@/pdf/status';
   import { hasLicenseConsent } from '@/shared/agreement';
   import { currentUiLanguage, t } from '@/shared/i18n';
   import { displayLanguage, type TargetLanguage } from '@/shared/languages';
@@ -83,20 +84,20 @@
       return t('pdfExportWaiting', [String(progress?.done ?? 0), String(progress?.total ?? 0)]);
     }
     if (!progress) return t('pdfPreparing');
-    // Pages still being read are work in progress even though no block is queued for them
-    // yet. Without this the toolbar said "Translated" as soon as the first page's blocks were
-    // done, while the rest of the document had not been looked at — a reader took that as the
-    // document being finished.
-    const readingMore = progress.parsed < progress.pages;
-    if (progress.total === 0) {
-      // Every page has been read and none of them had a text layer: a scanned document.
-      if (!readingMore && progress.pages > 0) return t('pdfNoText');
-      return t('pdfReading', [String(progress.parsed), String(progress.pages)]);
+    // Pages still being read count as work in progress; overflowed or failed blocks do not —
+    // they have their own notes below the pages (see `pdfStatusKind`).
+    switch (pdfStatusKind(progress)) {
+      case 'preparing':
+        return t('pdfPreparing');
+      case 'no-text':
+        return t('pdfNoText');
+      case 'reading':
+        return t('pdfReading', [String(progress.parsed), String(progress.pages)]);
+      case 'working':
+        return t('pageProgress', [String(progress.done), String(progress.total)]);
+      default:
+        return t('pdfTranslated');
     }
-    if (progress.pending > 0 || readingMore || progress.failed > 0 || progress.overflowed > 0) {
-      return t('pageProgress', [String(progress.done), String(progress.total)]);
-    }
-    return t('pdfTranslated');
   });
   /**
    * The rate line, in the same words the page translator uses. A reader watching a long paper
@@ -104,6 +105,8 @@
    * answers both — a PDF should not be the one place with no numbers.
    */
   let rateText = $derived.by(() => {
+    // A finished document has no live speed; the last measured rate must not linger.
+    if (pdfStatusKind(progress) !== 'working') return '';
     const tokens = progress?.tokensPerSecond ?? null;
     const segments = progress?.segmentsPerSecond ?? null;
     if (tokens === null || segments === null) return '';

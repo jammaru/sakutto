@@ -131,6 +131,7 @@ export function placePage(request: PlaceRequest): PlacedBlock[] {
           measure: measureAt,
           role: block.role,
           singleLine: block.singleLine,
+          ...(block.floatInset ? { floatInset: block.floatInset } : {}),
         },
         translation,
         request.target,
@@ -288,7 +289,10 @@ function gutterEdgeFor(
  * clipped under `overflow: hidden` instead of being shown to the reader.
  */
 function columnInteriorCap(
-  block: Pick<LayoutBlock, 'box' | 'room' | 'column' | 'writing'>,
+  block: Pick<LayoutBlock, 'box' | 'room' | 'column' | 'writing'> & {
+    role?: AnyBlockRole | undefined;
+    fontSize?: number | undefined;
+  },
   obstacles: readonly Box[],
   pageWidth: number,
 ): number | null {
@@ -303,7 +307,11 @@ function columnInteriorCap(
   if (edge === null) return null;
   const wall =
     side === 0 ? edge - GUTTER_CLEARANCE - block.box.x : pageWidth - GUTTER_CLEARANCE - block.box.x;
-  return Math.max(1, Math.min(measure, wall));
+  const capMeasure =
+    block.role === 'heading'
+      ? Math.max(measure, Math.min(measure * 2.4, (block.fontSize ?? 10) * 18))
+      : measure;
+  return Math.max(1, Math.min(capMeasure, wall));
 }
 
 /**
@@ -318,15 +326,31 @@ function columnInteriorCap(
  * the side of a short last line — up to the next obstacle.
  */
 export function wrapWidth(
-  block: Pick<
-    LayoutBlock,
-    'box' | 'room' | 'role' | 'advance' | 'writing' | 'singleLine' | 'lines' | 'column'
-  >,
+  block: Pick<LayoutBlock, 'box' | 'room' | 'role' | 'advance' | 'writing'> & {
+    singleLine?: boolean | undefined;
+    lines?: LayoutBlock['lines'] | undefined;
+    column?: number | undefined;
+    fontSize?: number | undefined;
+  },
   obstacles: readonly Box[] = [],
   pageWidth = 0,
 ): number {
   if (verticalWriting(block)) return Math.max(1, block.advance);
-  const columnCap = pageWidth > 0 ? columnInteriorCap(block, obstacles, pageWidth) : null;
+  const columnCap =
+    pageWidth > 0 && block.column !== undefined
+      ? columnInteriorCap(
+          {
+            box: block.box,
+            room: block.room,
+            column: block.column,
+            writing: block.writing,
+            role: block.role,
+            fontSize: block.fontSize,
+          },
+          obstacles,
+          pageWidth,
+        )
+      : null;
   // A figure box label is fitted to the rectangle drawn on the page. Growing it into the
   // artwork (or into a neighbouring column) would paint over the drawing it names.
   if (block.singleLine === true) {
@@ -365,13 +389,33 @@ export function wrapWidth(
   }
   // Never take more than a modest share past the source measure, so a paragraph cannot
   // walk into the next column when that column's first line happens to sit lower.
-  const grown = Math.max(1, Math.min(extra, base * 1.28, tight * 1.22));
+  const maxExpand =
+    block.role === 'heading'
+      ? Math.max(base * 2.4, (block.fontSize ?? 10) * 18)
+      : Math.min(base * 1.28, tight * 1.22);
+  const grown = Math.max(1, Math.min(extra, maxExpand));
   const capped = capToPage(grown, block.box.x, pageWidth);
   // `drawnBox` caps a cover at the column wall, and wrapping even one word wider than that
   // cap clips the last glyph at the gutter. When an obstacle actually bounds this row, wrap
   // to the width that can be painted instead of the width the free-space search allowed.
-  if (boundedByObstacle && pageWidth > 0) {
-    return Math.max(1, capToColumn(capped, block.box.x, block, pageWidth));
+  if (boundedByObstacle && pageWidth > 0 && block.column !== undefined) {
+    return Math.max(
+      1,
+      capToColumn(
+        capped,
+        block.box.x,
+        {
+          box: block.box,
+          room: block.room,
+          column: block.column,
+          writing: block.writing,
+          role: block.role,
+          fontSize: block.fontSize,
+          lines: block.lines,
+        },
+        pageWidth,
+      ),
+    );
   }
   return capped;
 }
@@ -448,8 +492,12 @@ export function lineOverflows(
   measure: (text: string) => number,
 ): boolean {
   const lines = fit.fits ? fit.lines : fit.visibleLines;
-  for (const line of lines) {
-    if (measure(line) > width + WIDTH_SLACK) return true;
+  const indented = fit.indentedLines ?? 0;
+  const indent = fit.indentWidth ?? 0;
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index] ?? '';
+    const lineBudget = index < indented ? Math.max(1, width - indent) : width;
+    if (measure(line) > lineBudget + WIDTH_SLACK) return true;
   }
   return false;
 }
@@ -490,7 +538,10 @@ export function coverPaintOriginX(
  * the page so a pad cannot walk into the next column's gutter.
  */
 export function coverPaintLayout(
-  block: Pick<LayoutBlock, 'align' | 'writing' | 'column' | 'box' | 'room' | 'lines'>,
+  block: Pick<LayoutBlock, 'align' | 'writing' | 'column' | 'box' | 'room' | 'lines'> & {
+    role?: AnyBlockRole | undefined;
+    fontSize?: number | undefined;
+  },
   fitWidth: number,
   drawn: Box,
   scale = DEFAULT_PAINT_SCALE,
@@ -503,10 +554,13 @@ export function coverPaintLayout(
       ? drawn.width + hintingPadPt(scale)
       : coverPaintWidth(fitCap, drawn.width, scale);
   const x = coverPaintOriginX(drawn.x, drawn.width, width, block.align);
-  const left = Math.max(0, x);
+  let left = Math.max(0, x);
   let painted = width + Math.min(0, x);
   if (pageWidth > 0) {
     painted = capToColumn(painted, left, block, pageWidth);
+    if (left < drawn.x && left + painted < drawn.x + drawn.width) {
+      left = Math.min(drawn.x, drawn.x + drawn.width - painted);
+    }
   }
   return { x: left, width: painted };
 }
@@ -703,7 +757,11 @@ function blockMergesColumns(block: LayoutBlock, pageWidth: number): boolean {
 function capToColumn(
   width: number,
   x: number,
-  block: Pick<LayoutBlock, 'box' | 'room' | 'column' | 'writing'>,
+  block: Pick<LayoutBlock, 'box' | 'room' | 'column' | 'writing'> & {
+    role?: AnyBlockRole | undefined;
+    fontSize?: number | undefined;
+    lines?: readonly { box: Box }[] | undefined;
+  },
   pageWidth: number,
 ): number {
   const capped = capToPage(width, x, pageWidth);
@@ -713,9 +771,20 @@ function capToColumn(
   // the block's own measure (and not from `column`) keeps a right-column paragraph whose
   // region tree reported `0` from being cut to a gutter sliver.
   const room = block.room.width > 0 ? block.room.width : block.box.width;
-  const interior = Math.min(room, block.box.width);
-  const wall =
-    side === 0 ? pageWidth * 0.49 - GUTTER_CLEARANCE - x : pageWidth - GUTTER_CLEARANCE - x;
+  const baseInterior = Math.min(room, block.box.width);
+  const interior =
+    block.role === 'heading'
+      ? Math.max(baseInterior, Math.min(baseInterior * 2.4, (block.fontSize ?? 10) * 18))
+      : baseInterior;
+  const sourceRight =
+    block.lines && block.lines.length > 0
+      ? Math.max(...block.lines.map((line) => line.box.x + line.box.width))
+      : block.box.x + block.box.width;
+  const leftLimit = Math.min(
+    pageWidth * 0.49 + COVER_LINE_PAD_X,
+    Math.max(pageWidth * 0.49 - GUTTER_CLEARANCE, sourceRight + COVER_LINE_PAD_X),
+  );
+  const wall = side === 0 ? leftLimit - x : pageWidth - GUTTER_CLEARANCE - x;
   return Math.max(1, Math.min(capped, interior, wall));
 }
 
@@ -725,7 +794,11 @@ function capToColumn(
  * with a truncated last glyph.
  */
 export function paintLineLimit(
-  block: Pick<LayoutBlock, 'box' | 'room' | 'column' | 'writing'>,
+  block: Pick<LayoutBlock, 'box' | 'room' | 'column' | 'writing'> & {
+    role?: AnyBlockRole | undefined;
+    fontSize?: number | undefined;
+    lines?: readonly { box: Box }[] | undefined;
+  },
   width: number,
   x: number,
   pageWidth: number,
@@ -897,6 +970,24 @@ function ignoreInlineOverlap(left: PlacedBlock, right: PlacedBlock): boolean {
   return intersectionArea(overlapRegion(wide) ?? wide.drawn, fragment.block.box) >= OVERLAP_AREA;
 }
 
+/**
+ * Two stacked covers that only graze each other's top and bottom edge.
+ *
+ * A paragraph split inside a printed line leaves the head's box reaching a hair into the tail's
+ * first line; a subscript also makes one line a little taller than its neighbours. Neither
+ * collides with any translated text, yet an overlap this thin used to drop the smaller block to
+ * a marker. A penetration of at most 0.3em, where one box starts in the lower half of the
+ * other, is the same line gap measured twice, not two paragraphs on top of each other.
+ */
+export function stackedSliverOverlap(first: Box, second: Box, fontSize: number): boolean {
+  const upper = first.y <= second.y ? first : second;
+  const lower = upper === first ? second : first;
+  const depth = upper.y + upper.height - lower.y;
+  if (depth <= 0) return false;
+  if (depth > fontSize * 0.3) return false;
+  return lower.y >= upper.y + upper.height * 0.5;
+}
+
 export function resolveOverlaps(placed: readonly PlacedBlock[], pageWidth = 0): PlacedBlock[] {
   const next = placed.map((entry) => ({ ...entry }));
   for (let left = 0; left < next.length; left += 1) {
@@ -931,6 +1022,15 @@ export function resolveOverlaps(placed: readonly PlacedBlock[], pageWidth = 0): 
         continue;
       }
       if (intersectionArea(firstCore, secondCore) < OVERLAP_AREA) continue;
+      if (
+        stackedSliverOverlap(
+          firstCore,
+          secondCore,
+          Math.min(first.block.fontSize, second.block.fontSize),
+        )
+      ) {
+        continue;
+      }
       const drop = whichToHide(first, second);
       if (drop === 'left') {
         first.paint = false;
@@ -970,17 +1070,20 @@ export function paintedCoverBox(block: LayoutBlock, fit: FitResult, wrap = 0, pa
  */
 export function paintedCoverOverlaps(placed: readonly PlacedBlock[], pageWidth = 0): number {
   void pageWidth;
-  const boxes: Box[] = [];
+  const boxes: { box: Box; fontSize: number }[] = [];
   for (const entry of placed) {
     if (!entry.paint || !entry.fit || !entry.drawn) continue;
     const region = overlapRegion(entry);
     if (!region) continue;
     boxes.push({
-      x: region.x,
-      y: region.y,
-      // Hinting pad hangs into the gutter; it must not count as two covers colliding.
-      width: region.width,
-      height: region.height,
+      box: {
+        x: region.x,
+        y: region.y,
+        // Hinting pad hangs into the gutter; it must not count as two covers colliding.
+        width: region.width,
+        height: region.height,
+      },
+      fontSize: entry.block.fontSize,
     });
   }
   let count = 0;
@@ -990,7 +1093,11 @@ export function paintedCoverOverlaps(placed: readonly PlacedBlock[], pageWidth =
     for (let right = left + 1; right < boxes.length; right += 1) {
       const second = boxes[right];
       if (!second) continue;
-      if (intersectionArea(first, second) >= OVERLAP_AREA) count += 1;
+      if (intersectionArea(first.box, second.box) < OVERLAP_AREA) continue;
+      if (stackedSliverOverlap(first.box, second.box, Math.min(first.fontSize, second.fontSize))) {
+        continue;
+      }
+      count += 1;
     }
   }
   return count;

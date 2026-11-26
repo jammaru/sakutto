@@ -33,6 +33,8 @@ export interface FitRequest {
    * rectangle as a single line instead of wrapping into the drawing around it.
    */
   singleLine?: boolean | undefined;
+  /** Optional top-left cutout so opening lines wrap beside a floated inline image. */
+  floatInset?: { width: number; height: number } | undefined;
 }
 
 export type FitResult =
@@ -48,6 +50,10 @@ export type FitResult =
       grown: boolean;
       /** Wrap width the layout used, so the cover is as wide as the fitted lines. */
       width: number;
+      /** Number of opening lines indented past a top-left `floatInset`. */
+      indentedLines?: number | undefined;
+      /** Left indent applied to `indentedLines`, in points. */
+      indentWidth?: number | undefined;
     }
   | {
       /** Even the smallest size overflows; the caller must clip or offer the full text. */
@@ -60,6 +66,8 @@ export type FitResult =
       visibleLines: string[];
       /** Wrap width the layout used, so a clipped cover does not cut a line short. */
       width: number;
+      indentedLines?: number | undefined;
+      indentWidth?: number | undefined;
     };
 
 /** Never shrink below this fraction of the source size; below it the text is unreadable. */
@@ -72,8 +80,8 @@ export const MIN_FONT_SIZE = 6.5;
  * box that was one Latin line. Labels, captions and headings keep the stricter 6.5pt floor.
  */
 export const BODY_MIN_FONT_SIZE = 6;
-/** Scale floor for that same body case: 9pt × 0.67 is just over 6pt. */
-export const BODY_MIN_SCALE = 0.67;
+/** Scale floor for that same body case: 9–10pt body prose may shrink down to the 6pt floor. */
+export const BODY_MIN_SCALE = 0.6;
 /**
  * A block may grow by at most this multiple of its own height, even with empty space below.
  * The free-space model already stops at the next obstacle; this only caps a last paragraph
@@ -141,10 +149,23 @@ export function fitText(
   }
 
   const wrap = wrapBudget(request.width);
+  const inset = request.floatInset;
+  const hasInset =
+    request.singleLine !== true &&
+    inset !== undefined &&
+    inset.width > 0 &&
+    inset.height > 0 &&
+    inset.width < request.width * 0.75;
+  const indentedCountFor = (size: number): number =>
+    hasInset ? Math.max(1, Math.ceil((inset.height - 1.5) / Math.max(1, size * leading))) : 0;
   const wrapAt = (size: number): string[] => {
     const measureAt = (value: string) => request.measure(value, size);
     if (request.singleLine === true) {
       return [text.replace(/\s+/gu, ' ').trim()];
+    }
+    if (hasInset) {
+      const narrowWrap = wrapBudget(Math.max(1, request.width - inset.width));
+      return wrapWithInset(text, wrap, narrowWrap, indentedCountFor(size), measureAt, kinsoku);
     }
     const lines = wrapText(text, wrap, measureAt, kinsoku);
     // wrapText already applies kinsoku. A second pass keeps marker text clean when every
@@ -152,7 +173,13 @@ export function fitText(
     return kinsoku ? applyKinsoku(lines, wrap, measureAt) : lines;
   };
 
-  let best: { fontSize: number; lines: string[]; height: number; lineHeight: number } | null = null;
+  let best: {
+    fontSize: number;
+    lines: string[];
+    height: number;
+    lineHeight: number;
+    indentedLines: number;
+  } | null = null;
   for (const size of candidates) {
     const lines = wrapAt(size);
     // A wrap that still starts a line on `。` (or another head-forbidden mark) is not a fit:
@@ -168,7 +195,13 @@ export function fitText(
     }
     const layout = lineLayout(lines.length, size, leading, ceiling);
     if (layout.height <= ceiling + SLACK) {
-      best = { fontSize: size, lines, height: layout.height, lineHeight: layout.lineHeight };
+      best = {
+        fontSize: size,
+        lines,
+        height: layout.height,
+        lineHeight: layout.lineHeight,
+        indentedLines: hasInset ? Math.min(lines.length, indentedCountFor(size)) : 0,
+      };
       break;
     }
   }
@@ -182,15 +215,20 @@ export function fitText(
       height: best.height,
       grown: best.height > request.box.height + 0.5,
       width: request.width,
+      ...(hasInset && best.indentedLines > 0
+        ? { indentedLines: best.indentedLines, indentWidth: inset.width }
+        : {}),
     };
   }
   const fontSize = minimum;
   const lines = wrapAt(fontSize);
   const layout = lineLayout(lines.length, fontSize, leading, ceiling);
   const count = Math.max(1, Math.floor((ceiling + SLACK) / Math.max(1, layout.lineHeight)));
-  const visibleLines = kinsoku
-    ? applyKinsoku(lines.slice(0, count), wrap, (value) => request.measure(value, fontSize))
-    : lines.slice(0, count);
+  const visibleLines =
+    kinsoku && !hasInset
+      ? applyKinsoku(lines.slice(0, count), wrap, (value) => request.measure(value, fontSize))
+      : lines.slice(0, count);
+  const indentedLines = hasInset ? Math.min(visibleLines.length, indentedCountFor(fontSize)) : 0;
   return {
     fits: false,
     fontSize,
@@ -199,7 +237,34 @@ export function fitText(
     height: layout.height,
     visibleLines,
     width: request.width,
+    ...(hasInset && indentedLines > 0 ? { indentedLines, indentWidth: inset.width } : {}),
   };
+}
+
+function wrapWithInset(
+  text: string,
+  fullWrap: number,
+  narrowWrap: number,
+  indentedCount: number,
+  measure: (value: string) => number,
+  kinsoku: boolean,
+): string[] {
+  const trimmed = text.trim();
+  if (trimmed.length === 0) return [];
+  const narrowLines = wrapText(trimmed, narrowWrap, measure, kinsoku);
+  if (narrowLines.length <= indentedCount) return narrowLines;
+  const head = narrowLines.slice(0, indentedCount);
+  let pos = 0;
+  for (const line of head) {
+    while (pos < trimmed.length && /\s/u.test(trimmed[pos] ?? '')) pos += 1;
+    for (const ch of line) {
+      while (pos < trimmed.length && /\s/u.test(trimmed[pos] ?? '') && !/\s/u.test(ch)) pos += 1;
+      if (trimmed.startsWith(ch, pos)) pos += ch.length;
+    }
+  }
+  const rest = trimmed.slice(pos).trimStart();
+  if (rest.length === 0) return head;
+  return [...head, ...wrapText(rest, fullWrap, measure, kinsoku)];
 }
 
 /**

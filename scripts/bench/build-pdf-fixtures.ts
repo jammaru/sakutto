@@ -6,12 +6,14 @@
  * and a figure. A fixture generated this way can be committed: it is small and it is our own
  * text.
  *
- *   node scripts/bench/build-pdf-fixtures.ts
+ *   node scripts/bench/build-pdf-fixtures.ts [paper|scan|staggered-columns]
  *
  * Writes:
- *   bench/pdf/paper.pdf  the paper, with selectable text
- *   bench/pdf/scan.pdf   the same layout as one bitmap per page, with no text layer, which is
- *                        the shape a scanned document arrives in
+ *   bench/pdf/paper.pdf              the paper, with selectable text
+ *   bench/pdf/scan.pdf               the same layout as one bitmap per page, with no text layer,
+ *                                    which is the shape a scanned document arrives in
+ *   bench/pdf/staggered-columns.pdf  a two-column whitepaper with differing column leading across
+ *                                    a narrow ~1.4em gutter
  */
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
@@ -21,19 +23,24 @@ import { chromium } from '@playwright/test';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const sourceDirectory = join(root, 'bench', 'pdf');
 const sourceHtml = join(sourceDirectory, 'paper.html');
+const staggeredHtml = join(sourceDirectory, 'staggered-columns.html');
 
 /** A4 at 150 dpi. The scan fixture is rendered at this size so text stays legible. */
 const PAGE_WIDTH = 1240;
 const PAGE_HEIGHT = 1754;
 
-async function printPaper(outPath: string): Promise<void> {
+async function printHtml(
+  htmlPath: string,
+  outPath: string,
+  format: 'A4' | 'Letter' = 'A4',
+): Promise<void> {
   const browser = await chromium.launch();
   try {
     const page = await browser.newPage();
-    await page.goto(`file://${sourceHtml.replaceAll('\\', '/')}`, { waitUntil: 'load' });
+    await page.goto(`file://${htmlPath.replaceAll('\\', '/')}`, { waitUntil: 'load' });
     await page.emulateMedia({ media: 'print' });
     const pdf = await page.pdf({
-      format: 'A4',
+      format,
       printBackground: true,
       preferCSSPageSize: true,
     });
@@ -141,10 +148,23 @@ function imageOnlyPdf(images: readonly Buffer[]): Buffer {
 }
 
 async function main(): Promise<void> {
+  const requested = new Set(process.argv.slice(2));
+  const all = requested.size === 0;
   await mkdir(sourceDirectory, { recursive: true });
-  await printPaper(join(sourceDirectory, 'paper.pdf'));
-  await buildScan(join(sourceDirectory, 'scan.pdf'));
-  console.log('wrote bench/pdf/paper.pdf and bench/pdf/scan.pdf');
+  const written: string[] = [];
+  if (all || requested.has('paper')) {
+    await printHtml(sourceHtml, join(sourceDirectory, 'paper.pdf'), 'A4');
+    written.push('bench/pdf/paper.pdf');
+  }
+  if (all || requested.has('scan')) {
+    await buildScan(join(sourceDirectory, 'scan.pdf'));
+    written.push('bench/pdf/scan.pdf');
+  }
+  if (all || requested.has('staggered-columns')) {
+    await printHtml(staggeredHtml, join(sourceDirectory, 'staggered-columns.pdf'), 'Letter');
+    written.push('bench/pdf/staggered-columns.pdf');
+  }
+  console.log(`wrote ${written.join(', ')}`);
 }
 
 await main();
