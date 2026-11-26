@@ -2,6 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   countTranslatableBlocks,
+  isProsePre,
   isTranslationExcluded,
   isTypedTextSelection,
   listTranslatableBlocks,
@@ -42,6 +43,33 @@ describe('translatable blocks', () => {
     `;
 
     expect(countTranslatableBlocks(document)).toBe(1);
+  });
+
+  it('counts an arca-style bare pre but skips every kind of code pre', () => {
+    document.body.innerHTML = `
+      <div class="message"><div class="text"><pre id="prose">짧은 연습 문장입니다.</pre></div></div>
+      <div><pre id="bare-code">const answer = 42;</pre></div>
+      <pre class="algorithm" id="algorithm">for block in page:
+    continue</pre>
+      <div class="message"><div class="text"><pre id="highlighted"><span class="k">const</span> answer = 42;</pre></div></div>
+      <div class="message"><div class="text"><pre id="fence"><code>const answer = 42;</code></pre></div></div>
+      <div translate="no"><div class="message"><div class="text"><pre id="locked">번역 금지</pre></div></div></div>
+    `;
+
+    const prose = document.querySelector('#prose')!;
+    expect(isProsePre(prose)).toBe(true);
+    expect(isTranslationExcluded(prose)).toBe(false);
+    for (const id of ['bare-code', 'algorithm', 'highlighted', 'fence']) {
+      const pre = document.querySelector(`#${id}`)!;
+      expect(isProsePre(pre)).toBe(false);
+      expect(isTranslationExcluded(pre)).toBe(true);
+    }
+    // The highlighted span and a locked comment are excluded through their ancestors.
+    expect(isTranslationExcluded(document.querySelector('#highlighted span')!)).toBe(true);
+    expect(isTranslationExcluded(document.querySelector('#locked')!)).toBe(true);
+    expect(listTranslatableBlocks(document).map((block) => block.textContent?.trim())).toEqual([
+      '짧은 연습 문장입니다.',
+    ]);
   });
 
   it('skips hidden, URL-only and symbol-only blocks', () => {

@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { isTranslationExcluded } from '@/dom/blocks';
 import { Revealer } from '@/dom/reveal';
 import { REVEAL_STREAM_AFTER_MS } from '@/dom/reveal';
 import { buildSegment } from '@/dom/segment';
@@ -4756,6 +4757,8 @@ describe('page translation corrections', () => {
 
     session.restore();
     expect(document.documentElement.style.paddingTop).toBe('12px');
+    // The style stub would otherwise leak into later tests and change their block layout.
+    vi.mocked(document.defaultView!.getComputedStyle).mockRestore();
   });
 
   it('does not remember the site until access is granted', async () => {
@@ -7113,5 +7116,111 @@ describe('X logged-in pre-wrap bodies', () => {
     expect(document.querySelector('#logged')?.textContent).toBe(
       'Translated 1.\n\nTranslated 2.\n\nTranslated 3.',
     );
+  });
+});
+
+describe('community board comments', () => {
+  it('sends every line of a bare pre to the engine and keeps its line breaks', async () => {
+    document.documentElement.lang = 'ko';
+    // Synthetic arca.live markup: the body sits in div.message > div.text > pre, and a bare
+    // pre is prose here rather than a code fence. The reply is nested one wrapper deeper.
+    const article = '이 글은 연습용 게시물입니다.';
+    const commentLines = [
+      '첫 번째 댓글은 짧은 연습 문장입니다.',
+      '두 번째 줄에는 줄바꿈이 남아 있습니다.',
+    ];
+    const replyLines = ['답글도 같은 방식으로 번역됩니다.', '답글의 두 번째 줄도 그대로 남습니다.'];
+    const comment = commentLines.join('\n');
+    const reply = replyLines.join('\n');
+    document.body.innerHTML = `
+      <article><p id="article">${article}</p></article>
+      <div id="comment" class="article-comment">
+        <div class="list-area">
+          <div class="comment-wrapper">
+            <div class="comment-item">
+              <div class="content">
+                <div class="message"><div class="text"><pre id="comment-body">${comment}</pre></div></div>
+              </div>
+              <div class="comment-wrapper">
+                <div class="comment-item">
+                  <div class="content">
+                    <div class="message"><div class="text"><pre id="reply-body">${reply}</pre></div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="comment-wrapper" id="coded">
+            <div class="comment-item">
+              <div class="content">
+                <div class="message"><div class="text"><pre><code>const answer = 42;</code></pre></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const seen: string[] = [];
+    const session = start(
+      document,
+      engineOf(async function* (segments) {
+        for (const segment of segments) {
+          seen.push(segment.text);
+          yield { id: segment.id, final: `EN:${segment.text}`, engine: 'plamo' as const };
+        }
+      }),
+      { targetLanguage: 'en', display: 'bilingual', auto: 'always' },
+    );
+
+    await session.translate();
+    await session.whenIdle();
+
+    expect(seen).toEqual([article, ...commentLines, ...replyLines]);
+    expect(seen.every((text) => !text.includes('\n'))).toBe(true);
+    expect(document.querySelector('#article > sakutto-line')?.textContent).toBe(`EN:${article}`);
+    expect(document.querySelector('#comment-body')?.textContent).toBe(
+      commentLines.map((line) => `EN:${line}`).join('\n'),
+    );
+    expect(document.querySelector('#reply-body')?.textContent).toBe(
+      replyLines.map((line) => `EN:${line}`).join('\n'),
+    );
+    // A bare pre is not a prose tag, so bilingual mode paints its answer in place.
+    expect(document.querySelectorAll('sakutto-line')).toHaveLength(1);
+    expect(document.querySelector('#coded pre')?.textContent).toBe('const answer = 42;');
+  });
+
+  it('never queues bare code, algorithm blocks or highlighted fences', async () => {
+    document.documentElement.lang = 'ko';
+    document.body.innerHTML = `
+      <div><pre id="bare">const answer = 42;</pre></div>
+      <pre class="algorithm" id="algorithm">for block in page:
+    continue</pre>
+      <div class="message"><div class="text"><pre id="highlighted"><span class="k">const</span> answer = 42;</pre></div></div>
+      <div class="message"><div class="text"><pre id="fence"><code>const answer = 42;</code></pre></div></div>
+    `;
+    const originals = new Map(
+      [...document.querySelectorAll('pre')].map((pre) => [pre.id, pre.textContent] as const),
+    );
+    const seen: string[] = [];
+    const session = start(
+      document,
+      engineOf(async function* (segments) {
+        for (const segment of segments) {
+          seen.push(segment.text);
+          yield { id: segment.id, final: `EN:${segment.text}`, engine: 'plamo' as const };
+        }
+      }),
+      { targetLanguage: 'en', display: 'replace', auto: 'always' },
+    );
+
+    await session.translate();
+    await session.whenIdle();
+
+    expect(seen).toEqual([]);
+    for (const [id, original] of originals) {
+      expect(isTranslationExcluded(document.querySelector(`#${id}`)!)).toBe(true);
+      expect(document.querySelector(`#${id}`)?.textContent).toBe(original);
+    }
   });
 });
