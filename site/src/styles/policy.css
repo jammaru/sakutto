@@ -1,0 +1,159 @@
+/* Privacy policy typography, adapted from the Sakutto landing's read styles. */
+.sakutto-policy {
+  --line: var(--border);
+  --surface: var(--bg-soft);
+}
+
+.layout-policy {
+  font-family: "Noto Sans JP", "Hiragino Sans", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+}
+
+.layout-policy :is(h1, h2, h3),
+.layout-policy .frame h1 {
+  font-family: "Noto Sans JP", "Hiragino Sans", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+  letter-spacing: 0;
+}
+
+.layout-policy .policy-prose :is(h2, h3) {
+  font-weight: 700;
+}
+
+.policy-jump {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+  margin: 0 0 28px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.policy-jump a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.policy-jump a:hover {
+  color: var(--ink);
+}
+
+.policy-doc + .policy-doc {
+  margin-top: 64px;
+  padding-top: 48px;
+  border-top: 1px solid var(--line);
+}
+
+.policy .policy-prose {
+  max-width: none;
+  margin: 22px 0 0;
+}
+
+.policy .policy-prose > :first-child {
+  margin-top: 0;
+}
+
+.policy .policy-prose,
+.policy .policy-prose a,
+.policy .policy-prose code,
+.policy .policy-prose li {
+  overflow-wrap: anywhere;
+}
+
+.policy .policy-prose a {
+  min-height: 0;
+}
+
+.article-prose {
+  max-width: 640px;
+  margin: 52px auto 0;
+  color: var(--ink);
+  font-size: 16px;
+  line-height: 1.95;
+}
+
+.article-prose p {
+  margin: 1.35em 0;
+}
+
+.article-prose img {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  margin: 1.75em 0;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+}
+
+.article-prose h2,
+.article-prose h3 {
+  margin: 2.4em 0 0.7em;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.article-prose h2 {
+  font-size: 25px;
+}
+
+.article-prose h3 {
+  font-size: 19px;
+}
+
+.article-prose ul,
+.article-prose ol {
+  margin: 1.25em 0;
+  padding-left: 1.4em;
+}
+
+.article-prose li + li {
+  margin-top: 0.45em;
+}
+
+.article-prose a {
+  color: var(--fg);
+  text-decoration: underline;
+  text-decoration-color: var(--line);
+  text-underline-offset: 3px;
+  transition: text-decoration-color 160ms ease-out;
+}
+
+.article-prose a:hover {
+  text-decoration-color: var(--ink);
+}
+
+.article-prose blockquote {
+  margin: 1.5em 0;
+  padding-left: 20px;
+  border-left: 2px solid var(--line);
+  color: var(--muted);
+}
+
+.article-prose pre {
+  overflow-x: auto;
+  margin: 1.5em 0;
+  padding: 20px;
+  border-radius: 18px;
+  background: var(--ink);
+  color: var(--bg);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.article-prose code {
+  padding: 2px 5px;
+  border-radius: 5px;
+  background: var(--surface);
+  font-size: 0.9em;
+}
+
+.article-prose pre code {
+  padding: 0;
+  background: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .article-prose a { transition: none; }
+}

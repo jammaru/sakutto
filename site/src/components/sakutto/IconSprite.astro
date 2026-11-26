@@ -1,0 +1,50 @@
+---
+import { siDiscord, siGithub } from "simple-icons";
+import {
+  SAKUTTO_BROWSER_ICON_PATHS,
+  SAKUTTO_BROWSER_IDS,
+} from "../../data/sakutto-browser";
+
+/**
+ * One hidden sprite for every icon reused on the page. The browser logo paths
+ * are large, and the store widgets repeat them several times; <use> keeps the
+ * markup identical on screen while emitting each path only once in the HTML.
+ *
+ * Keep the original path data verbatim. Rounding or rewriting path coordinates
+ * corrupts SVG number shorthand (e.g. ".96" -> "1" merges with the next token
+ * into "0.11"), which makes the whole symbol paint blank.
+ */
+const icons = [
+  ...SAKUTTO_BROWSER_IDS.map((id) => [`browser-${id}`, SAKUTTO_BROWSER_ICON_PATHS[id]] as const),
+  ["github", siGithub.path],
+  ["discord", siDiscord.path],
+] as const;
+---
+
+<svg
+  class="icon-sprite"
+  xmlns="http://www.w3.org/2000/svg"
+  aria-hidden="true"
+  focusable="false"
+>
+  <defs>
+    {
+      icons.map(([id, path]) => (
+        <symbol id={`sakutto-icon-${id}`} viewBox="0 0 24 24">
+          <path d={path} />
+        </symbol>
+      ))
+    }
+  </defs>
+</svg>
+
+<style is:global>
+  /* definitions only: never clip the referenced instances on mobile engines */
+  .icon-sprite {
+    position: absolute;
+    width: 0;
+    height: 0;
+    overflow: visible;
+    pointer-events: none;
+  }
+</style>

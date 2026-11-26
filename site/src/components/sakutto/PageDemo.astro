@@ -1,0 +1,101 @@
+---
+import { ArrowLeft, ArrowRight, RotateCw, LockKeyhole, Puzzle, X } from "@lucide/astro";
+import SakuttoMark from "./SakuttoMark.astro";
+import type { SakuttoLocale } from "../../data/sakutto";
+import {
+  HERO_AVIF_SRCSET,
+  HERO_FALLBACK_SRC,
+  HERO_INTRINSIC_HEIGHT,
+  HERO_INTRINSIC_WIDTH,
+  HERO_SIZES,
+  HERO_WEBP_SRCSET,
+} from "../../data/sakutto-media";
+interface Props { locale: SakuttoLocale }
+const ja = Astro.props.locale === "ja";
+const story = [
+  ["Travel · Kyoto", "旅・京都"],
+  ["The Quiet Art of Kyoto’s Tea Houses", "京都の茶屋に息づく、静かな美学"],
+  ["By Hana Mori · 6 min read", "文：森 ハナ · 6分で読めます"],
+  ["Tucked behind narrow lanes in Higashiyama, Kyoto’s oldest tea houses have welcomed travelers for generations.", "東山の細い路地の奥にひっそりと佇む京都最古の茶屋は、何世代にもわたって旅人を迎え入れてきました。"],
+  ["Each room is designed around a single moment: the water, the rising steam, and the quiet that follows.", "どの部屋も、ひとつの瞬間のために設えられています。湯、立ちのぼる湯気、そしてそのあとに訪れる静けさ。"],
+  ["Today, a new generation of hosts is finding ways to share that stillness with guests from around the world.", "いま、新しい世代の亭主たちが、その静けさを世界中から訪れる客と分かち合う方法を探っています。"],
+];
+---
+<figure class="page-demo" data-page-demo data-start={ja ? "このページを翻訳" : "Translate this page"} data-restore={ja ? "原文に戻す" : "Restore original"}>
+  <div class="wall">
+    <picture class="wall-photo">
+      <source type="image/avif" srcset={HERO_AVIF_SRCSET} sizes={HERO_SIZES} />
+      <source type="image/webp" srcset={HERO_WEBP_SRCSET} sizes={HERO_SIZES} />
+      <img
+        src={HERO_FALLBACK_SRC}
+        alt=""
+        width={HERO_INTRINSIC_WIDTH}
+        height={HERO_INTRINSIC_HEIGHT}
+        sizes={HERO_SIZES}
+        fetchpriority="high"
+        loading="eager"
+        decoding="async"
+      />
+    </picture>
+    <div class="window">
+      <div class="tabstrip" aria-hidden="true"><span><i></i>The Quiet Art of Kyoto’s Tea… <X size={12}/></span></div>
+      <div class="toolbar">
+        <span class="tools" aria-hidden="true"><ArrowLeft/><ArrowRight/><RotateCw/></span>
+        <span class="address"><LockKeyhole size={12}/> fieldnotes.travel/kyoto/tea-houses</span>
+        <button class="extension" type="button" aria-expanded="false" aria-controls="sakutto-demo-popup" aria-label={ja ? "Sakutto のポップアップを開閉" : "Toggle Sakutto popup"}><SakuttoMark size={23}/></button>
+        <Puzzle size={16} aria-hidden="true"/>
+      </div>
+      <div class="sheet">
+        <div class="masthead">Field Notes</div>
+        <article lang="en">
+          {story.map(([en,jp],i) => {
+            const Tag = i === 1 ? "h2" : "p";
+            return <Tag class={["kicker","headline","byline","body-copy","body-copy","body-copy"][i]} data-segment><span>{en}</span><span lang="ja" hidden>{jp}</span></Tag>;
+          })}
+        </article>
+      </div>
+      <section class="popup" id="sakutto-demo-popup" hidden aria-label="Sakutto">
+        <div class="identity"><SakuttoMark size={28}/><div><strong>Sakutto</strong><small>{ja ? "端末内で動くページ翻訳" : "On-device page translation"}</small></div></div>
+        <button class="translate" type="button">{ja ? "このページを翻訳" : "Translate this page"}</button>
+        <progress hidden value="0" max={story.length} aria-label={ja ? "翻訳の進捗" : "Translation progress"}></progress>
+        <div class="settings"><div>{ja ? "訳先の言語" : "Target language"}<strong>日本語</strong></div>
+          <label>{ja ? "表示" : "Display"}<select><option value="replace">{ja ? "置換表示" : "Replace original"}</option><option value="bilingual">{ja ? "対訳表示" : "Bilingual"}</option></select></label>
+        </div>
+      </section>
+    </div>
+  </div>
+
+</figure>
+<style>
+  .page-demo { width: 100%; text-align: left; }
+  .wall { position: relative; isolation: isolate; overflow: hidden; background: #6e8058; padding: clamp(15px,3.65vw,54px) clamp(12px,4.5vw,64px); border-radius: 10px; }
+  .wall-photo { position: absolute; inset: 0; z-index: 0; display: block; }
+  .wall-photo img { width: 100%; height: 100%; object-fit: cover; object-position: center 55%; }
+  .window { position: relative; z-index: 1; overflow: hidden; border-radius: 9px; background: white; box-shadow: 0 12px 38px #14201955; border: 1px solid #b5bebf; }
+  .tabstrip { background: #dce2e6; padding: 6px 7px 0; }
+  .tabstrip span { display: flex; align-items: center; gap: 8px; width: fit-content; padding: 5px 10px; border-radius: 8px 8px 0 0; background: white; font-size: .75rem; color: #42474d; }
+  .tabstrip i { width: 11px; height: 11px; background: #be7048; border-radius: 3px; }
+  .toolbar,.tools,.address,.identity { display: flex; align-items: center; gap: 10px; }
+  .toolbar { padding: 5px 12px; border-bottom: 1px solid #dfe2e5; color: #48515a; }
+  .tools svg { width: 14px; }
+  .address { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; border-radius: 99px; background: #eef1f4; font-size: .76rem; padding: 6px 10px; }
+  .extension { cursor: pointer; flex: none; border-radius: 50%; background: #d8eff5; border: 1px solid #86c5d4; padding: 8px; display: grid; place-items: center; }
+  .extension:hover,.extension[aria-expanded=true] { background: #aadcea; }
+  .sheet { background: #fbfaf6; color: #22211e; height: clamp(380px,34vw,490px); overflow-y: auto; }
+  .masthead { padding: 11px 4%; font: bold italic 1.45rem Georgia,serif; background: white; border-bottom: 1px solid #e0dfdb; }
+  article { max-width: 46rem; padding: clamp(20px,3vw,44px) clamp(18px,3vw,40px); margin: auto; }
+  .kicker { color: #20758a; font-size: .8rem; font-weight: 650; }
+  .headline { margin: .5rem 0; font: 650 clamp(1.6rem,3.1vw,2.65rem)/1.14 Georgia,"Yu Mincho",serif; letter-spacing: -.035em; }
+  .byline { color: #64635f; font-size: .85rem; border-bottom: 1px solid #dcdad4; padding: .4rem 0 1.3rem; margin-bottom: 1.2rem; }
+  .body-copy { margin: .75rem 0; font: 1.1rem/1.65 Georgia,"Yu Mincho",serif; }
+  article span:not([hidden]) + span:not([hidden]) { display: block; color: #195c6d; margin-top: .3rem; }
+  .popup { position: absolute; z-index: 1; top: 80px; right: 22px; width: min(310px,calc(100% - 22px)); padding: 14px; background: #f4f6f8; color: #18202d; border: 1px solid #d4d8dc; border-radius: 12px; box-shadow: 0 10px 30px #1c232b35; font: .875rem/1.4 "Segoe UI",system-ui,sans-serif; }
+  .identity small { display: block; color: #5b6675; }
+  .translate { width: 100%; margin: 12px 0; border: 0; border-radius: 7px; min-height: 40px; cursor: pointer; background: #0e7490; color: white; font: inherit; font-weight: 650; }
+  .translate:hover { background: #155e75; }
+  progress { width: 100%; height: 7px; accent-color: #0e7490; margin-bottom: 8px; }
+  .settings { display: grid; gap: 10px; background: white; padding: 12px; border: 1px solid #dce0e4; border-radius: 12px; color: #505b68; }
+  .settings strong,.settings select { display: block; margin-top: 3px; font: inherit; color: #18202d; }
+  .settings select { width: 100%; border: 1px solid #7d8796; border-radius: 7px; padding: 7px; background: white; }
+  @media(max-width:600px){ .tools { display:none; } .popup { top:79px; right:6px; width:min(235px,88%); } .sheet { height:430px; } .toolbar { gap:5px; padding-inline:6px; } }
+</style>

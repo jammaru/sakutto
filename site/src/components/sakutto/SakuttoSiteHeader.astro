@@ -1,0 +1,104 @@
+---
+import Github from "../Github.astro";
+import SakuttoMark from "./SakuttoMark.astro";
+import StoreDownloadSplit from "./StoreDownloadSplit.astro";
+import { SAKUTTO_LINKS, firefoxHref, sakuttoCopy, type SakuttoLocale } from "../../data/sakutto";
+
+interface Props { locale: SakuttoLocale }
+const { locale } = Astro.props;
+const ja = locale === "ja";
+const copy = sakuttoCopy[locale];
+const home = ja ? "/" : "/en/";
+const jaPath = "/";
+const enPath = "/en/";
+---
+<header class="site-header" aria-label={ja ? "サイト" : "Site"}>
+  <div class="container site-header-inner">
+    <a class="wordmark" href={home} aria-label="Sakutto">
+      <SakuttoMark class="brand-mark" size={24} />
+      <span class="brand-name">Sakutto</span>
+    </a>
+
+    <div class="header-actions">
+      <nav class="nav-site" aria-label={ja ? "外部リンク" : "External links"}>
+        <a class="icon-link" href={SAKUTTO_LINKS.github} aria-label={copy.nav.github}>
+          <Github size={18} />
+        </a>
+        <a class="icon-link" href={SAKUTTO_LINKS.discord} aria-label="Discord">
+          <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
+            <use href="#sakutto-icon-discord" />
+          </svg>
+        </a>
+      </nav>
+
+      <div class="locale-toggle" role="group" aria-label={copy.nav.language}>
+        <div class="locale-list">
+          <a class:list={["locale-option", { "is-current": !ja }]} href={enPath} hreflang="en" lang="en" aria-current={ja ? undefined : "page"}>
+            <span>EN</span>
+          </a>
+          <a class:list={["locale-option", "locale-option-ja", { "is-current": ja }]} href={jaPath} hreflang="ja" lang="ja" aria-current={ja ? "page" : undefined}>
+            <span>日本語</span>
+          </a>
+        </div>
+      </div>
+
+      <div class="theme-toggle" data-theme-toggle data-mode="light">
+        <button type="button" id="sakutto-theme-toggle" aria-label={copy.nav.theme} aria-pressed="false">
+          <span class="theme-track" aria-hidden="true">
+            <span class="theme-thumb">
+              <svg class="theme-icon theme-sun" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="3.25" stroke="currentColor" stroke-width="1.6" />
+                <path d="M12 3.5v1.6M12 18.9v1.6M3.5 12h1.6M18.9 12h1.6M6.05 6.05l1.13 1.13M16.82 16.82l1.13 1.13M6.05 17.95l1.13-1.13M16.82 7.18l1.13-1.13" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+              </svg>
+              <svg class="theme-icon theme-moon" viewBox="0 0 24 24" fill="none">
+                <path d="M16.5 14.2A6.7 6.7 0 0 1 9.8 7.5a6.2 6.2 0 1 0 6.7 6.7Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" />
+              </svg>
+            </span>
+          </span>
+        </button>
+      </div>
+
+      <StoreDownloadSplit locale={locale} instance="header" />
+
+      <details class="nav-mobile">
+        <summary aria-label={ja ? "メニュー" : "Menu"}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+        </summary>
+        <div class="nav-mobile-menu">
+          <a href={SAKUTTO_LINKS.chrome}>Chrome</a>
+          <a href={firefoxHref(locale)}>Firefox</a>
+          <a href={SAKUTTO_LINKS.github}>GitHub</a>
+          <a href={SAKUTTO_LINKS.discord}>Discord</a>
+          <a href={jaPath} hreflang="ja" lang="ja">日本語</a>
+          <a href={enPath} hreflang="en" lang="en">English</a>
+        </div>
+      </details>
+    </div>
+  </div>
+</header>
+
+<script>
+  const key = "sakutto-theme";
+  const root = document.documentElement;
+  const toggle = document.querySelector<HTMLElement>("[data-theme-toggle]");
+  const button = document.getElementById("sakutto-theme-toggle");
+
+  function apply(mode: "light" | "dark") {
+    root.dataset.theme = mode;
+    toggle?.setAttribute("data-mode", mode);
+    button?.setAttribute("aria-pressed", mode === "dark" ? "true" : "false");
+    const label = mode === "dark"
+      ? (document.documentElement.lang === "ja" ? "ライトテーマに切り替え" : "Switch to light theme")
+      : (document.documentElement.lang === "ja" ? "ダークテーマに切り替え" : "Switch to dark theme");
+    button?.setAttribute("aria-label", label);
+  }
+
+  const initial = root.dataset.theme === "dark" ? "dark" : "light";
+  apply(initial);
+
+  button?.addEventListener("click", () => {
+    const next = root.dataset.theme === "dark" ? "light" : "dark";
+    try { localStorage.setItem(key, next); } catch { /* private mode */ }
+    apply(next);
+  });
+</script>

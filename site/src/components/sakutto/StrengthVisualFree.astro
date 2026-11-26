@@ -1,0 +1,31 @@
+---
+import type { SakuttoLocale } from "../../data/sakutto";
+
+interface Props {
+  locale: SakuttoLocale;
+}
+
+const { locale } = Astro.props;
+const ja = locale === "ja";
+const amount = ja ? "¥0" : "Free";
+const rows = ja
+  ? ["アカウント不要", "広告なし", "分析ツールなし", "ライセンス MIT"]
+  : ["No account", "No ads", "No analytics", "MIT license"];
+---
+
+<div class="sv-free">
+  <div class="sv-price">
+    <div class="sv-brand">Sakutto</div>
+    <div class="sv-amount" lang={locale}>{amount}</div>
+    <div class="sv-rule" aria-hidden="true"></div>
+    <ul class="sv-lines" lang={locale}>
+      {
+        rows.map((row) => (
+          <li class="sv-line">
+            <span class="sv-line-check" aria-hidden="true">✓</span><span>{row}</span>
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+</div>

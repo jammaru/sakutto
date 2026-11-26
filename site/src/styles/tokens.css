@@ -1,0 +1,99 @@
+:root {
+  color-scheme: dark;
+
+  /* Surfaces: dark neutrals with low-alpha white borders. */
+  --ui-bg: #1b1b1b;
+  --ui-surface: #232323;
+  --ui-surface-raised: #282828;
+  --ui-ink: #f2f2f2;
+  --ui-ink-soft: #cdcdcd;
+  --ui-muted: #a1a1a1;
+  --ui-border: rgba(255, 255, 255, 0.075);
+  --ui-border-strong: rgba(255, 255, 255, 0.14);
+  --ui-border-subtle: rgba(255, 255, 255, 0.05);
+
+  /* Accent: brand sky with hover, ink, wash and line variants. */
+  --ui-accent: #7dd3fc;
+  --ui-accent-hover: #bae6fd;
+  --ui-accent-ink: #101828;
+  --ui-accent-wash: rgba(125, 211, 252, 0.08);
+  --ui-accent-line: rgba(125, 211, 252, 0.42);
+
+  /* Type scale: 16px body at weight 450, h1 46px/500 and h2 34px/600. */
+  --ui-font-ui: "Inter Variable", Inter, "Noto Sans JP", -apple-system, "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+  --ui-font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --ui-body-size: 16px;
+  --ui-body-weight: 450;
+  --ui-body-leading: 1.5;
+  --ui-h1-size: 46px;
+  --ui-h1-leading: 1;
+  --ui-h1-weight: 500;
+  --ui-h2-size: 34px;
+  --ui-h2-leading: 1.2;
+  --ui-h2-weight: 600;
+  --ui-card-title-size: 16px;
+  --ui-card-title-leading: 24px;
+  --ui-card-body-size: 14px;
+  --ui-card-body-leading: 20px;
+  --ui-small-size: 14px;
+  --ui-small-leading: 20px;
+  --ui-tiny-size: 12px;
+  --ui-tiny-leading: 18px;
+  --ui-heading-tracking: -0.022em;
+
+  /* Layout: 1280px max width with 96px desktop and 24px mobile gutters. */
+  --ui-container: 1280px;
+  --ui-gutter: 96px;
+  --ui-gutter-mobile: 24px;
+
+  /* Rhythm: section padding 64/96px, CTA 128px, grid gap 12px. */
+  --ui-section-y: 96px;
+  --ui-section-y-mobile: 64px;
+  --ui-cta-y: 128px;
+  --ui-grid-gap: 12px;
+  --ui-block-gap: 24px;
+
+  /* Radii: 6/8/12/16px steps. */
+  --ui-radius-sm: 6px;
+  --ui-radius-md: 8px;
+  --ui-radius-lg: 12px;
+  --ui-radius-xl: 16px;
+
+  /* Nav: 64px tall, 4px backdrop blur, 0.3s transition. */
+  --ui-nav-height: 64px;
+  --ui-nav-blur: blur(4px);
+  --ui-nav-transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Buttons: 14px/500, 38px tall, 8px radius and a raised inset shadow. */
+  --ui-btn-size: 14px;
+  --ui-btn-weight: 500;
+  --ui-btn-height: 38px;
+  --ui-btn-padding: 0 16px;
+  --ui-btn-radius: 8px;
+  --ui-btn-shadow: 0 1px 3px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.04), inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+  --ui-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --ui-transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  --ui-transition: 0.2s var(--ui-ease);
+
+  /* Card: 24px padding, 16px radius and a 150ms hover transition. */
+  --ui-card-pad: 24px;
+  --ui-card-height: 400px;
+  --ui-card-shadow-hover: 0 8px 24px -12px rgba(0, 0, 0, 0.7);
+
+  /* Footer: 40px vertical padding, 112px column gap, 14px links. */
+  --ui-footer-y: 40px;
+  --ui-footer-gap: 112px;
+}
+
+@media (max-width: 640px) {
+  :root {
+    --ui-gutter: var(--ui-gutter-mobile);
+    --ui-section-y: var(--ui-section-y-mobile);
+    --ui-card-pad: 20px;
+    --ui-h1-size: 34px;
+    --ui-h1-leading: 1.111;
+    --ui-h2-size: 26px;
+    --ui-cta-y: 96px;
+    --ui-footer-gap: 48px;
+  }
+}

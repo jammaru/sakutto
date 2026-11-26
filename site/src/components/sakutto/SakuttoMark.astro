@@ -1,0 +1,15 @@
+---
+interface Props { size?: number; label?: string; class?: string }
+const { size = 28, label, class: className = "" } = Astro.props;
+const src = size <= 32 ? "/icon-32.png" : size <= 48 ? "/icon-48.png" : "/icon-128.png";
+---
+<img
+  class={className}
+  src={src}
+  srcset="/icon-32.png 32w, /icon-48.png 48w, /icon-128.png 128w"
+  sizes={`${size}px`}
+  width={size}
+  height={size}
+  alt={label ?? ""}
+  decoding="async"
+/>
