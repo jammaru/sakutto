@@ -8,12 +8,10 @@ const FIELD_SELECTORS = [
 ];
 
 /**
- * A bare `<pre>` is not source code: community boards put a comment body straight into one
- * (`div.text > pre`). Only a code fence — a `<pre>` containing `<code>` — is excluded, so
- * forum prose is translated while a markdown-style fence keeps its original bytes.
+ * Everything except `<pre>`. A pre is excluded by default too, but a narrow prose gate below
+ * lets a board comment body through, so it is kept as a separate selector that can be skipped.
  */
 const EXCLUDED_SELECTOR = [
-  'pre:has(code)',
   'code',
   'kbd',
   'samp',
@@ -27,6 +25,40 @@ const EXCLUDED_SELECTOR = [
   '[translate="no"]',
   '.notranslate',
 ].join(', ');
+
+const ANY_EXCLUDED_SELECTOR = `pre, ${EXCLUDED_SELECTOR}`;
+
+/**
+ * Community boards put a comment body straight into a bare `<pre>` — arca.live uses
+ * `div.message > div.text > pre`. That is prose, not a code fence. The gate is positive and
+ * narrow: a text-only pre (at most `<br>`s) directly under `div.text`, inside a message or
+ * comment container nearby. Standalone code, highlighted fences and `pre.algorithm` keep the
+ * blanket exclusion they had before this gate existed.
+ */
+const COMMENT_CLASS = /(?:^|[-_])comment(?:[-_]|$)/iu;
+const COMMENT_ANCESTOR_DEPTH = 6;
+
+export function isProsePre(element: Element): boolean {
+  if (element.localName !== 'pre') return false;
+  for (const child of element.children) {
+    // Highlighted code is still code, even when a board wraps it in a comment.
+    if (child.localName !== 'br') return false;
+  }
+  const parent = element.parentElement;
+  if (!parent || parent.localName !== 'div' || !parent.classList.contains('text')) return false;
+
+  let ancestor = parent.parentElement;
+  for (let depth = 0; ancestor && depth < COMMENT_ANCESTOR_DEPTH; depth += 1) {
+    if (
+      ancestor.classList.contains('message') ||
+      Array.from(ancestor.classList).some((name) => COMMENT_CLASS.test(name))
+    ) {
+      return true;
+    }
+    ancestor = ancestor.parentElement;
+  }
+  return false;
+}
 
 /**
  * Inline code inside a sentence. It must never be rewritten, and it must not move either.
@@ -278,9 +310,22 @@ export function isBlockElement(element: Element): boolean {
   return BLOCK_TAGS.has(element.tagName.toLowerCase());
 }
 
+/**
+ * The nearest excluded element, with the prose-pre gate removed. `closest()` is still used
+ * for the common case; only a matched bare pre that passes the gate is skipped, and the
+ * search then resumes above it so a real marker higher up is never lost.
+ */
+function nearestExcluded(element: Element): Element | null {
+  let excluded = element.closest(ANY_EXCLUDED_SELECTOR);
+  while (excluded && isProsePre(excluded) && !excluded.matches(EXCLUDED_SELECTOR)) {
+    excluded = excluded.parentElement?.closest(ANY_EXCLUDED_SELECTOR) ?? null;
+  }
+  return excluded;
+}
+
 export function isTranslationExcluded(element: Element, boundary?: Element): boolean {
   if (isOwnUi(element)) return true;
-  const excluded = element.closest(EXCLUDED_SELECTOR);
+  const excluded = nearestExcluded(element);
   if (!excluded) return false;
   // An explicit scan of a subtree (a mail body, a selected region) is not cancelled by a
   // `translate="no"` or field marker on the app shell above it. The marker still applies
