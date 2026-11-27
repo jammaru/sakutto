@@ -182,7 +182,7 @@ export interface SakuttoCopy {
 
 const japanese: SakuttoCopy = {
   meta: {
-    title: "Sakutto | ページと PDF を、端末の中で翻訳する",
+    title: "Sakutto | ローカルAI翻訳",
     description:
       "PLaMo 3 Translate をブラウザ内で動かす、無料・MIT の Chrome / Firefox 拡張機能。ページ、スキャン PDF、画像、YouTube の字幕を端末で翻訳します。アカウント不要。",
     ogAlt: "Sakutto のロゴと「ブラウザ向けのローカル LLM 翻訳」のタグライン、Chrome 拡張機能と Firefox Add-on のバッジ",
