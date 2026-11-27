@@ -8,6 +8,7 @@ public/vendor
 # Byte-pinned third-party OCR runtime; formatting would invalidate SHA-256 pins.
 public/ocr/ort
 vendor
+site/**
 scripts/icon.svg
 scripts/bench/fixtures/
 bench/ocr/fixtures/*.rgba

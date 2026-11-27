@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://sakutto.jammaru.com/sitemap.xml

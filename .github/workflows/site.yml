@@ -1,0 +1,46 @@
+name: Site
+
+on:
+  push:
+    paths:
+      - 'site/**'
+  pull_request:
+    paths:
+      - 'site/**'
+
+permissions:
+  contents: read
+
+jobs:
+  site:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SAKUTTO_STATS_OFFLINE: '1'
+      CF_SEND_TELEMETRY: 'false'
+      ASTRO_TELEMETRY_DISABLED: '1'
+      DO_NOT_TRACK: '1'
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+
+      - name: Install dependencies
+        working-directory: site
+        run: npm ci
+
+      - name: Build static site
+        working-directory: site
+        run: npm run build
+
+      - name: Validate Cloudflare build
+        working-directory: site
+        run: npx cf build
+
+      - name: Validate deploy without credentials
+        working-directory: site
+        run: npx cf deploy --dry-run

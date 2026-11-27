@@ -1,0 +1,52 @@
+---
+import type { SakuttoLocale } from "../data/sakutto";
+
+import StoreCtaPair from "./sakutto/StoreCtaPair.astro";
+import SocialProofStats from "./sakutto/SocialProofStats.astro";
+import StrengthCardsSection from "./sakutto/StrengthCardsSection.astro";
+import FeatureStories from "./sakutto/FeatureStories.astro";
+import SakuttoMark from "./sakutto/SakuttoMark.astro";
+import PageDemo from "./sakutto/PageDemo.astro";
+
+interface Props { locale: SakuttoLocale }
+const { locale } = Astro.props;
+const ja = locale === "ja";
+---
+
+<section class="hero" aria-labelledby="title">
+  <div class="container">
+    <div class="hero-intro" id="web">
+      <div class="hero-copy">
+        <h1 id="title">Sakutto</h1>
+        <p class="hero-sub" lang={locale}>
+          {ja
+            ? "開いているタブのまま、ページも PDF も動画の字幕も訳せます。"
+            : "Translate pages, PDFs, and video captions right in the tab you're on."}
+        </p>
+        <div class="store-actions">
+          <StoreCtaPair locale={locale} />
+        </div>
+        <SocialProofStats locale={locale} />
+
+      </div>
+      <PageDemo locale={locale} />
+    </div>
+  </div>
+</section>
+
+<div class="container">
+  <FeatureStories locale={locale} />
+</div>
+
+<div class="container">
+  <StrengthCardsSection locale={locale} />
+</div>
+
+<section class="sec-cta"><div class="container cta-inner">
+  <SakuttoMark class="cta-icon" size={80} />
+  <h2 class="display cta-title">{ja ? "ブラウザに追加する" : "Add Sakutto to your browser"}</h2>
+  <SocialProofStats locale={locale} echo />
+  <div class="cta-actions">
+    <StoreCtaPair locale={locale} />
+  </div>
+</div></section>

@@ -1,0 +1,135 @@
+---
+import { SAKUTTO_LINKS, type SakuttoLocale } from "../../data/sakutto";
+import {
+  formatChromeRating,
+  formatSocialStat,
+  sakuttoSocialStats,
+} from "../../lib/sakutto-social-stats";
+
+interface Props {
+  locale: SakuttoLocale;
+  echo?: boolean;
+}
+
+interface SocialProofItem {
+  key: string;
+  href: string;
+  icon?: string;
+  value: string;
+  label: string;
+}
+
+const { locale, echo = false } = Astro.props;
+const ja = locale === "ja";
+const stats = sakuttoSocialStats;
+const ratingValue = formatChromeRating(stats.chromeRatingAverage, stats.chromeRatingCount);
+const chromeUsers = formatSocialStat(stats.chromeUsers);
+
+// One Chrome link and one icon: rating first, then users. With no verified
+// rating the item stays a single Chrome entry showing only the user figure.
+const items: SocialProofItem[] = [
+  {
+    key: "chrome",
+    href: SAKUTTO_LINKS.chrome,
+    icon: "browser-chrome",
+    value: ratingValue ? `${ratingValue} · ${chromeUsers}` : chromeUsers,
+    label: ja ? "ユーザー" : "users",
+  },
+  {
+    key: "github",
+    href: SAKUTTO_LINKS.github,
+    icon: "github",
+    value: formatSocialStat(stats.githubStars),
+    label: ja ? "GitHub スター" : "GitHub stars",
+  },
+];
+---
+
+<div class:list={["social-proof", echo && "social-proof-echo"]} data-social-stats>
+  <ul class="social-proof-list">
+    {
+      items.map((item) => (
+        <li>
+          <a
+            class="social-proof-item"
+            href={item.href}
+            rel="noopener noreferrer"
+            aria-label={`${item.value} ${item.label}`}
+          >
+            {item.icon && (
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <use href={`#sakutto-icon-${item.icon}`} />
+              </svg>
+            )}
+            <span class="social-proof-value" data-social-stat-value={item.key}>{item.value}</span>
+            <span class="social-proof-label">{item.label}</span>
+          </a>
+        </li>
+      ))
+    }
+  </ul>
+</div>
+
+
+<style>
+  .social-proof {
+    margin-top: 1.5rem;
+    font-family: var(--sans);
+    color: var(--muted);
+  }
+
+  .social-proof-echo {
+    margin: 1.15rem 0 0;
+  }
+
+  .social-proof-list {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: center;
+    gap: 0.35rem 1.5rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .social-proof-item {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.4rem;
+    font-size: 0.8125rem;
+    line-height: 1.6;
+    color: var(--muted);
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .social-proof-item svg {
+    align-self: center;
+    flex: none;
+    opacity: 0.65;
+  }
+
+  .social-proof-value {
+    color: var(--fg);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    text-decoration-color: var(--brand);
+    text-underline-offset: 0.25em;
+  }
+
+  .social-proof-item:hover .social-proof-value,
+  .social-proof-item:focus-visible .social-proof-value {
+    text-decoration: underline;
+  }
+
+  @media (max-width: 640px) {
+    .social-proof-list {
+      gap: 0.3rem 1rem;
+    }
+
+    .social-proof-item {
+      font-size: 0.75rem;
+    }
+  }
+</style>

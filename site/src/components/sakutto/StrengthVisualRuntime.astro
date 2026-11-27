@@ -1,0 +1,30 @@
+---
+import type { SakuttoLocale } from "../../data/sakutto";
+
+interface Props {
+  locale: SakuttoLocale;
+}
+
+const { locale } = Astro.props;
+const ja = locale === "ja";
+---
+
+<div class="sv-runtime">
+  <div class="sv-control">
+    <p class="sv-primary" lang={locale}>{ja ? "このページを翻訳" : "Translate this page"}</p>
+    <div class="sv-chips">
+      <span class="sv-chip sv-chip-engine" lang="en">PLaMo 3 Translate 0.8B</span>
+      <div class="sv-runtime-wrap">
+        <span class="sv-chip sv-chip-runtime" lang="en">
+          WebGPU <span class="sv-caret" aria-hidden="true">⌄</span>
+        </span>
+        <div class="sv-menu" lang="en">
+          <div class="sv-option sv-option-selected">
+            <span>WebGPU</span><span class="sv-check" aria-hidden="true">✓</span>
+          </div>
+          <div class="sv-option"><span>CPU</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,14 @@
+{
+  "chromeUsers": 8000,
+  "chromeRatingAverage": 4.7,
+  "chromeRatingCount": 13,
+  "githubStars": 306,
+  "fetchedAt": "2026-11-26T19:58:17.126Z",
+  "source": {
+    "chromeUsers": "fallback",
+    "chromeRatingAverage": "fallback",
+    "chromeRatingCount": "fallback",
+    "githubStars": "fallback"
+  },
+  "verifiedAt": "2026-11-26"
+}
