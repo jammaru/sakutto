@@ -367,6 +367,7 @@ export function layoutPage(
   if (blocks.length === 0) {
     return empty();
   }
+  absorbDisplayEquationFragments(blocks);
 
   // A figure's labels — axis ticks, a legend, the words inside a diagram — are set much smaller
   // than the body. They are not prose and they must not be replaced: a translated label sits on
@@ -1655,6 +1656,7 @@ function gapStartsBlock(
   }
   if (isBylineLabel(previous.text) || isBylineLabel(line.text)) return true;
   if (startsAffiliationEntry(previous.text, line.text)) return true;
+  if (isFootnoteStartLine(line)) return true;
   if (isKeywordLine(line.text) && !isKeywordLine(previous.text)) return true;
 
   return false;
@@ -1807,6 +1809,23 @@ function startsAffiliationEntry(previous: string, line: string): boolean {
   if (!isAffiliationLine(line)) return false;
   if (isAffiliationMarker(line)) return !isAffiliationMarker(previous);
   return !isAffiliationLine(previous);
+}
+
+/**
+ * True when a line opens a footnote with a leading superscript marker (`4To illustrate…`,
+ * `1 We define…`, `*Equal contribution.`). A page-bottom paragraph whose sentence continues
+ * onto the next page must not absorb the footnote sitting beneath it.
+ */
+function isFootnoteStartLine(line: TextLine): boolean {
+  const first = line.pieces[0];
+  const next = line.pieces[1];
+  if (!first || !next) return false;
+  const marker = first.text.trim();
+  if (!/^(?:\d{1,2}|[\u2020\u2021\u2217\u22C6\u2731*§¶])$/u.test(marker)) return false;
+  const mainHeight = Math.max(line.height, next.box.height, 1);
+  if (first.box.height > mainHeight * 0.82) return false;
+  if (first.baseline >= line.baseline - mainHeight * 0.1) return false;
+  return /^[\p{Lu}]/u.test(next.text.trimStart());
 }
 
 /** True when a run of lines starts a numbered bibliography entry. */
@@ -2033,6 +2052,7 @@ function shouldMergeAdjacentProse(
   const lastLine = left.lines.at(-1);
   const firstLine = right.lines[0];
   if (lastLine && firstLine && isListBoundary(lastLine, firstLine)) return false;
+  if (firstLine && isFootnoteStartLine(firstLine)) return false;
   const xGap = Math.abs(left.box.x - right.box.x);
   const columnSpan = Math.max(left.room.width, left.box.width, right.room.width, right.box.width);
   const hangingContinuation =
@@ -3125,6 +3145,45 @@ const EQUATION_MAX_PROSE_CHARS = 16;
  */
 const EQUATION_OPERATOR = /[=∈≈≤≥≠+−×÷⊙∑∏∫√±∞∂∇]/u;
 
+const EQUATION_CASE_WORD = /^(?:otherwise|if|for|when|where|else)\.?$/iu;
+
+/**
+ * Promotes tiny math fragments sitting beside a confirmed display equation to `equation`.
+ *
+ * A display equation with `\text{act}` / `\text{eq}` subscripts or a `cases` condition word
+ * (`otherwise.`) can split into small side fragments whose standalone `mathRatio` falls below
+ * `EQUATION_LINE_SHARE`. Leaving them as `prose` paints translated text over the equation or
+ * drops an overflow marker onto it.
+ */
+function absorbDisplayEquationFragments(blocks: LayoutBlock[]): void {
+  const equations = blocks.filter((block) => block.role === 'equation');
+  if (equations.length === 0) return;
+  for (const block of blocks) {
+    if (block.role === 'equation' || SKIP_ROLES.has(block.role)) continue;
+    const text = block.text.trim();
+    if (text.length === 0 || text.length > 16) continue;
+    const words = text.match(/\p{L}{3,}/gu) ?? [];
+    if (words.length >= 2) continue;
+    const hasMath = block.lines.some((line) => line.mathRatio > 0);
+    const hasOp = EQUATION_OPERATOR.test(text);
+    const isCaseWord = EQUATION_CASE_WORD.test(text);
+    if (!hasMath && !hasOp && !isCaseWord) continue;
+    const nearEquation = equations.some((eq) => {
+      const verticalOverlap =
+        Math.min(boxBottom(block.box), boxBottom(eq.box)) >
+        Math.max(block.box.y, eq.box.y) - block.fontSize * 0.5;
+      if (!verticalOverlap) return false;
+      const horizontalGap = Math.max(
+        0,
+        eq.box.x - boxRight(block.box),
+        block.box.x - boxRight(eq.box),
+      );
+      return horizontalGap <= Math.max(block.fontSize * 12, 120);
+    });
+    if (nearEquation) block.role = 'equation';
+  }
+}
+
 export function isEquation(lines: readonly TextLine[], columnLeft = -Infinity): boolean {
   if (lines.length === 0) return false;
   let mathLines = 0;
@@ -3192,6 +3251,13 @@ function alignOf(lines: readonly TextLine[]): BlockAlign {
     lefts.length >= 3 &&
     Math.abs((lefts[0] ?? 0) - (lefts[1] ?? 0)) > tolerance &&
     spread(lefts.slice(1)) <= tolerance
+  ) {
+    return 'left';
+  }
+  if (
+    lefts.length === 2 &&
+    (lefts[0] ?? 0) > (lefts[1] ?? 0) + tolerance &&
+    (lefts[0] ?? 0) - (lefts[1] ?? 0) <= Math.max(24, median(lines.map((line) => line.height)) * 3)
   ) {
     return 'left';
   }
