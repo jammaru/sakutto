@@ -7,38 +7,31 @@ import { measure, piece } from './support/pdf-pieces';
 
 describe('math layout and equation fragment handling (#171)', () => {
   it('rejoins a footnote line split around a tall inline summation operator', () => {
-    // Mirrors Attention Is All You Need p.4 footnote 4:
-    // Line 1: "... independent random"
-    // Line 2: "variables with mean 0 ... q · k =" + tall ∑^{d_k} + "i=1 q_i k_i, has mean 0 ..."
+    // Synthetic page-bottom note: the text row is interrupted by a tall summation
+    // and its superscript/subscript fragments, which sit off the text baseline.
     const pieces = [
       piece(
-        '4 To illustrate why the dot products get large, assume that the components are independent random',
-        121,
-        704.8,
+        '3 In a toy model, suppose the entries of two sampled vectors are independent draws',
+        130,
+        710,
         383,
         { em: 9 },
       ),
-      piece(
-        'variables with mean 0 and variance 1. Then their dot product, q · k =',
-        108,
-        720.0,
-        248,
-        {
-          em: 9,
-        },
-      ),
-      piece('P', 358.9, 713.3, 9.7, { em: 9, math: true }),
-      piece('d', 368.6, 715.8, 3.8, { em: 6, math: true }),
-      piece('k', 372.4, 717.2, 3.8, { em: 5, math: true }),
-      piece('i', 368.6, 722.8, 2.7, { em: 6, math: true }),
-      piece('=1', 371.2, 722.8, 9.2, { em: 6 }),
-      piece('q_i k_i, has mean 0 and variance d_k.', 382.5, 720.0, 121, { em: 9 }),
+      piece('with zero mean and variance one; their dot product, s · t =', 117, 725, 248, {
+        em: 9,
+      }),
+      piece('P', 368, 719, 10, { em: 9, math: true }),
+      piece('d', 378, 721, 4, { em: 6, math: true }),
+      piece('k', 382, 722, 4, { em: 5, math: true }),
+      piece('i', 378, 728, 3, { em: 6, math: true }),
+      piece('=1', 381, 728, 9, { em: 6 }),
+      piece('s_i t_i keeps zero mean and variance d_k.', 392, 725, 121, { em: 9 }),
     ];
 
     const lines = groupLines(pieces);
     expect(lines).toHaveLength(2);
-    expect(lines[1]?.text).toContain('q · k =');
-    expect(lines[1]?.text).toContain('has mean 0 and variance');
+    expect(lines[1]?.text).toContain('s · t =');
+    expect(lines[1]?.text).toContain('zero mean and variance');
 
     const layout = layoutPage(lines, undefined, { width: 612, height: 792 });
     expect(layout.blocks).toHaveLength(1);
@@ -57,33 +50,29 @@ describe('math layout and equation fragment handling (#171)', () => {
   it('keeps a superscript-numbered footnote separate and left-aligned below an unfinished body line', () => {
     const pieces = [
       piece(
-        'On each of these projected versions of queries, keys and values we then perform the attention',
-        108,
-        689.8,
+        'For each sampled batch we feed the normalized scores through the gating',
+        117,
+        695,
         396,
         { em: 10 },
       ),
-      piece('4', 120.7, 704.8, 3.0, { em: 6 }),
+      piece('3', 130, 710, 3, { em: 6 }),
       piece(
-        'To illustrate why the dot products get large, assume that the components are independent random',
-        123.7,
-        708.6,
-        380.3,
+        'In a toy model, suppose the entries of two sampled vectors are independent draws',
+        133,
+        714,
+        380,
         { em: 9 },
       ),
-      piece(
-        'variables with mean 0 and variance 1. Then their dot product, q · k =',
-        108,
-        720.0,
-        248,
-        { em: 9 },
-      ),
-      piece('P', 358.9, 713.3, 9.7, { em: 9, math: true }),
-      piece('d', 368.6, 715.8, 3.8, { em: 6, math: true }),
-      piece('k', 372.4, 717.2, 3.8, { em: 5, math: true }),
-      piece('i', 368.6, 722.8, 2.7, { em: 6, math: true }),
-      piece('=1', 371.2, 722.8, 9.2, { em: 6 }),
-      piece('q_i k_i, has mean 0 and variance d_k.', 382.5, 720.0, 121, { em: 9 }),
+      piece('with zero mean and variance one; their dot product, s · t =', 117, 725, 248, {
+        em: 9,
+      }),
+      piece('P', 368, 719, 10, { em: 9, math: true }),
+      piece('d', 378, 721, 4, { em: 6, math: true }),
+      piece('k', 382, 722, 4, { em: 5, math: true }),
+      piece('i', 378, 728, 3, { em: 6, math: true }),
+      piece('=1', 381, 728, 9, { em: 6 }),
+      piece('s_i t_i keeps zero mean and variance d_k.', 392, 725, 121, { em: 9 }),
     ];
 
     const lines = groupLines(pieces);
@@ -93,8 +82,8 @@ describe('math layout and equation fragment handling (#171)', () => {
     expect(layout.blocks).toHaveLength(2);
     expect(layout.blocks[0]?.align).toBe('left');
     expect(layout.blocks[1]?.align).toBe('left');
-    expect(layout.blocks[1]?.text).toContain('To illustrate why');
-    expect(layout.blocks[1]?.text).toContain('has mean 0 and variance');
+    expect(layout.blocks[1]?.text).toContain('In a toy model');
+    expect(layout.blocks[1]?.text).toContain('zero mean and variance');
 
     const placed = placePage({
       layout,
@@ -122,27 +111,27 @@ describe('math layout and equation fragment handling (#171)', () => {
   it('absorbs tiny \\text{...} subscript fragments beside a display equation without skipping prose', () => {
     const pieces = [
       piece(
-        'For any configuration with FLOPs F and total parameters N, we define the equivalent sparsity as:',
+        'For each trial we record the operation count F and the parameter total N, then compute a normalized sparsity score:',
         70,
         410,
         470,
         { em: 10 },
       ),
-      // Left side of display equation: N_{\text{act}}^{\text{eq}} =
+      // Left side of the display expression: N with small "act" and "eq" annotations
       piece('N', 233, 448, 8, { em: 10, math: true }),
       piece('act', 241, 450, 10, { em: 7 }),
       piece('=', 255, 448, 8, { em: 10 }),
       piece('eq', 241, 442, 8, { em: 7 }),
-      // Confirmed equation body beside it
+      // Confirmed expression body beside it
       piece('N0,', 285, 448, 16, { em: 10, math: true }),
       piece('S = 1 −', 318, 448, 34, { em: 10, math: true }),
-      // Right side fragment: N_{\text{act}}^{\text{eq}}
+      // Companion fragment carrying the same annotations
       piece('N', 356, 441, 8, { em: 10, math: true }),
       piece('act', 364, 443, 10, { em: 7 }),
       piece('eq', 364, 435, 8, { em: 7 }),
       // Following body prose
       piece(
-        'This metric scales the control parameter count by the FLOPs ratio across every configuration.',
+        'This score rescales the usable parameter count by the operation ratio measured in each trial.',
         70,
         480,
         470,
