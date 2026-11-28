@@ -221,8 +221,9 @@ export type ScriptRole = 'super' | 'sub' | 'none';
 export interface ProtectedSlot {
   text: string;
   script: ScriptRole;
-  /** Character inside `text` to raise or lower when the whole chemical token is one slot. */
+  /** Start of the script run inside `text` when the whole chemical token is one slot. */
   scriptIndex?: number;
+  scriptLength?: number;
 }
 
 export interface ProtectedText {
@@ -266,11 +267,16 @@ export function formatScriptSlot(slot: ProtectedSlot): string {
   const map = slot.script === 'super' ? SUPERSCRIPT : SUBSCRIPT;
   if (slot.scriptIndex !== undefined) {
     const index = slot.scriptIndex;
-    const character = slot.text[index];
-    if (character === undefined) return slot.text;
-    const mapped = map[character];
-    if (mapped === undefined) return slot.text;
-    return `${slot.text.slice(0, index)}${mapped}${slot.text.slice(index + 1)}`;
+    const end = index + (slot.scriptLength ?? 1);
+    const script = slot.text.slice(index, end);
+    if (script.length === 0) return slot.text;
+    let mappedScript = '';
+    for (const character of script) {
+      const mapped = map[character];
+      if (mapped === undefined) return slot.text;
+      mappedScript += mapped;
+    }
+    return `${slot.text.slice(0, index)}${mappedScript}${slot.text.slice(end)}`;
   }
   let output = '';
   for (const character of slot.text) {
@@ -457,6 +463,7 @@ function expandChemicalFormulas(
         text: `${symbol}${digit}${follower}`,
         script: scriptRole([script], lineHeight, baseline),
         scriptIndex: symbol.length,
+        scriptLength: digit.length,
       });
       if (!direct && peeledLead && peeledLead.rest.trim().length > 0) {
         out.push({ ...lead, text: peeledLead.rest });
