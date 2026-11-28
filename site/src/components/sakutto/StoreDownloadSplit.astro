@@ -1,0 +1,99 @@
+---
+import { Download } from "@lucide/astro";
+import {
+  DEFAULT_SAKUTTO_BROWSER,
+  SAKUTTO_BROWSER_IDS,
+  SAKUTTO_CHROME_STORE_SUBLINE,
+  sakuttoBrowserLabelsForLocale,
+} from "../../data/sakutto-browser";
+import { SAKUTTO_LINKS, firefoxHref, type SakuttoLocale } from "../../data/sakutto";
+
+interface Props {
+  locale: SakuttoLocale;
+  class?: string;
+  /** Stable id suffix when multiple download widgets appear on one page. */
+  instance?: string;
+}
+
+const { locale, class: className, instance = "default" } = Astro.props;
+const ja = locale === "ja";
+const firefoxUrl = firefoxHref(locale);
+const labels = sakuttoBrowserLabelsForLocale(ja);
+const defaultLabel = labels[DEFAULT_SAKUTTO_BROWSER];
+const chromiumSub = ja ? SAKUTTO_CHROME_STORE_SUBLINE.ja : SAKUTTO_CHROME_STORE_SUBLINE.en;
+const chromeStoreTitle = ja ? "Chrome ウェブストア" : "Chrome Web Store";
+const firefoxStoreTitle = "Firefox Add-ons";
+const menuId = `store-download-menu-${locale}-${instance}`;
+---
+
+<div
+  class:list={["store-download", className]}
+  data-store-download
+  data-chrome={SAKUTTO_LINKS.chrome}
+  data-firefox={firefoxUrl}
+  data-labels={JSON.stringify(labels)}
+  data-menu-label={ja ? "ほかのブラウザで取得" : "Get for another browser"}
+>
+  <a
+    class="store-download-primary"
+    data-store-primary
+    href={SAKUTTO_LINKS.chrome}
+    rel="noopener noreferrer"
+  >
+    {
+      SAKUTTO_BROWSER_IDS.map((id) => (
+        <svg
+          class:list={[
+            "store-download-icon",
+            `store-download-icon-${id}`,
+            id !== DEFAULT_SAKUTTO_BROWSER && "is-hidden",
+          ]}
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+          fill="currentColor"
+        >
+          <use href={`#sakutto-icon-browser-${id}`} />
+        </svg>
+      ))
+    }
+    <span data-store-label>{defaultLabel}</span>
+  </a>
+  <button
+    type="button"
+    class="store-download-chevron"
+    data-store-chevron
+    aria-expanded="false"
+    aria-haspopup="menu"
+    aria-controls={menuId}
+    aria-label={ja ? "ほかのブラウザで取得" : "Get for another browser"}
+  >
+    <span aria-hidden="true">▾</span>
+  </button>
+  <div class="store-download-menu" id={menuId} role="menu" hidden>
+    <a
+      role="menuitem"
+      class="store-download-option store-download-option-stacked"
+      href={SAKUTTO_LINKS.chrome}
+      rel="noopener noreferrer"
+    >
+      <Download size={16} aria-hidden="true" />
+      <span class="store-download-option-text">
+        <span class="store-download-option-title">{chromeStoreTitle}</span>
+        <span class="store-download-option-sub">{chromiumSub}</span>
+      </span>
+    </a>
+    <a
+      role="menuitem"
+      class="store-download-option store-download-option-stacked"
+      href={firefoxUrl}
+      rel="noopener noreferrer"
+    >
+      <Download size={16} aria-hidden="true" />
+      <span class="store-download-option-text">
+        <span class="store-download-option-title">{firefoxStoreTitle}</span>
+      </span>
+    </a>
+  </div>
+</div>

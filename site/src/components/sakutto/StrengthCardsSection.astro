@@ -1,0 +1,487 @@
+---
+import { sakuttoCopy, type SakuttoLocale } from "../../data/sakutto";
+import StrengthVisualRuntime from "./StrengthVisualRuntime.astro";
+import StrengthVisualPrivate from "./StrengthVisualPrivate.astro";
+import StrengthVisualFree from "./StrengthVisualFree.astro";
+
+interface Props {
+  locale: SakuttoLocale;
+}
+
+const { locale } = Astro.props;
+const copy = sakuttoCopy[locale].localStrengths;
+const scenes = ["private", "runtime", "free"] as const;
+const cards = copy.items.map((item, index) => ({ ...item, scene: scenes[index] }));
+---
+
+<section class="local-strengths" aria-labelledby="local-strengths-title">
+  <div class="local-strengths__inner">
+    <header class="local-strengths__head">
+      <h2 id="local-strengths-title" lang={locale}>{copy.title}</h2>
+      <p class="local-strengths__lead" lang={locale}>{copy.lead}</p>
+    </header>
+
+    <div class="strength-cards">
+      {
+        cards.map((card) => (
+          <article class="strength-card">
+            <div class="strength-card__copy">
+              <h3 lang={locale}>{card.title}</h3>
+              <p lang={locale}>{card.body}</p>
+              <a class="strength-card__link" href={card.link.href} lang={locale}>
+                {card.link.label}<span aria-hidden="true"> ↗</span>
+              </a>
+            </div>
+            <div class="strength-card__stage" data-scene={card.scene} aria-hidden="true">
+              {card.scene === "runtime" && <StrengthVisualRuntime locale={locale} />}
+              {card.scene === "private" && <StrengthVisualPrivate locale={locale} />}
+              {card.scene === "free" && <StrengthVisualFree locale={locale} />}
+            </div>
+          </article>
+        ))
+      }
+    </div>
+  </div>
+</section>
+
+<style is:global>
+  .local-strengths {
+    --sv-stage-runtime: #e8e4dc;
+    --sv-stage-private: #e5dbce;
+    width: min(100%, 1060px);
+    margin-inline: auto;
+    padding: clamp(1rem, 3vw, 3rem) 0 clamp(3rem, 6vw, 6rem);
+    background: var(--bg);
+    color: var(--fg);
+  }
+
+  html[data-theme="dark"] .local-strengths {
+    --sv-stage-runtime: #121419;
+    --sv-stage-private: #171410;
+  }
+
+  .local-strengths__head {
+    border-top: 1px solid var(--border);
+    padding-top: clamp(18px, 2.2vw, 26px);
+  }
+
+  .local-strengths h2 {
+    max-width: 22ch;
+    font-size: clamp(2rem, 4.7vw, 4.3rem);
+    font-weight: 550;
+    line-height: 1.1;
+    letter-spacing: -0.045em;
+    text-align: left;
+    color: var(--fg);
+  }
+
+  .local-strengths h2:lang(ja) {
+    font-family: var(--sans);
+    font-weight: 600;
+    letter-spacing: -0.03em;
+  }
+
+  .local-strengths__lead {
+    margin-top: 0.9rem;
+    max-width: 48rem;
+    font-size: clamp(1rem, 1.7vw, 1.2rem);
+    line-height: 1.7;
+    color: var(--muted);
+  }
+
+  .strength-cards {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+    gap: clamp(14px, 2vw, 20px);
+    margin-top: clamp(1.75rem, 3.5vw, 2.75rem);
+  }
+
+  .strength-card {
+    --strength-pad: clamp(18px, 1.9vw, 22px);
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    background: var(--panel);
+    box-shadow: var(--panel-shadow);
+  }
+
+  .strength-card__copy {
+    display: flex;
+    flex: 0 0 auto;
+    flex-direction: column;
+    min-height: 200px;
+    padding: var(--strength-pad) var(--strength-pad) 0;
+  }
+
+  .strength-card h3 {
+    font-size: clamp(1.0625rem, 1.4vw, 1.125rem);
+    font-weight: 700;
+    line-height: 1.4;
+    letter-spacing: -0.02em;
+  }
+
+  .strength-card__copy p {
+    margin-top: 0.6rem;
+    font-size: 0.9375rem;
+    line-height: 1.65;
+    color: var(--muted);
+  }
+
+  .strength-card__link {
+    display: inline-flex;
+    align-self: flex-start;
+    align-items: center;
+    margin-top: 0.95rem;
+    color: var(--brand);
+    font-size: 0.9375rem;
+    font-weight: 650;
+    text-decoration: none;
+  }
+
+  .strength-card__link:hover {
+    color: var(--brand-hover);
+    text-decoration: underline;
+  }
+
+  /* Only the copy block is padded; the scene runs edge-to-edge to the card border. */
+  .strength-card__stage {
+    position: relative;
+    display: flex;
+    flex: 1 1 auto;
+    align-items: center;
+    justify-content: center;
+    min-height: clamp(230px, 24vw, 310px);
+    margin-top: clamp(18px, 2vw, 24px);
+    overflow: hidden;
+    container-type: inline-size;
+    background: var(--sv-stage-runtime);
+  }
+
+  .strength-card__stage[data-scene="private"] {
+    background: var(--sv-stage-private);
+  }
+
+  /* Live visuals: one quiet object floats on each flat stage. */
+  .sv-runtime,
+  .sv-private,
+  .sv-free {
+    position: absolute;
+    inset: 0;
+    font-family: var(--sans);
+  }
+
+  .sv-runtime,
+  .sv-free {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .sv-control,
+  .sv-price {
+    transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 220ms ease;
+  }
+
+  .sv-control:hover,
+  .sv-price:hover {
+    transform: translateY(-3px);
+  }
+
+  .sv-phone {
+    transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .sv-phone:hover {
+    transform: translateX(-50%) translateY(-3px);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sv-control,
+    .sv-price,
+    .sv-control:hover,
+    .sv-price:hover {
+      transform: none;
+      transition: none;
+    }
+
+    .sv-phone,
+    .sv-phone:hover {
+      transform: translateX(-50%);
+      transition: none;
+    }
+  }
+
+  .sv-control {
+    width: min(84cqw, 410px);
+    min-height: clamp(154px, 52cqw, 210px);
+    padding: clamp(16px, 5cqw, 24px);
+    border: 1px solid #dbe2e5;
+    border-radius: clamp(14px, 4.6cqw, 20px);
+    background: #fff;
+    box-shadow: 0 20px 44px #382e2129, 0 3px 10px #382e2114;
+  }
+
+  .sv-primary {
+    margin: 0;
+    color: #1d2b33;
+    font-size: clamp(1rem, 5.2cqw, 1.4rem);
+    font-weight: 650;
+    line-height: 1.3;
+    letter-spacing: -0.03em;
+  }
+
+  .sv-primary:lang(en) {
+    font-family: var(--display);
+    font-weight: 600;
+  }
+
+  .sv-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: clamp(6px, 1.8cqw, 10px);
+    margin-top: clamp(16px, 5cqw, 24px);
+  }
+
+  .sv-chip {
+    padding: 0.45em 0.8em;
+    border-radius: 999px;
+    font-size: clamp(0.7rem, 3.4cqw, 0.85rem);
+    font-weight: 650;
+    line-height: 1.25;
+    white-space: nowrap;
+  }
+
+  .sv-chip-engine {
+    border: 1px solid #d7e7ec;
+    background: #edf4f6;
+    color: #154d5d;
+  }
+
+  .sv-chip-runtime {
+    border: 1px solid #dde2e5;
+    background: #f7f8f9;
+    color: #30404b;
+  }
+
+  .sv-caret {
+    margin-inline-start: 0.35em;
+    color: #5d6d78;
+  }
+
+  .sv-runtime-wrap {
+    position: relative;
+  }
+
+  .sv-menu {
+    position: absolute;
+    z-index: 2;
+    top: calc(100% + 0.6cqw);
+    right: 0;
+    min-width: max(76px, 26cqw);
+    padding: clamp(4px, 1.4cqw, 7px);
+    border: 1px solid #d8e0e4;
+    border-radius: clamp(8px, 2.6cqw, 11px);
+    background: #fff;
+    box-shadow: 0 12px 26px #1e2d372b;
+    font-size: clamp(0.66rem, 3cqw, 0.78rem);
+    color: #42515c;
+  }
+
+  .sv-option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1em;
+    padding: 0.45em 0.7em;
+    border-radius: 6px;
+  }
+
+  .sv-option-selected {
+    background: #e8f3f6;
+    color: #12546a;
+    font-weight: 700;
+  }
+
+  .sv-check {
+    color: #0e7490;
+    font-weight: 800;
+  }
+
+  .sv-phone {
+    position: absolute;
+    top: 6%;
+    left: 50%;
+    width: min(72cqw, 320px);
+    height: 132%;
+    padding: clamp(5px, 1.6cqw, 8px);
+    transform: translateX(-50%);
+    border: 1px solid #14181e;
+    border-radius: clamp(18px, 7cqw, 30px);
+    background: #1e2229;
+    box-shadow: 0 24px 48px #3e2f1f4d, 0 4px 12px #3e2f1f29;
+  }
+
+  .sv-screen {
+    position: relative;
+    height: 100%;
+    overflow: hidden;
+    padding: clamp(30px, 10cqw, 44px) clamp(12px, 4.6cqw, 20px) 0;
+    border-radius: clamp(13px, 5.5cqw, 23px);
+    background: #fffdf9;
+  }
+
+  .sv-notch {
+    position: absolute;
+    z-index: 2;
+    top: clamp(5px, 1.5cqw, 8px);
+    left: 50%;
+    width: 27%;
+    height: clamp(7px, 2.2cqw, 11px);
+    transform: translateX(-50%);
+    border-radius: 999px;
+    background: #1e2229;
+  }
+
+  .sv-net-title {
+    color: #26211c;
+    font-size: clamp(0.95rem, 5.2cqw, 1.3rem);
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: -0.03em;
+  }
+
+  .sv-net-title:lang(en) {
+    font-family: var(--display);
+    font-weight: 600;
+  }
+
+  .sv-net-sub {
+    margin-top: clamp(3px, 1cqw, 6px);
+    color: #6b6055;
+    font-size: clamp(0.62rem, 3.1cqw, 0.78rem);
+  }
+
+  .sv-net-rows {
+    margin: clamp(16px, 5cqw, 24px) 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .sv-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.5em;
+    padding-block: clamp(7px, 2.4cqw, 11px);
+    border-top: 1px solid #e8ded2;
+    color: #3f3932;
+    font-size: clamp(0.68rem, 3.5cqw, 0.88rem);
+  }
+
+  .sv-state {
+    flex: none;
+    color: #5b5147;
+    font-size: 0.94em;
+  }
+
+  .sv-state::after {
+    content: "✓";
+    margin-inline-start: 0.4em;
+    color: #0e7490;
+    font-weight: 700;
+  }
+
+  .sv-price {
+    width: min(78cqw, 350px);
+    padding: clamp(18px, 5.5cqw, 28px) clamp(16px, 5cqw, 26px) clamp(20px, 6cqw, 30px);
+    border: 1px solid #303b68;
+    border-radius: clamp(14px, 5cqw, 22px);
+    background: linear-gradient(160deg, #1e2549 0%, #11162d 76%);
+    box-shadow: 0 22px 46px #0a0d1e6b;
+    color: #f2f5ff;
+  }
+
+  .sv-brand {
+    color: #b8c6f2;
+    font-family: var(--display);
+    font-size: clamp(0.65rem, 3.2cqw, 0.8rem);
+    font-weight: 600;
+    letter-spacing: 0.12em;
+  }
+
+  .sv-amount {
+    margin-top: clamp(9px, 3cqw, 16px);
+    color: #fff;
+    font-family: var(--display);
+    font-size: clamp(2.8rem, 17cqw, 4.4rem);
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -0.05em;
+  }
+
+  .sv-amount:lang(ja) {
+    font-family: var(--sans);
+    font-weight: 650;
+  }
+
+  .sv-rule {
+    height: 1px;
+    margin: clamp(14px, 4.5cqw, 22px) 0 clamp(12px, 4cqw, 18px);
+    background: #ffffff29;
+  }
+
+  .sv-lines {
+    display: grid;
+    gap: clamp(8px, 2.8cqw, 12px);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .sv-line {
+    display: flex;
+    gap: 0.6em;
+    color: #dce3ff;
+    font-size: clamp(0.72rem, 3.7cqw, 0.92rem);
+    line-height: 1.4;
+  }
+
+  .sv-line-check {
+    flex: none;
+    color: #9fd8f0;
+    font-weight: 700;
+  }
+
+  @media (min-width: 768px) {
+    .strength-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+    /* Cards share their copy and stage rows, so every stage starts and ends
+       at the same edge as the others in its grid row. Mobile keeps its stack. */
+    @supports (grid-template-rows: subgrid) {
+      .strength-card {
+        display: grid;
+        grid-row: span 2;
+        grid-template-rows: subgrid;
+      }
+
+      .strength-card__copy { grid-row: 1; }
+      .strength-card__stage { grid-row: 2; }
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .strength-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .strength-card__copy { min-height: 224px; }
+  }
+
+  @media (min-width: 1200px) {
+    .strength-card__copy { min-height: 205px; }
+  }
+
+  @media (max-width: 640px) {
+    .strength-card__stage { min-height: clamp(240px, 72vw, 320px); }
+  }
+</style>

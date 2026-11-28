@@ -1,0 +1,161 @@
+---
+import "@fontsource-variable/outfit/wght.css";
+import outfitLatin from "@fontsource-variable/outfit/files/outfit-latin-wght-normal.woff2?url";
+import { HERO_AVIF_SRCSET, HERO_SIZES } from "../data/sakutto-media";
+import SakuttoSiteHeader from "../components/sakutto/SakuttoSiteHeader.astro";
+import SakuttoMark from "../components/sakutto/SakuttoMark.astro";
+import IconSprite from "../components/sakutto/IconSprite.astro";
+
+import "../styles/sakutto-site.css";
+import {
+  SAKUTTO_LINKS, firefoxHref,
+  SAKUTTO_OG_IMAGES,
+  SAKUTTO_ORIGIN,
+  sakuttoCopy,
+  type SakuttoLocale,
+} from "../data/sakutto";
+
+interface Props {
+  locale: SakuttoLocale;
+  title: string;
+  description: string;
+  ogAlt: string;
+}
+const { locale, title, description, ogAlt } = Astro.props;
+const ja = locale === "ja";
+const copy = sakuttoCopy[locale];
+const ogImage = SAKUTTO_OG_IMAGES[locale];
+const jaHref = `${SAKUTTO_ORIGIN}/`;
+const enHref = `${SAKUTTO_ORIGIN}/en/`;
+const canonical = ja ? jaHref : enHref;
+const home = ja ? "/" : "/en/";
+const privacyHref = ja ? "/privacy/" : "/en/privacy/";
+---
+
+<!doctype html>
+<html lang={locale} data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-MXWPCHXW89"></script>
+    <script is:inline>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-MXWPCHXW89');
+    </script>
+    <script is:inline>
+      (() => {
+        const key = "sakutto-theme";
+        let preference = "light";
+        try {
+          const stored = localStorage.getItem(key);
+          if (stored === "light" || stored === "dark") preference = stored;
+        } catch {
+          /* private mode */
+        }
+        document.documentElement.dataset.theme = preference;
+      })();
+    </script>
+    <link rel="preload" as="image" type="image/avif" imagesrcset={HERO_AVIF_SRCSET} imagesizes={HERO_SIZES} fetchpriority="high" />
+    {/* Variable Outfit ships as inline @font-face with font-display: swap;
+        the latin woff2 preload is the only font hint. No render-blocking
+        stylesheet or @import is emitted by Astro's inlineStylesheets. */}
+    <link rel="preload" as="font" type="font/woff2" href={outfitLatin} crossorigin />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <link rel="alternate" hreflang="ja" href={jaHref} />
+    <link rel="alternate" hreflang="en" href={enHref} />
+    <link rel="alternate" hreflang="x-default" href={jaHref} />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Sakutto" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content={ogAlt} />
+    <meta property="og:locale" content={ja ? "ja_JP" : "en_US"} />
+    <meta property="og:locale:alternate" content={ja ? "en_US" : "ja_JP"} />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImage} />
+    <meta name="twitter:image:alt" content={ogAlt} />
+    <meta name="twitter:site" content="@jammaru_lab" />
+
+    <meta name="theme-color" content="#ffffff" />
+    <link rel="icon" href="/icon-16.png" type="image/png" sizes="16x16" />
+    <link rel="icon" href="/icon-32.png" type="image/png" sizes="32x32" />
+    <link rel="icon" href="/icon-48.png" type="image/png" sizes="48x48" />
+    <link rel="icon" href="/icon-128.png" type="image/png" sizes="128x128" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  </head>
+
+  <body>
+    <IconSprite />
+    <div class="page">
+      <a class="skip" href="#main">{copy.nav.skip}</a>
+      <SakuttoSiteHeader locale={locale} />
+
+      <main class="main" id="main"><slot /></main>
+
+      <footer class="footer">
+        <div class="container">
+          <div class="footer-grid">
+            <div class="footer-brand">
+              <a class="wordmark" href={home}>
+                <SakuttoMark class="brand-mark" size={24} />
+                <span class="brand-name">Sakutto</span>
+              </a>
+              <p>{copy.footer.tagline}</p>
+              <p class="footer-attribution">{copy.hero.attribution}</p>
+              <div class="footer-credit">
+                <a href={SAKUTTO_LINKS.authorProfile}>{copy.footer.credit}</a>
+                <a href={SAKUTTO_LINKS.license}>{copy.footer.license}</a>
+              </div>
+            </div>
+            <div class="footer-column">
+              <h2>{ja ? "プロダクト" : "Product"}</h2>
+              <a href={SAKUTTO_LINKS.chrome}>Chrome</a>
+              <a href={firefoxHref(locale)}>Firefox</a>
+              <a href={SAKUTTO_LINKS.changelog}>Changelog</a>
+            </div>
+            <div class="footer-column">
+              <h2>{ja ? "リソース" : "Resources"}</h2>
+              <a href={SAKUTTO_LINKS.github}>GitHub</a>
+              <a href={SAKUTTO_LINKS.issues}>Issues</a>
+              <a href={privacyHref}>{ja ? "プライバシー" : "Privacy"}</a>
+            </div>
+            <div class="footer-column">
+              <h2>{ja ? "コミュニティ" : "Community"}</h2>
+              <a href={SAKUTTO_LINKS.discord}>Discord</a>
+              <a href={SAKUTTO_LINKS.sponsors}>Sponsors</a>
+              <a href={SAKUTTO_LINKS.x}>X</a>
+            </div>
+          </div>
+
+          <div class="footer-bottom">
+            <span>© {new Date().getUTCFullYear()} Sakutto — by jammaru</span>
+          </div>
+        </div>
+      </footer>
+    </div>
+    <script is:inline>
+      // Every upgrade is cosmetic/interactive, so fetch it only after the page
+      // has painted. The server-rendered markup is fully usable already.
+      addEventListener("load", function () {
+        var s = document.createElement("script");
+        s.src = "/sakutto-init.js";
+        s.async = true;
+        // Keep the extra request well clear of the LCP window.
+        setTimeout(function () { document.head.appendChild(s); }, 1000);
+      }, { once: true });
+    </script>
+  </body>
+</html>

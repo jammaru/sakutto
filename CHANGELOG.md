@@ -2,6 +2,23 @@
 
 Release sections are added by `pnpm release`. Each section lists commit subjects since the previous `vX.Y.Z` tag.
 
+## [1.10.1] - 2026-11-26
+
+### Bug Fixes
+
+- **Fixed whole-page translation skipping comments on arca.live.** arca.live stores each comment in a bare `<pre>` element, which Sakutto treated as a code block and left out of page translation (selection translation was not affected). Text-only `<pre>` bodies inside a board's comment area are now translated and keep their line breaks, while real code blocks stay excluded as before. (#172)
+- **Better PDF layout for staggered two-column papers and text wrapped around icons.** Two columns whose lines drift out of step with each other are now detected as separate columns, so the translation no longer runs across the gutter or merges neighboring paragraphs. Justified lines with wide word spacing stay in one piece, tight-leading prose is no longer mistaken for inline math, and a paragraph that wraps around a small icon in its top-left corner is translated with the same wrapping, both in the reader and in the downloaded PDF. (#169, for #162, thanks @kiyoka)
+
+### Thanks
+
+- @kiyoka — staggered two-column and icon-wrap PDF layout fix (#169)
+
+### 日本語
+
+- **arca.live のコメントがページ翻訳で訳されない問題を修正しました。** arca.live はコメント本文を単独の `<pre>` 要素に入れており、Sakutto がコードブロックとみなしてページ翻訳の対象から外していました（選択して翻訳は影響を受けていませんでした）。掲示板のコメント欄にある文字だけの `<pre>` は翻訳対象にし、改行も保ちます。本物のコードブロックはこれまでどおり対象外です。(#172)
+- **段が互い違いの二段組の論文PDFと、アイコンを回り込む文章のレイアウトを改善しました。** 行の位置が左右でずれている二段組も別々の段として検出するので、訳文が段の間をまたいだり、隣の段落とつながったりしません。単語の間隔が広い両端揃えの行は分割せず、行間の詰まった文章を数式と誤認しないようにしました。左上の小さなアイコンを回り込む段落は、同じ回り込みのまま訳文を表示し、ダウンロードするPDFにも反映します。(#169、#162 への対応。@kiyoka さんの貢献)
+- 謝辞: このリリースに貢献してくださった @kiyoka さん（#169）、ありがとうございました。
+
 ## [1.10.0] - 2026-11-24
 
 ### Features

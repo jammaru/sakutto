@@ -1,0 +1,40 @@
+---
+import SakuttoLayout from "../layouts/SakuttoLayout.astro";
+import { sakuttoCopy } from "../data/sakutto";
+import { fetchSakuttoPrivacyMarkdown } from "../lib/sakutto-privacy-build";
+import { renderSakuttoPrivacy } from "../lib/sakutto-privacy";
+import "../styles/policy.css";
+
+const copy = sakuttoCopy.ja;
+const policy = await renderSakuttoPrivacy(await fetchSakuttoPrivacyMarkdown());
+const description =
+  "Sakutto は、Chrome でウェブページを翻訳します。このページは、拡張機能のコードがデータをどう扱うかを説明します。";
+---
+
+<SakuttoLayout
+  locale="ja"
+  title="Sakutto プライバシーポリシー"
+  description={description}
+  ogAlt={copy.meta.ogAlt}
+>
+  <div class="frame policy sakutto-policy">
+    <nav class="policy-jump" aria-label="ポリシーの言語">
+      <a href="#policy-en" lang="en">English</a>
+      <a href="#policy-ja" lang="ja">日本語</a>
+    </nav>
+    <article id="policy-en" class="policy-doc" lang="en">
+      <div class="article-prose policy-prose" set:html={policy.english} />
+    </article>
+    <article id="policy-ja" class="policy-doc" lang="ja">
+      <div class="article-prose policy-prose" set:html={policy.japanese} />
+    </article>
+  </div>
+</SakuttoLayout>
+
+<style>
+  .sakutto-policy {
+    width: min(72rem, calc(100% - clamp(36px, 7vw, 112px)));
+    margin-inline: auto;
+    padding: clamp(2rem, 5vw, 4rem) 0 clamp(4rem, 8vw, 6rem);
+  }
+</style>

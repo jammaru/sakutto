@@ -1,0 +1,42 @@
+# Hashed build assets (CSS, JS and fonts) are immutable across deploys.
+/_astro/*
+  Cache-Control: public, max-age=31536000, immutable
+  X-Content-Type-Options: nosniff
+
+# Public files keep their URLs across deploys, but their content is fixed
+# branding/media. A year-long immutable lifetime keeps repeat views and
+# Lighthouse's cache policy check happy without any runtime requests.
+/icon-16.png
+  Cache-Control: public, max-age=31536000, immutable
+  X-Content-Type-Options: nosniff
+/icon-32.png
+  Cache-Control: public, max-age=31536000, immutable
+  X-Content-Type-Options: nosniff
+/icon-48.png
+  Cache-Control: public, max-age=31536000, immutable
+  X-Content-Type-Options: nosniff
+/icon-128.png
+  Cache-Control: public, max-age=31536000, immutable
+  X-Content-Type-Options: nosniff
+/apple-touch-icon.png
+  Cache-Control: public, max-age=31536000, immutable
+  X-Content-Type-Options: nosniff
+/og-ja.jpg
+  Cache-Control: public, max-age=31536000, immutable
+  X-Content-Type-Options: nosniff
+/og-en.jpg
+  Cache-Control: public, max-age=31536000, immutable
+  X-Content-Type-Options: nosniff
+/sakutto-init.js
+  Cache-Control: public, max-age=31536000, immutable
+  X-Content-Type-Options: nosniff
+/media/*
+  Cache-Control: public, max-age=31536000, immutable
+  X-Content-Type-Options: nosniff
+/reader/*
+  Cache-Control: public, max-age=31536000, immutable
+  X-Content-Type-Options: nosniff
+
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin

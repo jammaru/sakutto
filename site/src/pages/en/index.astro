@@ -1,0 +1,16 @@
+---
+import SakuttoLayout from "../../layouts/SakuttoLayout.astro";
+import SakuttoLanding from "../../components/SakuttoLanding.astro";
+import { sakuttoCopy } from "../../data/sakutto";
+
+const copy = sakuttoCopy.en;
+---
+
+<SakuttoLayout
+  locale="en"
+  title={copy.meta.title}
+  description={copy.meta.description}
+  ogAlt={copy.meta.ogAlt}
+>
+  <SakuttoLanding locale="en" />
+</SakuttoLayout>

@@ -1,0 +1,83 @@
+---
+import {
+  DEFAULT_SAKUTTO_BROWSER,
+  SAKUTTO_BROWSER_IDS,
+  sakuttoBrowserLabel,
+  sakuttoBrowserLabelsForLocale,
+} from "../../data/sakutto-browser";
+import { SAKUTTO_LINKS, firefoxHref, type SakuttoLocale } from "../../data/sakutto";
+
+interface Props {
+  locale: SakuttoLocale;
+}
+
+const { locale } = Astro.props;
+const ja = locale === "ja";
+const firefoxUrl = firefoxHref(locale);
+const labels = sakuttoBrowserLabelsForLocale(ja);
+const defaultPrimaryLabel = labels[DEFAULT_SAKUTTO_BROWSER];
+const defaultSecondaryLabel = sakuttoBrowserLabel("firefox", ja);
+---
+
+<div
+  class="store-cta-pair"
+  data-store-cta-pair
+  data-chrome={SAKUTTO_LINKS.chrome}
+  data-firefox={firefoxUrl}
+  data-labels={JSON.stringify(labels)}
+>
+  <a
+    class="btn btn-primary"
+    data-store-cta-primary
+    href={SAKUTTO_LINKS.chrome}
+    rel="noopener noreferrer"
+  >
+    {
+      SAKUTTO_BROWSER_IDS.map((id) => (
+        <svg
+          class:list={[
+            "store-cta-icon",
+            `store-cta-icon-${id}`,
+            id !== DEFAULT_SAKUTTO_BROWSER && "is-hidden",
+          ]}
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+          fill="currentColor"
+        >
+          <use href={`#sakutto-icon-browser-${id}`} />
+        </svg>
+      ))
+    }
+    <span data-store-cta-primary-label>{defaultPrimaryLabel}</span>
+  </a>
+  <a
+    class="btn btn-ghost"
+    data-store-cta-secondary
+    href={firefoxUrl}
+    rel="noopener noreferrer"
+  >
+    <svg
+      class:list={["store-cta-icon", "store-cta-icon-secondary-chrome", "is-hidden"]}
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      fill="currentColor"
+    >
+      <use href="#sakutto-icon-browser-chrome" />
+    </svg>
+    <svg
+      class="store-cta-icon store-cta-icon-secondary-firefox"
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      fill="currentColor"
+    >
+      <use href="#sakutto-icon-browser-firefox" />
+    </svg>
+    <span data-store-cta-secondary-label>{defaultSecondaryLabel}</span>
+  </a>
+</div>

@@ -1,0 +1,35 @@
+---
+import type { SakuttoLocale } from "../../data/sakutto";
+
+interface Props {
+  locale: SakuttoLocale;
+}
+
+const { locale } = Astro.props;
+const ja = locale === "ja";
+const title = ja ? "ネットワーク" : "Network";
+const subtitle = ja ? "翻訳サーバーへの送信" : "To translation server";
+const notSent = ja ? "送信なし" : "Not sent";
+const rows = ja
+  ? ["ページ本文", "PDF", "字幕", "入力中のテキスト"]
+  : ["Page text", "PDF", "Captions", "Text you type"];
+---
+
+<div class="sv-private">
+  <div class="sv-phone">
+    <div class="sv-notch" aria-hidden="true"></div>
+    <div class="sv-screen">
+      <div class="sv-net-title" lang={locale}>{title}</div>
+      <div class="sv-net-sub" lang={locale}>{subtitle}</div>
+      <ul class="sv-net-rows" lang={locale}>
+        {
+          rows.map((row) => (
+            <li class="sv-row">
+              <span>{row}</span><span class="sv-state">{notSent}</span>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+  </div>
+</div>

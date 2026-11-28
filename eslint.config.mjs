@@ -20,6 +20,7 @@ export default tseslint.config(
       'bench/.cache/**',
       'launch-video/**',
       'video/**',
+      'site/**',
     ],
   },
   js.configs.recommended,

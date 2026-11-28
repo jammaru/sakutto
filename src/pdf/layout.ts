@@ -536,11 +536,22 @@ const SKIP_ROLES: ReadonlySet<AnyBlockRole> = new Set<AnyBlockRole>([
 ]);
 
 /** A caption opens with a figure, table, or algorithm number, in either script. */
-const CAPTION_START = /^(?:(?:Fig(?:ure)?|Tab(?:le)?|Alg(?:orithm)?)\.?\s*\d|[図表]\s*\d)/iu;
+const CAPTION_START =
+  /^(?:(?:Fig(?:ure)?|Tab(?:le)?|Alg(?:orithm)?)\.?\s*\d+[a-zA-Z]?|[図表]\s*\d)/iu;
+/**
+ * What follows a Latin caption number: punctuation, end-of-line, or whitespace before an
+ * uppercase letter or opening delimiter. A lowercase verb or conjunction (`Table 2 lists…`,
+ * `Table 1 and Fig. 1…`, `Figure 3 displays…`) is a prose sentence referencing the figure/table.
+ */
+const LATIN_CAPTION_AFTER = /^(?:$|[:.\-\u2013\u2014]|\s+(?:[\p{Lu}(["'“‘]|$))/u;
 
 /** True when a line is a numbered caption rather than a table header or a paragraph. */
 export function isCaptionLine(text: string): boolean {
-  return CAPTION_START.test(text.trim());
+  const trimmed = text.trim();
+  const match = CAPTION_START.exec(trimmed);
+  if (!match) return false;
+  if (/^[図表]/u.test(match[0])) return true;
+  return LATIN_CAPTION_AFTER.test(trimmed.slice(match[0].length));
 }
 
 /**
@@ -2238,10 +2249,14 @@ function splitMergedOverlongProse(
 ): LayoutBlock[] {
   const out: LayoutBlock[] = [];
   for (const block of blocks) {
-    if (block.role !== 'prose' || block.text.length <= MAX_PROSE_BLOCK_CHARS) {
+    if (
+      (block.role !== 'prose' && block.role !== 'caption') ||
+      block.text.length <= MAX_PROSE_BLOCK_CHARS
+    ) {
       out.push(block);
       continue;
     }
+    const role = block.role;
     let lines = coalesceSameBaselineLines(block.lines);
     for (;;) {
       const split = overlongProseSplit(lines);
@@ -2256,7 +2271,7 @@ function splitMergedOverlongProse(
         pageHeight,
         pageIndex,
       );
-      if (headBlock) out.push({ ...headBlock, role: 'prose' });
+      if (headBlock) out.push({ ...headBlock, role });
       lines = split.tail;
     }
     const tailBlock = buildBlock(
@@ -2269,7 +2284,7 @@ function splitMergedOverlongProse(
       pageHeight,
       pageIndex,
     );
-    if (tailBlock) out.push({ ...tailBlock, role: 'prose' });
+    if (tailBlock) out.push({ ...tailBlock, role });
   }
   return out;
 }
