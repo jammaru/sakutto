@@ -508,6 +508,7 @@ function coalesceScriptFragments(lines: readonly TextLine[]): TextLine[] {
     const following = working[index + 1];
     if (
       following &&
+      following !== row &&
       !following.merged &&
       leadingChemLetter(following.line.text.trim()) !== null &&
       trailingChemLetter(row.line.text) === null

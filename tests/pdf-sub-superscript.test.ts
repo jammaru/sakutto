@@ -335,6 +335,26 @@ describe('PDF subscripts and superscripts', () => {
     expect(restored).not.toMatch(/m3/u);
   });
 
+  it('keeps the prose row when a leading orphan script line attaches downward', () => {
+    // A fragment extracted onto its own line above the row it belongs to: the row below
+    // is both the merge target and the "following" line, and absorbing it merged the row
+    // into itself and dropped the whole line from the block.
+    const orphan = lineFrom([piece('3', 194, 196.5, 4, { size: 7, em: 7 })]);
+    const prose = lineFrom([
+      piece('The volume reached 10', 40, 200, 140),
+      piece(' m', 184, 200, 10),
+    ]);
+    const next = lineFrom([
+      piece('Let ', 40, 212, 22),
+      piece('q', 62, 212, 6, { math: true, italic: true }),
+      piece(' denote the rate of convergence.', 68, 212, 170),
+    ]);
+    const block = blockFromLines([orphan, prose, next]);
+    const protectedText = protectInlineMath(block);
+    expect(protectedText.text).toContain('The volume reached 10');
+    expect(protectedText.text).toContain('denote the rate of convergence');
+  });
+
   it('keeps shifted scripts through layout and restoration on prose blocks', () => {
     const chemicalBlock = bestBlock(
       groupLines([
