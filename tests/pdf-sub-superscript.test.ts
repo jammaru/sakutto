@@ -322,6 +322,19 @@ describe('PDF subscripts and superscripts', () => {
     expect(restored).not.toMatch(/H2O/u);
   });
 
+  it('restores every digit of a multi-digit chemical subscript', () => {
+    const lines = groupLines([
+      piece('Sucrose is written C', 40, 200, 125),
+      piece('12', 165, 200.8, 8, { size: 7, em: 7 }),
+      piece('H in this example.', 173, 200, 120),
+    ]);
+    const protectedText = protectInlineMath(bestBlock(lines));
+    expect(protectedText.slots).toHaveLength(1);
+    const restored = restoreInlineMath('ショ糖は <i0> と書かれる。', protectedText.slots);
+    expect(restored).toContain('C₁₂H');
+    expect(restored).not.toMatch(/C₁2H|C12H/u);
+  });
+
   it('folds a trailing exponent line into prose before protecting', () => {
     const trailing = lineFrom([piece('3', 194, 196.5, 4, { size: 7, em: 7 })]);
     const prose = lineFrom([
