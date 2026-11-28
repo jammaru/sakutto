@@ -79,16 +79,25 @@ export interface TextLine {
   proseChars: number;
 }
 
+/** Unicode Mathematical Alphanumeric Symbols (U+1D400..U+1D7FF), used for math variables in text fonts. */
+const UNICODE_MATH_ALNUM = /[\u{1D400}-\u{1D7FF}]/u;
+
 /** Characters in `pieces` that sit in a math font, over every character in them. */
 function mathShare(pieces: readonly TextPiece[]): { ratio: number; proseChars: number } {
   let math = 0;
   let all = 0;
   let prose = 0;
   for (const piece of pieces) {
-    const length = piece.text.length;
-    all += length;
-    if (piece.math) math += length;
-    else if (/\p{L}/u.test(piece.text)) prose += length;
+    const chars = [...piece.text];
+    all += chars.length;
+    if (piece.math) {
+      math += chars.length;
+      continue;
+    }
+    for (const character of chars) {
+      if (UNICODE_MATH_ALNUM.test(character)) math += 1;
+      else if (/\p{L}/u.test(character)) prose += 1;
+    }
   }
   return { ratio: all === 0 ? 0 : math / all, proseChars: prose };
 }
@@ -191,12 +200,16 @@ export function lineFrom(pieces: TextPiece[]): TextLine {
     bottom = Math.max(bottom, boxBottom(piece.box));
     height = Math.max(height, em(piece));
   }
+  let dominant = pieces[0];
+  for (const piece of pieces) {
+    if (dominant && em(piece) > em(dominant) * 1.15) dominant = piece;
+  }
   const joined = joinPieces(pieces);
   const share = mathShare(pieces);
   return {
     text: joined,
     box: { x: left, y: top, width: Math.max(0, right - left), height: Math.max(0.1, bottom - top) },
-    baseline: pieces[0]?.baseline ?? bottom,
+    baseline: dominant?.baseline ?? bottom,
     height: Math.max(0.1, height),
     pieces,
     mathRatio: share.ratio,
@@ -278,7 +291,76 @@ function uprightLines(pieces: readonly TextPiece[]): TextLine[] {
     }
   }
 
-  return lines;
+  return reattachInlineMathOperators(lines);
+}
+
+/**
+ * Rejoins a line split around a tall inline math operator (such as `∑_{i=1}^{d_k}`).
+ *
+ * TeX sets a tall summation/product glyph and its upper limit several points above the text
+ * baseline, so `uprightLines` isolates them into a tiny math-only line and splits the host text
+ * row across the resulting horizontal gap. When a narrow math-only line sits directly in the
+ * gap between two same-baseline text lines, merge all three back into one `TextLine`.
+ */
+function reattachInlineMathOperators(lines: TextLine[]): TextLine[] {
+  if (lines.length < 3) return lines;
+  const dropped = new Set<number>();
+  const result = [...lines];
+
+  for (let opIdx = 0; opIdx < result.length; opIdx += 1) {
+    if (dropped.has(opIdx)) continue;
+    const op = result[opIdx];
+    if (!op || op.pieces.length === 0) continue;
+    if (!op.pieces.every((piece) => piece.math)) continue;
+    if (op.box.width > op.height * 4) continue;
+
+    let bestLeft = -1;
+    let bestRight = -1;
+    let bestGap = Infinity;
+
+    for (let leftIdx = 0; leftIdx < result.length; leftIdx += 1) {
+      if (leftIdx === opIdx || dropped.has(leftIdx)) continue;
+      const left = result[leftIdx];
+      if (!left) continue;
+      const leftEnd = boxRight(left.box);
+      if (op.box.x < leftEnd - left.height * 0.3) continue;
+
+      for (let rightIdx = 0; rightIdx < result.length; rightIdx += 1) {
+        if (rightIdx === opIdx || rightIdx === leftIdx || dropped.has(rightIdx)) continue;
+        const right = result[rightIdx];
+        if (!right) continue;
+        const scale = Math.max(left.height, right.height);
+        if (Math.abs(left.baseline - right.baseline) > scale * 0.45) continue;
+        const gap = right.box.x - leftEnd;
+        if (gap <= 0 || gap > op.box.width + scale * 2.5) continue;
+        if (op.box.x >= right.box.x + scale * 0.5) continue;
+        const rowTop = Math.min(left.box.y, right.box.y);
+        const rowBottom = Math.max(boxBottom(left.box), boxBottom(right.box));
+        if (boxBottom(op.box) < rowTop - scale * 0.5 || op.box.y > rowBottom + scale * 0.5) {
+          continue;
+        }
+        if (gap < bestGap) {
+          bestGap = gap;
+          bestLeft = leftIdx;
+          bestRight = rightIdx;
+        }
+      }
+    }
+
+    if (bestLeft === -1 || bestRight === -1) continue;
+    const left = result[bestLeft]!;
+    const right = result[bestRight]!;
+    const combined = [...left.pieces, ...op.pieces, ...right.pieces].sort(
+      (a, b) => a.box.x - b.box.x,
+    );
+    const merged = lineFrom(combined);
+    result[bestLeft] = { ...merged, baseline: left.baseline };
+    dropped.add(opIdx);
+    dropped.add(bestRight);
+  }
+
+  if (dropped.size === 0) return lines;
+  return result.filter((_, index) => !dropped.has(index));
 }
 
 /**
