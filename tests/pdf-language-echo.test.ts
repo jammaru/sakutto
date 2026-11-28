@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { translationEchoesSource, translationStaysInSourceLanguage } from '@/pdf/language';
+import {
+  hasTranslatableProse,
+  translationEchoesSource,
+  translationStaysInSourceLanguage,
+} from '@/pdf/language';
 
 describe('translationEchoesSource', () => {
   it('rejects unchanged English when the target is Japanese', () => {
@@ -65,6 +69,30 @@ describe('translationEchoesSource', () => {
   it('does not call a short label, row, header or notation an echo', () => {
     for (const source of ['Data quality', '48', '1.9 s', 'INTRODUCTION', 'α = β']) {
       expect(translationEchoesSource(source, source, 'ja'), source).toBe(false);
+    }
+  });
+
+  it('treats a CJK sentence as prose the echo guards can compare', () => {
+    const source = '温度を測ります';
+    expect(hasTranslatableProse(source)).toBe(true);
+    // An unchanged CJK sentence must not be accepted into the copy cache.
+    expect(translationStaysInSourceLanguage(source, source, 'en')).toBe(true);
+    expect(translationEchoesSource(source, source, 'en')).toBe(true);
+    // A space the model added does not make a same-language answer a translation.
+    expect(
+      translationEchoesSource(
+        '今日は寒い。明日は暖かい。',
+        '今日は寒い。 明日は暖かい。',
+        'zh-hant',
+      ),
+    ).toBe(true);
+  });
+
+  it('keeps a short CJK label out of prose', () => {
+    for (const source of ['図1', '東京都', '付録', '第2章']) {
+      expect(hasTranslatableProse(source), source).toBe(false);
+      expect(translationStaysInSourceLanguage(source, source, 'en'), source).toBe(false);
+      expect(translationEchoesSource(source, source, 'en'), source).toBe(false);
     }
   });
 });

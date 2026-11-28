@@ -13,6 +13,9 @@ import {
   isSectionHeading,
 } from './identity';
 import { CJK_MAJORITY, cjkRatio } from './fonts';
+// Layout deliberately keeps the Latin word counter. A CJK run inside a drawing is an artwork
+// label ("図1", "温度計"), and promoting it to prose would translate the figure. The CJK sentence
+// test lives in `hasTranslatableProse`, which the echo guards in language.ts and session.ts use.
 import { hasSourceProse } from './prose-detect';
 import { SEGMENT_GAP, isRotated, lineFrom, type TextLine, type TextPiece } from './lines';
 
